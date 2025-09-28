@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/src/assets/react.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PQS RTN - Tauri</title>
+    <style>
+      /* Prevent white flash - use direct colors */
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #010409 !important;
+        overflow: hidden;
+      }
+      
+      #root {
+        width: 100vw;
+        height: 100vh;
+        background: #010409 !important;
+        position: relative;
+      }
+      
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

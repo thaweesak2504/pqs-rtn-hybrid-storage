@@ -1,0 +1,233 @@
+/* Import Local Fonts */
+@import url('./assets/fonts/kanit/kanit-local.css');
+@import url('./assets/fonts/th-sarabun/th-sarabun-local.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    @apply w-full m-0 p-0;
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--github-bg-primary) !important;
+  }
+  
+  body {
+    @apply font-sans antialiased;
+    min-height: 100vh;
+    background: var(--github-bg-primary) !important;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--github-bg-secondary);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--github-border-primary);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--github-accent-primary);
+  }
+
+  /* Typography System - Responsive Font Sizes */
+  .text-display-1 {
+    @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold;
+  }
+  
+  .text-display-2 {
+    @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold;
+  }
+  
+  .text-heading-1 {
+    @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold;
+  }
+  
+  .text-heading-2 {
+    @apply text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold;
+  }
+  
+  .text-heading-3 {
+    @apply text-base sm:text-lg md:text-xl lg:text-2xl font-semibold;
+  }
+  
+  .text-body-large {
+    @apply text-base sm:text-lg md:text-xl;
+  }
+  
+  .text-body-medium {
+    @apply text-sm sm:text-base md:text-lg;
+  }
+  
+  .text-body-small {
+    @apply text-xs sm:text-sm md:text-base;
+  }
+  
+  .text-caption {
+    @apply text-xs sm:text-sm;
+  }
+
+  /* GitHub-style CSS Variables */
+  :root {
+  /* Dark Mode Colors (Default) */
+  --github-bg-primary: #010409;
+  --github-bg-secondary: #0d1117;
+  --github-bg-tertiary: #0d1117;
+    --github-bg-hover: #1f2937;
+    --github-bg-active: #1f2937;
+    --github-bg-muted: #0d1117;
+    --github-border-primary: #30363d;
+    --github-border-secondary: #21262d;
+    --github-border-active: #58a6ff;
+    --github-text-primary: #e6edf3;
+    --github-text-secondary: #b1bac4;
+    --github-text-tertiary: #8b949e;
+    --github-accent-primary: #58a6ff;
+  --github-accent-secondary: #3fb950;
+  --github-accent-primary-hover: #4096e3; /* added for hover states */
+  --github-accent-secondary-hover: #369c46;
+    --github-accent-muted: #b1bac4;
+    --github-shadow-small: 0 1px 3px rgba(1, 4, 9, 0.3);
+    --github-shadow-medium: 0 3px 6px rgba(1, 4, 9, 0.4);
+    --github-shadow-large: 0 8px 24px rgba(1, 4, 9, 0.5);
+    
+    /* Dark Mode Semantic Colors */
+    --github-accent-success: #22c55e;
+    --github-accent-danger: #ef4444;
+    --github-accent-warning: #eab308;
+    --github-accent-info: #3b82f6;
+    --github-accent-purple: #a855f7;
+    --github-accent-orange: #f97316;
+    --github-accent-pink: #ec4899;
+    --github-accent-indigo: #6366f1;
+    
+    /* Dark Mode Background Variants */
+    --github-bg-success: #064e3b;
+    --github-bg-danger: #7f1d1d;
+    --github-bg-warning: #78350f;
+    --github-bg-info: #1e3a8a;
+    --github-bg-purple: #581c87;
+    --github-bg-orange: #7c2d12;
+  }
+
+  /* Light Mode Overrides */
+  html:not(.dark) {
+  /* Light Mode Colors */
+  --github-bg-primary: #ffffff;
+  --github-bg-secondary: #f6f8fa;
+  --github-bg-tertiary: #ffffff;
+    --github-bg-hover: #f3f4f6;
+    --github-bg-active: #f3f4f6;
+    --github-bg-muted: #f6f8fa;
+    --github-border-primary: #d0d7de;
+    --github-border-secondary: #d0d7de;
+    --github-border-active: #0969da;
+    --github-text-primary: #1a1a1a;
+    --github-text-secondary: #4a5568;
+    --github-text-tertiary: #718096;
+    --github-accent-primary: #0969da;
+  --github-accent-secondary: #1f883d;
+  --github-accent-primary-hover: #0758b3; /* hover variants */
+  --github-accent-secondary-hover: #166c2e;
+    --github-accent-muted: #4a5568;
+    --github-shadow-small: 0 1px 3px rgba(27, 31 36, 0.04);
+    --github-shadow-medium: 0 3px 6px rgba(140, 149, 159, 0.15);
+    --github-shadow-large: 0 8px 24px rgba(140, 149, 159, 0.2);
+    
+    /* Light Mode Semantic Colors */
+    --github-accent-success: #16a34a;
+    --github-accent-danger: #dc2626;
+    --github-accent-warning: #ca8a04;
+    --github-accent-info: #2563eb;
+    --github-accent-purple: #9333ea;
+    --github-accent-orange: #ea580c;
+    --github-accent-pink: #db2777;
+    --github-accent-indigo: #4f46e5;
+    
+    /* Light Mode Background Variants */
+    --github-bg-success: #f0fdf4;
+    --github-bg-danger: #fef2f2;
+    --github-bg-warning: #fffbeb;
+    --github-bg-info: #eff6ff;
+    --github-bg-purple: #faf5ff;
+    --github-bg-orange: #fff7ed;
+  }
+
+  /* Search Highlight */
+  .search-highlight {
+    @apply bg-yellow-200 dark:bg-yellow-600 rounded px-1;
+  }
+
+  /* Fix Autofill White Background */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--github-bg-secondary) inset !important;
+    -webkit-text-fill-color: var(--github-text-secondary) !important;
+    background-color: var(--github-bg-secondary) !important;
+  }
+
+  /* Fix Autofill for textarea */
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:hover,
+  textarea:-webkit-autofill:focus,
+  textarea:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0 30px var(--github-bg-secondary) inset !important;
+    -webkit-text-fill-color: var(--github-text-secondary) !important;
+    background-color: var(--github-bg-secondary) !important;
+  }
+
+
+}
+
+@layer utilities {
+  .app-drag { -webkit-app-region: drag; }
+  .app-no-drag { -webkit-app-region: no-drag; }
+  
+  /* Tauri-specific drag region */
+  .tauri-drag {
+    -webkit-app-region: drag !important;
+  }
+  
+  .tauri-no-drag {
+    -webkit-app-region: no-drag !important;
+  }
+
+  
+  
+  /* Toast stacking utility */
+  .toast-stack {
+    transform: translateY(calc(var(--toast-index, 0) * 10px));
+    z-index: calc(1000 - var(--toast-index, 0));
+  }
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(2px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: fade-in 0.25s ease-out both; }
+  
+  /* Simple Loading Screen Animations */
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
+  .animate-spin { animation: spin 1s linear infinite; }
+}

@@ -1,0 +1,102 @@
+/* TH Sarabun New Font - Local Font Files */
+/* Thai Government Font for Official Documents */
+
+/* Thin Weight (100) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-thin.woff2') format('woff2');
+    font-weight: 100;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Thin Italic Weight (100) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-thinitalic.woff2') format('woff2');
+    font-weight: 100;
+    font-style: italic;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Regular Weight (400) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Italic Weight (400) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-italic.woff2') format('woff2');
+    font-weight: 400;
+    font-style: italic;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Medium Weight (500) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Medium Italic Weight (500) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-mediumitalic.woff2') format('woff2');
+    font-weight: 500;
+    font-style: italic;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Semibold Weight (600) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-semibold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Semibold Italic Weight (600) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-semibolditalic.woff2') format('woff2');
+    font-weight: 600;
+    font-style: italic;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Bold Weight (700) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}
+
+/* Bold Italic Weight (700) */
+@font-face {
+    font-family: 'TH Sarabun New';
+    src: url('./th-sarabun-bolditalic.woff2') format('woff2');
+    font-weight: 700;
+    font-style: italic;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F;
+}

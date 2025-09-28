@@ -1,0 +1,37 @@
+{
+  "name": "pqs-rtn-tauri",
+  "version": "0.1.0",
+  "description": "PQS RTN Desktop Application with Tauri",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri dev",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "start": "tauri dev",
+    "app": "tauri dev",
+    "desktop": "tauri dev",
+    "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean-processes.ps1",
+    "clean:win": "scripts/clean-processes.bat"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "lucide-react": "^0.263.1",
+    "@tauri-apps/api": "^1.5.0",
+    "tailwindcss": "^3.3.0",
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.4.24"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5",
+    "@tauri-apps/cli": "^1.5.0"
+  }
+}

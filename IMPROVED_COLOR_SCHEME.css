@@ -1,0 +1,141 @@
+/* 🎨 IMPROVED TYPOGRAPHY COLOR SCHEME */
+
+/* ===== DARK MODE - IMPROVED ===== */
+.dark {
+  /* Background Colors (Keep existing) */
+  --github-bg-primary: #010409;
+  --github-bg-secondary: #0d1117;
+  --github-bg-tertiary: #0d1117;
+  --github-bg-hover: #1f2937;
+  --github-bg-active: #1f2937;
+  --github-bg-muted: #0d1117;
+  
+  /* Border Colors (Keep existing) */
+  --github-border-primary: #30363d;
+  --github-border-secondary: #21262d;
+  --github-border-active: #58a6ff;
+  
+  /* 🚀 IMPROVED TEXT COLORS */
+  --github-text-primary: #ffffff;      /* Pure white for maximum contrast */
+  --github-text-secondary: #a8b2d1;    /* Soft blue-gray for hierarchy */
+  --github-text-tertiary: #7c7c7c;     /* Neutral gray for subtle text */
+  
+  /* Accent Colors (Keep existing) */
+  --github-accent-primary: #58a6ff;
+  --github-accent-secondary: #3fb950;
+  --github-accent-primary-hover: #4096e3;
+  --github-accent-secondary-hover: #369c46;
+  --github-accent-muted: #a8b2d1;      /* Updated to match secondary */
+  
+  /* Shadows (Keep existing) */
+  --github-shadow-small: 0 1px 3px rgba(1, 4, 9, 0.3);
+  --github-shadow-medium: 0 3px 6px rgba(1, 4, 9, 0.4);
+  --github-shadow-large: 0 8px 24px rgba(1, 4, 9, 0.5);
+}
+
+/* ===== LIGHT MODE - IMPROVED ===== */
+:root {
+  /* Background Colors (Keep existing) */
+  --github-bg-primary: #ffffff;
+  --github-bg-secondary: #f6f8fa;
+  --github-bg-tertiary: #f6f8fa;
+  --github-bg-hover: #f3f4f6;
+  --github-bg-active: #f3f4f6;
+  --github-bg-muted: #f6f8fa;
+  
+  /* Border Colors (Keep existing) */
+  --github-border-primary: #d0d7de;
+  --github-border-secondary: #d0d7de;
+  --github-border-active: #0969da;
+  
+  /* 🚀 IMPROVED TEXT COLORS */
+  --github-text-primary: #1a1a1a;      /* Deep black for maximum contrast */
+  --github-text-secondary: #4a5568;    /* Medium gray for hierarchy */
+  --github-text-tertiary: #718096;     /* Light gray for subtle text */
+  
+  /* Accent Colors (Keep existing) */
+  --github-accent-primary: #0969da;
+  --github-accent-secondary: #1f883d;
+  --github-accent-primary-hover: #0758b3;
+  --github-accent-secondary-hover: #166c2e;
+  --github-accent-muted: #4a5568;      /* Updated to match secondary */
+  
+  /* Shadows (Keep existing) */
+  --github-shadow-small: 0 1px 3px rgba(27, 31, 36, 0.04);
+  --github-shadow-medium: 0 3px 6px rgba(140, 149, 159, 0.15);
+  --github-shadow-large: 0 8px 24px rgba(140, 149, 159, 0.25);
+}
+
+/* ===== ALTERNATIVE PROFESSIONAL PALETTES ===== */
+
+/* Option 1: GitHub-inspired */
+.github-style {
+  --github-text-primary: #ffffff;      /* Dark Mode */
+  --github-text-secondary: #8b949e;
+  --github-text-tertiary: #6e7681;
+}
+
+.github-style-light {
+  --github-text-primary: #24292f;      /* Light Mode */
+  --github-text-secondary: #656d76;
+  --github-text-tertiary: #8b949e;
+}
+
+/* Option 2: Vercel-inspired */
+.vercel-style {
+  --github-text-primary: #ffffff;      /* Dark Mode */
+  --github-text-secondary: #a1a1aa;
+  --github-text-tertiary: #71717a;
+}
+
+.vercel-style-light {
+  --github-text-primary: #18181b;      /* Light Mode */
+  --github-text-secondary: #52525b;
+  --github-text-tertiary: #71717a;
+}
+
+/* Option 3: Linear-inspired */
+.linear-style {
+  --github-text-primary: #ffffff;      /* Dark Mode */
+  --github-text-secondary: #9ca3af;
+  --github-text-tertiary: #6b7280;
+}
+
+.linear-style-light {
+  --github-text-primary: #111827;      /* Light Mode */
+  --github-text-secondary: #4b5563;
+  --github-text-tertiary: #6b7280;
+}
+
+/* ===== TYPOGRAPHY UTILITY CLASSES ===== */
+.text-hierarchy-primary {
+  color: var(--github-text-primary);
+  font-weight: 600;
+}
+
+.text-hierarchy-secondary {
+  color: var(--github-text-secondary);
+  font-weight: 500;
+}
+
+.text-hierarchy-tertiary {
+  color: var(--github-text-tertiary);
+  font-weight: 400;
+}
+
+/* ===== CONTRAST TESTING ===== */
+/* Use these classes to test contrast ratios */
+.contrast-test-high {
+  background: #000000;
+  color: #ffffff;
+}
+
+.contrast-test-medium {
+  background: #1a1a1a;
+  color: #a8b2d1;
+}
+
+.contrast-test-low {
+  background: #2a2a2a;
+  color: #7c7c7c;
+}

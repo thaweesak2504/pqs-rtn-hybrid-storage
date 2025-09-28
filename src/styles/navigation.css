@@ -1,0 +1,462 @@
+/* Enhanced Navigation Styles */
+
+/* Base Navigation Styles */
+.navigation-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.navigation-menu {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navigation-menu-item {
+  position: relative;
+  transition: all 0.2s ease-in-out;
+}
+
+.navigation-menu-item:hover {
+  transform: translateX(2px);
+}
+
+.navigation-menu-item:focus {
+  outline: 2px solid var(--github-accent-primary);
+  outline-offset: 2px;
+}
+
+/* Animation Classes */
+.nav-slide-in {
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.nav-slide-out {
+  animation: slideOut 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.nav-fade-in {
+  animation: fadeIn 0.2s ease-in-out forwards;
+}
+
+.nav-fade-out {
+  animation: fadeOut 0.2s ease-in-out forwards;
+}
+
+.nav-scale-in {
+  animation: scaleIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.nav-bounce-in {
+  animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+.nav-pulse {
+  animation: pulse 0.2s ease-in-out;
+}
+
+.nav-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+/* Keyframe Animations */
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-10px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(10px);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .navigation-container {
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  .navigation-menu-item {
+    padding: 1rem;
+    font-size: 1.1rem;
+  }
+  
+  .navigation-submenu {
+    margin-left: 1rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .navigation-container {
+    width: 280px;
+  }
+  
+  .navigation-menu-item {
+    padding: 0.875rem;
+  }
+}
+
+@media (min-width: 1025px) {
+  .navigation-container {
+    width: 320px;
+  }
+  
+  .navigation-menu-item {
+    padding: 0.75rem;
+  }
+}
+
+/* Accessibility Enhancements */
+@media (prefers-reduced-motion: reduce) {
+  .navigation-menu,
+  .navigation-menu-item,
+  .nav-slide-in,
+  .nav-slide-out,
+  .nav-fade-in,
+  .nav-fade-out,
+  .nav-scale-in,
+  .nav-bounce-in,
+  .nav-pulse,
+  .nav-shake {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .navigation-menu-item {
+    border: 1px solid var(--github-border-primary);
+  }
+  
+  .navigation-menu-item:focus {
+    outline: 3px solid var(--github-accent-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Dark Mode Enhancements */
+@media (prefers-color-scheme: dark) {
+  .navigation-container {
+    background: var(--github-bg-primary);
+    border-color: var(--github-border-primary);
+  }
+  
+  .navigation-menu-item {
+    color: var(--github-text-primary);
+  }
+  
+  .navigation-menu-item:hover {
+    background: var(--github-bg-hover);
+  }
+  
+  .navigation-menu-item:active {
+    background: var(--github-bg-active);
+  }
+}
+
+/* Focus Management */
+.navigation-focus-trap {
+  position: relative;
+}
+
+.navigation-focus-trap:focus-within {
+  outline: 2px solid var(--github-accent-primary);
+  outline-offset: 2px;
+}
+
+/* Breadcrumb Styles */
+.navigation-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--github-border-primary);
+  background: var(--github-bg-secondary);
+}
+
+.navigation-breadcrumb-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--github-text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.navigation-breadcrumb-item:hover {
+  color: var(--github-text-primary);
+}
+
+.navigation-breadcrumb-item.active {
+  color: var(--github-text-primary);
+  font-weight: 600;
+}
+
+.navigation-breadcrumb-separator {
+  color: var(--github-text-tertiary);
+}
+
+/* History Navigation */
+.navigation-history {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.navigation-history-button {
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  background: transparent;
+  border: none;
+  color: var(--github-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navigation-history-button:hover {
+  background: var(--github-bg-hover);
+  color: var(--github-text-primary);
+}
+
+.navigation-history-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Analytics Dashboard */
+.navigation-dashboard {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.navigation-dashboard-content {
+  background: var(--github-bg-primary);
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 64rem;
+  max-height: 90vh;
+  overflow: hidden;
+}
+
+.navigation-dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--github-border-primary);
+}
+
+.navigation-dashboard-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--github-border-primary);
+}
+
+.navigation-dashboard-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 2px solid transparent;
+  background: none;
+  border: none;
+  color: var(--github-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navigation-dashboard-tab:hover {
+  color: var(--github-text-primary);
+}
+
+.navigation-dashboard-tab.active {
+  border-bottom-color: var(--github-accent-primary);
+  color: var(--github-text-primary);
+}
+
+.navigation-dashboard-content-area {
+  padding: 1.5rem;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+/* Stats Cards */
+.navigation-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.navigation-stats-card {
+  background: var(--github-bg-secondary);
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.navigation-stats-card-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--github-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.navigation-stats-card-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--github-text-primary);
+}
+
+/* Shortcuts Grid */
+.navigation-shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.navigation-shortcut-card {
+  background: var(--github-bg-secondary);
+  padding: 1rem;
+  border-radius: 0.5rem;
+}
+
+.navigation-shortcut-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.navigation-shortcut-description {
+  font-weight: 500;
+  color: var(--github-text-primary);
+}
+
+.navigation-shortcut-key {
+  font-size: 0.75rem;
+  color: var(--github-text-tertiary);
+  background: var(--github-bg-tertiary);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.navigation-shortcut-category {
+  font-size: 0.875rem;
+  color: var(--github-text-secondary);
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .navigation-dashboard-content {
+    margin: 0;
+    border-radius: 0;
+    max-height: 100vh;
+  }
+  
+  .navigation-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .navigation-shortcuts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .navigation-dashboard-tabs {
+    flex-wrap: wrap;
+  }
+  
+  .navigation-dashboard-tab {
+    flex: 1;
+    min-width: 0;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+}

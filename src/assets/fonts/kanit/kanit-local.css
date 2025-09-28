@@ -1,0 +1,57 @@
+/* Kanit Font - Local Font Files */
+/* Thai Modern Font for UI Interface */
+
+/* Light Weight (300) */
+@font-face {
+    font-family: 'Kanit';
+    src: url('./kanit-Light.woff2') format('woff2');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F; /* Thai + Basic Latin */
+}
+
+/* Regular Weight (400) */
+@font-face {
+    font-family: 'Kanit';
+    src: url('./kanit-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F; /* Thai + Basic Latin */
+}
+
+/* Medium Weight (500) */
+@font-face {
+    font-family: 'Kanit';
+    src: url('./kanit-Medium.woff2') format('woff2');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F; /* Thai + Basic Latin */
+}
+
+/* Semi Bold Weight (600) */
+@font-face {
+    font-family: 'Kanit';
+    src: url('./kanit-semibold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F; /* Thai + Basic Latin */
+}
+
+/* Bold Weight (700) */
+@font-face {
+    font-family: 'Kanit';
+    src: url('./kanit-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+    unicode-range: U+0E00-0E7F, U+0020-007F; /* Thai + Basic Latin */
+}
+
+/* Fallback for unsupported browsers */
+.kanit-fallback {
+    font-family: 'Kanit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
