@@ -1,178 +1,179 @@
-# PQS RTN Tauri Application
+# PQS RTN Hybrid Storage
 
-A modern desktop application built with Tauri, React, TypeScript, and Tailwind CSS for the Royal Thai Navy's PQS (Personnel Qualification Standards) system.
+PQS RTN Desktop Application with Hybrid Storage System - แก้ไขปัญหา BLOB storage และ async issues
 
-## 🚀 Features
+## 🎯 **วัตถุประสงค์:**
 
-### Core Functionality
-- **User Authentication**: Secure login system with role-based access control
-- **Dashboard**: Comprehensive admin dashboard with user management
-- **Database Integration**: SQLite database with Tauri backend
-- **Avatar Management**: Upload, edit, and manage user avatars
-- **Responsive Design**: Works seamlessly across different screen sizes
+### **ปัญหาที่แก้ไข:**
+- ❌ **BLOB Storage Issues** - ฐานข้อมูลใหญ่, ช้า, ใช้ RAM มาก
+- ❌ **Async Problems** - Race conditions, Memory leaks, UI blocking
+- ❌ **Export/Import Issues** - JSON/CSV ไม่เหมาะกับ BLOB
 
-### Technical Features
-- **Reusable Layout Components**: BaseLayout system for consistent UI
-- **Right Slide Panel**: User profile management panel
-- **Dark Mode Support**: Toggle between light and dark themes
-- **Window Controls**: Native window management (minimize, maximize, close)
-- **Audio Integration**: Built-in audio player for navy songs
-- **Search Functionality**: Global search across the application
+### **โซลูชัน:**
+- ✅ **Hybrid Storage System** - BLOB + File-based storage
+- ✅ **File-based Media** - รูปภาพเก็บในไฟล์ระบบ
+- ✅ **ZIP Export/Import** - ส่งออก/นำเข้าทั้งฐานข้อมูลและไฟล์สื่อ
+- ✅ **Backward Compatibility** - ระบบเดิมยังใช้งานได้
 
-## 🛠️ Tech Stack
+## 🏗️ **Architecture:**
 
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **React Router** for navigation
-- **Lucide React** for icons
-
-### Backend
-- **Tauri** for desktop application framework
-- **Rust** for backend logic
-- **SQLite** for data storage
-- **rusqlite** for database operations
-
-### Development Tools
-- **ESLint** for code linting
-- **TypeScript** for type safety
-- **PostCSS** for CSS processing
-
-## 📦 Installation
-
-### Prerequisites
-- Node.js (v16 or higher)
-- Rust (latest stable version)
-- Git
-
-### Setup Steps
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd pqs-rtn-tauri
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Install Rust dependencies**
-   ```bash
-   cd src-tauri
-   cargo build
-   cd ..
-   ```
-
-4. **Run the development server**
-   ```bash
-   npm run tauri:dev
-   ```
-
-## 🏗️ Project Structure
-
+### **Phase 1: Current System (BLOB)**
 ```
-pqs-rtn-tauri/
-├── src/                          # Frontend source code
-│   ├── components/               # React components
-│   │   ├── ui/                  # Reusable UI components
-│   │   ├── pages/               # Page components
-│   │   ├── forms/               # Form components
-│   │   └── search/              # Search components
-│   ├── contexts/                # React contexts
-│   ├── hooks/                   # Custom React hooks
-│   ├── services/                # API services
-│   ├── types/                   # TypeScript type definitions
-│   ├── utils/                   # Utility functions
-│   └── assets/                  # Static assets
-├── src-tauri/                   # Tauri backend
-│   ├── src/                     # Rust source code
-│   ├── icons/                   # Application icons
-│   └── Cargo.toml              # Rust dependencies
-├── .gitignore                   # Git ignore rules
-└── README.md                    # This file
+Database (SQLite)
+├── users table
+├── avatars (BLOB) ← ปัญหาตรงนี้
+└── other data
 ```
 
-## 🎯 Key Components
+### **Phase 2: Hybrid System**
+```
+Database (SQLite)          File System
+├── users table            ├── media/
+├── media_files table      │   ├── avatars/
+├── documents table        │   ├── documents/
+└── metadata only          │   └── exports/
+```
 
-### Layout System
-- **BaseLayout**: Reusable layout component with props-based customization
-- **PqsLayout**: Standard layout for public pages
-- **DashboardLayout**: Enhanced layout with right slide panel for authenticated users
+## 🚀 **Features:**
 
-### Authentication
-- **AuthContext**: Manages user authentication state
-- **SignInPage**: User login interface
-- **User Profile Panel**: Right slide panel for user management
+### **✅ Current Features (จากโปรเจคเดิม):**
+- User Management
+- Authentication
+- Database Operations
+- Export/Import (JSON, CSV, SQL)
 
-### Database
-- **SQLite Integration**: Local database for user data and avatars
-- **Tauri Commands**: Rust backend commands for database operations
-- **User Management**: CRUD operations for user accounts
+### **🆕 New Features (Hybrid Storage):**
+- File-based Media Storage
+- ZIP Export/Import
+- Document Management (อนาคต)
+- Performance Optimization
 
-## 🔧 Development
+## 📁 **Project Structure:**
 
-### Available Scripts
+```
+pqs-rtn-hybrid-storage/
+├── src-tauri/src/
+│   ├── database.rs              # ระบบเดิม (BLOB)
+│   ├── hybrid_storage.rs        # ระบบผสม
+│   ├── file_storage.rs          # File-based storage
+│   ├── media_manager.rs         # จัดการไฟล์สื่อ
+│   ├── migration.rs             # Migration tools
+│   └── export_import.rs         # Enhanced export/import
+├── src/components/
+│   ├── pages/
+│   │   ├── UserManagementPage.tsx    # หน้าจัดการผู้ใช้
+│   │   ├── HybridStoragePage.tsx     # หน้าจัดการ Hybrid Storage
+│   │   └── MigrationPage.tsx         # หน้า Migration
+│   └── components/
+│       ├── MediaUploader.tsx         # อัปโหลดไฟล์สื่อ
+│       └── HybridExporter.tsx       # ส่งออก Hybrid
+├── media/                        # ไฟล์สื่อ
+│   ├── avatars/                  # รูปโปรไฟล์
+│   ├── documents/               # เอกสาร
+│   └── exports/                  # ไฟล์ส่งออก
+└── exports/                      # ไฟล์ส่งออก
+```
 
-- `npm run dev` - Start Vite development server
-- `npm run tauri:dev` - Start Tauri development mode
-- `npm run tauri:build` - Build the application for production
-- `npm run lint` - Run ESLint
+## 🛠️ **Development:**
 
-### Code Organization
+### **Installation:**
+```bash
+# Install dependencies
+npm install
 
-The project follows a modular architecture:
+# Install Rust dependencies
+cd src-tauri
+cargo build
+```
 
-1. **Components**: Organized by functionality (ui, pages, forms)
-2. **Contexts**: Global state management
-3. **Hooks**: Reusable logic
-4. **Services**: API and data layer
-5. **Types**: TypeScript definitions
+### **Development:**
+```bash
+# Start development server
+npm run tauri
 
-## 🎨 UI/UX Features
+# หรือใช้คำสั่งอื่นๆ
+npm run start
+npm run app
+npm run desktop
+```
 
-- **Responsive Design**: Mobile-first approach
-- **Dark Mode**: Toggle between light and dark themes
-- **Smooth Animations**: CSS transitions and React transitions
-- **Accessibility**: ARIA labels and keyboard navigation
-- **Thai Language Support**: Full Thai language interface
+### **Build:**
+```bash
+# Build for production
+npm run tauri:build
+```
 
-## 🔐 Security
+## 📊 **Performance Comparison:**
 
-- **Local Database**: SQLite for secure data storage
-- **Authentication**: Secure user authentication system
-- **Role-based Access**: Different access levels for users
-- **Input Validation**: Client and server-side validation
+| Aspect | BLOB Storage | Hybrid Storage |
+|--------|-------------|---------------|
+| **Database Size** | ใหญ่ขึ้นเรื่อยๆ | คงที่ |
+| **Memory Usage** | สูง | ต่ำ |
+| **Query Speed** | ช้า | เร็ว |
+| **Export/Import** | ช้า | เร็ว |
+| **Backup** | ช้า | เร็ว |
+| **Concurrency** | ปัญหา | ดี |
 
-## 📱 Platform Support
+## 🔄 **Migration Strategy:**
 
-- **Windows**: Full support with native window controls
-- **macOS**: Compatible (may need additional configuration)
-- **Linux**: Compatible (may need additional configuration)
+### **Step 1: Create Hybrid System**
+- สร้าง FileStorageManager
+- สร้าง database schema ใหม่
+- สร้าง migration tools
 
-## 🤝 Contributing
+### **Step 2: Parallel Systems**
+- ระบบเดิมยังใช้งานได้
+- ระบบใหม่สำหรับข้อมูลใหม่
+- Auto-detect ระบบไหน
+
+### **Step 3: Gradual Migration**
+- Migrate ทีละส่วน
+- Validate data integrity
+- Rollback capability
+
+## 🎯 **Roadmap:**
+
+### **Week 1-2: Foundation**
+- [x] Create new repository
+- [x] Copy existing code
+- [x] Update project configuration
+- [ ] Create FileStorageManager
+- [ ] Create MediaManager
+
+### **Week 3-4: Hybrid System**
+- [ ] Create hybrid database schema
+- [ ] Create migration tools
+- [ ] Create export/import system
+- [ ] Create UI components
+
+### **Week 5-6: Testing & Migration**
+- [ ] Test hybrid system
+- [ ] Create migration interface
+- [ ] Performance testing
+- [ ] Documentation
+
+## 🛡️ **Safety Measures:**
+
+- **Backward Compatibility** - ระบบเดิมยังใช้งานได้
+- **Rollback Capability** - สามารถ rollback ได้
+- **Data Validation** - ตรวจสอบความถูกต้อง
+- **Parallel Testing** - ทดสอบทั้งสองระบบ
+
+## 📝 **Notes:**
+
+- โปรเจคนี้สร้างจาก `pqs-rtn-tauri` เพื่อความปลอดภัย
+- ระบบเดิมยังใช้งานได้ปกติ
+- ระบบใหม่จะทำงานควบคู่กัน
+- Migration จะทำทีละส่วนเพื่อความปลอดภัย
+
+## 🤝 **Contributing:**
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create feature branch
+3. Commit changes
+4. Push to branch
+5. Create Pull Request
 
-## 📄 License
+## 📄 **License:**
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 👥 Team
-
-- **Development Team**: PQS RTN Development Team
-- **Project Lead**: Royal Thai Navy IT Department
-
-## 📞 Support
-
-For support and questions, please contact the development team or create an issue in the repository.
-
----
-
-**Built with ❤️ for the Royal Thai Navy**
+MIT License - ดู LICENSE file สำหรับรายละเอียด

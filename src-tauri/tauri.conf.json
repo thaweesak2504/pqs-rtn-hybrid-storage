@@ -7,7 +7,7 @@
     "withGlobalTauri": true
   },
   "package": {
-    "productName": "PQS RTN",
+    "productName": "PQS RTN Hybrid Storage",
     "version": "0.1.0"
   },
   "tauri": {
@@ -28,7 +28,7 @@
         "removeFile": true,
         "renameFile": true,
         "exists": true,
-        "scope": ["$APPDATA/*", "$APPDATA/pqs-rtn/*", "$APPDATA/pqs-rtn-tauri/*"]
+        "scope": ["$APPDATA/*", "$APPDATA/pqs-rtn/*", "$APPDATA/pqs-rtn-tauri/*", "$APPDATA/pqs-rtn-hybrid-storage/*"]
       },
       "path": {
         "all": true
@@ -73,7 +73,7 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.thaweesak.pqs-rtn",
+      "identifier": "com.thaweesak.pqs-rtn-hybrid-storage",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -89,7 +89,7 @@
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "PQS RTN",
+        "title": "PQS RTN Hybrid Storage",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
