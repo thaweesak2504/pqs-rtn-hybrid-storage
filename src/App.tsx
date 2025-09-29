@@ -24,7 +24,6 @@ import PerformanceTestPage from './components/pages/PerformanceTestPage';
 import DashboardPage from './components/pages/DashboardPage';
 import HighRanksPage from './components/pages/HighRanksPage';
 import DatabaseManagementPage from './components/pages/DatabaseManagementPage';
-import HybridAvatarTestPage from './components/pages/HybridAvatarTestPage';
 
 // Import layouts
 import UnifiedLayout from './components/UnifiedLayout';
@@ -75,7 +74,6 @@ function App() {
                           <Route path="team" element={<TeamPage />} />
                           <Route path="contact" element={<ContactPage />} />
                           <Route path="sqlite-test" element={<SqliteTestPage />} />
-                          <Route path="hybrid-test" element={<HybridAvatarTestPage />} />
                           
                           {/* Editor and Visitor routes */}
                           <Route path="editor" element={<EditorPage />} />
