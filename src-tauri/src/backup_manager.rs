@@ -32,7 +32,7 @@ pub fn get_backup_directory() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&config)
         .ok_or("Failed to get app data directory")?;
     
-    let backup_dir = app_data.join("pqs-rtn-tauri").join("backups");
+    let backup_dir = app_data.join("pqs-rtn-hybrid-storage").join("backups");
     
     if !backup_dir.exists() {
         fs::create_dir_all(&backup_dir)

@@ -84,24 +84,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           updated_at: tauriUser.updated_at || ''
         }
         
-        // Load avatar from Tauri if available
+        // Load avatar from Hybrid Avatar System if available
         try {
           if (tauriUser.id) {
-            const avatar = await tauriAvatarService.getAvatarByUserId(tauriUser.id)
-            if (avatar) {
-              // Convert number array back to Uint8Array and create data URL
-              const uint8Array = new Uint8Array(avatar.avatar_data)
-              const blob = new Blob([uint8Array], { type: avatar.mime_type })
-              const dataUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader()
-                reader.onload = () => resolve(reader.result as string)
-                reader.readAsDataURL(blob)
-              })
-              contextUser.avatar = dataUrl
+            const { hybridAvatarService } = await import('../services/hybridAvatarService')
+            const avatarInfo = await hybridAvatarService.getAvatarInfo(tauriUser.id)
+            if (avatarInfo.avatar_path && avatarInfo.file_exists) {
+              const base64Data = await hybridAvatarService.getAvatarBase64(avatarInfo.avatar_path)
+              contextUser.avatar = base64Data
             }
           }
         } catch (error) {
-          console.warn('Error loading avatar:', error)
+          console.warn('Error loading hybrid avatar:', error)
         }
         
         // Save to localStorage
@@ -138,7 +132,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       if (avatarDataUrl === null) {
         // Delete avatar
-        await tauriAvatarService.deleteAvatar(Number(user.id))
+        // Delete hybrid avatar
+        const { hybridAvatarService } = await import('../services/hybridAvatarService')
+        await hybridAvatarService.deleteAvatar(Number(user.id))
         setUser(prev => prev ? { 
           ...prev, 
           avatar: undefined,
@@ -153,7 +149,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const arrayBuffer = await blob.arrayBuffer()
         const uint8Array = new Uint8Array(arrayBuffer)
         
-        const avatar = await tauriAvatarService.saveAvatar(
+        // Save hybrid avatar
+        const { hybridAvatarService } = await import('../services/hybridAvatarService')
+        const avatarInfo = await hybridAvatarService.saveAvatar(
           Number(user.id), 
           uint8Array, 
           blob.type
@@ -180,12 +178,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   updateAvatar,
   handleAvatarLoadError: async () => {
     if (!user?.id) return
-    // Clear avatar in Tauri database
+    // Clear hybrid avatar
     try { 
-      await tauriAvatarService.deleteAvatar(Number(user.id))
+      const { hybridAvatarService } = await import('../services/hybridAvatarService')
+      await hybridAvatarService.deleteAvatar(Number(user.id))
       setUser(prev => prev ? { ...prev, avatar: undefined, avatar_path: null } : prev)
     } catch (error) {
-      console.warn('Error clearing avatar:', error)
+      console.warn('Error clearing hybrid avatar:', error)
     }
   }
   }
@@ -196,8 +195,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const run = async () => {
       if (!user?.id) return
       try {
-        const avatar = await tauriAvatarService.getAvatarByUserId(Number(user.id))
-        if (!cancelled && !avatar) {
+        const { hybridAvatarService } = await import('../services/hybridAvatarService')
+        const avatarInfo = await hybridAvatarService.getAvatarInfo(Number(user.id))
+        if (!cancelled && (!avatarInfo.avatar_path || !avatarInfo.file_exists)) {
           // Avatar missing → clear from state
           setUser(prev => prev ? { ...prev, avatar: undefined, avatar_path: null } : prev)
         }

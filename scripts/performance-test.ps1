@@ -34,7 +34,7 @@ if ($appProcess) {
 
 # 3. Measure Database Performance
 Write-Host "`n🗄️ 3. Measuring Database Performance..." -ForegroundColor Yellow
-$dbPath = "$env:APPDATA\pqs-rtn-tauri\database.db"
+$dbPath = "$env:APPDATA\pqs-rtn-hybrid-storage\database.db"
 if (Test-Path $dbPath) {
     $dbSize = [math]::Round((Get-Item $dbPath).Length / 1KB, 2)
     $dbLastModified = (Get-Item $dbPath).LastWriteTime
@@ -47,7 +47,7 @@ if (Test-Path $dbPath) {
 
 # 4. Measure Backup Performance
 Write-Host "`n💾 4. Measuring Backup Performance..." -ForegroundColor Yellow
-$backupDir = "$env:APPDATA\pqs-rtn-tauri\backups"
+$backupDir = "$env:APPDATA\pqs-rtn-hybrid-storage\backups"
 if (Test-Path $backupDir) {
     $backups = Get-ChildItem $backupDir | Sort-Object LastWriteTime -Descending
     $totalBackups = $backups.Count

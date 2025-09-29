@@ -77,7 +77,7 @@ pub fn get_database_path() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&Config::default())
         .ok_or("Failed to get app data directory")?;
     
-    let db_dir = app_data.join("pqs-rtn-tauri");
+    let db_dir = app_data.join("pqs-rtn-hybrid-storage");
     std::fs::create_dir_all(&db_dir)
         .map_err(|e| format!("Failed to create database directory: {}", e))?;
     
@@ -451,16 +451,32 @@ pub fn update_user(id: i32, username: &str, email: &str, password_hash: &str, fu
 pub fn delete_user(id: i32) -> Result<bool, String> {
     let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
+    // Check if user exists before deletion
+    let user_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE id = ?)",
+        params![id],
+        |row| Ok(row.get(0)?)
+    ).map_err(|e| format!("Failed to check if user exists: {}", e))?;
+    
+    if !user_exists {
+        return Ok(false); // User doesn't exist
+    }
+    
+    // Check user role before deletion
+    let user_role: String = conn.query_row(
+        "SELECT role FROM users WHERE id = ?",
+        params![id],
+        |row| Ok(row.get(0)?)
+    ).map_err(|e| format!("Failed to get user role: {}", e))?;
+    
+    // Prevent deletion of admin users
+    if user_role == "admin" {
+        return Err("Cannot delete admin users".to_string());
+    }
+    
     // Ensure foreign keys are enabled
     conn.execute("PRAGMA foreign_keys = ON", [])
         .map_err(|e| format!("Failed to enable foreign keys: {}", e))?;
-    
-    // Log user deletion attempt - DISABLED
-    // let _ = DB_LOGGER.log_user_operation(
-    //     DatabaseOperation::DeleteUser,
-    //     Some(id),
-    //     format!("Attempting to delete user with ID: {}", id)
-    // );
     
     // Delete user - this should cascade to avatars table
     let rows_affected = conn.execute(
@@ -474,13 +490,6 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
             "DELETE FROM avatars WHERE user_id = ?",
             params![id],
         );
-        
-        // Log successful deletion - DISABLED
-        // let _ = DB_LOGGER.log_user_operation(
-        //     DatabaseOperation::DeleteUser,
-        //     Some(id),
-        //     format!("Successfully deleted user with ID: {} (affected {} rows)", id, rows_affected)
-        // );
     }
     
     Ok(rows_affected > 0)

@@ -22,9 +22,10 @@ interface User {
 interface Avatar {
   id: number
   user_id: number
-  avatar_data: number[] // Vec<u8> from Rust
-  mime_type: string
-  file_size: number
+  avatar_path: string | null // File path instead of BLOB data
+  avatar_updated_at: string | null
+  avatar_mime: string | null
+  avatar_size: number | null
   created_at: string
   updated_at: string
 }

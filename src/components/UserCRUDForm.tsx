@@ -101,34 +101,31 @@ const UserCRUDForm: React.FC = () => {
       } catch (e) {
         // If downscale fails for any reason, continue with original if within limits
       }
-      // Save to SQLite database using Tauri
+      // Save using Hybrid Avatar System
       try {
+        // Convert data URL to Uint8Array
+        const response = await fetch(dataUrl)
+        const arrayBuffer = await response.arrayBuffer()
+        const fileData = new Uint8Array(arrayBuffer)
+        
+        // Get MIME type from data URL
+        const mimeType = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg'
+        
+        // Save avatar using Hybrid Avatar System
         const { invoke } = await import('@tauri-apps/api/tauri')
-        
-        // Extract base64 data and MIME type from data URL
-        const [header, base64Data] = dataUrl.split(',')
-        const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/jpeg'
-        
-        // Convert base64 to Uint8Array
-        const binaryString = atob(base64Data)
-        const bytes = new Uint8Array(binaryString.length)
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i)
-        }
-        
-        // Save avatar to database
-        await invoke('save_avatar', {
+        const result = await invoke('save_hybrid_avatar', {
           userId: user.id,
-          avatarData: Array.from(bytes),
+          avatarData: Array.from(fileData),
           mimeType: mimeType
         })
         
-        // Update local users state
+        // Update local users state with hybrid avatar info
         setUsers(prev => prev.map(u => u.id === user.id ? { 
           ...u, 
-          avatar_updated_at: new Date().toISOString(), 
-          avatar_mime: mimeType, 
-          avatar_size: bytes.length 
+          avatar_updated_at: result.avatar_updated_at, 
+          avatar_mime: result.avatar_mime, 
+          avatar_size: result.avatar_size,
+          avatar_path: result.avatar_path
         } : u))
         
         // Clear preview since avatar is now in database
@@ -136,10 +133,17 @@ const UserCRUDForm: React.FC = () => {
         
         // Trigger global avatar refresh event
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-          detail: { userId: user.id, dataUrl } 
+          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
         }))
         
-        showSuccess('อัปเดต Avatar สำเร็จ')
+        // Force refresh all avatar displays
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
+            detail: { userId: user.id, forceRefresh: true } 
+          }))
+        }, 500)
+        
+        showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
       } catch (dbError) {
         console.error('Database save failed:', dbError)
         showError('บันทึกรูปไม่สำเร็จ')
@@ -167,27 +171,35 @@ const UserCRUDForm: React.FC = () => {
     if (!confirm('ลบรูป Avatar ของผู้ใช้นี้?')) return
     try {
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: true }))
-      // Delete avatar from SQLite database using Tauri
+      // Delete avatar using Hybrid Avatar System
       try {
         const { invoke } = await import('@tauri-apps/api/tauri')
-        await invoke('delete_avatar', { userId: user.id })
+        await invoke('delete_hybrid_avatar', { userId: user.id })
       } catch (dbError) {
-        console.error('Database delete failed:', dbError)
+        console.error('Hybrid avatar delete failed:', dbError)
         showError('ลบรูปไม่สำเร็จ')
         return
       }
-      // Update local users state (no filesystem path needed)
+      // Update local users state with hybrid avatar info
       setUsers(prev => prev.map(u => u.id === user.id ? { 
         ...u, 
         avatar_updated_at: null, 
         avatar_mime: null, 
-        avatar_size: null 
+        avatar_size: null,
+        avatar_path: null
       } : u))
       setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
         // Trigger global avatar refresh event
         window.dispatchEvent(new CustomEvent('avatarUpdated', {
-          detail: { userId: user.id }
+          detail: { userId: user.id, forceRefresh: true }
         }))
+        
+        // Force refresh all avatar displays
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
+            detail: { userId: user.id, forceRefresh: true } 
+          }))
+        }, 500)
       showSuccess('ลบ Avatar สำเร็จ')
     } catch (e) {
       console.error('Remove avatar failed', e)

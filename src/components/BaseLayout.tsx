@@ -14,7 +14,7 @@ import UserProfilePanel from './UserProfilePanel'
 import { useAuth } from '../hooks/useAuth'
 import { useLayout } from '../contexts/LayoutContext'
 import { useLayoutBreakpoint } from '../hooks/useLayoutBreakpoint'
-import { useAvatarDatabase } from '../hooks/useAvatarDatabase'
+import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
 import { LogIn } from 'lucide-react'
 import RouteTransition from './ui/RouteTransition'
@@ -77,8 +77,8 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   } = useLayout()
   const breakpoint = useLayoutBreakpoint()
   
-  // Get avatar from database
-  const { avatar: databaseAvatar, refreshAvatar } = useAvatarDatabase({ 
+  // Get avatar from hybrid system
+  const { avatar: hybridAvatar, refreshAvatar } = useHybridAvatar({ 
     userId: user?.id ? Number(user.id) : 0,
     autoLoad: !!user?.id
   })
@@ -247,7 +247,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                     >
                       <span className="sr-only">User menu</span>
                       <Avatar
-                        src={databaseAvatar?.dataUrl || undefined}
+                        src={hybridAvatar || undefined}
                         version={(user as any)?.avatar_updated_at || null}
                         name={user?.name}
                         size="sm"

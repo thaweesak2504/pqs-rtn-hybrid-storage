@@ -214,7 +214,7 @@ fn get_export_directory() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&config)
         .ok_or("Failed to get app data directory")?;
     
-    let export_dir = app_data.join("pqs-rtn-tauri").join("exports");
+    let export_dir = app_data.join("pqs-rtn-hybrid-storage").join("exports");
     
     if !export_dir.exists() {
         fs::create_dir_all(&export_dir)
@@ -229,7 +229,11 @@ fn get_database_path() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&config)
         .ok_or("Failed to get app data directory")?;
     
-    Ok(app_data.join("database.db"))
+    let db_dir = app_data.join("pqs-rtn-hybrid-storage");
+    std::fs::create_dir_all(&db_dir)
+        .map_err(|e| format!("Failed to create database directory: {}", e))?;
+    
+    Ok(db_dir.join("database.db"))
 }
 
 fn export_table(conn: &Connection, table_name: &str) -> Result<TableExport, String> {

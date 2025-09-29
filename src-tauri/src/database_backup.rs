@@ -240,7 +240,7 @@ fn get_backup_directory() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&config)
         .ok_or("Failed to get app data directory")?;
     
-    let backup_dir = app_data.join("pqs-rtn-tauri").join("backups");
+    let backup_dir = app_data.join("pqs-rtn-hybrid-storage").join("backups");
     
     if !backup_dir.exists() {
         fs::create_dir_all(&backup_dir)
@@ -255,7 +255,7 @@ fn get_database_path() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&config)
         .ok_or("Failed to get app data directory")?;
     
-    Ok(app_data.join("pqs-rtn-tauri").join("database.db"))
+    Ok(app_data.join("pqs-rtn-hybrid-storage").join("database.db"))
 }
 
 fn get_table_list(conn: &Connection) -> Result<Vec<String>, String> {

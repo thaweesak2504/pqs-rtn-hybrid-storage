@@ -3,7 +3,7 @@
 ## 🎯 **Project Overview**
 
 ### **Current Status:**
-- **Original Project:** `D:\pqs-rtn-tauri` (Working system with BLOB storage)
+- **Original Project:** `D:\pqs-rtn-tauri` (Working system with BLOB storage) - **REFERENCE ONLY**
 - **New Project:** `D:\pqs-rtn-hybrid-storage` (Hybrid storage system)
 - **GitHub Repository:** `https://github.com/thaweesak2504/pqs-rtn-hybrid-storage.git`
 
@@ -24,7 +24,7 @@
 
 ### **Database Separation:**
 ```
-Original System (pqs-rtn-tauri):
+Original System (pqs-rtn-tauri) - **REFERENCE ONLY**:
 ├── Database: C:\Users\Thaweesak\AppData\Roaming\pqs-rtn-tauri\database.db
 ├── Storage: BLOB in database
 └── Status: ✅ Working (167KB)
@@ -78,7 +78,7 @@ pqs-rtn-hybrid-storage/
 
 ### **Database Configuration:**
 ```rust
-// Original system
+// Original system - REFERENCE ONLY
 let db_dir = app_data.join("pqs-rtn-tauri");
 
 // New system
@@ -196,7 +196,7 @@ git push origin master
 - `media/` - File-based media storage
 
 ### **Important Paths:**
-- **Original DB:** `C:\Users\Thaweesak\AppData\Roaming\pqs-rtn-tauri\database.db`
+- **Original DB:** `C:\Users\Thaweesak\AppData\Roaming\pqs-rtn-tauri\database.db` - **REFERENCE ONLY**
 - **New DB:** `C:\Users\Thaweesak\AppData\Roaming\pqs-rtn-hybrid-storage\database.db`
 - **Media Storage:** `D:\pqs-rtn-hybrid-storage\media\`
 

@@ -1,6 +1,6 @@
 import React from 'react'
 import Avatar from './ui/Avatar'
-import { useAvatarDatabase } from '../hooks/useAvatarDatabase'
+import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import type { User as UserType } from '../types/user'
 
 interface UserAvatarProps {
@@ -18,7 +18,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   version,
   onImageError 
 }) => {
-  const { avatar: databaseAvatar, refreshAvatar } = useAvatarDatabase({ 
+  const { avatar: hybridAvatar, refreshAvatar } = useHybridAvatar({ 
     userId: user.id ? Number(user.id) : 0,
     autoLoad: !!user.id
   })
@@ -40,7 +40,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
 
   return (
     <Avatar
-      src={databaseAvatar?.dataUrl || undefined}
+      src={hybridAvatar || undefined}
       name={user.full_name || user.username}
       size={size}
       className={className}

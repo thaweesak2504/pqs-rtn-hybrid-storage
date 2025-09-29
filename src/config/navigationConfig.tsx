@@ -12,7 +12,8 @@ import {
   Activity,
   Crown,
   UserPlus,
-  Archive
+  Archive,
+  TestTube
 } from 'lucide-react'
 
 // Route configuration for navigation
@@ -33,7 +34,8 @@ export const ROUTE_CONFIG = {
     contact: '/contact',
     signin: '/signin',
     registration: '/register',
-    register: '/register'
+    register: '/register',
+    hybridTest: '/hybrid-test'
   }
 } as const
 
@@ -48,6 +50,7 @@ export const ROUTE_STATE_MAP = {
   '/dashboard/performance': { activeItem: 'performance', expandedMenus: ['admin'] },
   '/dashboard/highranks': { activeItem: 'highranks', expandedMenus: ['admin'] },
   '/dashboard/management': { activeItem: 'management', expandedMenus: ['admin'] },
+  '/hybrid-test': { activeItem: 'hybridTest', expandedMenus: [] },
   '/contact': { activeItem: 'contact', expandedMenus: [] },
   '/signin': { activeItem: 'signin', expandedMenus: [] },
   '/register': { activeItem: 'register', expandedMenus: [] },
@@ -89,6 +92,11 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
       { id: 'highranks', label: 'High Ranks', icon: <Crown className="w-4 h-4" /> },
       { id: 'management', label: 'Database Management', icon: <Archive className="w-4 h-4" /> }
     ]
+  },
+  {
+    id: 'hybridTest',
+    label: 'Hybrid Avatar Test',
+    icon: <TestTube className="w-5 h-5" />
   },
   {
     id: 'contact',

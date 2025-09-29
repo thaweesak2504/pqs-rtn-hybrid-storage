@@ -10,6 +10,8 @@ mod database_backup;
 mod database_export;
 mod universal_sqlite_backup;
 mod backup_manager;
+mod file_manager;
+mod hybrid_avatar;
 // mod database_logger; // DISABLED - logging removed
 
 // Re-export database structs
@@ -229,6 +231,114 @@ fn get_backup_file_info(backup_filename: String) -> Result<(String, u64, String)
     backup_manager::get_backup_file_info(&backup_filename)
 }
 
+// Hybrid Avatar Commands
+#[tauri::command]
+fn save_hybrid_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<hybrid_avatar::HybridAvatarInfo, String> {
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.save_avatar(user_id, &avatar_data, &mime_type)
+}
+
+#[tauri::command]
+fn get_hybrid_avatar_info(user_id: i32) -> Result<hybrid_avatar::HybridAvatarInfo, String> {
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.get_user_avatar_info(user_id)
+}
+
+#[tauri::command]
+fn delete_hybrid_avatar(user_id: i32) -> Result<bool, String> {
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.delete_avatar(user_id)
+}
+
+#[tauri::command]
+fn get_hybrid_avatar_base64(avatar_path: String) -> Result<String, String> {
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.get_avatar_base64(&avatar_path)
+}
+
+#[tauri::command]
+fn migrate_user_avatar_to_file(user_id: i32) -> Result<bool, String> {
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.migrate_blob_to_file(user_id)
+}
+
+#[tauri::command]
+fn cleanup_orphaned_avatar_files() -> Result<u32, String> {
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.cleanup_orphaned_files()
+}
+
+#[tauri::command]
+fn get_media_directory_path() -> Result<String, String> {
+    let manager = file_manager::FileManager::new()?;
+    Ok(manager.get_media_directory().to_string_lossy().to_string())
+}
+
+// Test cleanup commands
+#[tauri::command]
+fn delete_test_users() -> Result<String, String> {
+    let conn = database::get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    
+    // First, check what users exist
+    let user_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM users",
+        [],
+        |row| Ok(row.get(0)?)
+    ).map_err(|e| format!("Failed to count users: {}", e))?;
+    
+    // Check what roles exist
+    let roles: Vec<String> = conn.prepare("SELECT DISTINCT role FROM users")
+        .map_err(|e| format!("Failed to prepare roles query: {}", e))?
+        .query_map([], |row| Ok(row.get::<_, String>(0)?))
+        .map_err(|e| format!("Failed to query roles: {}", e))?
+        .collect::<Result<Vec<String>, _>>()
+        .map_err(|e| format!("Failed to collect roles: {}", e))?;
+    
+    // Delete all users except admin (role = 'admin')
+    let rows_affected = conn.execute(
+        "DELETE FROM users WHERE role != 'admin'",
+        []
+    ).map_err(|e| format!("Failed to delete test users: {}", e))?;
+    
+    // Check users after deletion
+    let remaining_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM users",
+        [],
+        |row| Ok(row.get(0)?)
+    ).map_err(|e| format!("Failed to count remaining users: {}", e))?;
+    
+    let remaining_roles: Vec<String> = conn.prepare("SELECT DISTINCT role FROM users")
+        .map_err(|e| format!("Failed to prepare remaining roles query: {}", e))?
+        .query_map([], |row| Ok(row.get::<_, String>(0)?))
+        .map_err(|e| format!("Failed to query remaining roles: {}", e))?
+        .collect::<Result<Vec<String>, _>>()
+        .map_err(|e| format!("Failed to collect remaining roles: {}", e))?;
+    
+    // Also delete from avatars table for deleted users
+    let _ = conn.execute(
+        "DELETE FROM avatars WHERE user_id NOT IN (SELECT id FROM users WHERE role = 'admin')",
+        []
+    );
+    
+    // Clean up orphaned avatars
+    let _ = database::cleanup_orphaned_avatars();
+    
+    Ok(format!("Before: {} users, Roles: {:?}, Deleted: {} users, After: {} users, Remaining roles: {:?}", user_count, roles, rows_affected, remaining_count, remaining_roles))
+}
+
+#[tauri::command]
+fn get_users_count() -> Result<i32, String> {
+    let conn = database::get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    
+    let count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM users",
+        [],
+        |row| Ok(row.get(0)?)
+    ).map_err(|e| format!("Failed to count users: {}", e))?;
+    
+    Ok(count)
+}
+
 // DISABLED - Database logging functions removed
 // #[tauri::command]
 // fn get_database_logs() -> Result<String, String> {
@@ -300,6 +410,17 @@ fn main() {
             get_backup_directory_path,
             list_backup_files_with_paths,
             get_backup_file_info,
+            // Hybrid Avatar commands
+            save_hybrid_avatar,
+            get_hybrid_avatar_info,
+            delete_hybrid_avatar,
+            get_hybrid_avatar_base64,
+            migrate_user_avatar_to_file,
+            cleanup_orphaned_avatar_files,
+            get_media_directory_path,
+            // Test cleanup commands
+            delete_test_users,
+            get_users_count,
         ])
         .setup(|app| {
             // Initialize database on app startup

@@ -3,7 +3,7 @@ import { User, Settings, LogOut, Mail, Shield, Edit } from 'lucide-react'
 import Avatar from './ui/Avatar'
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage, formatDimensions } from '../services/avatarService'
 import { useAuth } from '../hooks/useAuth'
-import { useAvatarDatabase } from '../hooks/useAvatarDatabase'
+import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { Button } from './ui'
 import { useNavigate } from 'react-router-dom'
 
@@ -16,8 +16,8 @@ const UserProfileContent: React.FC = () => {
   const [dimensionInfo, setDimensionInfo] = React.useState<string>('')
   const navigate = useNavigate()
   
-  // Get avatar from database
-  const { avatar: databaseAvatar, saveAvatar, refreshAvatar } = useAvatarDatabase({
+  // Get avatar from hybrid system
+  const { avatar: hybridAvatar, saveAvatar, refreshAvatar } = useHybridAvatar({
     userId: user?.id ? parseInt(user.id, 10) : 0,
     autoLoad: !!user?.id
   })
@@ -59,19 +59,38 @@ const UserProfileContent: React.FC = () => {
       return
     }
     
-    
-    // Save to database using new avatar system
-    const success = await saveAvatar(preview)
-    if (success) {
-      setPreview(null)
-      // Refresh avatar in other components
-      refreshAvatar()
-      // Trigger global avatar refresh event
-      window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-        detail: { userId: user?.id } 
-      }))
-    } else {
-      setUploadError('ไม่สามารถบันทึกรูปได้')
+    // Convert data URL to file for hybrid avatar system
+    try {
+      const response = await fetch(preview)
+      const arrayBuffer = await response.arrayBuffer()
+      const fileData = new Uint8Array(arrayBuffer)
+      
+      // Get MIME type from data URL
+      const mimeType = preview.split(';')[0].split(':')[1] || 'image/jpeg'
+      
+      // Save using hybrid avatar system
+      const success = await saveAvatar(fileData, mimeType)
+      if (success) {
+        setPreview(null)
+        // Refresh avatar in other components
+        refreshAvatar()
+        // Trigger global avatar refresh event
+        window.dispatchEvent(new CustomEvent('avatarUpdated', { 
+          detail: { userId: user?.id, forceRefresh: true } 
+        }))
+        
+        // Force refresh all avatar displays
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
+            detail: { userId: user?.id, forceRefresh: true } 
+          }))
+        }, 500)
+      } else {
+        setUploadError('ไม่สามารถบันทึกรูปได้')
+      }
+    } catch (error) {
+      console.error('Failed to convert data URL to file:', error)
+      setUploadError('ไม่สามารถแปลงรูปได้')
     }
   }
 
@@ -83,9 +102,9 @@ const UserProfileContent: React.FC = () => {
     if (!user?.id) return
 
     try {
-      // Delete avatar from SQLite database using Tauri
+      // Delete avatar using Hybrid Avatar System
       const { invoke } = await import('@tauri-apps/api/tauri')
-      await invoke('delete_avatar', { userId: parseInt(user.id, 10) })
+      await invoke('delete_hybrid_avatar', { userId: parseInt(user.id, 10) })
 
       // Update local state
       await updateAvatar(null)
@@ -94,8 +113,15 @@ const UserProfileContent: React.FC = () => {
 
       // Trigger global avatar refresh event
       window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-        detail: { userId: user.id }
+        detail: { userId: user.id, forceRefresh: true } 
       }))
+      
+      // Force refresh all avatar displays
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('avatarUpdated', { 
+          detail: { userId: user.id, forceRefresh: true } 
+        }))
+      }, 500)
 
     } catch (error) {
       console.error('Failed to remove avatar:', error)
@@ -222,7 +248,7 @@ const UserProfileContent: React.FC = () => {
       <div className="flex items-center space-x-4">
         <div className="relative">
           <Avatar
-            src={preview || databaseAvatar?.dataUrl || undefined}
+            src={preview || hybridAvatar || undefined}
             version={preview ? null : (user as any)?.avatar_updated_at || null}
             name={user?.name}
             size="lg"
