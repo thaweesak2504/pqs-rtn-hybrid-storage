@@ -56,11 +56,8 @@ impl HybridAvatarManager {
             params![avatar_path, updated_at, mime_type, file_size, user_id]
         ).map_err(|e| format!("Failed to update user avatar: {}", e))?;
         
-        // Delete old BLOB avatar if exists
-        conn.execute(
-            "DELETE FROM avatars WHERE user_id = ?",
-            params![user_id]
-        ).map_err(|e| format!("Failed to delete old avatar: {}", e))?;
+        // Note: avatars table has been removed - no need to delete from it
+        // File-based storage is now the only method
         
         Ok(HybridAvatarInfo {
             user_id,
@@ -131,11 +128,8 @@ impl HybridAvatarManager {
             params![user_id]
         ).map_err(|e| format!("Failed to clear user avatar: {}", e))?;
         
-        // Delete BLOB avatar if exists
-        conn.execute(
-            "DELETE FROM avatars WHERE user_id = ?",
-            params![user_id]
-        ).map_err(|e| format!("Failed to delete BLOB avatar: {}", e))?;
+        // Note: avatars table has been removed - no need to delete from it
+        // File-based storage is now the only method
         
         Ok(true)
     }
@@ -197,12 +191,8 @@ impl HybridAvatarManager {
             return Ok(false); // Already migrated
         }
         
-        // Get BLOB avatar
-        let blob_avatar: Option<(Vec<u8>, String)> = conn.query_row(
-            "SELECT avatar_data, mime_type FROM avatars WHERE user_id = ?",
-            params![user_id],
-            |row| Ok((row.get(0)?, row.get(1)?))
-        ).ok();
+        // Note: avatars table has been removed - no BLOB avatars to migrate
+        let blob_avatar: Option<(Vec<u8>, String)> = None;
         
         if let Some((avatar_data, mime_type)) = blob_avatar {
             // Save to file
@@ -217,11 +207,8 @@ impl HybridAvatarManager {
                 params![avatar_path, updated_at, mime_type, file_size, user_id]
             ).map_err(|e| format!("Failed to update user avatar: {}", e))?;
             
-            // Delete BLOB avatar
-            conn.execute(
-                "DELETE FROM avatars WHERE user_id = ?",
-                params![user_id]
-            ).map_err(|e| format!("Failed to delete BLOB avatar: {}", e))?;
+            // Note: avatars table has been removed - no need to delete from it
+            // File-based storage is now the only method
             
             Ok(true)
         } else {

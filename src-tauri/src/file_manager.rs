@@ -41,7 +41,6 @@ impl FileManager {
         &self.media_dir
     }
     
-    
     pub fn save_avatar_file(&self, user_id: i32, file_data: &[u8], mime_type: &str) -> Result<String, String> {
         // Generate unique filename
         let extension = match mime_type {
@@ -89,7 +88,6 @@ impl FileManager {
         
         Ok(())
     }
-    
     
     pub fn cleanup_orphaned_files(&self, valid_paths: &[String]) -> Result<u32, String> {
         let mut deleted_count = 0;

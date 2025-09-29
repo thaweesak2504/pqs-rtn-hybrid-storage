@@ -27,7 +27,8 @@ pub struct User {
     pub updated_at: Option<String>,
 }
 
-// Memory-safe avatar data with size validation
+// DEPRECATED: Avatar struct - now using file-based storage
+// This struct is kept for backward compatibility but should not be used
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Avatar {
     pub id: Option<i32>,
@@ -39,10 +40,10 @@ pub struct Avatar {
     pub updated_at: Option<String>,
 }
 
-// Maximum allowed avatar size (5MB)
+// DEPRECATED: Avatar validation functions - now using file-based storage
+// These functions are kept for backward compatibility but should not be used
 const MAX_AVATAR_SIZE: usize = 5 * 1024 * 1024;
 
-// Memory-safe avatar data validation
 fn validate_avatar_data(data: &[u8]) -> Result<(), String> {
     if data.is_empty() {
         return Err("Avatar data cannot be empty".to_string());
@@ -64,7 +65,7 @@ fn validate_avatar_data(data: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-// Helper function to convert String error to rusqlite::Error
+// DEPRECATED: Helper function for avatar validation - now using file-based storage
 fn string_to_rusqlite_error(err: String) -> rusqlite::Error {
     rusqlite::Error::SqliteFailure(
         rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CONSTRAINT),
@@ -194,19 +195,8 @@ fn initialize_database_internal() -> Result<String, String> {
     //     "Creating avatars table".to_string()
     // );
     
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS avatars (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            avatar_data BLOB NOT NULL,
-            mime_type TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-        )",
-        [],
-    ).map_err(|e| format!("Failed to create avatars table: {}", e))?;
+    // Avatars table removed - now using file-based storage in media/avatars/ folder
+    // The users table has avatar_path field for file-based avatar storage
     
     // Create high_ranking_officers table
     conn.execute(
@@ -484,27 +474,17 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
         params![id],
     ).map_err(|e| format!("Failed to delete user: {}", e))?;
     
-    // If cascade didn't work, manually delete avatars
-    if rows_affected > 0 {
-        let _ = conn.execute(
-            "DELETE FROM avatars WHERE user_id = ?",
-            params![id],
-        );
-    }
+    // Avatar cleanup is now handled by file-based storage system
+    // No need to manually delete from avatars table since it's removed
     
     Ok(rows_affected > 0)
 }
 
-// Clean up orphaned avatars (avatars without corresponding users)
+// Clean up orphaned avatars (avatars without corresponding users) - DEPRECATED
+// Now using file-based storage, this function is no longer needed
 pub fn cleanup_orphaned_avatars() -> Result<i32, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    
-    let rows_affected = conn.execute(
-        "DELETE FROM avatars WHERE user_id NOT IN (SELECT id FROM users)",
-        [],
-    ).map_err(|e| format!("Failed to cleanup orphaned avatars: {}", e))?;
-    
-    Ok(rows_affected as i32)
+    // No-op since we're using file-based storage now
+    Ok(0)
 }
 
 pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Option<User>, String> {
@@ -545,145 +525,28 @@ pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Opti
     }
 }
 
+// DEPRECATED: get_all_avatars - now using file-based storage
 pub fn get_all_avatars() -> Result<Vec<Avatar>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, user_id, avatar_data, mime_type, file_size, created_at, updated_at FROM avatars ORDER BY created_at DESC")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    let avatars = stmt.query_map([], |row| {
-        let avatar_data: Vec<u8> = row.get(2)?;
-        
-        // Memory safety validation
-        validate_avatar_data(&avatar_data).map_err(string_to_rusqlite_error)?;
-        
-        Ok(Avatar {
-            id: Some(row.get(0)?),
-            user_id: row.get(1)?,
-            avatar_data,
-            mime_type: row.get(3)?,
-            file_size: row.get(4)?,
-            created_at: Some(row.get(5)?),
-            updated_at: Some(row.get(6)?),
-        })
-    }).map_err(|e| format!("Failed to query avatars: {}", e))?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| format!("Failed to collect avatars: {}", e))?;
-    
-    Ok(avatars)
+    // Return empty vector since we're using file-based storage now
+    Ok(Vec::new())
 }
 
-pub fn get_avatar_by_user_id(user_id: i32) -> Result<Option<Avatar>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, user_id, avatar_data, mime_type, file_size, created_at, updated_at FROM avatars WHERE user_id = ?")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    let avatar = stmt.query_row(params![user_id], |row| {
-        let avatar_data: Vec<u8> = row.get(2)?;
-        
-        // Memory safety validation
-        validate_avatar_data(&avatar_data).map_err(string_to_rusqlite_error)?;
-        
-        Ok(Avatar {
-            id: Some(row.get(0)?),
-            user_id: row.get(1)?,
-            avatar_data,
-            mime_type: row.get(3)?,
-            file_size: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-        })
-    });
-    
-    match avatar {
-        Ok(avatar) => Ok(Some(avatar)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(format!("Failed to query avatar: {}", e)),
-    }
+// DEPRECATED: get_avatar_by_user_id - now using file-based storage
+pub fn get_avatar_by_user_id(_user_id: i32) -> Result<Option<Avatar>, String> {
+    // Return None since we're using file-based storage now
+    Ok(None)
 }
 
-pub fn save_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: &str) -> Result<Avatar, String> {
-    // Memory safety validation
-    validate_avatar_data(&avatar_data)?;
-    
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let file_size = avatar_data.len() as i32;
-    
-    // First, verify user exists
-    let user_exists = conn.query_row::<i32, _, _>(
-        "SELECT COUNT(*) FROM users WHERE id = ?",
-        params![user_id],
-        |row| Ok(row.get(0)?)
-    ).map_err(|e| format!("Failed to check user existence: {}", e))?;
-    
-    if user_exists == 0 {
-        return Err(format!("User with ID {} does not exist", user_id));
-    }
-    
-    // Log avatar save operation - DISABLED
-    // let _ = DB_LOGGER.log_avatar_operation(
-    //     DatabaseOperation::InsertAvatar,
-    //     Some(user_id),
-    //     format!("Saving avatar for user {} (size: {} bytes, type: {})", user_id, file_size, mime_type)
-    // );
-    
-    // Delete existing avatar for this user
-    conn.execute(
-        "DELETE FROM avatars WHERE user_id = ?",
-        params![user_id],
-    ).map_err(|e| format!("Failed to delete existing avatar: {}", e))?;
-    
-    // Temporarily disable FOREIGN KEY constraints for this operation
-    conn.execute("PRAGMA foreign_keys = OFF", [])
-        .map_err(|e| format!("Failed to disable foreign keys: {}", e))?;
-    
-    // Insert new avatar with memory-safe data
-    conn.execute(
-        "INSERT INTO avatars (user_id, avatar_data, mime_type, file_size) VALUES (?, ?, ?, ?)",
-        params![user_id, avatar_data, mime_type, file_size],
-    ).map_err(|e| format!("Failed to save avatar: {}", e))?;
-    
-    // Re-enable FOREIGN KEY constraints
-    conn.execute("PRAGMA foreign_keys = ON", [])
-        .map_err(|e| format!("Failed to re-enable foreign keys: {}", e))?;
-    
-    let avatar_id = conn.last_insert_rowid() as i32;
-    
-    // Get the saved avatar with memory safety
-    let mut stmt = conn.prepare("SELECT id, user_id, avatar_data, mime_type, file_size, created_at, updated_at FROM avatars WHERE id = ?")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    let avatar = stmt.query_row(params![avatar_id], |row| {
-        let avatar_data: Vec<u8> = row.get(2)?;
-        
-        // Validate retrieved data
-        validate_avatar_data(&avatar_data).map_err(|e| rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CONSTRAINT),
-            Some(e)
-        ))?;
-        
-        Ok(Avatar {
-            id: Some(row.get(0)?),
-            user_id: row.get(1)?,
-            avatar_data,
-            mime_type: row.get(3)?,
-            file_size: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-        })
-    }).map_err(|e| format!("Failed to retrieve saved avatar: {}", e))?;
-    
-    Ok(avatar)
+// DEPRECATED: save_avatar - now using file-based storage
+pub fn save_avatar(_user_id: i32, _avatar_data: Vec<u8>, _mime_type: &str) -> Result<Avatar, String> {
+    // Return error since we're using file-based storage now
+    Err("Avatar storage is now file-based. Use Hybrid Avatar System instead.".to_string())
 }
 
-pub fn delete_avatar(user_id: i32) -> Result<bool, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    
-    let rows_affected = conn.execute(
-        "DELETE FROM avatars WHERE user_id = ?",
-        params![user_id],
-    ).map_err(|e| format!("Failed to delete avatar: {}", e))?;
-    
-    Ok(rows_affected > 0)
+// DEPRECATED: delete_avatar - now using file-based storage
+pub fn delete_avatar(_user_id: i32) -> Result<bool, String> {
+    // Return false since we're using file-based storage now
+    Ok(false)
 }
 
 
