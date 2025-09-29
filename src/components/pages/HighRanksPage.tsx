@@ -3,6 +3,7 @@ import { Container, Title, Card, Button, Alert } from '../ui';
 import EditOfficerModal from '../ui/EditOfficerModal';
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../../services/avatarService';
 import { invoke } from '@tauri-apps/api/tauri';
+import { useHybridHighRankAvatar } from '../../hooks/useHybridHighRankAvatar';
 
 // Import static images as fallback
 import member1 from '../../assets/images/member_1.webp';
@@ -18,13 +19,8 @@ interface HighRankingOfficer {
   order_index: number;
 }
 
-interface HighRankingAvatar {
-  id: number;
-  officer_id: number;
-  avatar_data: number[];
-  mime_type: string;
-  file_size: number;
-}
+// DEPRECATED: HighRankingAvatar interface removed
+// Now using HybridHighRankAvatarInfo from useHybridHighRankAvatar hook
 
 const HighRanksPage: React.FC = () => {
   const [uploading, setUploading] = useState<Record<number, boolean>>({});
@@ -43,18 +39,19 @@ const HighRanksPage: React.FC = () => {
         const officersData = await invoke<HighRankingOfficer[]>('get_all_high_ranking_officers');
         setOfficers(officersData);
 
-        // Load avatars for each officer
+        // Load avatars for each officer using Hybrid System
         const avatarPromises = officersData.map(async (officer) => {
           try {
-            const avatar = await invoke<HighRankingAvatar | null>('get_high_ranking_avatar_by_officer_id', {
+            const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
               officerId: officer.id
             });
             
-            if (avatar) {
-              // Convert avatar data to blob URL
-              const blob = new Blob([new Uint8Array(avatar.avatar_data)], { type: avatar.mime_type });
-              const url = URL.createObjectURL(blob);
-              return { officerId: officer.id, url };
+            if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
+              // Get base64 data for display
+              const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
+                avatarPath: avatarInfo.avatar_path
+              });
+              return { officerId: officer.id, url: base64Data };
             }
           } catch (error) {
             console.error(`Failed to load avatar for officer ${officer.id}:`, error);
@@ -138,8 +135,8 @@ const HighRanksPage: React.FC = () => {
         bytes[i] = binaryString.charCodeAt(i);
       }
       
-        // Save avatar to database using Tauri
-        await invoke('save_high_ranking_avatar', {
+        // Save avatar using Hybrid System
+        await invoke('save_hybrid_high_rank_avatar', {
           officerId: officerId,
           avatarData: Array.from(bytes),
           mimeType: mimeType
@@ -147,21 +144,22 @@ const HighRanksPage: React.FC = () => {
 
         // Success - refresh the avatar for this officer
         
-        // Reload avatar for this specific officer
+        // Reload avatar for this specific officer using Hybrid System
         try {
-          const avatar = await invoke<HighRankingAvatar | null>('get_high_ranking_avatar_by_officer_id', {
+          const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
             officerId: officerId
           });
           
-          if (avatar) {
-            // Convert avatar data to blob URL
-            const blob = new Blob([new Uint8Array(avatar.avatar_data)], { type: avatar.mime_type });
-            const url = URL.createObjectURL(blob);
+          if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
+            // Get base64 data for display
+            const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
+              avatarPath: avatarInfo.avatar_path
+            });
             
             // Update the avatar in state
             setAvatars(prev => ({
               ...prev,
-              [officerId]: url
+              [officerId]: base64Data
             }));
           }
         } catch (error) {

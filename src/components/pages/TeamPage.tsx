@@ -47,18 +47,19 @@ const TeamPage: React.FC = () => {
         const officersData = await invoke<HighRankingOfficer[]>('get_all_high_ranking_officers');
         setOfficers(officersData);
 
-        // Load avatars for each officer
+        // Load avatars for each officer using Hybrid System
         const avatarPromises = officersData.map(async (officer) => {
           try {
-            const avatar = await invoke<HighRankingAvatar | null>('get_high_ranking_avatar_by_officer_id', {
+            const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
               officerId: officer.id
             });
             
-            if (avatar) {
-              // Convert avatar data to blob URL
-              const blob = new Blob([new Uint8Array(avatar.avatar_data)], { type: avatar.mime_type });
-              const url = URL.createObjectURL(blob);
-              return { officerId: officer.id, url };
+            if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
+              // Get base64 data for display
+              const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
+                avatarPath: avatarInfo.avatar_path
+              });
+              return { officerId: officer.id, url: base64Data };
             }
           } catch (error) {
             console.error(`Failed to load avatar for officer ${officer.id}:`, error);

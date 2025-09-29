@@ -12,10 +12,12 @@ mod universal_sqlite_backup;
 mod backup_manager;
 mod file_manager;
 mod hybrid_avatar;
+mod hybrid_high_rank_avatar;
 // mod database_logger; // DISABLED - logging removed
 
 // Re-export database structs
-pub use database::{User, Avatar, HighRankingOfficer, HighRankingAvatar};
+pub use database::{User, Avatar, HighRankingOfficer};
+// DEPRECATED: HighRankingAvatar removed - now using file-based storage
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -126,15 +128,8 @@ fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
     database::get_all_high_ranking_officers()
 }
 
-#[tauri::command]
-fn save_high_ranking_avatar(officer_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<HighRankingAvatar, String> {
-    database::save_high_ranking_avatar(officer_id, avatar_data, &mime_type)
-}
-
-#[tauri::command]
-fn get_high_ranking_avatar_by_officer_id(officer_id: i32) -> Result<Option<HighRankingAvatar>, String> {
-    database::get_high_ranking_avatar_by_officer_id(officer_id)
-}
+// DEPRECATED: save_high_ranking_avatar, get_high_ranking_avatar_by_officer_id commands removed
+// Now using hybrid high rank avatar commands
 
 
 #[tauri::command]
@@ -274,6 +269,37 @@ fn get_media_directory_path() -> Result<String, String> {
     Ok(manager.get_media_directory().to_string_lossy().to_string())
 }
 
+// Hybrid High Rank Avatar Commands
+#[tauri::command]
+fn save_hybrid_high_rank_avatar(officer_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<hybrid_high_rank_avatar::HybridHighRankAvatarInfo, String> {
+    let manager = hybrid_high_rank_avatar::HybridHighRankAvatarManager::new()?;
+    manager.save_avatar(officer_id, &avatar_data, &mime_type)
+}
+
+#[tauri::command]
+fn get_hybrid_high_rank_avatar_info(officer_id: i32) -> Result<hybrid_high_rank_avatar::HybridHighRankAvatarInfo, String> {
+    let manager = hybrid_high_rank_avatar::HybridHighRankAvatarManager::new()?;
+    manager.get_avatar_info(officer_id)
+}
+
+#[tauri::command]
+fn delete_hybrid_high_rank_avatar(officer_id: i32) -> Result<bool, String> {
+    let manager = hybrid_high_rank_avatar::HybridHighRankAvatarManager::new()?;
+    manager.delete_avatar(officer_id)
+}
+
+#[tauri::command]
+fn get_hybrid_high_rank_avatar_base64(avatar_path: String) -> Result<String, String> {
+    let manager = hybrid_high_rank_avatar::HybridHighRankAvatarManager::new()?;
+    manager.get_avatar_base64(&avatar_path)
+}
+
+#[tauri::command]
+fn cleanup_orphaned_high_rank_avatar_files() -> Result<u32, String> {
+    let manager = hybrid_high_rank_avatar::HybridHighRankAvatarManager::new()?;
+    manager.cleanup_orphaned_files()
+}
+
 // Test cleanup commands
 #[tauri::command]
 fn delete_test_users() -> Result<String, String> {
@@ -386,8 +412,8 @@ fn main() {
             zoom_out,
             zoom_reset,
             get_all_high_ranking_officers,
-            save_high_ranking_avatar,
-            get_high_ranking_avatar_by_officer_id,
+            // DEPRECATED: save_high_ranking_avatar, get_high_ranking_avatar_by_officer_id removed
+            // Now using hybrid high rank avatar commands
             update_high_ranking_officer,
             hash_password,
             // get_database_logs, // DISABLED - logging removed
@@ -418,6 +444,12 @@ fn main() {
             migrate_user_avatar_to_file,
             cleanup_orphaned_avatar_files,
             get_media_directory_path,
+            // Hybrid High Rank Avatar commands
+            save_hybrid_high_rank_avatar,
+            get_hybrid_high_rank_avatar_info,
+            delete_hybrid_high_rank_avatar,
+            get_hybrid_high_rank_avatar_base64,
+            cleanup_orphaned_high_rank_avatar_files,
             // Test cleanup commands
             delete_test_users,
             get_users_count,

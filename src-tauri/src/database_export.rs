@@ -78,7 +78,7 @@ pub fn export_database(format: ExportFormat) -> Result<String, String> {
     };
     
     // Export all tables
-    let table_names = vec!["users", "avatars", "high_ranking_officers", "high_ranking_avatars"];
+    let table_names = vec!["users", "high_ranking_officers"];
     for table_name in table_names {
         let table_export = export_table(&conn, table_name)?;
         export.tables.push(table_export);

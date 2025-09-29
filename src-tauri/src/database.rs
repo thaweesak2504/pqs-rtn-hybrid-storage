@@ -42,36 +42,11 @@ pub struct Avatar {
 
 // DEPRECATED: Avatar validation functions - now using file-based storage
 // These functions are kept for backward compatibility but should not be used
-const MAX_AVATAR_SIZE: usize = 5 * 1024 * 1024;
+// DEPRECATED: MAX_AVATAR_SIZE removed - now using file-based storage
 
-fn validate_avatar_data(data: &[u8]) -> Result<(), String> {
-    if data.is_empty() {
-        return Err("Avatar data cannot be empty".to_string());
-    }
-    
-    if data.len() > MAX_AVATAR_SIZE {
-        return Err(format!(
-            "Avatar data too large: {} bytes (max: {} bytes)", 
-            data.len(), 
-            MAX_AVATAR_SIZE
-        ));
-    }
-    
-    // Additional validation - check if data is properly allocated
-    if data.len() == 0 && !data.is_empty() {
-        return Err("Avatar data has invalid length".to_string());
-    }
-    
-    Ok(())
-}
+// DEPRECATED: validate_avatar_data function removed - now using file-based storage
 
-// DEPRECATED: Helper function for avatar validation - now using file-based storage
-fn string_to_rusqlite_error(err: String) -> rusqlite::Error {
-    rusqlite::Error::SqliteFailure(
-        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CONSTRAINT),
-        Some(err)
-    )
-}
+// DEPRECATED: string_to_rusqlite_error function removed - now using file-based storage
 
 // SQLite database operations
 pub fn get_database_path() -> Result<PathBuf, String> {
@@ -198,34 +173,30 @@ fn initialize_database_internal() -> Result<String, String> {
     // Avatars table removed - now using file-based storage in media/avatars/ folder
     // The users table has avatar_path field for file-based avatar storage
     
-    // Create high_ranking_officers table
+    // Drop old high_ranking_officers table if it exists (without avatar_path fields)
+    conn.execute("DROP TABLE IF EXISTS high_ranking_officers", [])
+        .map_err(|e| format!("Failed to drop old high_ranking_officers table: {}", e))?;
+    
+    // Create new high_ranking_officers table with file-based avatar support
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS high_ranking_officers (
+        "CREATE TABLE high_ranking_officers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             thai_name TEXT NOT NULL,
             position_thai TEXT NOT NULL,
             position_english TEXT NOT NULL,
             order_index INTEGER NOT NULL DEFAULT 0,
+            avatar_path TEXT,
+            avatar_updated_at DATETIME,
+            avatar_mime TEXT,
+            avatar_size INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
     ).map_err(|e| format!("Failed to create high_ranking_officers table: {}", e))?;
     
-    // Create high_ranking_avatars table
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS high_ranking_avatars (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            officer_id INTEGER NOT NULL,
-            avatar_data BLOB NOT NULL,
-            mime_type TEXT NOT NULL,
-            file_size INTEGER NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (officer_id) REFERENCES high_ranking_officers (id) ON DELETE CASCADE
-        )",
-        [],
-    ).map_err(|e| format!("Failed to create high_ranking_avatars table: {}", e))?;
+    // High ranking avatars table removed - now using file-based storage in media/high_ranks/ folder
+    // The high_ranking_officers table has avatar_path field for file-based avatar storage
     
     
     // Check if admin user already exists
@@ -562,16 +533,8 @@ pub struct HighRankingOfficer {
     pub updated_at: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct HighRankingAvatar {
-    pub id: Option<i32>,
-    pub officer_id: i32,
-    pub avatar_data: Vec<u8>,
-    pub mime_type: String,
-    pub file_size: i32,
-    pub created_at: String,
-    pub updated_at: String,
-}
+// DEPRECATED: HighRankingAvatar struct removed
+// Now using file-based storage with HybridHighRankAvatarInfo
 
 
 // Insert default high ranking officers
@@ -630,102 +593,11 @@ pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String
     Ok(officers)
 }
 
-// Save high ranking avatar with memory safety
-pub fn save_high_ranking_avatar(officer_id: i32, avatar_data: Vec<u8>, mime_type: &str) -> Result<HighRankingAvatar, String> {
-    // Memory safety validation
-    validate_avatar_data(&avatar_data)?;
-    
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let file_size = avatar_data.len() as i32;
-    
-    // First, verify officer exists
-    let officer_exists = conn.query_row::<i32, _, _>(
-        "SELECT COUNT(*) FROM high_ranking_officers WHERE id = ?",
-        params![officer_id],
-        |row| Ok(row.get(0)?)
-    ).map_err(|e| format!("Failed to check officer existence: {}", e))?;
-    
-    if officer_exists == 0 {
-        return Err(format!("Officer with ID {} does not exist", officer_id));
-    }
-    
-    // Delete existing avatar for this officer
-    conn.execute(
-        "DELETE FROM high_ranking_avatars WHERE officer_id = ?",
-        params![officer_id],
-    ).map_err(|e| format!("Failed to delete existing avatar: {}", e))?;
-    
-    // Temporarily disable FOREIGN KEY constraints for this operation
-    conn.execute("PRAGMA foreign_keys = OFF", [])
-        .map_err(|e| format!("Failed to disable foreign keys: {}", e))?;
-    
-    // Insert new avatar with memory-safe data
-    conn.execute(
-        "INSERT INTO high_ranking_avatars (officer_id, avatar_data, mime_type, file_size) VALUES (?, ?, ?, ?)",
-        params![officer_id, avatar_data, mime_type, file_size],
-    ).map_err(|e| format!("Failed to save avatar: {}", e))?;
-    
-    // Re-enable FOREIGN KEY constraints
-    conn.execute("PRAGMA foreign_keys = ON", [])
-        .map_err(|e| format!("Failed to re-enable foreign keys: {}", e))?;
-    
-    let avatar_id = conn.last_insert_rowid() as i32;
-    
-    // Get the saved avatar with memory safety
-    let mut stmt = conn.prepare("SELECT id, officer_id, avatar_data, mime_type, file_size, created_at, updated_at FROM high_ranking_avatars WHERE id = ?")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    let avatar = stmt.query_row(params![avatar_id], |row| {
-        let avatar_data: Vec<u8> = row.get(2)?;
-        
-        // Validate retrieved data
-        validate_avatar_data(&avatar_data).map_err(|e| rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CONSTRAINT),
-            Some(e)
-        ))?;
-        
-        Ok(HighRankingAvatar {
-            id: Some(row.get(0)?),
-            officer_id: row.get(1)?,
-            avatar_data,
-            mime_type: row.get(3)?,
-            file_size: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-        })
-    }).map_err(|e| format!("Failed to retrieve saved avatar: {}", e))?;
-    
-    Ok(avatar)
-}
+// DEPRECATED: save_high_ranking_avatar function removed
+// Now using file-based storage with save_hybrid_high_rank_avatar command
 
-// Get high ranking avatar by officer ID with memory safety
-pub fn get_high_ranking_avatar_by_officer_id(officer_id: i32) -> Result<Option<HighRankingAvatar>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    
-    let mut stmt = conn.prepare("SELECT id, officer_id, avatar_data, mime_type, file_size, created_at, updated_at FROM high_ranking_avatars WHERE officer_id = ?")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-    
-    match stmt.query_row(params![officer_id], |row| {
-        let avatar_data: Vec<u8> = row.get(2)?;
-        
-        // Memory safety validation
-        validate_avatar_data(&avatar_data).map_err(string_to_rusqlite_error)?;
-        
-        Ok(HighRankingAvatar {
-            id: Some(row.get(0)?),
-            officer_id: row.get(1)?,
-            avatar_data,
-            mime_type: row.get(3)?,
-            file_size: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-        })
-    }) {
-        Ok(avatar) => Ok(Some(avatar)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(format!("Failed to query avatar: {}", e)),
-    }
-}
+// DEPRECATED: get_high_ranking_avatar_by_officer_id function removed
+// Now using file-based storage with get_hybrid_high_rank_avatar_info command
 
 // Update high ranking officer
 pub fn update_high_ranking_officer(id: i32, thai_name: &str, position_thai: &str, position_english: &str, order_index: i32) -> Result<HighRankingOfficer, String> {

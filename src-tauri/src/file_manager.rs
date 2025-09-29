@@ -17,6 +17,7 @@ pub struct FileInfo {
 pub struct FileManager {
     media_dir: PathBuf,
     avatars_dir: PathBuf,
+    high_ranks_dir: PathBuf,
 }
 
 impl FileManager {
@@ -26,14 +27,18 @@ impl FileManager {
         
         let media_dir = app_data.join("pqs-rtn-hybrid-storage").join("media");
         let avatars_dir = media_dir.join("avatars");
+        let high_ranks_dir = media_dir.join("high_ranks");
         
         // Create directories if they don't exist
         fs::create_dir_all(&avatars_dir)
             .map_err(|e| format!("Failed to create avatars directory: {}", e))?;
+        fs::create_dir_all(&high_ranks_dir)
+            .map_err(|e| format!("Failed to create high_ranks directory: {}", e))?;
         
         Ok(FileManager {
             media_dir,
             avatars_dir,
+            high_ranks_dir,
         })
     }
     
@@ -84,6 +89,44 @@ impl FileManager {
         if file_path.exists() {
             fs::remove_file(&file_path)
                 .map_err(|e| format!("Failed to delete avatar file: {}", e))?;
+        }
+        
+        Ok(())
+    }
+    
+    pub fn save_high_rank_avatar_file(&self, officer_id: i32, file_data: &[u8], mime_type: &str) -> Result<String, String> {
+        // Generate unique filename for high rank officer
+        let extension = match mime_type {
+            "image/jpeg" => "jpg",
+            "image/png" => "png",
+            "image/webp" => "webp",
+            "image/gif" => "gif",
+            _ => "jpg", // default
+        };
+        
+        let filename = format!("officer_{}_{}.{}", officer_id, chrono::Utc::now().timestamp(), extension);
+        let file_path = self.high_ranks_dir.join(&filename);
+        
+        // Write file to disk
+        let mut file = fs::File::create(&file_path)
+            .map_err(|e| format!("Failed to create high rank avatar file: {}", e))?;
+        
+        file.write_all(file_data)
+            .map_err(|e| format!("Failed to write high rank avatar data: {}", e))?;
+        
+        // Return relative path from media directory
+        let relative_path = file_path.strip_prefix(&self.media_dir)
+            .map_err(|e| format!("Failed to get relative path: {}", e))?;
+        
+        Ok(relative_path.to_string_lossy().to_string())
+    }
+    
+    pub fn delete_high_rank_avatar_file(&self, avatar_path: &str) -> Result<(), String> {
+        let file_path = self.media_dir.join(avatar_path);
+        
+        if file_path.exists() {
+            fs::remove_file(&file_path)
+                .map_err(|e| format!("Failed to delete high rank avatar file: {}", e))?;
         }
         
         Ok(())
