@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { Container, Card, Button, Title } from '../ui'
-import { RefreshCw, Database, Users, Image, Eye, EyeOff } from 'lucide-react'
+import { RefreshCw, Database, Users, Image, Eye, EyeOff, X, CheckCircle, XCircle } from 'lucide-react'
 
 interface User {
   id: number
@@ -20,19 +20,18 @@ interface User {
 }
 
 interface Avatar {
-  id: number
   user_id: number
-  avatar_path: string | null // File path instead of BLOB data
+  avatar_path: string | null
   avatar_updated_at: string | null
   avatar_mime: string | null
   avatar_size: number | null
-  created_at: string
-  updated_at: string
+  file_exists: boolean
 }
 
 const DatabaseViewerPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([])
   const [avatars, setAvatars] = useState<Avatar[]>([])
+  const [avatarImages, setAvatarImages] = useState<Record<number, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const [showPasswords, setShowPasswords] = useState(false)
@@ -46,9 +45,34 @@ const DatabaseViewerPage: React.FC = () => {
       const usersData = await invoke('get_all_users') as User[]
       setUsers(usersData)
 
-      // Load avatars
-      const avatarsData = await invoke('get_all_avatars') as Avatar[]
+      // Load avatars from users table (file-based storage)
+      const avatarsData: Avatar[] = []
+      const images: Record<number, string> = {}
+      
+      for (const user of usersData) {
+        if (user.avatar_path) {
+          avatarsData.push({
+            user_id: user.id!,
+            avatar_path: user.avatar_path,
+            avatar_updated_at: user.avatar_updated_at || null,
+            avatar_mime: user.avatar_mime || null,
+            avatar_size: user.avatar_size || null,
+            file_exists: true // Assume file exists if path is present
+          })
+          
+          // Load avatar image
+          try {
+            const base64Data = await invoke('get_hybrid_avatar_base64', { 
+              avatarPath: user.avatar_path 
+            }) as string
+            images[user.id!] = base64Data
+          } catch (error) {
+            console.error(`Failed to load avatar for user ${user.id}:`, error)
+          }
+        }
+      }
       setAvatars(avatarsData)
+      setAvatarImages(images)
 
       setLastRefresh(new Date())
     } catch (error) {
@@ -94,13 +118,18 @@ const DatabaseViewerPage: React.FC = () => {
     return avatars.find(avatar => avatar.user_id === userId)
   }
 
-  // Convert byte array to data URL
-  const bytesToDataUrl = (bytes: number[], mimeType: string): string => {
+  // Get user by ID
+  const getUserById = (userId: number) => {
+    return users.find(user => user.id === userId)
+  }
+
+  // Get avatar base64 data from file path
+  const getAvatarBase64 = async (avatarPath: string): Promise<string> => {
     try {
-      const base64 = btoa(String.fromCharCode(...bytes))
-      return `data:${mimeType};base64,${base64}`
+      const base64Data = await invoke('get_hybrid_avatar_base64', { avatarPath })
+      return base64Data as string
     } catch (error) {
-      console.error('Error converting bytes to data URL:', error)
+      console.error('Error getting avatar base64:', error)
       return ''
     }
   }
@@ -220,7 +249,7 @@ const DatabaseViewerPage: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <Image className="w-4 h-4 text-github-accent-success" />
                             <span className="text-xs text-github-text-secondary">
-                              {formatFileSize(avatar.file_size)}
+                              {avatar.avatar_size ? formatFileSize(avatar.avatar_size) : 'Unknown size'}
                             </span>
                           </div>
                         ) : (
@@ -256,14 +285,14 @@ const DatabaseViewerPage: React.FC = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b border-github-border-primary">
-                  <th className="text-left p-3 font-medium">ID</th>
                   <th className="text-left p-3 font-medium">User ID</th>
                   <th className="text-left p-3 font-medium">Username</th>
+                  <th className="text-left p-3 font-medium">File Path</th>
                   <th className="text-left p-3 font-medium">MIME Type</th>
                   <th className="text-left p-3 font-medium">Size</th>
-                  <th className="text-left p-3 font-medium">Data Preview</th>
-                  <th className="text-left p-3 font-medium">Created</th>
+                  <th className="text-left p-3 font-medium">File Exists</th>
                   <th className="text-left p-3 font-medium">Updated</th>
+                  <th className="text-left p-3 font-medium">Preview</th>
                 </tr>
               </thead>
               <tbody>
@@ -275,25 +304,39 @@ const DatabaseViewerPage: React.FC = () => {
                   </tr>
                 ) : (
                   avatars.map((avatar) => {
-                  const user = users.find(u => u.id === avatar.user_id)
+                  const user = getUserById(avatar.user_id)
                   return (
-                    <tr key={avatar.id} className="border-b border-github-border-secondary hover:bg-github-bg-hover">
-                      <td className="p-3 font-mono text-sm">{avatar.id}</td>
+                    <tr key={avatar.user_id} className="border-b border-github-border-secondary hover:bg-github-bg-hover">
                       <td className="p-3 font-mono text-sm">{avatar.user_id}</td>
                       <td className="p-3 font-medium">
                         {user ? user.username : 'Unknown User'}
                       </td>
-                      <td className="p-3 text-github-text-secondary">{avatar.mime_type}</td>
+                      <td className="p-3 font-mono text-sm text-github-text-secondary">
+                        {avatar.avatar_path || 'No path'}
+                      </td>
+                      <td className="p-3 text-github-text-secondary">{avatar.avatar_mime || 'Unknown'}</td>
                       <td className="p-3 text-github-text-secondary">
-                        {formatFileSize(avatar.file_size)}
+                        {avatar.avatar_size ? formatFileSize(avatar.avatar_size) : 'Unknown'}
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-center">
+                          {avatar.file_exists ? (
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          ) : (
+                            <XCircle className="w-5 h-5 text-red-600" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3 text-github-text-secondary">
+                        {avatar.avatar_updated_at ? formatDate(avatar.avatar_updated_at) : 'Never'}
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2">
-                          {avatar.avatar_data && avatar.avatar_data.length > 0 ? (
+                          {avatar.avatar_path && avatar.file_exists && avatarImages[avatar.user_id] ? (
                             <img 
-                              src={bytesToDataUrl(avatar.avatar_data, avatar.mime_type)}
+                              src={avatarImages[avatar.user_id]}
                               alt="Avatar preview"
-                              className="w-8 h-8 rounded border object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                              className="w-8 h-8 rounded-full object-cover object-top border cursor-pointer hover:opacity-80 transition-opacity"
                               onClick={() => setSelectedAvatar(avatar)}
                               onError={(e) => {
                                 // Fallback to icon if image fails to load
@@ -302,30 +345,19 @@ const DatabaseViewerPage: React.FC = () => {
                                 const parent = target.parentElement
                                 if (parent) {
                                   parent.innerHTML = `
-                                    <div class="w-8 h-8 bg-github-bg-secondary rounded border flex items-center justify-center">
-                                      <svg class="w-4 h-4 text-github-text-tertiary" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
-                                      </svg>
+                                    <div class="w-8 h-8 bg-github-bg-secondary rounded-full flex items-center justify-center">
+                                      <span class="text-xs text-github-text-secondary">📁</span>
                                     </div>
                                   `
                                 }
                               }}
                             />
                           ) : (
-                            <div className="w-8 h-8 bg-github-bg-secondary rounded border flex items-center justify-center">
+                            <div className="w-8 h-8 bg-github-bg-secondary rounded-full flex items-center justify-center">
                               <Image className="w-4 h-4 text-github-text-tertiary" />
                             </div>
                           )}
-                          <span className="text-xs text-github-text-tertiary">
-                            {avatar.avatar_data ? `${avatar.avatar_data.length} bytes` : 'No data'}
-                          </span>
                         </div>
-                      </td>
-                      <td className="p-3 text-xs text-github-text-secondary">
-                        {formatDate(avatar.created_at)}
-                      </td>
-                      <td className="p-3 text-xs text-github-text-secondary">
-                        {formatDate(avatar.updated_at)}
                       </td>
                     </tr>
                   )
@@ -341,32 +373,33 @@ const DatabaseViewerPage: React.FC = () => {
       {/* Avatar Preview Modal */}
       {selectedAvatar && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedAvatar(null)}>
-          <div className="bg-github-bg-primary rounded-lg p-6 max-w-2xl max-h-[90vh] overflow-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Avatar Preview</h3>
+          <div className="max-w-md max-h-[90vh] w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <Card 
+              variant="elevated" 
+              size="medium"
+              className="relative"
+            >
+              {/* Close Button */}
               <button
                 onClick={() => setSelectedAvatar(null)}
-                className="text-github-text-secondary hover:text-github-text-primary"
+                className="absolute top-4 right-4 text-github-text-secondary hover:text-github-text-primary transition-colors"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="w-6 h-6" />
               </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="text-center">
+              
+              {/* Avatar Image */}
+              <div className="text-center mb-4">
                 <img 
-                  src={bytesToDataUrl(selectedAvatar.avatar_data, selectedAvatar.mime_type)}
+                  src={avatarImages[selectedAvatar.user_id] || ''}
                   alt="Avatar preview"
-                  className="max-w-full max-h-96 mx-auto rounded border"
+                  className="max-w-full max-h-80 mx-auto rounded-lg border border-github-border-primary"
                   onError={(e) => {
                     const target = e.target as HTMLImageElement
                     target.style.display = 'none'
                     const parent = target.parentElement
                     if (parent) {
                       parent.innerHTML = `
-                        <div class="w-32 h-32 bg-github-bg-secondary rounded border flex items-center justify-center mx-auto">
+                        <div class="w-32 h-32 bg-github-bg-secondary rounded-lg border border-github-border-primary flex items-center justify-center mx-auto">
                           <svg class="w-16 h-16 text-github-text-tertiary" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" />
                           </svg>
@@ -377,11 +410,8 @@ const DatabaseViewerPage: React.FC = () => {
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-github-text-primary">User ID:</span>
-                  <span className="ml-2 text-github-text-secondary">{selectedAvatar.user_id}</span>
-                </div>
+              {/* Avatar Info */}
+              <div className="text-center space-y-2">
                 <div>
                   <span className="font-medium text-github-text-primary">Username:</span>
                   <span className="ml-2 text-github-text-secondary">
@@ -389,23 +419,13 @@ const DatabaseViewerPage: React.FC = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="font-medium text-github-text-primary">MIME Type:</span>
-                  <span className="ml-2 text-github-text-secondary">{selectedAvatar.mime_type}</span>
-                </div>
-                <div>
                   <span className="font-medium text-github-text-primary">File Size:</span>
-                  <span className="ml-2 text-github-text-secondary">{formatFileSize(selectedAvatar.file_size)}</span>
-                </div>
-                <div>
-                  <span className="font-medium text-github-text-primary">Data Size:</span>
-                  <span className="ml-2 text-github-text-secondary">{selectedAvatar.avatar_data.length} bytes</span>
-                </div>
-                <div>
-                  <span className="font-medium text-github-text-primary">Created:</span>
-                  <span className="ml-2 text-github-text-secondary">{formatDate(selectedAvatar.created_at)}</span>
+                  <span className="ml-2 text-github-text-secondary">
+                    {selectedAvatar.avatar_size ? formatFileSize(selectedAvatar.avatar_size) : 'Unknown'}
+                  </span>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       )}
