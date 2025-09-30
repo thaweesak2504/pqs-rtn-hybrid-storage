@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Database, FileText, Activity, Edit3 } from 'lucide-react'
+import { Database, Activity, Edit3 } from 'lucide-react'
 import Container from '../ui/Container'
 import Title from '../ui/Title'
 import Button from '../ui/Button'
@@ -77,7 +77,7 @@ const DashboardPage: React.FC = () => {
       {dbStatus === 'connected' && (
         <div className="mb-8">
           {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <Button
               variant="primary"
               size="medium"
@@ -87,16 +87,6 @@ const DashboardPage: React.FC = () => {
               iconPosition="left"
             >
               Database Viewer
-            </Button>
-            <Button
-              variant="primary"
-              size="medium"
-              onClick={() => navigate('/dashboard/logs')}
-              className="w-full"
-              icon={<FileText className="w-4 h-4" />}
-              iconPosition="left"
-            >
-              Database Logs
             </Button>
             <Button
               variant="primary"

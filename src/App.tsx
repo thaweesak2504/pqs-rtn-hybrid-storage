@@ -19,7 +19,7 @@ import ContactPage from './components/pages/ContactPage';
 import VisitorPage from './components/pages/VisitorPage';
 import SqliteTestPage from './components/pages/SqliteTestPage';
 import DatabaseViewerPage from './components/pages/DatabaseViewerPage';
-import DatabaseLogPage from './components/pages/DatabaseLogPage';
+;
 import PerformanceTestPage from './components/pages/PerformanceTestPage';
 import DashboardPage from './components/pages/DashboardPage';
 import HighRanksPage from './components/pages/HighRanksPage';
@@ -82,7 +82,6 @@ function App() {
                                  {/* Admin Dashboard routes */}
                                  <Route path="dashboard" element={<DashboardPage />} />
                                  <Route path="dashboard/database" element={<DatabaseViewerPage />} />
-                                 <Route path="dashboard/logs" element={<DatabaseLogPage />} />
                                  <Route path="dashboard/performance" element={<PerformanceTestPage />} />
                                  <Route path="dashboard/highranks" element={<HighRanksPage />} />
                                 <Route path="dashboard/management" element={<DatabaseManagementPage />} />
