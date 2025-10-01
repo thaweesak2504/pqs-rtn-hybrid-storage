@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Container, Title, Card, Button, Alert } from '../ui';
+import Avatar from '../ui/Avatar';
 import EditOfficerModal from '../ui/EditOfficerModal';
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../../services/avatarService';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -33,21 +34,28 @@ const HighRanksPage: React.FC = () => {
       try {
         // Load officers
         const officersData = await invoke<HighRankingOfficer[]>('get_all_high_ranking_officers');
+        console.log('Loaded officers:', officersData);
         setOfficers(officersData);
 
         // Load avatars for each officer using Hybrid System
         const avatarPromises = officersData.map(async (officer) => {
           try {
+            console.log(`Loading avatar for officer ${officer.id}...`);
             const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
               officerId: officer.id
             }) as HybridHighRankAvatarInfo;
+            
+            console.log(`Avatar info for officer ${officer.id}:`, avatarInfo);
             
             if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
               // Get base64 data for display
               const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
                 avatarPath: avatarInfo.avatar_path
               }) as string;
+              console.log(`Loaded avatar base64 for officer ${officer.id}, length:`, base64Data.length);
               return { officerId: officer.id, url: base64Data };
+            } else {
+              console.log(`No avatar for officer ${officer.id}`);
             }
           } catch (error) {
             console.error(`Failed to load avatar for officer ${officer.id}:`, error);
@@ -64,6 +72,7 @@ const HighRanksPage: React.FC = () => {
           }
         });
         
+        console.log('Final avatar map:', avatarMap);
         setAvatars(avatarMap);
       } catch (error) {
         console.error('Failed to load officers:', error);
@@ -239,10 +248,11 @@ const HighRanksPage: React.FC = () => {
             subtitle={officer.position_thai}
             icon={
               <div className="flex justify-center mb-4">
-                <img
-                  src={getOfficerImage(officer.id)}
-                  alt={officer.thai_name}
-                  className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover object-top border-2 border-github-accent-warning"
+                <Avatar
+                  src={getOfficerImage(officer.id) || undefined}
+                  name={officer.thai_name}
+                  size="lg"
+                  className="!w-20 !h-20 sm:!w-24 sm:!h-24 border-2 border-github-accent-warning"
                 />
               </div>
             }
