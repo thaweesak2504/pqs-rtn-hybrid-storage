@@ -143,8 +143,18 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   // Desktop-first layout adjustments
   const showFullHeader = true // Always show full header on desktop
 
+  // Build container classes
+  const containerClasses = [
+    'min-h-screen',
+    'bg-github-bg-primary',
+    'transition-colors',
+    'duration-200',
+    isLoading ? 'opacity-0' : 'opacity-100',
+    className
+  ].filter(Boolean).join(' ')
+
   return (
-    <div className={`min-h-screen bg-github-bg-primary transition-colors duration-200 ${isLoading ? 'opacity-0' : 'opacity-100'} ${className}`}>
+    <div className={containerClasses}>
       {/* Header - Fixed at top */}
       <header
         className="bg-github-bg-primary border-b border-github-border-primary fixed top-0 left-0 right-0 z-50 transition-colors duration-200"
