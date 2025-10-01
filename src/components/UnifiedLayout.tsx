@@ -1,10 +1,8 @@
 import React from 'react'
-import { Outlet, useLocation } from 'react-router-dom'
 import BaseLayout from './BaseLayout'
 import { useAuth } from '../hooks/useAuth'
 
 const UnifiedLayout: React.FC = () => {
-  const location = useLocation()
   const { user } = useAuth()
   
   // Use pqs layout for all routes
@@ -17,9 +15,7 @@ const UnifiedLayout: React.FC = () => {
     <BaseLayout 
       layoutType={layoutType}
       showRightPanel={showRightPanel}
-    >
-      <Outlet />
-    </BaseLayout>
+    />
   )
 }
 
