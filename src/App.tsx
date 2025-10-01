@@ -17,7 +17,7 @@ import HistoryPage from './components/pages/HistoryPage';
 import TeamPage from './components/pages/TeamPage';
 import ContactPage from './components/pages/ContactPage';
 import VisitorPage from './components/pages/VisitorPage';
-import SqliteTestPage from './components/pages/SqliteTestPage';
+
 import DatabaseViewerPage from './components/pages/DatabaseViewerPage';
 ;
 import PerformanceTestPage from './components/pages/PerformanceTestPage';
@@ -73,7 +73,7 @@ function App() {
                           <Route path="history" element={<HistoryPage />} />
                           <Route path="team" element={<TeamPage />} />
                           <Route path="contact" element={<ContactPage />} />
-                          <Route path="sqlite-test" element={<SqliteTestPage />} />
+
                           
                           {/* Editor and Visitor routes */}
                           <Route path="editor" element={<EditorPage />} />
