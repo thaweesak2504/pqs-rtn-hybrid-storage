@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react'
+import { LogIn, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react'
 import Container from '../ui/Container'
 import { FormInput, FormGroup, FormActions, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuth'
