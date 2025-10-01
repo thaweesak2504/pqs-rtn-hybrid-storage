@@ -138,31 +138,42 @@ const HighRanksPage: React.FC = () => {
       }
       
         // Save avatar using Hybrid System
+        console.log(`Saving avatar for officer ${officerId}...`);
         await invoke('save_hybrid_high_rank_avatar', {
           officerId: officerId,
           avatarData: Array.from(bytes),
           mimeType: mimeType
         });
+        console.log(`Avatar saved successfully for officer ${officerId}`);
 
         // Success - refresh the avatar for this officer
         
         // Reload avatar for this specific officer using Hybrid System
         try {
+          console.log(`Reloading avatar info for officer ${officerId}...`);
           const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
             officerId: officerId
           }) as HybridHighRankAvatarInfo;
           
+          console.log(`Reloaded avatar info for officer ${officerId}:`, avatarInfo);
+          
           if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
             // Get base64 data for display
+            console.log(`Loading base64 for officer ${officerId}, path: ${avatarInfo.avatar_path}`);
             const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
               avatarPath: avatarInfo.avatar_path
             }) as string;
+            
+            console.log(`Base64 loaded for officer ${officerId}, length: ${base64Data.length}`);
             
             // Update the avatar in state
             setAvatars(prev => ({
               ...prev,
               [officerId]: base64Data
             }));
+            console.log(`Avatar state updated for officer ${officerId}`);
+          } else {
+            console.warn(`No avatar path or file not exists for officer ${officerId}`, avatarInfo);
           }
         } catch (error) {
           console.error('Failed to reload avatar:', error);
