@@ -55,7 +55,13 @@ const UserCRUDForm: React.FC = () => {
     try {
       setIsLoading(true)
       const userList = await getAllUsers()
-      setUsers(userList)
+      // Cast TauriUser[] to User[] with proper typing
+      setUsers(userList.map(u => ({
+        ...u,
+        role: u.role as 'admin' | 'editor' | 'visitor',
+        created_at: u.created_at || new Date().toISOString(),
+        updated_at: u.updated_at || new Date().toISOString()
+      })))
       // In dev (http origin) file:// cannot be loaded; hydrate previews by reading avatars via IPC if available
       try {
         const origin = window.location.origin
@@ -117,7 +123,7 @@ const UserCRUDForm: React.FC = () => {
           userId: user.id,
           avatarData: Array.from(fileData),
           mimeType: mimeType
-        })
+        }) as { avatar_updated_at: string; avatar_mime: string; avatar_size: number; avatar_path: string }
         
         // Update local users state with hybrid avatar info
         setUsers(prev => prev.map(u => u.id === user.id ? { 
@@ -213,6 +219,15 @@ const UserCRUDForm: React.FC = () => {
 
   // Handle form input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  // Handle CustomSelect change (has different signature)
+  const handleSelectChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -440,7 +455,7 @@ const UserCRUDForm: React.FC = () => {
             <CustomSelect
               name="rank"
               value={formData.rank}
-              onChange={handleInputChange}
+              onChange={handleSelectChange}
               label="Rank"
               placeholder="เลือกยศ"
               icon={Star}
@@ -465,7 +480,7 @@ const UserCRUDForm: React.FC = () => {
             <CustomSelect
               name="role"
               value={formData.role}
-              onChange={handleInputChange}
+              onChange={handleSelectChange}
               label="Role"
               icon={Star}
               options={[
