@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, X, Star, Home, History, Users, Mail, LogIn, LogOut } from 'lucide-react'
+import { ChevronDown, ChevronRight, X } from 'lucide-react'
 import { useSlideBar } from '../hooks/useSlideBar'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigationState } from '../hooks/useNavigationState'
@@ -10,13 +10,11 @@ import { useFocusManagement } from '../hooks/useFocusManagement'
 import { useNavigationAnimations } from '../hooks/useNavigationAnimations'
 import { useBreadcrumbNavigation } from '../hooks/useBreadcrumbNavigation'
 import { useNavigationHistory } from '../hooks/useNavigationHistory'
-import { useNavigationShortcuts } from '../hooks/useNavigationShortcuts'
 import { useNavigationAnalytics } from '../hooks/useNavigationAnalytics'
 import { useResponsiveNavigation } from '../hooks/useResponsiveNavigation'
 import { 
   MENU_ITEMS_CONFIG, 
-  AUTH_MENU_ITEMS,
-  type MenuItemConfig 
+  AUTH_MENU_ITEMS
 } from '../config/navigationConfig'
 
 /**
@@ -24,8 +22,8 @@ import {
  * Includes keyboard navigation, animations, analytics, and responsive design
  */
 const EnhancedSlideBar: React.FC = () => {
-  const { isOpen, closeSlideBar, openSlideBar } = useSlideBar()
-  const { isAuthenticated, signOut, user } = useAuth()
+  const { isOpen, closeSlideBar } = useSlideBar()
+  const { isAuthenticated } = useAuth()
   
   // Core navigation hooks
   const [navigationState, navigationActions] = useNavigationState()
@@ -33,16 +31,12 @@ const EnhancedSlideBar: React.FC = () => {
   useRouterSync(navigationActions)
   
   // Advanced navigation hooks
-  const { menuRef, focusElement, getFocusableItems, isKeyboardNavigationEnabled } = useKeyboardNavigation({
+  const { menuRef, isKeyboardNavigationEnabled } = useKeyboardNavigation({
     enabled: true
   })
   
   const { 
-    containerRef, 
-    focusFirstElement, 
-    focusLastElement, 
-    focusNextElement, 
-    focusPreviousElement 
+    containerRef
   } = useFocusManagement({
     restoreFocusOnRouteChange: true,
     focusFirstElementOnMount: true
@@ -50,18 +44,13 @@ const EnhancedSlideBar: React.FC = () => {
   
   const { 
     slideIn, 
-    slideOut, 
     fadeIn, 
     fadeOut, 
-    scaleIn, 
-    bounceIn, 
-    pulse, 
-    isAnimating 
+    pulse
   } = useNavigationAnimations()
   
   const { breadcrumbs, navigateToBreadcrumb } = useBreadcrumbNavigation()
   const { canGoBack, canGoForward, goBack, goForward } = useNavigationHistory()
-  const { shortcuts, isShortcutEnabled } = useNavigationShortcuts()
   const { 
     trackMenuClick, 
     trackSubmenuClick, 
@@ -237,7 +226,7 @@ const EnhancedSlideBar: React.FC = () => {
 
   return (
     <div
-      ref={containerRef}
+      ref={containerRef as React.RefObject<HTMLDivElement>}
       className="fixed inset-y-0 left-0 z-50 w-64 bg-github-bg-primary border-r border-github-border-primary shadow-lg"
       role="navigation"
       aria-label="Main navigation"
