@@ -63,7 +63,7 @@ const WindowControls: React.FC = () => {
   }
   
   return (
-    <div className="flex items-center space-x-1" style={{ WebkitAppRegion: 'no-drag' }}>
+    <div className="flex items-center space-x-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
       <button 
         className={buttonClass} 
         aria-label="Minimize" 
