@@ -7,12 +7,11 @@ import { useNavigationHandlers } from '../hooks/useNavigationHandlers'
 import { useRouterSync } from '../hooks/useRouterSync'
 import { 
   MENU_ITEMS_CONFIG, 
-  AUTH_MENU_ITEMS,
-  type MenuItemConfig 
+  AUTH_MENU_ITEMS
 } from '../config/navigationConfig'
 
 const SlideBar: React.FC = () => {
-  const { isOpen, closeSlideBar, openSlideBar } = useSlideBar()
+  const { isOpen, closeSlideBar } = useSlideBar()
   const { isAuthenticated, signOut, user } = useAuth()
   
   // Use new navigation state management
