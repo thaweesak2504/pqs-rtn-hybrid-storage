@@ -121,7 +121,13 @@ impl HybridHighRankAvatarManager {
         
         // Delete file if exists
         if let Some(path) = avatar_path {
-            let _ = self.file_manager.delete_high_rank_avatar_file(&path);
+            println!("Deleting old avatar file: {}", path);
+            match self.file_manager.delete_high_rank_avatar_file(&path) {
+                Ok(_) => println!("Successfully deleted old avatar file: {}", path),
+                Err(e) => println!("Failed to delete old avatar file: {} - Error: {}", path, e),
+            }
+        } else {
+            println!("No existing avatar to delete for officer {}", officer_id);
         }
         
         // Update officer record

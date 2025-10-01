@@ -173,13 +173,9 @@ fn initialize_database_internal() -> Result<String, String> {
     // Avatars table removed - now using file-based storage in media/avatars/ folder
     // The users table has avatar_path field for file-based avatar storage
     
-    // Drop old high_ranking_officers table if it exists (without avatar_path fields)
-    conn.execute("DROP TABLE IF EXISTS high_ranking_officers", [])
-        .map_err(|e| format!("Failed to drop old high_ranking_officers table: {}", e))?;
-    
-    // Create new high_ranking_officers table with file-based avatar support
+    // Create high_ranking_officers table with file-based avatar support (if not exists)
     conn.execute(
-        "CREATE TABLE high_ranking_officers (
+        "CREATE TABLE IF NOT EXISTS high_ranking_officers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             thai_name TEXT NOT NULL,
             position_thai TEXT NOT NULL,
