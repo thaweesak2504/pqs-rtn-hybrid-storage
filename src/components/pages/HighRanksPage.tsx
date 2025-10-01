@@ -3,12 +3,6 @@ import { Container, Title, Card, Button, Alert } from '../ui';
 import EditOfficerModal from '../ui/EditOfficerModal';
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../../services/avatarService';
 import { invoke } from '@tauri-apps/api/tauri';
-import { useHybridHighRankAvatar } from '../../hooks/useHybridHighRankAvatar';
-
-// Import static images as fallback
-import member1 from '../../assets/images/member_1.webp';
-import member2 from '../../assets/images/member_2.webp';
-import member3 from '../../assets/images/member_3.webp';
 import navyLogo from '../../assets/images/navy_logo.webp';
 
 interface HighRankingOfficer {
@@ -19,8 +13,10 @@ interface HighRankingOfficer {
   order_index: number;
 }
 
-// DEPRECATED: HighRankingAvatar interface removed
-// Now using HybridHighRankAvatarInfo from useHybridHighRankAvatar hook
+interface HybridHighRankAvatarInfo {
+  avatar_path: string;
+  file_exists: boolean;
+}
 
 const HighRanksPage: React.FC = () => {
   const [uploading, setUploading] = useState<Record<number, boolean>>({});
@@ -44,13 +40,13 @@ const HighRanksPage: React.FC = () => {
           try {
             const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
               officerId: officer.id
-            });
+            }) as HybridHighRankAvatarInfo;
             
             if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
               // Get base64 data for display
               const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
                 avatarPath: avatarInfo.avatar_path
-              });
+              }) as string;
               return { officerId: officer.id, url: base64Data };
             }
           } catch (error) {
@@ -64,7 +60,7 @@ const HighRanksPage: React.FC = () => {
         
         avatarResults.forEach((result) => {
           if (result) {
-            avatarMap[result.officerId] = result.url;
+            avatarMap[result.officerId] = result.url as string;
           }
         });
         
@@ -86,19 +82,13 @@ const HighRanksPage: React.FC = () => {
     };
   }, []);
 
-  // Get image source for officer (database avatar or fallback)
+  // Get image source for officer (database avatar or initial)
   const getOfficerImage = (officerId: number): string => {
     if (avatars[officerId]) {
       return avatars[officerId];
     }
-    
-    // Fallback to static images
-    switch (officerId) {
-      case 1: return member1;
-      case 2: return member2;
-      case 3: return member3;
-      default: return member1;
-    }
+    // No avatar: return empty string (use initial avatar UI)
+    return '';
   };
 
   // Handle file selection for officer avatar
@@ -113,9 +103,12 @@ const HighRanksPage: React.FC = () => {
       setUploading(prev => ({ ...prev, [officerId]: true }));
       setUploadError(null);
 
+      // Delete old avatar before uploading new one
+      await invoke('delete_hybrid_high_rank_avatar', { officerId });
+
       // Convert file to data URL
       let dataUrl = await fileToDataUrl(file);
-      
+
       // Downscale image if needed
       try {
         const down = await maybeDownscaleImage(dataUrl, file.type);
@@ -148,13 +141,13 @@ const HighRanksPage: React.FC = () => {
         try {
           const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
             officerId: officerId
-          });
+          }) as HybridHighRankAvatarInfo;
           
           if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
             // Get base64 data for display
             const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
               avatarPath: avatarInfo.avatar_path
-            });
+            }) as string;
             
             // Update the avatar in state
             setAvatars(prev => ({

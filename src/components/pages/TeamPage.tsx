@@ -1,14 +1,12 @@
+import navyLogo from '../../assets/images/navy_logo.webp';
+import twt from '../../assets/images/twt.webp';
+import boonchana from '../../assets/images/boonchana.webp';
+import kittisak from '../../assets/images/kittisak.webp';
 import React, { useState, useEffect } from 'react'
 import { Star } from 'lucide-react'
 import { Container, Card, Header, Title } from '../ui'
 import { invoke } from '@tauri-apps/api/tauri'
-import navyLogo from '../../assets/images/navy_logo.webp'
-import member1 from '../../assets/images/member_1.webp'
-import member2 from '../../assets/images/member_2.webp'
-import member3 from '../../assets/images/member_3.webp'
-import twt from '../../assets/images/twt.webp'
-import boonchana from '../../assets/images/boonchana.webp'
-import kittisak from '../../assets/images/kittisak.webp'
+
 
 interface HighRankingOfficer {
   id: number;
@@ -16,14 +14,6 @@ interface HighRankingOfficer {
   position_thai: string;
   position_english: string;
   order_index: number;
-}
-
-interface HighRankingAvatar {
-  id: number;
-  officer_id: number;
-  avatar_data: number[];
-  mime_type: string;
-  file_size: number;
 }
 
 const TeamPage: React.FC = () => {
@@ -50,15 +40,16 @@ const TeamPage: React.FC = () => {
         // Load avatars for each officer using Hybrid System
         const avatarPromises = officersData.map(async (officer) => {
           try {
+            // Get avatar info with correct type
             const avatarInfo = await invoke('get_hybrid_high_rank_avatar_info', {
               officerId: officer.id
-            });
-            
+            }) as { avatar_path?: string; file_exists?: boolean };
+
             if (avatarInfo && avatarInfo.avatar_path && avatarInfo.file_exists) {
               // Get base64 data for display
               const base64Data = await invoke('get_hybrid_high_rank_avatar_base64', {
                 avatarPath: avatarInfo.avatar_path
-              });
+              }) as string;
               return { officerId: officer.id, url: base64Data };
             }
           } catch (error) {
@@ -72,7 +63,7 @@ const TeamPage: React.FC = () => {
         
         avatarResults.forEach((result) => {
           if (result) {
-            avatarMap[result.officerId] = result.url;
+            avatarMap[result.officerId] = result.url as string;
           }
         });
         
@@ -96,19 +87,14 @@ const TeamPage: React.FC = () => {
     };
   }, []);
 
-  // Get image source for officer (database avatar or fallback)
+
+  // Get image source for officer (database avatar or initial)
   const getOfficerImage = (officerId: number): string => {
     if (avatars[officerId]) {
       return avatars[officerId];
     }
-    
-    // Fallback to static images
-    switch (officerId) {
-      case 1: return member1;
-      case 2: return member2;
-      case 3: return member3;
-      default: return member1;
-    }
+    // No avatar: return empty string (use initial avatar UI)
+    return '';
   };
 
   return (
