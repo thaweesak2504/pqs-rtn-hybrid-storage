@@ -13,7 +13,6 @@ import WindowControls from './WindowControls'
 import UserProfilePanel from './UserProfilePanel'
 import { useAuth } from '../hooks/useAuth'
 import { useLayout } from '../contexts/LayoutContext'
-import { useLayoutBreakpoint } from '../hooks/useLayoutBreakpoint'
 import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
 import { LogIn } from 'lucide-react'
@@ -46,7 +45,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   const [isLoading, setIsLoading] = useState(true)
 
   // Window visibility management to fix display issues after sleep/focus loss
-  const { isVisible, isFocused, forceRefresh } = useWindowVisibility({
+  const { forceRefresh } = useWindowVisibility({
     onVisibilityChange: (visible) => {
       if (visible) {
         // Force refresh when becoming visible to fix display issues
@@ -65,17 +64,15 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
     }
   })
 
-  const { isAuthenticated, signOut, user, handleAvatarLoadError } = useAuth() as any
+  const { isAuthenticated, user, handleAvatarLoadError } = useAuth() as any
   const navigate = useNavigate()
   const { 
     setLayoutType,
     setCurrentPage,
     isRightPanelOpen,
-    openRightPanel,
     closeRightPanel,
     toggleRightPanel
   } = useLayout()
-  const breakpoint = useLayoutBreakpoint()
   
   // Get avatar from hybrid system
   const { avatar: hybridAvatar, refreshAvatar } = useHybridAvatar({ 
@@ -144,8 +141,6 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   }
 
   // Desktop-first layout adjustments
-  const isMobile = false // Desktop app - no mobile support
-  const isTablet = false // Desktop app - no tablet support
   const showFullHeader = true // Always show full header on desktop
 
   return (
@@ -155,7 +150,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
         className="bg-github-bg-primary border-b border-github-border-primary fixed top-0 left-0 right-0 z-50 transition-colors duration-200"
         style={{
           WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'drag' : 'auto'
-        }}
+        } as React.CSSProperties}
         onMouseDown={async (e) => {
           // Don't start dragging if clicking on interactive elements
           const target = e.target as HTMLElement
@@ -207,7 +202,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               </div>
 
               {/* Breadcrumb - ต่อจาก PQS RTN */}
-              <div className="flex-shrink-0 ml-3" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' }}>
+              <div className="flex-shrink-0 ml-3" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
                 <Breadcrumb variant="default" />
               </div>
 
@@ -218,14 +213,14 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                     className="mx-2 w-px h-6 bg-github-border-primary"
                     aria-hidden="true"
                   />
-                  <div style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' }}><HeaderMenuBar /></div>
+                  <div style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}><HeaderMenuBar /></div>
                 </>
               )}
             </div>
 
             {/* Center Section: Search Bar */}
             {showFullHeader && (
-              <div className="flex-1 flex justify-center px-4" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' }}>
+              <div className="flex-1 flex justify-center px-4" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
                 <SearchBar />
               </div>
             )}
