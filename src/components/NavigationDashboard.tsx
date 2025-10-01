@@ -3,14 +3,14 @@ import {
   BarChart3, 
   Settings, 
   Keyboard, 
-  MousePointer, 
   Eye, 
   EyeOff,
   Download,
   Trash2,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  X
 } from 'lucide-react'
 import { useNavigationAnalytics } from '../hooks/useNavigationAnalytics'
 import { useNavigationShortcuts } from '../hooks/useNavigationShortcuts'
@@ -40,8 +40,8 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
   } = useNavigationAnalytics()
   
   const { shortcuts, isShortcutEnabled, setShortcutEnabled } = useNavigationShortcuts()
-  const { isMobile, isTablet, isDesktop, screenWidth, screenHeight } = useResponsiveNavigation()
-  const { history, canGoBack, canGoForward } = useNavigationHistory()
+  const { isMobile, isTablet, screenWidth, screenHeight } = useResponsiveNavigation()
+  const { history, canGoBack } = useNavigationHistory()
 
   // Memoized analytics data
   const analyticsData = useMemo(() => {
@@ -126,7 +126,7 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
               <div className="bg-github-bg-secondary p-4 rounded-lg">
                 <h3 className="text-lg font-semibold text-github-text-primary mb-4">Most Visited Pages</h3>
                 <div className="space-y-2">
-                  {stats.mostVisitedPages.map((page, index) => (
+                  {stats.mostVisitedPages.map((page) => (
                     <div key={page.path} className="flex items-center justify-between">
                       <span className="text-github-text-secondary">{page.path}</span>
                       <span className="text-github-text-primary font-medium">{page.count} visits</span>
