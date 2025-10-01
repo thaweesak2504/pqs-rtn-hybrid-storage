@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import usNavyLogo from '../../assets/images/usnavy_logo.webp'
 import teamImage from '../../assets/images/fcs_team.webp'
 import navyLogo from '../../assets/images/navy_logo.webp'
-import { CheckCircle, Globe, Headphones, BookOpen, Target, Shield, Languages } from 'lucide-react'
+import { CheckCircle, Headphones, BookOpen, Target, Shield } from 'lucide-react'
 import { Container, Card, Button, Alert, MiniAudioPlayer, Header } from '../ui'
 // audioStorage removed - using localStorage for playlist persistence
 
