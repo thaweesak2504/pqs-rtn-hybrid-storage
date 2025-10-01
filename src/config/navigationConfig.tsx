@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Shield,
   Database,
-  Activity,
   Crown,
   UserPlus,
   Archive,
@@ -25,7 +24,6 @@ export const ROUTE_CONFIG = {
   admin: {
     dashboard: '/dashboard',
     database: '/dashboard/database',
-    performance: '/dashboard/performance',
     highranks: '/dashboard/highranks',
     management: '/dashboard/management'
   },
@@ -45,7 +43,6 @@ export const ROUTE_STATE_MAP = {
   '/team': { activeItem: 'team', expandedMenus: [] },
   '/dashboard': { activeItem: 'dashboard', expandedMenus: ['admin'] },
   '/dashboard/database': { activeItem: 'database', expandedMenus: ['admin'] },
-  '/dashboard/performance': { activeItem: 'performance', expandedMenus: ['admin'] },
   '/dashboard/highranks': { activeItem: 'highranks', expandedMenus: ['admin'] },
   '/dashboard/management': { activeItem: 'management', expandedMenus: ['admin'] },
   '/contact': { activeItem: 'contact', expandedMenus: [] },
@@ -85,7 +82,6 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
     subItems: [
       { id: 'dashboard', label: 'Admin Panel', icon: <Shield className="w-4 h-4" /> },
       { id: 'database', label: 'Database Viewer', icon: <Database className="w-4 h-4" /> },
-      { id: 'performance', label: 'Performance Test', icon: <Activity className="w-4 h-4" /> },
       { id: 'highranks', label: 'High Ranks', icon: <Crown className="w-4 h-4" /> },
       { id: 'management', label: 'Database Management', icon: <Archive className="w-4 h-4" /> }
     ]
@@ -142,8 +138,8 @@ export const getRouteForItem = (itemId: string, subItemId?: string): string | nu
 
 export const getStateForRoute = (path: string): { activeItem: string; expandedMenus: string[] } => {
   const state = ROUTE_STATE_MAP[path as RoutePath] || ROUTE_STATE_MAP['/home']
-  // Return the state as configured - don't force empty expandedMenus
-  return state
+  // Return the state as configured - spread to convert readonly to mutable
+  return { activeItem: state.activeItem, expandedMenus: [...state.expandedMenus] }
 }
 
 export const isWelcomeSubItem = (itemId: string): boolean => {

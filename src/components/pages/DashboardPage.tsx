@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Database, Activity, Edit3 } from 'lucide-react'
+import { Database, Edit3 } from 'lucide-react'
 import Container from '../ui/Container'
 import Title from '../ui/Title'
 import Button from '../ui/Button'
@@ -87,16 +87,6 @@ const DashboardPage: React.FC = () => {
               iconPosition="left"
             >
               Database Viewer
-            </Button>
-            <Button
-              variant="primary"
-              size="medium"
-              onClick={() => navigate('/dashboard/performance')}
-              className="w-full"
-              icon={<Activity className="w-4 h-4" />}
-              iconPosition="left"
-            >
-              Performance Test
             </Button>
           </div>
           
