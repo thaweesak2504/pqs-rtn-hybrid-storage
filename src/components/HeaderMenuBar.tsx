@@ -40,25 +40,6 @@ const HeaderMenuBar: React.FC = () => {
       }
     }, 'Alt+F4'),
   ]
-  const [canEdit, setCanEdit] = React.useState({ any: false, input: false })
-  React.useEffect(() => {
-  const update = () => {
-      const ae = document.activeElement as HTMLElement | null
-      const editableTags = ['INPUT','TEXTAREA']
-      const isContentEditable = !!ae?.isContentEditable
-      const isInput = !!(ae && (editableTags.includes(ae.tagName) || isContentEditable))
-      setCanEdit({ any: !!ae, input: isInput })
-    }
-    document.addEventListener('focusin', update)
-    document.addEventListener('focusout', update)
-    document.addEventListener('selectionchange', update)
-    update()
-    return () => {
-      document.removeEventListener('focusin', update)
-      document.removeEventListener('focusout', update)
-      document.removeEventListener('selectionchange', update)
-    }
-  }, [])
 
   const editItems: Item[] = [
     mk('Undo', () => {
@@ -122,7 +103,7 @@ const HeaderMenuBar: React.FC = () => {
     }, 'Ctrl+R'),
     mk('Force Reload', () => {
       try {
-        window.location.reload(true)
+        window.location.reload()
       } catch (error) {
         console.error('Force reload failed:', error)
       }
