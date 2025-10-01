@@ -14,6 +14,7 @@ interface User {
   is_active: boolean
   created_at: string
   updated_at: string
+  avatar_path?: string
   avatar_updated_at?: string
   avatar_mime?: string
   avatar_size?: number
@@ -123,24 +124,15 @@ const DatabaseViewerPage: React.FC = () => {
     return users.find(user => user.id === userId)
   }
 
-  // Get avatar base64 data from file path
-  const getAvatarBase64 = async (avatarPath: string): Promise<string> => {
-    try {
-      const base64Data = await invoke('get_hybrid_avatar_base64', { avatarPath })
-      return base64Data as string
-    } catch (error) {
-      console.error('Error getting avatar base64:', error)
-      return ''
-    }
-  }
+
 
   return (
     <Container size="large" className="py-8">
       <div className="mb-8">
-        <Title level={1} className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4">
           <Database className="w-8 h-8 text-github-accent-primary" />
-          Database Viewer
-        </Title>
+          <Title title="Database Viewer" className="mb-0" />
+        </div>
         <p className="text-github-text-secondary">
           Real-time view of Users and Avatars tables
         </p>
