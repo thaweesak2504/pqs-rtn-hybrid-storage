@@ -20,7 +20,7 @@ import VisitorPage from './components/pages/VisitorPage';
 
 import DatabaseViewerPage from './components/pages/DatabaseViewerPage';
 ;
-import PerformanceTestPage from './components/pages/PerformanceTestPage';
+
 import DashboardPage from './components/pages/DashboardPage';
 import HighRanksPage from './components/pages/HighRanksPage';
 import DatabaseManagementPage from './components/pages/DatabaseManagementPage';
@@ -82,7 +82,7 @@ function App() {
                                  {/* Admin Dashboard routes */}
                                  <Route path="dashboard" element={<DashboardPage />} />
                                  <Route path="dashboard/database" element={<DatabaseViewerPage />} />
-                                 <Route path="dashboard/performance" element={<PerformanceTestPage />} />
+
                                  <Route path="dashboard/highranks" element={<HighRanksPage />} />
                                 <Route path="dashboard/management" element={<DatabaseManagementPage />} />
                           
