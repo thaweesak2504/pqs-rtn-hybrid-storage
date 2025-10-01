@@ -28,7 +28,7 @@ const AboutDialog: React.FC<AboutDialogProps> = ({ isOpen, onClose }) => {
         onMouseMove={(e) => e.stopPropagation()}
         onMouseUp={(e) => e.stopPropagation()}
         onDragStart={(e) => e.preventDefault()}
-        style={{ WebkitAppRegion: 'no-drag' }}
+        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
         {/* Header */}
         <div className="flex items-center justify-center mb-4">
