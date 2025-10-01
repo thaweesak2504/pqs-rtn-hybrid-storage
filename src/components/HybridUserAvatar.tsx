@@ -8,7 +8,7 @@ interface HybridUserAvatarProps {
     full_name?: string;
     username?: string;
   };
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
   onImageError?: () => void;
 }
@@ -19,7 +19,7 @@ const HybridUserAvatar: React.FC<HybridUserAvatarProps> = ({
   className = '', 
   onImageError 
 }) => {
-  const { avatarInfo, getAvatarBase64, isLoading } = useHybridAvatar({ 
+  const { avatarInfo, getAvatarBase64 } = useHybridAvatar({ 
     userId: user.id,
     autoLoad: true
   });
