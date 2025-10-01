@@ -1,7 +1,7 @@
 import React from 'react'
 import { User, Settings, LogOut, Mail, Shield, Edit } from 'lucide-react'
 import Avatar from './ui/Avatar'
-import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage, formatDimensions } from '../services/avatarService'
+import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
 import { useAuth } from '../hooks/useAuth'
 import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { Button } from './ui'
@@ -13,7 +13,6 @@ const UserProfileContent: React.FC = () => {
   const [isUploading, setIsUploading] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement | null>(null)
   const [preview, setPreview] = React.useState<string | null>(null)
-  const [dimensionInfo, setDimensionInfo] = React.useState<string>('')
   const navigate = useNavigate()
   
   // Get avatar from hybrid system
@@ -109,7 +108,6 @@ const UserProfileContent: React.FC = () => {
       // Update local state
       await updateAvatar(null)
       setPreview(null)
-      setDimensionInfo('')
 
       // Trigger global avatar refresh event
       window.dispatchEvent(new CustomEvent('avatarUpdated', { 
@@ -155,9 +153,8 @@ const UserProfileContent: React.FC = () => {
       setIsUploading(true); setUploadError(null)
       try {
         const dataUrl = await fileToDataUrl(file)
-        const { dataUrl: processed, info } = await maybeDownscaleImage(dataUrl, file.type)
+        const { dataUrl: processed } = await maybeDownscaleImage(dataUrl, file.type)
         setPreview(processed)
-        setDimensionInfo(formatDimensions(info))
       } catch { setUploadError('ไม่สามารถประมวลผลรูปจาก Clipboard') }
       finally { setIsUploading(false) }
     }
