@@ -10,7 +10,7 @@ import {
   AlertCircle,
   X
 } from 'lucide-react'
-import { Title, Container, Button, Card, FormInput, FormTextarea, FormGroup, FormRow, FormActions, CustomSelect } from '../ui'
+import { Title, Container, Button, Card, FormInput, FormTextarea, FormGroup, FormRow, CustomSelect } from '../ui'
 import navyLogo from '../../assets/images/navy_logo.webp'
 
 const ContactPage: React.FC = () => {
@@ -27,6 +27,15 @@ const ContactPage: React.FC = () => {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
+
+  // Handle CustomSelect onChange (different signature)
+  const handleSelectChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -178,7 +187,7 @@ const ContactPage: React.FC = () => {
                 <CustomSelect
                   name="subject"
                   value={formData.subject}
-                  onChange={handleInputChange}
+                  onChange={handleSelectChange}
                   label="Subject"
                   placeholder="Select a subject"
                   icon={MessageSquare}
