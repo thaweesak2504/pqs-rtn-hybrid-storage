@@ -3,8 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { 
   MENU_ITEMS_CONFIG, 
   AUTH_MENU_ITEMS,
-  getStateForRoute,
-  type MenuItemConfig 
+  getStateForRoute
 } from '../config/navigationConfig'
 
 interface BreadcrumbProps {
