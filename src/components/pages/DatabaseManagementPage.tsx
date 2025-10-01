@@ -1,21 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { Container, Title, Card, Button, Alert, CustomSelect } from '../ui';
-import { 
-  Database, 
-  Download, 
-  Upload, 
-  Trash2, 
-  RefreshCw, 
-  FileText, 
-  Archive,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  HardDrive,
-  Shield,
-  Settings
-} from 'lucide-react';
+import { Database, Download, Upload, Trash2, RefreshCw, FileText, Archive } from 'lucide-react';
 
 interface BackupFile {
   filename: string;
@@ -229,10 +215,10 @@ const DatabaseManagementPage: React.FC = () => {
   return (
     <Container size="large" padding="large" className="py-8">
       <div className="mb-8">
-        <Title level={1} className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4">
           <Database className="w-8 h-8 text-github-accent-primary" />
-          Database Management
-        </Title>
+          <Title title="Database Management" className="mb-0" />
+        </div>
         <p className="text-github-text-secondary">
           จัดการฐานข้อมูล สำรองข้อมูล และนำเข้าข้อมูล
         </p>
@@ -316,7 +302,7 @@ const DatabaseManagementPage: React.FC = () => {
                     </div>
                     <div className="flex space-x-2">
                       <Button
-                        size="sm"
+                        size="small"
                         variant="outline"
                         onClick={() => restoreBackup(backup.filename)}
                         disabled={isLoading}
@@ -326,7 +312,7 @@ const DatabaseManagementPage: React.FC = () => {
                         Restore
                       </Button>
                       <Button
-                        size="sm"
+                        size="small"
                         variant="outline"
                         onClick={() => deleteBackup(backup.filename)}
                         disabled={isLoading}
@@ -414,7 +400,7 @@ const DatabaseManagementPage: React.FC = () => {
                   </div>
                   <div className="flex space-x-2">
                     <Button
-                      size="sm"
+                      size="small"
                       variant="outline"
                       onClick={() => importDatabase(exportFile.filename)}
                       disabled={isLoading}
@@ -424,7 +410,7 @@ const DatabaseManagementPage: React.FC = () => {
                       Import
                     </Button>
                     <Button
-                      size="sm"
+                      size="small"
                       variant="outline"
                       onClick={() => deleteExport(exportFile.filename)}
                       disabled={isLoading}
