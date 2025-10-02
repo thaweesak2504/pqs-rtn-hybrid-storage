@@ -37,18 +37,18 @@ const UserCRUDForm: React.FC = () => {
     loadUsers()
   }, [])
 
-  // Listen for global avatar update events to refresh user list
-  useEffect(() => {
-    const handleAvatarUpdate = () => {
-      // Refresh users list to get updated avatar info
-      loadUsers()
-    }
-
-    window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    return () => {
-      window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Listen for global avatar update events
+  // Note: UserAvatar components will handle their own refresh via useHybridAvatar hook
+  // No need to reload entire users list here
+  // useEffect(() => {
+  //   const handleAvatarUpdate = () => {
+  //     loadUsers()
+  //   }
+  //   window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
+  //   return () => {
+  //     window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
+  //   }
+  // }, [])
 
   // Load users from database
   const loadUsers = async () => {
@@ -134,10 +134,11 @@ const UserCRUDForm: React.FC = () => {
           avatar_path: result.avatar_path
         } : u))
         
-        // Clear preview since avatar is now in database
+        // Clear preview since avatar is saved
         setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
         
-        // Trigger global avatar refresh event (single dispatch only)
+        // Trigger global avatar refresh event for UserAvatar, Navbar and other components
+        // UserAvatar component will automatically refresh via useHybridAvatar hook
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
           detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
         }))
