@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { getStateForRoute, type NavigationStateActions } from '../config/navigationConfig'
+import { getStateForRoute } from '../config/navigationConfig'
+import type { NavigationStateActions } from './useNavigationState'
 
 /**
  * Custom hook for synchronizing navigation state with router
