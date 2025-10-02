@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
 import { resolveAvatarSource } from '../utils/resolveAvatarSource'
-import { updateUserAvatarPath } from '../services/userService'
 
 export interface UseAvatarOptions {
   initialPath?: string | null
@@ -118,7 +117,6 @@ export const useAvatar = (userId: number | undefined, opts: UseAvatarOptions = {
       if (!(window as any).api?.avatar?.save) throw new Error('no_ipc')
   const res = await (window as any).api.avatar.save(userId, dataUrl)
   if (!res?.ok) throw new Error(res.error || 'save_failed')
-  await updateUserAvatarPath(userId, res.path || '')
       const origin = window.location.origin
       const useBase64 = !origin.startsWith('file://')
       const finalVersion = res.hash || new Date().toISOString()
@@ -148,7 +146,6 @@ export const useAvatar = (userId: number | undefined, opts: UseAvatarOptions = {
         const res = await (window as any).api.avatar.remove(userId)
         if (!res?.ok) throw new Error(res.error || 'remove_failed')
       }
-  await updateUserAvatarPath(userId, '')
       setState(s => ({ ...s, uploading: false, path: null, src: null, version: null }))
       return true
     } catch (e: unknown) {

@@ -119,20 +119,6 @@ export const updateUserPassword = async (userId: number, newPassword: string): P
   }
 };
 
-export const updateUserAvatarPath = async (userId: number, avatarPath: string): Promise<boolean> => {
-  try {
-    const user = await tauriUserService.getUserById(userId);
-    if (!user) return false;
-    
-    // Note: This would require a new Tauri command to update avatar_path
-    // For now, we'll just return true as avatar is handled separately
-    return true;
-  } catch (error) {
-    console.error('Failed to update user avatar path:', error);
-    throw error;
-  }
-};
-
 export const migratePasswords = async (): Promise<string> => {
   try {
     return await tauriUserService.migratePasswords();
