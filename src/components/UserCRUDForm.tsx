@@ -37,25 +37,8 @@ const UserCRUDForm: React.FC = () => {
     loadUsers()
   }, [])
 
-  // Listen for global avatar update events to clear overrideSrc
-  // This allows UserAvatar to refresh when avatar changes from other components (e.g., Profile)
-  useEffect(() => {
-    const handleAvatarUpdate = (event: CustomEvent) => {
-      const { userId, source } = event.detail
-      // Only clear preview if event is from another component (not from UserCRUDForm itself)
-      if (userId && source !== 'UserCRUDForm') {
-        // Clear the preview for this user so UserAvatar can refresh via hook
-        setAvatarPreviews(prev => {
-          const { [userId]: _omit, ...rest } = prev
-          return rest
-        })
-      }
-    }
-    window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    return () => {
-      window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    }
-  }, [])
+  // Note: UserAvatar components listen to avatarUpdated events and refresh themselves
+  // No need to handle events here - just dispatch them when we make changes
 
   // Load users from database
   const loadUsers = async () => {
@@ -141,23 +124,13 @@ const UserCRUDForm: React.FC = () => {
           avatar_path: result.avatar_path
         } : u))
         
-        // Load base64 data immediately to display without flashing (like Profile)
-        try {
-          const base64Data = await invoke('get_hybrid_avatar_base64', {
-            avatarPath: result.avatar_path
-          }) as string;
-          // Store in previews to pass to UserAvatar component
-          setAvatarPreviews(prev => ({ ...prev, [user.id as number]: base64Data }));
-        } catch (error) {
-          console.error('Failed to load avatar base64:', error);
-          // Clear preview on error
-          setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest });
-        }
+        // Clear preview since avatar is saved
+        setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
         
-        // Trigger global avatar refresh event for Navbar and other components
-        // UserAvatar in this list will use overrideSrc prop, so won't flash
+        // Trigger global avatar refresh event for all components
+        // UserAvatar hook will handle the refresh automatically
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true, source: 'UserCRUDForm' } 
+          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
         }))
         
         showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
@@ -209,7 +182,7 @@ const UserCRUDForm: React.FC = () => {
         
         // Trigger global avatar refresh event (single dispatch only)
         window.dispatchEvent(new CustomEvent('avatarUpdated', {
-          detail: { userId: user.id, forceRefresh: true, source: 'UserCRUDForm' }
+          detail: { userId: user.id, forceRefresh: true }
         }))
         
       showSuccess('ลบ Avatar สำเร็จ')
@@ -551,7 +524,6 @@ const UserCRUDForm: React.FC = () => {
                         user={user} 
                         size="md" 
                         className={avatarBusy[user.id as number] ? 'opacity-60' : ''} 
-                        overrideSrc={avatarPreviews[user.id as number] || null}
                       />
                       {currentUser?.role === 'admin' && user.id && (
                         <div className="mt-1 flex gap-1">
