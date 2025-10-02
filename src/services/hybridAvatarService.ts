@@ -105,6 +105,3 @@ class HybridAvatarServiceImpl implements HybridAvatarService {
 
 // Export singleton instance
 export const hybridAvatarService = new HybridAvatarServiceImpl();
-
-// Export types for use in components
-export type { HybridAvatarInfo };
