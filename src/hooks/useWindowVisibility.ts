@@ -41,7 +41,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
   // Debounced resize handler
   const debouncedResize = useCallback(
     (() => {
-      let timeoutId: NodeJS.Timeout
+      let timeoutId: number
       return (width: number, height: number) => {
         clearTimeout(timeoutId)
         timeoutId = setTimeout(() => {
