@@ -134,11 +134,21 @@ const UserCRUDForm: React.FC = () => {
           avatar_path: result.avatar_path
         } : u))
         
-        // Clear preview since avatar is saved
-        setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
+        // Load base64 data immediately to display without flashing (like Profile)
+        try {
+          const base64Data = await invoke('get_hybrid_avatar_base64', {
+            avatarPath: result.avatar_path
+          }) as string;
+          // Store in previews to pass to UserAvatar component
+          setAvatarPreviews(prev => ({ ...prev, [user.id as number]: base64Data }));
+        } catch (error) {
+          console.error('Failed to load avatar base64:', error);
+          // Clear preview on error
+          setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest });
+        }
         
-        // Trigger global avatar refresh event for UserAvatar, Navbar and other components
-        // UserAvatar component will automatically refresh via useHybridAvatar hook
+        // Trigger global avatar refresh event for Navbar and other components
+        // UserAvatar in this list will use overrideSrc prop, so won't flash
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
           detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
         }))
@@ -530,7 +540,12 @@ const UserCRUDForm: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-4">
                     <div className="relative flex flex-col items-center">
-                      <UserAvatar user={user} size="md" className={avatarBusy[user.id as number] ? 'opacity-60' : ''} />
+                      <UserAvatar 
+                        user={user} 
+                        size="md" 
+                        className={avatarBusy[user.id as number] ? 'opacity-60' : ''} 
+                        overrideSrc={avatarPreviews[user.id as number] || null}
+                      />
                       {currentUser?.role === 'admin' && user.id && (
                         <div className="mt-1 flex gap-1">
                           <button

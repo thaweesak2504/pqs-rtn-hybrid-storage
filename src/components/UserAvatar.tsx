@@ -9,6 +9,7 @@ interface UserAvatarProps {
   className?: string
   version?: string | null
   onImageError?: () => void
+  overrideSrc?: string | null  // Pre-loaded avatar to prevent flashing
 }
 
 const UserAvatar: React.FC<UserAvatarProps> = ({ 
@@ -16,7 +17,8 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   size = 'md', 
   className = '', 
   version,
-  onImageError 
+  onImageError,
+  overrideSrc
 }) => {
   const { avatar: hybridAvatar, refreshAvatar } = useHybridAvatar({ 
     userId: user.id ? Number(user.id) : 0,
@@ -24,7 +26,10 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   })
 
   // Listen for global avatar update events
+  // Skip refresh if overrideSrc is provided (parent is handling the update)
   React.useEffect(() => {
+    if (overrideSrc) return; // Don't refresh if we have override from parent
+    
     const handleAvatarUpdate = (event: CustomEvent) => {
       const { userId } = event.detail
       if (Number(userId) === Number(user.id)) {
@@ -36,11 +41,11 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
     return () => {
       window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
     }
-  }, [user.id, refreshAvatar])
+  }, [user.id, refreshAvatar, overrideSrc])
 
   return (
     <Avatar
-      src={hybridAvatar || undefined}
+      src={overrideSrc || hybridAvatar || undefined}
       name={user.full_name || user.username}
       size={size}
       className={className}
