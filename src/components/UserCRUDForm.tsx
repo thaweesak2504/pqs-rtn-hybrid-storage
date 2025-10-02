@@ -137,17 +137,10 @@ const UserCRUDForm: React.FC = () => {
         // Clear preview since avatar is now in database
         setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
         
-        // Trigger global avatar refresh event
+        // Trigger global avatar refresh event (single dispatch only)
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
           detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
         }))
-        
-        // Force refresh all avatar displays
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-            detail: { userId: user.id, forceRefresh: true } 
-          }))
-        }, 500)
         
         showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
       } catch (dbError) {
@@ -195,17 +188,12 @@ const UserCRUDForm: React.FC = () => {
         avatar_path: null
       } : u))
       setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
-        // Trigger global avatar refresh event
+        
+        // Trigger global avatar refresh event (single dispatch only)
         window.dispatchEvent(new CustomEvent('avatarUpdated', {
           detail: { userId: user.id, forceRefresh: true }
         }))
         
-        // Force refresh all avatar displays
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-            detail: { userId: user.id, forceRefresh: true } 
-          }))
-        }, 500)
       showSuccess('ลบ Avatar สำเร็จ')
     } catch (e) {
       console.error('Remove avatar failed', e)
