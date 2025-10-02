@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri'
 import { getCurrent } from '@tauri-apps/api/window'
+import { LogicalSize, LogicalPosition } from '@tauri-apps/api/window'
 
 /**
  * Desktop Service - Enhanced desktop-specific functionality
@@ -182,6 +183,7 @@ export class DesktopService {
       console.error('Failed to check if window is maximized:', error)
       return false
     }
+  }
 
   static async isMinimized() {
     try {
@@ -207,7 +209,7 @@ export class DesktopService {
   static async setWindowSize(width: number, height: number) {
     try {
       const window = getCurrent()
-      await window.setSize({ width, height })
+      await window.setSize(new LogicalSize(width, height))
     } catch (error) {
       console.error('Failed to set window size:', error)
     }
@@ -216,7 +218,7 @@ export class DesktopService {
   static async setWindowPosition(x: number, y: number) {
     try {
       const window = getCurrent()
-      await window.setPosition({ x, y })
+      await window.setPosition(new LogicalPosition(x, y))
     } catch (error) {
       console.error('Failed to set window position:', error)
     }
