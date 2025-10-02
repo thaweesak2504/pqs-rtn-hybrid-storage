@@ -71,13 +71,7 @@ const UserProfileContent: React.FC = () => {
       const success = await saveAvatar(fileData, mimeType)
       if (success) {
         setPreview(null)
-        // Refresh avatar in other components
-        refreshAvatar()
-        
-        // Trigger global avatar refresh event (single dispatch only)
-        window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-          detail: { userId: user?.id, forceRefresh: true } 
-        }))
+        // No need to refresh or dispatch event - saveAvatar already updates the state
       } else {
         setUploadError('ไม่สามารถบันทึกรูปได้')
       }
@@ -103,10 +97,7 @@ const UserProfileContent: React.FC = () => {
       await updateAvatar(null)
       setPreview(null)
 
-      // Trigger global avatar refresh event (single dispatch only)
-      window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-        detail: { userId: user.id, forceRefresh: true } 
-      }))
+      // No need to dispatch event - deleteAvatar in hook already updates state
 
     } catch (error) {
       console.error('Failed to remove avatar:', error)
