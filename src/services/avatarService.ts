@@ -97,8 +97,7 @@ export const maybeDownscaleImage = async (
     img.onload = () => {
       // Calculate new dimensions
       let { width, height } = img;
-      const originalWidth = width;
-      const originalHeight = height;
+      // originalWidth and originalHeight are stored but not used in current implementation
       
       if (width > maxWidth || height > maxHeight) {
         const aspectRatio = width / height;
