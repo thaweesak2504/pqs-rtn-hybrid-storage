@@ -69,6 +69,13 @@ export const useHybridAvatar = ({
       const result = await hybridAvatarService.saveAvatar(userId, fileData, mimeType);
       setAvatarInfo(result);
       setExists(result.file_exists && !!result.avatar_path);
+      // Load the avatar base64 data immediately after saving (like useHybridHighRankAvatar)
+      if (result.file_exists && result.avatar_path) {
+        const base64Data = await hybridAvatarService.getAvatarBase64(result.avatar_path);
+        setAvatar(base64Data);
+      } else {
+        setAvatar(null);
+      }
       return true;
     } catch (err) {
       console.error('Failed to save hybrid avatar:', err);
@@ -89,6 +96,7 @@ export const useHybridAvatar = ({
       const success = await hybridAvatarService.deleteAvatar(userId);
       if (success) {
         setAvatarInfo(null);
+        setAvatar(null);
         setExists(false);
       }
       return success;
