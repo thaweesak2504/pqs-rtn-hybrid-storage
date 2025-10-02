@@ -52,7 +52,7 @@ export const tauriUserService = {
   // Get all users
   async getAllUsers(): Promise<TauriUser[]> {
     try {
-      return await safeInvoke('get_all_users');
+      return await safeInvoke('get_all_users') as TauriUser[];
     } catch (error) {
       console.error('Error getting all users:', error);
       throw error;
@@ -62,7 +62,7 @@ export const tauriUserService = {
   // Get user by ID
   async getUserById(id: number): Promise<TauriUser | null> {
     try {
-      return await safeInvoke('get_user_by_id', { id });
+      return await safeInvoke('get_user_by_id', { id }) as TauriUser | null;
     } catch (error) {
       console.error('Error getting user by ID:', error);
       throw error;
@@ -72,7 +72,7 @@ export const tauriUserService = {
   // Get user by email
   async getUserByEmail(email: string): Promise<TauriUser | null> {
     try {
-      return await safeInvoke('get_user_by_email', { email });
+      return await safeInvoke('get_user_by_email', { email }) as TauriUser | null;
     } catch (error) {
       console.error('Error getting user by email:', error);
       throw error;
@@ -89,7 +89,7 @@ export const tauriUserService = {
         fullName: full_name, 
         rank, 
         role 
-      });
+      }) as TauriUser;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -107,7 +107,7 @@ export const tauriUserService = {
         fullName: full_name, 
         rank, 
         role 
-      });
+      }) as TauriUser;
     } catch (error) {
       console.error('Error updating user:', error);
       throw error;
@@ -117,7 +117,7 @@ export const tauriUserService = {
   // Delete user
   async deleteUser(id: number): Promise<boolean> {
     try {
-      return await safeInvoke('delete_user', { id });
+      return await safeInvoke('delete_user', { id }) as boolean;
     } catch (error) {
       console.error('Error deleting user:', error);
       throw error;
@@ -127,7 +127,7 @@ export const tauriUserService = {
   // Cleanup orphaned avatars
   async cleanupOrphanedAvatars(): Promise<number> {
     try {
-      return await safeInvoke('cleanup_orphaned_avatars', {});
+      return await safeInvoke('cleanup_orphaned_avatars', {}) as number;
     } catch (error) {
       console.error('Error cleaning up orphaned avatars:', error);
       throw error;
@@ -137,7 +137,7 @@ export const tauriUserService = {
   // Migrate plain text passwords to hashed passwords
   async migratePasswords(): Promise<string> {
     try {
-      return await safeInvoke('migrate_passwords', {});
+      return await safeInvoke('migrate_passwords', {}) as string;
     } catch (error) {
       console.error('Error migrating passwords:', error);
       throw error;
@@ -153,7 +153,7 @@ export const tauriUserService = {
         password: password 
       };
       
-      return await safeInvoke('authenticate_user', params);
+      return await safeInvoke('authenticate_user', params) as TauriUser | null;
     } catch (error) {
       console.error('Error authenticating user:', error);
       throw error;
@@ -163,7 +163,7 @@ export const tauriUserService = {
   // Hash password
   async hashPassword(password: string): Promise<string> {
     try {
-      return await safeInvoke('hash_password', { password });
+      return await safeInvoke('hash_password', { password }) as string;
     } catch (error) {
       console.error('Error hashing password:', error);
       throw error;
@@ -176,7 +176,7 @@ export const tauriAvatarService = {
   // Get avatar by user ID
   async getAvatarByUserId(userId: number): Promise<TauriAvatar | null> {
     try {
-      return await safeInvoke('get_avatar_by_user_id', { userId: userId });
+      return await safeInvoke('get_avatar_by_user_id', { userId: userId }) as TauriAvatar | null;
     } catch (error) {
       console.error('Error getting avatar by user ID:', error);
       throw error;
@@ -190,7 +190,7 @@ export const tauriAvatarService = {
         userId: userId, 
         avatarData: Array.from(avatarData), 
         mimeType: mimeType 
-      });
+      }) as TauriAvatar;
     } catch (error) {
       console.error('Error saving avatar:', error);
       throw error;
@@ -200,7 +200,7 @@ export const tauriAvatarService = {
   // Delete avatar
   async deleteAvatar(userId: number): Promise<boolean> {
     try {
-      return await safeInvoke('delete_avatar', { userId: userId });
+      return await safeInvoke('delete_avatar', { userId: userId }) as boolean;
     } catch (error) {
       console.error('Error deleting avatar:', error);
       throw error;
@@ -213,7 +213,7 @@ export const tauriDatabaseService = {
   // Initialize database
   async initializeDatabase(): Promise<string> {
     try {
-      return await safeInvoke('initialize_database');
+      return await safeInvoke('initialize_database') as string;
     } catch (error) {
       console.error('Error initializing database:', error);
       throw error;
