@@ -1,4 +1,4 @@
-import { tauriAvatarService, TauriAvatar } from './tauriService';
+import { tauriAvatarService } from './tauriService';
 
 // Avatar data type for frontend use
 export interface AvatarData {
