@@ -37,18 +37,25 @@ const UserCRUDForm: React.FC = () => {
     loadUsers()
   }, [])
 
-  // Listen for global avatar update events
-  // Note: UserAvatar components will handle their own refresh via useHybridAvatar hook
-  // No need to reload entire users list here
-  // useEffect(() => {
-  //   const handleAvatarUpdate = () => {
-  //     loadUsers()
-  //   }
-  //   window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-  //   return () => {
-  //     window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-  //   }
-  // }, [])
+  // Listen for global avatar update events to clear overrideSrc
+  // This allows UserAvatar to refresh when avatar changes from other components (e.g., Profile)
+  useEffect(() => {
+    const handleAvatarUpdate = (event: CustomEvent) => {
+      const { userId, source } = event.detail
+      // Only clear preview if event is from another component (not from UserCRUDForm itself)
+      if (userId && source !== 'UserCRUDForm') {
+        // Clear the preview for this user so UserAvatar can refresh via hook
+        setAvatarPreviews(prev => {
+          const { [userId]: _omit, ...rest } = prev
+          return rest
+        })
+      }
+    }
+    window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
+    return () => {
+      window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
+    }
+  }, [])
 
   // Load users from database
   const loadUsers = async () => {
@@ -150,7 +157,7 @@ const UserCRUDForm: React.FC = () => {
         // Trigger global avatar refresh event for Navbar and other components
         // UserAvatar in this list will use overrideSrc prop, so won't flash
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
+          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true, source: 'UserCRUDForm' } 
         }))
         
         showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
@@ -202,7 +209,7 @@ const UserCRUDForm: React.FC = () => {
         
         // Trigger global avatar refresh event (single dispatch only)
         window.dispatchEvent(new CustomEvent('avatarUpdated', {
-          detail: { userId: user.id, forceRefresh: true }
+          detail: { userId: user.id, forceRefresh: true, source: 'UserCRUDForm' }
         }))
         
       showSuccess('ลบ Avatar สำเร็จ')
