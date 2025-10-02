@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { AuthContext, type AuthContextType, type User } from './authContextObject'
-import { tauriUserService, tauriAvatarService, tauriDatabaseService } from '../services/tauriService'
+import { tauriUserService } from '../services/tauriService'
 
 // Context is declared in authContextObject.ts
 
@@ -151,7 +151,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Save hybrid avatar
         const { hybridAvatarService } = await import('../services/hybridAvatarService')
-        const avatarInfo = await hybridAvatarService.saveAvatar(
+        await hybridAvatarService.saveAvatar(
           Number(user.id), 
           uint8Array, 
           blob.type
