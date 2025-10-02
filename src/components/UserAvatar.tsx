@@ -16,7 +16,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   size = 'md', 
   className = '', 
   version,
-  onImageError 
+  onImageError
 }) => {
   const { avatar: hybridAvatar, refreshAvatar } = useHybridAvatar({ 
     userId: user.id ? Number(user.id) : 0,

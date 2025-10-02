@@ -37,18 +37,8 @@ const UserCRUDForm: React.FC = () => {
     loadUsers()
   }, [])
 
-  // Listen for global avatar update events to refresh user list
-  useEffect(() => {
-    const handleAvatarUpdate = () => {
-      // Refresh users list to get updated avatar info
-      loadUsers()
-    }
-
-    window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    return () => {
-      window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Note: UserAvatar components listen to avatarUpdated events and refresh themselves
+  // No need to handle events here - just dispatch them when we make changes
 
   // Load users from database
   const loadUsers = async () => {
@@ -134,20 +124,14 @@ const UserCRUDForm: React.FC = () => {
           avatar_path: result.avatar_path
         } : u))
         
-        // Clear preview since avatar is now in database
+        // Clear preview since avatar is saved
         setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
         
-        // Trigger global avatar refresh event
+        // Trigger global avatar refresh event for all components
+        // UserAvatar hook will handle the refresh automatically
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
           detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
         }))
-        
-        // Force refresh all avatar displays
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-            detail: { userId: user.id, forceRefresh: true } 
-          }))
-        }, 500)
         
         showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
       } catch (dbError) {
@@ -195,17 +179,12 @@ const UserCRUDForm: React.FC = () => {
         avatar_path: null
       } : u))
       setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
-        // Trigger global avatar refresh event
+        
+        // Trigger global avatar refresh event (single dispatch only)
         window.dispatchEvent(new CustomEvent('avatarUpdated', {
           detail: { userId: user.id, forceRefresh: true }
         }))
         
-        // Force refresh all avatar displays
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-            detail: { userId: user.id, forceRefresh: true } 
-          }))
-        }, 500)
       showSuccess('ลบ Avatar สำเร็จ')
     } catch (e) {
       console.error('Remove avatar failed', e)
@@ -541,7 +520,11 @@ const UserCRUDForm: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-4">
                     <div className="relative flex flex-col items-center">
-                      <UserAvatar user={user} size="md" className={avatarBusy[user.id as number] ? 'opacity-60' : ''} />
+                      <UserAvatar 
+                        user={user} 
+                        size="md" 
+                        className={avatarBusy[user.id as number] ? 'opacity-60' : ''} 
+                      />
                       {currentUser?.role === 'admin' && user.id && (
                         <div className="mt-1 flex gap-1">
                           <button

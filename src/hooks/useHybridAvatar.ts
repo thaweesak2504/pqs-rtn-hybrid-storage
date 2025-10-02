@@ -30,7 +30,7 @@ export const useHybridAvatar = ({
   const [error, setError] = useState<string | null>(null);
   const [exists, setExists] = useState(false);
 
-  const loadAvatar = useCallback(async () => {
+  const loadAvatar = useCallback(async (forceReload = false) => {
     if (!userId) return;
 
     setIsLoading(true);
@@ -38,6 +38,13 @@ export const useHybridAvatar = ({
 
     try {
       const info = await hybridAvatarService.getAvatarInfo(userId);
+      
+      // Check if avatar_path changed - if not, skip reloading to prevent flash
+      if (!forceReload && avatarInfo?.avatar_path === info.avatar_path && avatar) {
+        setIsLoading(false);
+        return; // Avatar hasn't changed, no need to reload
+      }
+      
       setAvatarInfo(info);
       setExists(info.file_exists && !!info.avatar_path);
       
@@ -57,7 +64,7 @@ export const useHybridAvatar = ({
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [userId, avatarInfo, avatar]);
 
   const saveAvatar = useCallback(async (fileData: Uint8Array, mimeType: string): Promise<boolean> => {
     if (!userId) return false;
@@ -69,6 +76,13 @@ export const useHybridAvatar = ({
       const result = await hybridAvatarService.saveAvatar(userId, fileData, mimeType);
       setAvatarInfo(result);
       setExists(result.file_exists && !!result.avatar_path);
+      // Load the avatar base64 data immediately after saving (like useHybridHighRankAvatar)
+      if (result.file_exists && result.avatar_path) {
+        const base64Data = await hybridAvatarService.getAvatarBase64(result.avatar_path);
+        setAvatar(base64Data);
+      } else {
+        setAvatar(null);
+      }
       return true;
     } catch (err) {
       console.error('Failed to save hybrid avatar:', err);
@@ -89,6 +103,7 @@ export const useHybridAvatar = ({
       const success = await hybridAvatarService.deleteAvatar(userId);
       if (success) {
         setAvatarInfo(null);
+        setAvatar(null);
         setExists(false);
       }
       return success;

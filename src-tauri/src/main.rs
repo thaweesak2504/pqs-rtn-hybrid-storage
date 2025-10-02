@@ -229,6 +229,22 @@ fn get_backup_file_info(backup_filename: String) -> Result<(String, u64, String)
 // Hybrid Avatar Commands
 #[tauri::command]
 fn save_hybrid_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<hybrid_avatar::HybridAvatarInfo, String> {
+    // Validate avatar data
+    if avatar_data.is_empty() {
+        return Err("Avatar data is empty".to_string());
+    }
+    
+    // Check maximum size (10MB)
+    const MAX_SIZE: usize = 10 * 1024 * 1024;
+    if avatar_data.len() > MAX_SIZE {
+        return Err(format!("Avatar data too large: {} bytes (max: {} bytes)", avatar_data.len(), MAX_SIZE));
+    }
+    
+    // Validate MIME type
+    if !mime_type.starts_with("image/") {
+        return Err(format!("Invalid MIME type: {}", mime_type));
+    }
+    
     let manager = hybrid_avatar::HybridAvatarManager::new()?;
     manager.save_avatar(user_id, &avatar_data, &mime_type)
 }
@@ -272,6 +288,22 @@ fn get_media_directory_path() -> Result<String, String> {
 // Hybrid High Rank Avatar Commands
 #[tauri::command]
 fn save_hybrid_high_rank_avatar(officer_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<hybrid_high_rank_avatar::HybridHighRankAvatarInfo, String> {
+    // Validate avatar data
+    if avatar_data.is_empty() {
+        return Err("Avatar data is empty".to_string());
+    }
+    
+    // Check maximum size (10MB)
+    const MAX_SIZE: usize = 10 * 1024 * 1024;
+    if avatar_data.len() > MAX_SIZE {
+        return Err(format!("Avatar data too large: {} bytes (max: {} bytes)", avatar_data.len(), MAX_SIZE));
+    }
+    
+    // Validate MIME type
+    if !mime_type.starts_with("image/") {
+        return Err(format!("Invalid MIME type: {}", mime_type));
+    }
+    
     let manager = hybrid_high_rank_avatar::HybridHighRankAvatarManager::new()?;
     manager.save_avatar(officer_id, &avatar_data, &mime_type)
 }

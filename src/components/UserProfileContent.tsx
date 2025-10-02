@@ -71,19 +71,10 @@ const UserProfileContent: React.FC = () => {
       const success = await saveAvatar(fileData, mimeType)
       if (success) {
         setPreview(null)
-        // Refresh avatar in other components
-        refreshAvatar()
-        // Trigger global avatar refresh event
+        // Dispatch event to sync avatar with Navbar and other components
         window.dispatchEvent(new CustomEvent('avatarUpdated', { 
           detail: { userId: user?.id, forceRefresh: true } 
         }))
-        
-        // Force refresh all avatar displays
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-            detail: { userId: user?.id, forceRefresh: true } 
-          }))
-        }, 500)
       } else {
         setUploadError('ไม่สามารถบันทึกรูปได้')
       }
@@ -109,17 +100,10 @@ const UserProfileContent: React.FC = () => {
       await updateAvatar(null)
       setPreview(null)
 
-      // Trigger global avatar refresh event
+      // Dispatch event to sync with Navbar and other components
       window.dispatchEvent(new CustomEvent('avatarUpdated', { 
         detail: { userId: user.id, forceRefresh: true } 
       }))
-      
-      // Force refresh all avatar displays
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-          detail: { userId: user.id, forceRefresh: true } 
-        }))
-      }, 500)
 
     } catch (error) {
       console.error('Failed to remove avatar:', error)
