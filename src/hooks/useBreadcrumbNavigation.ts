@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useNavigationState } from './useNavigationState'
-import { MENU_ITEMS_CONFIG, AUTH_MENU_ITEMS, ROUTE_CONFIG } from '../config/navigationConfig'
 
 export interface BreadcrumbItem {
   id: string

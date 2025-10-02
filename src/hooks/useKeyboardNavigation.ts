@@ -1,8 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useNavigationState } from './useNavigationState'
 import { useNavigationHandlers } from './useNavigationHandlers'
-import { MENU_ITEMS_CONFIG, AUTH_MENU_ITEMS } from '../config/navigationConfig'
 
 interface KeyboardNavigationOptions {
   enabled?: boolean
@@ -16,8 +14,7 @@ interface KeyboardNavigationOptions {
 export const useKeyboardNavigation = (
   options: KeyboardNavigationOptions = {}
 ) => {
-  const { enabled = true, onNavigate } = options
-  const navigate = useNavigate()
+  const { enabled = true } = options
   const [navigationState, navigationActions] = useNavigationState()
   const navigationHandlers = useNavigationHandlers(navigationState, navigationActions)
   

@@ -154,8 +154,6 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
 
   // Calculate statistics
   const getStats = useCallback((): NavigationStats => {
-    const currentTime = Date.now()
-    const sessionDuration = currentTime - sessionStartTime.current
 
     // Count events by type
     const pageViews = events.filter(e => e.type === 'page_view')

@@ -2,13 +2,8 @@ import { useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useSlideBar } from './useSlideBar'
 import { useAuth } from './useAuth'
-import { 
-  getRouteForItem, 
-  isAdminSubItem,
-  isStandaloneItem,
-  type NavigationState,
-  type NavigationStateActions 
-} from '../config/navigationConfig'
+import { getRouteForItem, isStandaloneItem } from '../config/navigationConfig'
+import type { NavigationState, NavigationStateActions } from './useNavigationState'
 
 interface NavigationHandlers {
   handleMenuClick: (itemId: string) => void
@@ -21,7 +16,7 @@ interface NavigationHandlers {
  * Centralizes navigation logic and provides consistent behavior
  */
 export const useNavigationHandlers = (
-  state: NavigationState,
+  _state: NavigationState, // Kept for signature compatibility with component usage, but not used internally
   actions: NavigationStateActions
 ): NavigationHandlers => {
   const navigate = useNavigate()
