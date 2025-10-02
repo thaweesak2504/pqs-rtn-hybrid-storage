@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from './Button';
 import { X, Save, User, Briefcase, Globe } from 'lucide-react';
-import { FormInput, FormSelect, FormGroup, FormActions } from './Form';
+import { FormInput, FormGroup, FormActions } from './Form';
 import { CustomSelect } from './CustomSelect';
 
 interface HighRankingOfficer {

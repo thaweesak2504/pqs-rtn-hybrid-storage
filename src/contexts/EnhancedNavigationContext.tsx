@@ -7,7 +7,6 @@ import { useFocusManagement } from '../hooks/useFocusManagement'
 import { useNavigationAnimations } from '../hooks/useNavigationAnimations'
 import { useBreadcrumbNavigation } from '../hooks/useBreadcrumbNavigation'
 import { useNavigationHistory } from '../hooks/useNavigationHistory'
-import { useNavigationShortcuts } from '../hooks/useNavigationShortcuts'
 import { useNavigationAnalytics } from '../hooks/useNavigationAnalytics'
 import { useResponsiveNavigation } from '../hooks/useResponsiveNavigation'
 
@@ -23,7 +22,6 @@ interface EnhancedNavigationContextValue {
   animations: ReturnType<typeof useNavigationAnimations>
   breadcrumbs: ReturnType<typeof useBreadcrumbNavigation>
   history: ReturnType<typeof useNavigationHistory>
-  shortcuts: ReturnType<typeof useNavigationShortcuts>
   analytics: ReturnType<typeof useNavigationAnalytics>
   responsive: ReturnType<typeof useResponsiveNavigation>
 }
@@ -53,7 +51,6 @@ export const EnhancedNavigationProvider: React.FC<EnhancedNavigationProviderProp
   const animations = useNavigationAnimations()
   const breadcrumbs = useBreadcrumbNavigation()
   const history = useNavigationHistory()
-  const shortcuts = useNavigationShortcuts()
   const analytics = useNavigationAnalytics()
   const responsive = useResponsiveNavigation()
 
@@ -66,7 +63,6 @@ export const EnhancedNavigationProvider: React.FC<EnhancedNavigationProviderProp
     animations,
     breadcrumbs,
     history,
-    shortcuts,
     analytics,
     responsive
   }

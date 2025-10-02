@@ -187,7 +187,8 @@ export const useNavigationHistory = (): NavigationHistory => {
 
   // Handle browser back/forward buttons
   useEffect(() => {
-    const handlePopState = (event: PopStateEvent) => {
+    // 'event' parameter is required by popstate listener, but not used
+    const handlePopState = (_event: PopStateEvent) => {
       if (!isNavigatingRef.current) {
         // Browser navigation occurred, update current index
         const currentPath = location.pathname

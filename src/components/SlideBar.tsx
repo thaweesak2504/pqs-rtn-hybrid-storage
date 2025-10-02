@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react'
-import { ChevronDown, ChevronRight, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, X, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
 import { useSlideBar } from '../hooks/useSlideBar'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigationState } from '../hooks/useNavigationState'
 import { useNavigationHandlers } from '../hooks/useNavigationHandlers'
 import { useRouterSync } from '../hooks/useRouterSync'
+import { useNavigationHistory } from '../hooks/useNavigationHistory'
+import Button from './ui/Button'
 import { 
   MENU_ITEMS_CONFIG, 
   AUTH_MENU_ITEMS
@@ -20,6 +22,9 @@ const SlideBar: React.FC = () => {
   
   // Sync with router
   useRouterSync(navigationActions)
+  
+  // Navigation history for back/forward buttons
+  const { canGoBack, canGoForward, goBack, goForward } = useNavigationHistory()
   
   // Refs for focus management
   const panelRef = React.useRef<HTMLDivElement>(null)
@@ -228,6 +233,32 @@ const SlideBar: React.FC = () => {
           >
             <X className="w-5 h-5 text-github-text-secondary" />
           </button>
+        </div>
+
+        {/* Navigation History Controls */}
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-github-border-primary bg-github-bg-secondary">
+          <Button
+            variant="outline"
+            size="small"
+            onClick={goBack}
+            disabled={!canGoBack}
+            icon={<ChevronLeft className="w-4 h-4" />}
+            iconPosition="left"
+            className="flex-1"
+          >
+            Back
+          </Button>
+          <Button
+            variant="outline"
+            size="small"
+            onClick={goForward}
+            disabled={!canGoForward}
+            icon={<ChevronRightIcon className="w-4 h-4" />}
+            iconPosition="right"
+            className="flex-1"
+          >
+            Forward
+          </Button>
         </div>
 
         {/* Menu Items */}

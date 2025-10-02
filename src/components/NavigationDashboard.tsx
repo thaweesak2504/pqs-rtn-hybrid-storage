@@ -2,18 +2,14 @@ import React, { useState, useMemo } from 'react'
 import { 
   BarChart3, 
   Settings, 
-  Keyboard, 
   Eye, 
   EyeOff,
   Download,
   Trash2,
-  Play,
-  Pause,
   RotateCcw,
   X
 } from 'lucide-react'
 import { useNavigationAnalytics } from '../hooks/useNavigationAnalytics'
-import { useNavigationShortcuts } from '../hooks/useNavigationShortcuts'
 import { useResponsiveNavigation } from '../hooks/useResponsiveNavigation'
 import { useNavigationHistory } from '../hooks/useNavigationHistory'
 
@@ -39,7 +35,6 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
     setTrackingEnabled 
   } = useNavigationAnalytics()
   
-  const { shortcuts, isShortcutEnabled, setShortcutEnabled } = useNavigationShortcuts()
   const { isMobile, isTablet, screenWidth, screenHeight } = useResponsiveNavigation()
   const { history, canGoBack } = useNavigationHistory()
 
@@ -52,13 +47,9 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
     return {
       totalEvents,
       sessionDuration: Math.round(sessionDuration / 1000),
-      eventsPerMinute,
-      mostUsedShortcut: shortcuts.reduce((prev, current) => 
-        events.filter(e => e.metadata?.shortcut === current.key).length > 
-        events.filter(e => e.metadata?.shortcut === prev.key).length ? current : prev
-      , shortcuts[0] || { key: 'None', description: 'No shortcuts used' })
+      eventsPerMinute
     }
-  }, [events, shortcuts])
+  }, [events])
 
   if (!isOpen) return null
 
@@ -84,7 +75,6 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
         <div className="flex border-b border-github-border-primary">
           {[
             { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-            { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
             { id: 'settings', label: 'Settings', icon: Settings }
           ].map((tab) => (
             <button
@@ -170,48 +160,6 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
             </div>
           )}
 
-          {activeTab === 'shortcuts' && (
-            <div className="space-y-6">
-              {/* Shortcuts Status */}
-              <div className="flex items-center justify-between p-4 bg-github-bg-secondary rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Keyboard className="w-5 h-5 text-github-text-secondary" />
-                  <span className="text-github-text-primary">Keyboard Shortcuts</span>
-                </div>
-                <button
-                  onClick={() => setShortcutEnabled(!isShortcutEnabled)}
-                  className={`flex items-center space-x-2 px-3 py-1 rounded-lg transition-colors ${
-                    isShortcutEnabled
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-600 text-white'
-                  }`}
-                >
-                  {isShortcutEnabled ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                  <span>{isShortcutEnabled ? 'Enabled' : 'Disabled'}</span>
-                </button>
-              </div>
-
-              {/* Shortcuts List */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {shortcuts.map((shortcut) => (
-                  <div key={shortcut.key} className="bg-github-bg-secondary p-4 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-github-text-primary">{shortcut.description}</span>
-                      <span className="text-sm text-github-text-tertiary bg-github-bg-tertiary px-2 py-1 rounded">
-                        {shortcut.ctrlKey && 'Ctrl+'}
-                        {shortcut.altKey && 'Alt+'}
-                        {shortcut.shiftKey && 'Shift+'}
-                        {shortcut.metaKey && 'Cmd+'}
-                        {shortcut.key}
-                      </span>
-                    </div>
-                    <p className="text-sm text-github-text-secondary">{shortcut.category}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {activeTab === 'settings' && (
             <div className="space-y-6">
               {/* Tracking Settings */}
@@ -267,7 +215,6 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
                 <button
                   onClick={() => {
                     setTrackingEnabled(true)
-                    setShortcutEnabled(true)
                   }}
                   className="flex items-center space-x-2 px-4 py-2 bg-github-accent-primary text-white rounded-lg hover:bg-github-accent-hover transition-colors"
                 >

@@ -1,8 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNavigationState } from './useNavigationState'
-import { useNavigationHandlers } from './useNavigationHandlers'
-import { ROUTE_CONFIG } from '../config/navigationConfig'
 
 export interface ShortcutConfig {
   key: string
@@ -31,7 +29,7 @@ interface NavigationShortcuts {
 export const useNavigationShortcuts = (): NavigationShortcuts => {
   const navigate = useNavigate()
   const [navigationState, navigationActions] = useNavigationState()
-  const navigationHandlers = useNavigationHandlers(navigationState, navigationActions)
+  // navigationHandlers removed - using direct navigationActions instead
   
   const shortcutsRef = useRef<ShortcutConfig[]>([])
   const isEnabledRef = useRef(true)
@@ -103,56 +101,6 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
       },
       description: 'Close All Menus',
       category: 'menu'
-    },
-    {
-      key: 'ArrowUp',
-      ctrlKey: true,
-      action: () => {
-        // Navigate to previous menu item
-        const currentPath = window.location.pathname
-        const paths = ['/home', '/history', '/team', '/contact', '/signin', '/register']
-        const currentIndex = paths.indexOf(currentPath)
-        if (currentIndex > 0) {
-          navigate(paths[currentIndex - 1])
-        }
-      },
-      description: 'Previous Menu Item',
-      category: 'navigation'
-    },
-    {
-      key: 'ArrowDown',
-      ctrlKey: true,
-      action: () => {
-        // Navigate to next menu item
-        const currentPath = window.location.pathname
-        const paths = ['/home', '/history', '/team', '/contact', '/signin', '/register']
-        const currentIndex = paths.indexOf(currentPath)
-        if (currentIndex < paths.length - 1) {
-          navigate(paths[currentIndex + 1])
-        }
-      },
-      description: 'Next Menu Item',
-      category: 'navigation'
-    },
-    {
-      key: 'b',
-      ctrlKey: true,
-      action: () => {
-        // Go back in browser history
-        window.history.back()
-      },
-      description: 'Go Back',
-      category: 'navigation'
-    },
-    {
-      key: 'f',
-      ctrlKey: true,
-      action: () => {
-        // Go forward in browser history
-        window.history.forward()
-      },
-      description: 'Go Forward',
-      category: 'navigation'
     },
     {
       key: '?',
