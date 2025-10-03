@@ -84,14 +84,54 @@ impl FileManager {
     }
     
     pub fn delete_avatar_file(&self, avatar_path: &str) -> Result<(), String> {
-        let file_path = self.media_dir.join(avatar_path);
-        
-        if file_path.exists() {
-            fs::remove_file(&file_path)
-                .map_err(|e| format!("Failed to delete avatar file: {}", e))?;
+        // Validate input to prevent path traversal attacks
+        if avatar_path.is_empty() {
+            return Err("Avatar path is empty".to_string());
         }
         
-        Ok(())
+        if avatar_path.contains("..") {
+            return Err("Invalid avatar path: path traversal attempt detected".to_string());
+        }
+        
+        let file_path = self.media_dir.join(avatar_path);
+        
+        // Additional security: verify the resolved path is still within media_dir
+        let canonical_media = self.media_dir.canonicalize()
+            .map_err(|e| format!("Failed to canonicalize media directory: {}", e))?;
+        
+        if let Ok(canonical_file) = file_path.canonicalize() {
+            if !canonical_file.starts_with(&canonical_media) {
+                return Err("Security error: Attempted to delete file outside media directory".to_string());
+            }
+        }
+        
+        // Check if file exists before attempting deletion
+        if !file_path.exists() {
+            // Not an error - file already doesn't exist
+            return Ok(());
+        }
+        
+        // Verify it's a file, not a directory
+        if file_path.is_dir() {
+            return Err(format!("Cannot delete directory: {}", avatar_path));
+        }
+        
+        // Attempt to delete the file with proper error handling
+        match fs::remove_file(&file_path) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // Provide detailed error information
+                Err(format!("Failed to delete avatar file '{}': {} ({})", 
+                    avatar_path, 
+                    e,
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        "Permission denied - file may be in use"
+                    } else {
+                        "IO error"
+                    }
+                ))
+            }
+        }
     }
     
     pub fn save_high_rank_avatar_file(&self, officer_id: i32, file_data: &[u8], mime_type: &str) -> Result<String, String> {
@@ -122,14 +162,54 @@ impl FileManager {
     }
     
     pub fn delete_high_rank_avatar_file(&self, avatar_path: &str) -> Result<(), String> {
-        let file_path = self.media_dir.join(avatar_path);
-        
-        if file_path.exists() {
-            fs::remove_file(&file_path)
-                .map_err(|e| format!("Failed to delete high rank avatar file: {}", e))?;
+        // Validate input to prevent path traversal attacks
+        if avatar_path.is_empty() {
+            return Err("Avatar path is empty".to_string());
         }
         
-        Ok(())
+        if avatar_path.contains("..") {
+            return Err("Invalid avatar path: path traversal attempt detected".to_string());
+        }
+        
+        let file_path = self.media_dir.join(avatar_path);
+        
+        // Additional security: verify the resolved path is still within media_dir
+        let canonical_media = self.media_dir.canonicalize()
+            .map_err(|e| format!("Failed to canonicalize media directory: {}", e))?;
+        
+        if let Ok(canonical_file) = file_path.canonicalize() {
+            if !canonical_file.starts_with(&canonical_media) {
+                return Err("Security error: Attempted to delete file outside media directory".to_string());
+            }
+        }
+        
+        // Check if file exists before attempting deletion
+        if !file_path.exists() {
+            // Not an error - file already doesn't exist
+            return Ok(());
+        }
+        
+        // Verify it's a file, not a directory
+        if file_path.is_dir() {
+            return Err(format!("Cannot delete directory: {}", avatar_path));
+        }
+        
+        // Attempt to delete the file with proper error handling
+        match fs::remove_file(&file_path) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // Provide detailed error information
+                Err(format!("Failed to delete high rank avatar file '{}': {} ({})", 
+                    avatar_path, 
+                    e,
+                    if e.kind() == std::io::ErrorKind::PermissionDenied {
+                        "Permission denied - file may be in use"
+                    } else {
+                        "IO error"
+                    }
+                ))
+            }
+        }
     }
     
     pub fn cleanup_orphaned_files(&self, valid_paths: &[String]) -> Result<u32, String> {

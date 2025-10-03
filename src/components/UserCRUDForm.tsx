@@ -157,19 +157,48 @@ const UserCRUDForm: React.FC = () => {
   }
 
   const handleRemoveAvatar = async (user: UserType) => {
-    if (!user.id) return
+    if (!user.id) {
+      console.error('Cannot delete avatar: user.id is undefined')
+      showError('ข้อมูลผู้ใช้ไม่ถูกต้อง')
+      return
+    }
+    
     if (!confirm('ลบรูป Avatar ของผู้ใช้นี้?')) return
+    
     try {
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: true }))
-      // Delete avatar using Hybrid Avatar System
+      
+      // Delete avatar using Hybrid Avatar System with enhanced error handling
       try {
         const { invoke } = await import('@tauri-apps/api/tauri')
-        await invoke('delete_hybrid_avatar', { userId: user.id })
-      } catch (dbError) {
-        console.error('Hybrid avatar delete failed:', dbError)
-        showError('ลบรูปไม่สำเร็จ')
+        
+        // Call Tauri backend with proper error handling
+        const result = await invoke<boolean>('delete_hybrid_avatar', { 
+          userId: user.id 
+        })
+        
+        if (!result) {
+          throw new Error('Backend returned false - delete operation failed')
+        }
+        
+        console.log('Avatar deleted successfully for user:', user.id)
+        
+      } catch (dbError: any) {
+        console.error('Hybrid avatar delete failed:', {
+          error: dbError,
+          userId: user.id,
+          message: dbError?.message || String(dbError)
+        })
+        
+        // Show user-friendly error message
+        const errorMessage = typeof dbError === 'string' 
+          ? dbError 
+          : dbError?.message || 'ลบรูปไม่สำเร็จ - กรุณาลองอีกครั้ง'
+        
+        showError(errorMessage)
         return
       }
+      
       // Update local users state with hybrid avatar info
       setUsers(prev => prev.map(u => u.id === user.id ? { 
         ...u, 
@@ -178,18 +207,32 @@ const UserCRUDForm: React.FC = () => {
         avatar_size: null,
         avatar_path: null
       } : u))
-      setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
+      
+      // Clear avatar preview safely
+      setAvatarPreviews(prev => { 
+        const { [user.id as number]: _omit, ...rest } = prev
+        return rest
+      })
         
-        // Trigger global avatar refresh event (single dispatch only)
+      // Trigger global avatar refresh event (single dispatch only)
+      // Use setTimeout to ensure state updates are processed first
+      setTimeout(() => {
         window.dispatchEvent(new CustomEvent('avatarUpdated', {
           detail: { userId: user.id, forceRefresh: true }
         }))
+      }, 50)
         
       showSuccess('ลบ Avatar สำเร็จ')
-    } catch (e) {
-      console.error('Remove avatar failed', e)
-      showError('ลบล้มเหลว')
+      
+    } catch (e: any) {
+      console.error('Remove avatar failed - outer catch:', {
+        error: e,
+        stack: e?.stack,
+        userId: user.id
+      })
+      showError(`ลบล้มเหลว: ${e?.message || String(e)}`)
     } finally {
+      // Always clear busy state
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: false }))
     }
   }

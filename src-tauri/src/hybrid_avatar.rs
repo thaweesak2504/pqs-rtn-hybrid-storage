@@ -110,28 +110,72 @@ impl HybridAvatarManager {
     pub fn delete_avatar(&self, user_id: i32) -> Result<bool, String> {
         let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
-        // Get current avatar path
-        let avatar_path: Option<String> = conn.query_row(
-            "SELECT avatar_path FROM users WHERE id = ?",
+        // First, verify user exists to prevent crashes
+        let user_exists: Result<i32, _> = conn.query_row(
+            "SELECT COUNT(*) FROM users WHERE id = ?",
             params![user_id],
-            |row| Ok(row.get(0)?)
-        ).map_err(|e| format!("Failed to get avatar path: {}", e))?;
+            |row| row.get(0)
+        );
         
-        // Delete file if exists
-        if let Some(path) = avatar_path {
-            let _ = self.file_manager.delete_avatar_file(&path);
+        match user_exists {
+            Ok(count) if count == 0 => {
+                return Err(format!("User with ID {} does not exist", user_id));
+            },
+            Err(e) => {
+                return Err(format!("Failed to verify user existence: {}", e));
+            },
+            _ => {}
         }
         
-        // Update user record
-        conn.execute(
+        // Get current avatar path - handle case where avatar_path is NULL safely
+        let avatar_path: Option<String> = match conn.query_row(
+            "SELECT avatar_path FROM users WHERE id = ?",
+            params![user_id],
+            |row| row.get(0)
+        ) {
+            Ok(path) => path,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                // User exists but query returned no rows - shouldn't happen but handle it
+                return Err(format!("User {} found but avatar query failed", user_id));
+            },
+            Err(e) => {
+                return Err(format!("Failed to get avatar path: {}", e));
+            }
+        };
+        
+        // Delete file if exists - with proper error handling
+        if let Some(path) = avatar_path {
+            // Only attempt deletion if path is not empty
+            if !path.is_empty() {
+                match self.file_manager.delete_avatar_file(&path) {
+                    Ok(_) => {
+                        // File deleted successfully
+                    },
+                    Err(e) => {
+                        // Log error but continue with database update
+                        eprintln!("Warning: Failed to delete avatar file '{}': {}", path, e);
+                        // Don't return error here - we still want to clear the database record
+                    }
+                }
+            }
+        }
+        
+        // Update user record - clear all avatar fields
+        match conn.execute(
             "UPDATE users SET avatar_path = NULL, avatar_updated_at = NULL, avatar_mime = NULL, avatar_size = NULL WHERE id = ?",
             params![user_id]
-        ).map_err(|e| format!("Failed to clear user avatar: {}", e))?;
-        
-        // Note: avatars table has been removed - no need to delete from it
-        // File-based storage is now the only method
-        
-        Ok(true)
+        ) {
+            Ok(updated) if updated > 0 => {
+                // Successfully updated
+                Ok(true)
+            },
+            Ok(_) => {
+                Err(format!("No user record was updated for user_id {}", user_id))
+            },
+            Err(e) => {
+                Err(format!("Failed to clear user avatar in database: {}", e))
+            }
+        }
     }
     
     pub fn get_avatar_file_data(&self, avatar_path: &str) -> Result<Vec<u8>, String> {

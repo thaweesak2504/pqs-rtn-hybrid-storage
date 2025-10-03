@@ -112,31 +112,75 @@ impl HybridHighRankAvatarManager {
     pub fn delete_avatar(&self, officer_id: i32) -> Result<bool, String> {
         let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
-        // Get current avatar path
-        let avatar_path: Option<String> = conn.query_row(
+        // First, verify officer exists to prevent crashes
+        let officer_exists: Result<i32, _> = conn.query_row(
+            "SELECT COUNT(*) FROM high_ranking_officers WHERE id = ?",
+            params![officer_id],
+            |row| row.get(0)
+        );
+        
+        match officer_exists {
+            Ok(count) if count == 0 => {
+                return Err(format!("Officer with ID {} does not exist", officer_id));
+            },
+            Err(e) => {
+                return Err(format!("Failed to verify officer existence: {}", e));
+            },
+            _ => {}
+        }
+        
+        // Get current avatar path - handle case where avatar_path is NULL safely
+        let avatar_path: Option<String> = match conn.query_row(
             "SELECT avatar_path FROM high_ranking_officers WHERE id = ?",
             params![officer_id],
-            |row| Ok(row.get(0)?)
-        ).map_err(|e| format!("Failed to get avatar path: {}", e))?;
+            |row| row.get(0)
+        ) {
+            Ok(path) => path,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                // Officer exists but query returned no rows - shouldn't happen but handle it
+                return Err(format!("Officer {} found but avatar query failed", officer_id));
+            },
+            Err(e) => {
+                return Err(format!("Failed to get avatar path: {}", e));
+            }
+        };
         
-        // Delete file if exists
+        // Delete file if exists - with proper error handling
         if let Some(path) = avatar_path {
-            println!("Deleting old avatar file: {}", path);
-            match self.file_manager.delete_high_rank_avatar_file(&path) {
-                Ok(_) => println!("Successfully deleted old avatar file: {}", path),
-                Err(e) => println!("Failed to delete old avatar file: {} - Error: {}", path, e),
+            // Only attempt deletion if path is not empty
+            if !path.is_empty() {
+                println!("Deleting old avatar file: {}", path);
+                match self.file_manager.delete_high_rank_avatar_file(&path) {
+                    Ok(_) => {
+                        println!("Successfully deleted old avatar file: {}", path);
+                    },
+                    Err(e) => {
+                        // Log error but continue with database update
+                        eprintln!("Warning: Failed to delete avatar file '{}': {}", path, e);
+                        // Don't return error here - we still want to clear the database record
+                    }
+                }
             }
         } else {
             println!("No existing avatar to delete for officer {}", officer_id);
         }
         
-        // Update officer record
-        conn.execute(
+        // Update officer record - clear all avatar fields
+        match conn.execute(
             "UPDATE high_ranking_officers SET avatar_path = NULL, avatar_updated_at = NULL, avatar_mime = NULL, avatar_size = NULL WHERE id = ?",
             params![officer_id]
-        ).map_err(|e| format!("Failed to clear officer avatar: {}", e))?;
-        
-        Ok(true)
+        ) {
+            Ok(updated) if updated > 0 => {
+                // Successfully updated
+                Ok(true)
+            },
+            Ok(_) => {
+                Err(format!("No officer record was updated for officer_id {}", officer_id))
+            },
+            Err(e) => {
+                Err(format!("Failed to clear officer avatar in database: {}", e))
+            }
+        }
     }
     
     pub fn get_avatar_base64(&self, avatar_path: &str) -> Result<String, String> {
