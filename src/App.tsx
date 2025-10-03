@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { DarkModeProvider } from './contexts/DarkModeContext';
@@ -41,13 +41,17 @@ import GlobalRedirect from './components/GlobalRedirect';
 function App() {
   // Enable zoom shortcuts globally
   useZoomShortcuts();
+  
+  // Prevent duplicate logging in Strict Mode
+  const hasLoggedRef = useRef(false);
 
   useEffect(() => {
     // Database initialization is handled by Tauri setup
     // No need to call from frontend to prevent double initialization
     
     // Test logger system (only once due to Strict Mode)
-    if (import.meta.env.DEV) {
+    if (import.meta.env.DEV && !hasLoggedRef.current) {
+      hasLoggedRef.current = true;
       logger.info('React App initialized');
       logger.debug('Running in development mode:', import.meta.env.DEV);
       logger.debug('Environment:', import.meta.env.MODE);
