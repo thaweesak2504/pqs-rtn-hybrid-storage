@@ -163,7 +163,7 @@ const UserCRUDForm: React.FC = () => {
       return
     }
     
-    if (!confirm('ลบรูป Avatar ของผู้ใช้นี้?')) return
+    // No confirmation dialog needed - user can easily re-upload if mistake
     
     try {
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: true }))
