@@ -59,7 +59,6 @@ impl FileManager {
             }
         }
         
-        logger::success("FileManager initialized successfully");
         logger::debug(&format!("Media dir: {:?}", media_dir));
         logger::debug(&format!("Avatars dir: {:?}", avatars_dir));
         logger::debug(&format!("High ranks dir: {:?}", high_ranks_dir));

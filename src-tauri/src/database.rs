@@ -86,12 +86,11 @@ pub fn get_connection() -> SqlResult<Connection> {
 }
 
 pub fn initialize_database() -> Result<String, String> {
-    logger::info("Starting database initialization...");
+    logger::debug("Starting database initialization...");
     
     // Initialize database with comprehensive error handling
     match initialize_database_internal() {
         Ok(msg) => {
-            logger::success(&msg);
             Ok(msg)
         },
         Err(e) => {
