@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 use std::fs;
 use std::io::Write;
+use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
+use lazy_static::lazy_static;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
@@ -18,6 +20,10 @@ pub struct FileManager {
     media_dir: PathBuf,
     avatars_dir: PathBuf,
     high_ranks_dir: PathBuf,
+}
+
+lazy_static! {
+    static ref FILE_MANAGER_INSTANCE: Mutex<Option<FileManager>> = Mutex::new(None);
 }
 
 impl FileManager {
@@ -61,6 +67,24 @@ impl FileManager {
             media_dir,
             avatars_dir,
             high_ranks_dir,
+        })
+    }
+    
+    /// Get or create singleton instance
+    pub fn get_instance() -> Result<Self, String> {
+        let mut instance = FILE_MANAGER_INSTANCE.lock()
+            .map_err(|e| format!("Failed to lock FileManager mutex: {}", e))?;
+        
+        if instance.is_none() {
+            *instance = Some(Self::new()?);
+        }
+        
+        // Clone the paths (cheap operation for PathBuf)
+        let fm = instance.as_ref().unwrap();
+        Ok(FileManager {
+            media_dir: fm.media_dir.clone(),
+            avatars_dir: fm.avatars_dir.clone(),
+            high_ranks_dir: fm.high_ranks_dir.clone(),
         })
     }
     

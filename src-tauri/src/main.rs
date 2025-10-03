@@ -287,7 +287,7 @@ fn cleanup_orphaned_avatar_files() -> Result<u32, String> {
 
 #[tauri::command]
 fn get_media_directory_path() -> Result<String, String> {
-    let manager = file_manager::FileManager::new()?;
+    let manager = file_manager::FileManager::get_instance()?;
     Ok(manager.get_media_directory().to_string_lossy().to_string())
 }
 
@@ -508,8 +508,8 @@ fn main() {
                 }
             }
             
-            // Initialize FileManager to ensure directories exist
-            match file_manager::FileManager::new() {
+            // Initialize FileManager to ensure directories exist (singleton)
+            match file_manager::FileManager::get_instance() {
                 Ok(_) => {
                     println!("✅ File manager initialized successfully");
                 },

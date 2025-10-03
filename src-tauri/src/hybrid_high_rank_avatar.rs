@@ -22,7 +22,7 @@ pub struct HybridHighRankAvatarManager {
 
 impl HybridHighRankAvatarManager {
     pub fn new() -> Result<Self, String> {
-        let file_manager = FileManager::new()?;
+        let file_manager = FileManager::get_instance()?;
         Ok(HybridHighRankAvatarManager { file_manager })
     }
     
