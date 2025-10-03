@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { hybridHighRankAvatarService, HybridHighRankAvatarInfo } from '../services/hybridHighRankAvatarService';
 
 export interface UseHybridHighRankAvatarOptions {
@@ -28,15 +28,27 @@ export const useHybridHighRankAvatar = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exists, setExists] = useState(false);
+  const previousPathRef = useRef<string | null>(null);
+  const loadingRef = useRef(false);
 
   const loadAvatar = useCallback(async () => {
-    if (!officerId) return;
+    if (!officerId || loadingRef.current) return;
 
+    loadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
     try {
       const info = await hybridHighRankAvatarService.getAvatarInfo(officerId);
+      
+      // Skip if path hasn't changed
+      if (previousPathRef.current === info.avatar_path && info.avatar_path) {
+        setIsLoading(false);
+        loadingRef.current = false;
+        return;
+      }
+      
+      previousPathRef.current = info.avatar_path;
       setAvatarInfo(info);
       setExists(info.file_exists && !!info.avatar_path);
       
@@ -55,6 +67,7 @@ export const useHybridHighRankAvatar = ({
       setExists(false);
     } finally {
       setIsLoading(false);
+      loadingRef.current = false;
     }
   }, [officerId]);
 

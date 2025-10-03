@@ -19,12 +19,12 @@ pub struct HybridAvatarManager {
 
 impl HybridAvatarManager {
     pub fn new() -> Result<Self, String> {
-        match FileManager::new() {
+        match FileManager::get_instance() {
             Ok(file_manager) => {
                 Ok(HybridAvatarManager { file_manager })
             },
             Err(e) => {
-                eprintln!("CRITICAL: Failed to create FileManager in HybridAvatarManager: {}", e);
+                eprintln!("CRITICAL: Failed to get FileManager instance in HybridAvatarManager: {}", e);
                 Err(format!("Failed to initialize HybridAvatarManager: {}", e))
             }
         }

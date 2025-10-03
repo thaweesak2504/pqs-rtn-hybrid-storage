@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { hybridAvatarService, HybridAvatarInfo } from '../services/hybridAvatarService';
 
 export interface UseHybridAvatarOptions {
@@ -29,6 +29,7 @@ export const useHybridAvatar = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [exists, setExists] = useState(false);
+  const previousPathRef = useRef<string | null>(null);
 
   const loadAvatar = useCallback(async (forceReload = false) => {
     if (!userId) return;
@@ -40,11 +41,12 @@ export const useHybridAvatar = ({
       const info = await hybridAvatarService.getAvatarInfo(userId);
       
       // Check if avatar_path changed - if not, skip reloading to prevent flash
-      if (!forceReload && avatarInfo?.avatar_path === info.avatar_path && avatar) {
+      if (!forceReload && previousPathRef.current === info.avatar_path && info.avatar_path) {
         setIsLoading(false);
         return; // Avatar hasn't changed, no need to reload
       }
       
+      previousPathRef.current = info.avatar_path;
       setAvatarInfo(info);
       setExists(info.file_exists && !!info.avatar_path);
       
@@ -71,7 +73,7 @@ export const useHybridAvatar = ({
     } finally {
       setIsLoading(false);
     }
-  }, [userId, avatarInfo, avatar]);
+  }, [userId]);
 
   const saveAvatar = useCallback(async (fileData: Uint8Array, mimeType: string): Promise<boolean> => {
     if (!userId) return false;
