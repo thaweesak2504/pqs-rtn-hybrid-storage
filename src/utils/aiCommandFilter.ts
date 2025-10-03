@@ -14,8 +14,6 @@
  */
 
 import { CommandSanitizer, ValidationResult } from './commandSanitizer';
-import { CommandExecutor, ExecutionResult } from './commandExecutor';
-import { CommandMonitor, CommandExecution } from './commandMonitor';
 
 export interface FilteredCommands {
   original: string;

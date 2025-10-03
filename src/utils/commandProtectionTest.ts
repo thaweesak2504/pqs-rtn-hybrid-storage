@@ -5,10 +5,10 @@
  * Tests all components: CommandSanitizer, CommandExecutor, CommandMonitor, and AICommandFilter
  */
 
-import { CommandSanitizer, ValidationResult } from './commandSanitizer';
+import { CommandSanitizer } from './commandSanitizer';
 import { CommandExecutor, ExecutionResult } from './commandExecutor';
 import { CommandMonitor, CommandExecution } from './commandMonitor';
-import { AICommandFilter, FilteredCommands } from './aiCommandFilter';
+import { AICommandFilter } from './aiCommandFilter';
 
 export interface TestResult {
   testName: string;
