@@ -7,6 +7,7 @@ interface FormInputProps {
   name: string
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onBlur?: () => void
   placeholder?: string
   label?: string
   icon?: LucideIcon
@@ -24,6 +25,7 @@ export const FormInput: React.FC<FormInputProps> = ({
   name,
   value,
   onChange,
+  onBlur,
   placeholder,
   label,
   icon: Icon,
@@ -62,6 +64,7 @@ export const FormInput: React.FC<FormInputProps> = ({
           name={name}
           value={value}
           onChange={onChange}
+          onBlur={onBlur}
           placeholder={placeholder}
           required={required}
           disabled={disabled}
