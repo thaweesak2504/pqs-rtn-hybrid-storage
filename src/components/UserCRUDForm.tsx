@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../contexts/ToastContext'
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
 import UserAvatar from './UserAvatar'
+import { logger } from '../utils/logger'
 
 
 const UserCRUDForm: React.FC = () => {
@@ -65,18 +66,18 @@ const UserCRUDForm: React.FC = () => {
                   setAvatarPreviews(prev => ({ ...prev, [u.id as number]: res.dataUrl }))
                 }
               } catch (error) {
-                console.warn('Error:', error);
+                logger.warn('Error:', error);
               }
             }
           }
         }
       } catch (error) {
-        console.warn('Error:', error);
+        logger.warn('Error:', error);
       }
       
       // Password loading removed for security
     } catch (error) {
-      console.error('Failed to load users:', error)
+      logger.error('Failed to load users:', error)
       showError('Load failed')
     } finally {
       setIsLoading(false)
@@ -135,17 +136,17 @@ const UserCRUDForm: React.FC = () => {
         
         showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
       } catch (dbError) {
-        console.error('Database save failed:', dbError)
+        logger.error('Database save failed:', dbError)
         showError('บันทึกรูปไม่สำเร็จ')
       }
     } catch (e) {
-      console.error('Avatar upload failed', e)
+      logger.error('Avatar upload failed', e)
       showError('อัปโหลดล้มเหลว')
     } finally {
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: false }))
       // Reset input value to allow same file reselect
       try { if (fileInputRefs.current[user.id]) fileInputRefs.current[user.id]!.value = '' } catch (error) {
-          console.warn('Error:', error);
+          logger.warn('Error:', error);
         }
     }
   }
@@ -158,7 +159,7 @@ const UserCRUDForm: React.FC = () => {
 
   const handleRemoveAvatar = async (user: UserType) => {
     if (!user.id) {
-      console.error('Cannot delete avatar: user.id is undefined')
+      logger.error('Cannot delete avatar: user.id is undefined')
       showError('ข้อมูลผู้ใช้ไม่ถูกต้อง')
       return
     }
@@ -181,10 +182,10 @@ const UserCRUDForm: React.FC = () => {
           throw new Error('Backend returned false - delete operation failed')
         }
         
-        console.log('Avatar deleted successfully for user:', user.id)
+        logger.debug('Avatar deleted successfully for user:', user.id)
         
       } catch (dbError: any) {
-        console.error('Hybrid avatar delete failed:', {
+        logger.error('Hybrid avatar delete failed:', {
           error: dbError,
           userId: user.id,
           message: dbError?.message || String(dbError)
@@ -225,7 +226,7 @@ const UserCRUDForm: React.FC = () => {
       showSuccess('ลบ Avatar สำเร็จ')
       
     } catch (e: any) {
-      console.error('Remove avatar failed - outer catch:', {
+      logger.error('Remove avatar failed - outer catch:', {
         error: e,
         stack: e?.stack,
         userId: user.id
@@ -301,7 +302,7 @@ const UserCRUDForm: React.FC = () => {
       setShowFormPassword(false)
       loadUsers()
     } catch (error) {
-      console.error('Failed to save user:', error)
+      logger.error('Failed to save user:', error)
       showError('Save failed')
     } finally {
       setIsLoading(false)
@@ -354,7 +355,7 @@ const UserCRUDForm: React.FC = () => {
         showError('User not found')
       }
     } catch (error) {
-      console.error('Failed to delete user:', error)
+      logger.error('Failed to delete user:', error)
       showError('Delete failed')
     } finally {
       setIsLoading(false)

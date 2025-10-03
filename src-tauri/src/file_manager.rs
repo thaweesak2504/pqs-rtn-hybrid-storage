@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
 use lazy_static::lazy_static;
+use crate::logger;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
@@ -32,7 +33,7 @@ impl FileManager {
         let app_data = match app_data_dir(&Config::default()) {
             Some(dir) => dir,
             None => {
-                eprintln!("CRITICAL: Failed to get app data directory");
+                logger::critical("Failed to get app data directory");
                 return Err("Failed to get app data directory - app may not have proper permissions".to_string());
             }
         };
@@ -45,7 +46,7 @@ impl FileManager {
         match fs::create_dir_all(&avatars_dir) {
             Ok(_) => {},
             Err(e) => {
-                eprintln!("CRITICAL: Failed to create avatars directory at {:?}: {}", avatars_dir, e);
+                logger::critical(&format!("Failed to create avatars directory at {:?}: {}", avatars_dir, e));
                 return Err(format!("Failed to create avatars directory: {} (Path: {:?})", e, avatars_dir));
             }
         }
@@ -53,15 +54,15 @@ impl FileManager {
         match fs::create_dir_all(&high_ranks_dir) {
             Ok(_) => {},
             Err(e) => {
-                eprintln!("CRITICAL: Failed to create high_ranks directory at {:?}: {}", high_ranks_dir, e);
+                logger::critical(&format!("Failed to create high_ranks directory at {:?}: {}", high_ranks_dir, e));
                 return Err(format!("Failed to create high_ranks directory: {} (Path: {:?})", e, high_ranks_dir));
             }
         }
         
-        println!("✅ FileManager initialized successfully");
-        println!("   Media dir: {:?}", media_dir);
-        println!("   Avatars dir: {:?}", avatars_dir);
-        println!("   High ranks dir: {:?}", high_ranks_dir);
+        logger::success("FileManager initialized successfully");
+        logger::debug(&format!("Media dir: {:?}", media_dir));
+        logger::debug(&format!("Avatars dir: {:?}", avatars_dir));
+        logger::debug(&format!("High ranks dir: {:?}", high_ranks_dir));
         
         Ok(FileManager {
             media_dir,

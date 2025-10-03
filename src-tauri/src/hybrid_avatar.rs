@@ -2,6 +2,7 @@ use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use crate::file_manager::FileManager;
 use crate::database::get_connection;
+use crate::logger;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HybridAvatarInfo {
@@ -24,7 +25,7 @@ impl HybridAvatarManager {
                 Ok(HybridAvatarManager { file_manager })
             },
             Err(e) => {
-                eprintln!("CRITICAL: Failed to get FileManager instance in HybridAvatarManager: {}", e);
+                logger::critical(&format!("Failed to get FileManager instance in HybridAvatarManager: {}", e));
                 Err(format!("Failed to initialize HybridAvatarManager: {}", e))
             }
         }

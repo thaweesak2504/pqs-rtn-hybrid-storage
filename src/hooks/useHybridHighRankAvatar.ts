@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { hybridHighRankAvatarService, HybridHighRankAvatarInfo } from '../services/hybridHighRankAvatarService';
+import { logger } from '../utils/logger';
 
 export interface UseHybridHighRankAvatarOptions {
   officerId: number | undefined;
@@ -60,7 +61,7 @@ export const useHybridHighRankAvatar = ({
         setAvatar(null);
       }
     } catch (err) {
-      console.error('Failed to load high rank avatar:', err);
+      logger.error('Failed to load high rank avatar:', err);
       setError('Failed to load avatar');
       setAvatarInfo(null);
       setAvatar(null);
@@ -89,7 +90,7 @@ export const useHybridHighRankAvatar = ({
       }
       return true;
     } catch (err: any) {
-      console.error('Failed to save high rank avatar:', err);
+      logger.error('Failed to save high rank avatar:', err);
       setError(err.toString());
       return false;
     } finally {
@@ -112,7 +113,7 @@ export const useHybridHighRankAvatar = ({
       }
       return success;
     } catch (err: any) {
-      console.error('Failed to delete high rank avatar:', err);
+      logger.error('Failed to delete high rank avatar:', err);
       setError(err.toString());
       return false;
     } finally {
@@ -125,7 +126,7 @@ export const useHybridHighRankAvatar = ({
     try {
       return await hybridHighRankAvatarService.getAvatarBase64(avatarInfo.avatar_path);
     } catch (err) {
-      console.error('Failed to get high rank avatar base64:', err);
+      logger.error('Failed to get high rank avatar base64:', err);
       setError('Failed to get avatar base64');
       return null;
     }

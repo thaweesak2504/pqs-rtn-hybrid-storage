@@ -3,6 +3,7 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
 use serde::{Deserialize, Serialize};
+use crate::logger;
 // use crate::database_logger::{DB_LOGGER, DatabaseOperation}; // DISABLED - logging removed
 
 // Global flag to prevent multiple database initialization
@@ -85,17 +86,17 @@ pub fn get_connection() -> SqlResult<Connection> {
 }
 
 pub fn initialize_database() -> Result<String, String> {
-    println!("🔄 Starting database initialization...");
+    logger::info("Starting database initialization...");
     
     // Initialize database with comprehensive error handling
     match initialize_database_internal() {
         Ok(msg) => {
-            println!("✅ {}", msg);
+            logger::success(&msg);
             Ok(msg)
         },
         Err(e) => {
-            eprintln!("❌ CRITICAL: Database initialization failed: {}", e);
-            eprintln!("   This may prevent the application from functioning correctly");
+            logger::critical(&format!("Database initialization failed: {}", e));
+            logger::error("This may prevent the application from functioning correctly");
             Err(format!("Database initialization failed: {}", e))
         }
     }

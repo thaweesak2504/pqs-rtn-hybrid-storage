@@ -13,6 +13,7 @@ mod backup_manager;
 mod file_manager;
 mod hybrid_avatar;
 mod hybrid_high_rank_avatar;
+mod logger; // Logger system for conditional debug output
 // mod database_logger; // DISABLED - logging removed
 
 // Re-export database structs
@@ -493,16 +494,16 @@ fn main() {
             get_users_count,
         ])
         .setup(|app| {
-            println!("🚀 Starting application setup...");
+            logger::info("Starting application setup...");
             
             // Initialize database on app startup with comprehensive error handling
             match database::initialize_database() {
                 Ok(msg) => {
-                    println!("✅ Database initialization successful: {}", msg);
+                    logger::success(&format!("Database initialization successful: {}", msg));
                 },
                 Err(e) => {
-                    eprintln!("❌ CRITICAL ERROR: Failed to initialize database: {}", e);
-                    eprintln!("   Application may not function correctly");
+                    logger::critical(&format!("Failed to initialize database: {}", e));
+                    logger::error("Application may not function correctly");
                     // Don't return error here - allow app to start but log the issue
                     // Users can still see the UI and potentially fix permissions
                 }
@@ -511,11 +512,11 @@ fn main() {
             // Initialize FileManager to ensure directories exist (singleton)
             match file_manager::FileManager::get_instance() {
                 Ok(_) => {
-                    println!("✅ File manager initialized successfully");
+                    logger::success("File manager initialized successfully");
                 },
                 Err(e) => {
-                    eprintln!("❌ WARNING: Failed to initialize file manager: {}", e);
-                    eprintln!("   Avatar operations may not work correctly");
+                    logger::warn(&format!("Failed to initialize file manager: {}", e));
+                    logger::warn("Avatar operations may not work correctly");
                     // Continue anyway - not critical for app startup
                 }
             }
@@ -523,14 +524,14 @@ fn main() {
             // Show window after it's ready (prevents flickering)
             if let Some(window) = app.get_window("main") {
                 match window.show() {
-                    Ok(_) => println!("✅ Main window shown successfully"),
-                    Err(e) => eprintln!("❌ Failed to show main window: {}", e),
+                    Ok(_) => logger::success("Main window shown successfully"),
+                    Err(e) => logger::error(&format!("Failed to show main window: {}", e)),
                 }
             } else {
-                eprintln!("❌ WARNING: Main window not found");
+                logger::warn("Main window not found");
             }
             
-            println!("✅ Application setup completed");
+            logger::success("Application setup completed");
             Ok(())
         })
         .run(tauri::generate_context!())

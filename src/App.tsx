@@ -8,6 +8,7 @@ import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
 import { SlideBarProvider } from './contexts/SlideBarContext';
 import { LayoutProvider } from './contexts/LayoutContext';
 import { useZoomShortcuts } from './hooks/useZoomShortcuts';
+import { logger } from './utils/logger';
 
 // Import pages
 import SignInPage from './components/pages/SignInPage';
@@ -44,6 +45,11 @@ function App() {
   useEffect(() => {
     // Database initialization is handled by Tauri setup
     // No need to call from frontend to prevent double initialization
+    
+    // Test logger system
+    logger.info('React App initialized');
+    logger.debug('Running in development mode:', import.meta.env.DEV);
+    logger.debug('Environment:', import.meta.env.MODE);
   }, [])
   
   return (

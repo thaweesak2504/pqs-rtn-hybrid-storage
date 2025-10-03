@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { hybridAvatarService, HybridAvatarInfo } from '../services/hybridAvatarService';
+import { logger } from '../utils/logger';
 
 export interface UseHybridAvatarOptions {
   userId: number | undefined;
@@ -57,7 +58,7 @@ export const useHybridAvatar = ({
           setAvatar(base64Data);
         } catch (fileErr) {
           // File might have been deleted or is inaccessible
-          console.warn('Failed to load avatar file:', fileErr);
+          logger.warn('Failed to load avatar file:', fileErr);
           setAvatar(null);
           setExists(false);
         }
@@ -65,7 +66,7 @@ export const useHybridAvatar = ({
         setAvatar(null);
       }
     } catch (err) {
-      console.error('Failed to load hybrid avatar:', err);
+      logger.error('Failed to load hybrid avatar:', err);
       setError('Failed to load avatar');
       setAvatarInfo(null);
       setAvatar(null);
@@ -94,7 +95,7 @@ export const useHybridAvatar = ({
       }
       return true;
     } catch (err) {
-      console.error('Failed to save hybrid avatar:', err);
+      logger.error('Failed to save hybrid avatar:', err);
       setError('Failed to save avatar');
       return false;
     } finally {
@@ -117,7 +118,7 @@ export const useHybridAvatar = ({
       }
       return success;
     } catch (err) {
-      console.error('Failed to delete hybrid avatar:', err);
+      logger.error('Failed to delete hybrid avatar:', err);
       setError('Failed to delete avatar');
       return false;
     } finally {
@@ -132,7 +133,7 @@ export const useHybridAvatar = ({
       const base64 = await hybridAvatarService.getAvatarBase64(avatarInfo.avatar_path);
       return base64;
     } catch (err) {
-      console.error('Failed to get avatar base64:', err);
+      logger.error('Failed to get avatar base64:', err);
       return null;
     }
   }, [avatarInfo?.avatar_path]);
@@ -151,7 +152,7 @@ export const useHybridAvatar = ({
       }
       return success;
     } catch (err) {
-      console.error('Failed to migrate avatar:', err);
+      logger.error('Failed to migrate avatar:', err);
       setError('Failed to migrate avatar');
       return false;
     } finally {
