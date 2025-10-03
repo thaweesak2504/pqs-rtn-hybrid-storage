@@ -143,19 +143,38 @@ impl HybridAvatarManager {
             }
         };
         
-        // Delete file if exists - with proper error handling
+        // Delete file if exists - with proper error handling and retry
         if let Some(path) = avatar_path {
             // Only attempt deletion if path is not empty
             if !path.is_empty() {
-                match self.file_manager.delete_avatar_file(&path) {
-                    Ok(_) => {
-                        // File deleted successfully
-                    },
-                    Err(e) => {
-                        // Log error but continue with database update
-                        eprintln!("Warning: Failed to delete avatar file '{}': {}", path, e);
-                        // Don't return error here - we still want to clear the database record
+                // Try to delete file with retry for file-in-use scenarios
+                let mut delete_success = false;
+                for attempt in 1..=3 {
+                    match self.file_manager.delete_avatar_file(&path) {
+                        Ok(_) => {
+                            delete_success = true;
+                            if attempt > 1 {
+                                println!("Successfully deleted avatar file '{}' on attempt {}", path, attempt);
+                            }
+                            break;
+                        },
+                        Err(e) => {
+                            eprintln!("Attempt {} to delete avatar file '{}' failed: {}", attempt, path, e);
+                            if attempt < 3 {
+                                // Wait a bit before retry (file might be in use)
+                                std::thread::sleep(std::time::Duration::from_millis(50));
+                            } else {
+                                // Final attempt failed - log but continue
+                                eprintln!("Warning: All attempts to delete avatar file '{}' failed. Database will be cleared anyway.", path);
+                            }
+                        }
                     }
+                }
+                
+                if !delete_success {
+                    // File deletion failed but we'll continue to clear the database
+                    // The file can be cleaned up later by a maintenance task
+                    eprintln!("Note: Avatar file '{}' could not be deleted (may be in use). Proceeding with database update.", path);
                 }
             }
         }
@@ -179,9 +198,38 @@ impl HybridAvatarManager {
     }
     
     pub fn get_avatar_file_data(&self, avatar_path: &str) -> Result<Vec<u8>, String> {
-        let file_path = self.file_manager.get_avatar_file_path(avatar_path)?;
-        std::fs::read(&file_path)
-            .map_err(|e| format!("Failed to read avatar file: {}", e))
+        // Validate input
+        if avatar_path.is_empty() {
+            return Err("Avatar path is empty".to_string());
+        }
+        
+        // Security: prevent path traversal
+        if avatar_path.contains("..") {
+            return Err("Invalid avatar path".to_string());
+        }
+        
+        let file_path = match self.file_manager.get_avatar_file_path(avatar_path) {
+            Ok(path) => path,
+            Err(e) => {
+                // File not found or inaccessible
+                return Err(format!("Avatar file not accessible: {}", e));
+            }
+        };
+        
+        // Try to read file with better error handling
+        match std::fs::read(&file_path) {
+            Ok(data) => Ok(data),
+            Err(e) => {
+                // Provide more context about the error
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Err(format!("Avatar file not found: {}", avatar_path))
+                } else if e.kind() == std::io::ErrorKind::PermissionDenied {
+                    Err(format!("Permission denied reading avatar file: {}", avatar_path))
+                } else {
+                    Err(format!("Failed to read avatar file '{}': {}", avatar_path, e))
+                }
+            }
+        }
     }
     
     pub fn get_avatar_base64(&self, avatar_path: &str) -> Result<String, String> {

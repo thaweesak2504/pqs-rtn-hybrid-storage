@@ -50,8 +50,15 @@ export const useHybridAvatar = ({
       
       // Load avatar base64 data if file exists
       if (info.file_exists && info.avatar_path) {
-        const base64Data = await hybridAvatarService.getAvatarBase64(info.avatar_path);
-        setAvatar(base64Data);
+        try {
+          const base64Data = await hybridAvatarService.getAvatarBase64(info.avatar_path);
+          setAvatar(base64Data);
+        } catch (fileErr) {
+          // File might have been deleted or is inaccessible
+          console.warn('Failed to load avatar file:', fileErr);
+          setAvatar(null);
+          setExists(false);
+        }
       } else {
         setAvatar(null);
       }

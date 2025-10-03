@@ -145,20 +145,36 @@ impl HybridHighRankAvatarManager {
             }
         };
         
-        // Delete file if exists - with proper error handling
+        // Delete file if exists - with proper error handling and retry
         if let Some(path) = avatar_path {
             // Only attempt deletion if path is not empty
             if !path.is_empty() {
                 println!("Deleting old avatar file: {}", path);
-                match self.file_manager.delete_high_rank_avatar_file(&path) {
-                    Ok(_) => {
-                        println!("Successfully deleted old avatar file: {}", path);
-                    },
-                    Err(e) => {
-                        // Log error but continue with database update
-                        eprintln!("Warning: Failed to delete avatar file '{}': {}", path, e);
-                        // Don't return error here - we still want to clear the database record
+                
+                // Try to delete file with retry for file-in-use scenarios
+                let mut delete_success = false;
+                for attempt in 1..=3 {
+                    match self.file_manager.delete_high_rank_avatar_file(&path) {
+                        Ok(_) => {
+                            delete_success = true;
+                            println!("Successfully deleted old avatar file '{}' on attempt {}", path, attempt);
+                            break;
+                        },
+                        Err(e) => {
+                            eprintln!("Attempt {} to delete avatar file '{}' failed: {}", attempt, path, e);
+                            if attempt < 3 {
+                                // Wait a bit before retry (file might be in use)
+                                std::thread::sleep(std::time::Duration::from_millis(50));
+                            } else {
+                                // Final attempt failed - log but continue
+                                eprintln!("Warning: All attempts to delete avatar file '{}' failed.", path);
+                            }
+                        }
                     }
+                }
+                
+                if !delete_success {
+                    eprintln!("Note: Avatar file '{}' could not be deleted (may be in use). Proceeding with database update.", path);
                 }
             }
         } else {
