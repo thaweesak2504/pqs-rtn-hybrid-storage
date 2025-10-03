@@ -85,13 +85,20 @@ pub fn get_connection() -> SqlResult<Connection> {
 }
 
 pub fn initialize_database() -> Result<String, String> {
-    // Initialize database directly
-    if let Err(e) = initialize_database_internal() {
-        eprintln!("Failed to initialize database: {}", e);
-        return Err(e);
-    }
+    println!("🔄 Starting database initialization...");
     
-    Ok("Database initialization completed".to_string())
+    // Initialize database with comprehensive error handling
+    match initialize_database_internal() {
+        Ok(msg) => {
+            println!("✅ {}", msg);
+            Ok(msg)
+        },
+        Err(e) => {
+            eprintln!("❌ CRITICAL: Database initialization failed: {}", e);
+            eprintln!("   This may prevent the application from functioning correctly");
+            Err(format!("Database initialization failed: {}", e))
+        }
+    }
 }
 
 fn initialize_database_internal() -> Result<String, String> {

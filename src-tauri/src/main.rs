@@ -251,20 +251,26 @@ fn save_hybrid_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> 
 
 #[tauri::command]
 fn get_hybrid_avatar_info(user_id: i32) -> Result<hybrid_avatar::HybridAvatarInfo, String> {
-    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    let manager = hybrid_avatar::HybridAvatarManager::new()
+        .map_err(|e| format!("Failed to initialize avatar manager: {}", e))?;
     manager.get_user_avatar_info(user_id)
+        .map_err(|e| format!("Failed to get avatar info for user {}: {}", user_id, e))
 }
 
 #[tauri::command]
 fn delete_hybrid_avatar(user_id: i32) -> Result<bool, String> {
-    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    let manager = hybrid_avatar::HybridAvatarManager::new()
+        .map_err(|e| format!("Failed to initialize avatar manager: {}", e))?;
     manager.delete_avatar(user_id)
+        .map_err(|e| format!("Failed to delete avatar for user {}: {}", user_id, e))
 }
 
 #[tauri::command]
 fn get_hybrid_avatar_base64(avatar_path: String) -> Result<String, String> {
-    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    let manager = hybrid_avatar::HybridAvatarManager::new()
+        .map_err(|e| format!("Failed to initialize avatar manager: {}", e))?;
     manager.get_avatar_base64(&avatar_path)
+        .map_err(|e| format!("Failed to get avatar base64 for path '{}': {}", avatar_path, e))
 }
 
 #[tauri::command]
@@ -487,17 +493,44 @@ fn main() {
             get_users_count,
         ])
         .setup(|app| {
-            // Initialize database on app startup
-            if let Err(e) = database::initialize_database() {
-                eprintln!("Failed to initialize database: {}", e);
-            } else {
-                println!("✅ Database initialized successfully");
+            println!("🚀 Starting application setup...");
+            
+            // Initialize database on app startup with comprehensive error handling
+            match database::initialize_database() {
+                Ok(msg) => {
+                    println!("✅ Database initialization successful: {}", msg);
+                },
+                Err(e) => {
+                    eprintln!("❌ CRITICAL ERROR: Failed to initialize database: {}", e);
+                    eprintln!("   Application may not function correctly");
+                    // Don't return error here - allow app to start but log the issue
+                    // Users can still see the UI and potentially fix permissions
+                }
+            }
+            
+            // Initialize FileManager to ensure directories exist
+            match file_manager::FileManager::new() {
+                Ok(_) => {
+                    println!("✅ File manager initialized successfully");
+                },
+                Err(e) => {
+                    eprintln!("❌ WARNING: Failed to initialize file manager: {}", e);
+                    eprintln!("   Avatar operations may not work correctly");
+                    // Continue anyway - not critical for app startup
+                }
             }
             
             // Show window after it's ready (prevents flickering)
             if let Some(window) = app.get_window("main") {
-                window.show().unwrap();
+                match window.show() {
+                    Ok(_) => println!("✅ Main window shown successfully"),
+                    Err(e) => eprintln!("❌ Failed to show main window: {}", e),
+                }
+            } else {
+                eprintln!("❌ WARNING: Main window not found");
             }
+            
+            println!("✅ Application setup completed");
             Ok(())
         })
         .run(tauri::generate_context!())

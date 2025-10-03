@@ -22,18 +22,40 @@ pub struct FileManager {
 
 impl FileManager {
     pub fn new() -> Result<Self, String> {
-        let app_data = app_data_dir(&Config::default())
-            .ok_or("Failed to get app data directory")?;
+        // Get app data directory with better error handling
+        let app_data = match app_data_dir(&Config::default()) {
+            Some(dir) => dir,
+            None => {
+                eprintln!("CRITICAL: Failed to get app data directory");
+                return Err("Failed to get app data directory - app may not have proper permissions".to_string());
+            }
+        };
         
         let media_dir = app_data.join("pqs-rtn-hybrid-storage").join("media");
         let avatars_dir = media_dir.join("avatars");
         let high_ranks_dir = media_dir.join("high_ranks");
         
-        // Create directories if they don't exist
-        fs::create_dir_all(&avatars_dir)
-            .map_err(|e| format!("Failed to create avatars directory: {}", e))?;
-        fs::create_dir_all(&high_ranks_dir)
-            .map_err(|e| format!("Failed to create high_ranks directory: {}", e))?;
+        // Create directories if they don't exist - with enhanced error handling
+        match fs::create_dir_all(&avatars_dir) {
+            Ok(_) => {},
+            Err(e) => {
+                eprintln!("CRITICAL: Failed to create avatars directory at {:?}: {}", avatars_dir, e);
+                return Err(format!("Failed to create avatars directory: {} (Path: {:?})", e, avatars_dir));
+            }
+        }
+        
+        match fs::create_dir_all(&high_ranks_dir) {
+            Ok(_) => {},
+            Err(e) => {
+                eprintln!("CRITICAL: Failed to create high_ranks directory at {:?}: {}", high_ranks_dir, e);
+                return Err(format!("Failed to create high_ranks directory: {} (Path: {:?})", e, high_ranks_dir));
+            }
+        }
+        
+        println!("✅ FileManager initialized successfully");
+        println!("   Media dir: {:?}", media_dir);
+        println!("   Avatars dir: {:?}", avatars_dir);
+        println!("   High ranks dir: {:?}", high_ranks_dir);
         
         Ok(FileManager {
             media_dir,

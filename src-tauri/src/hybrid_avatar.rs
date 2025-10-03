@@ -19,8 +19,15 @@ pub struct HybridAvatarManager {
 
 impl HybridAvatarManager {
     pub fn new() -> Result<Self, String> {
-        let file_manager = FileManager::new()?;
-        Ok(HybridAvatarManager { file_manager })
+        match FileManager::new() {
+            Ok(file_manager) => {
+                Ok(HybridAvatarManager { file_manager })
+            },
+            Err(e) => {
+                eprintln!("CRITICAL: Failed to create FileManager in HybridAvatarManager: {}", e);
+                Err(format!("Failed to initialize HybridAvatarManager: {}", e))
+            }
+        }
     }
     
     pub fn save_avatar(&self, user_id: i32, file_data: &[u8], mime_type: &str) -> Result<HybridAvatarInfo, String> {
