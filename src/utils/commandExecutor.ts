@@ -12,7 +12,7 @@
  * - Performance metrics
  */
 
-import { CommandSanitizer, ValidationResult } from './commandSanitizer';
+import { CommandSanitizer } from './commandSanitizer';
 
 export interface ExecutionResult {
   success: boolean;

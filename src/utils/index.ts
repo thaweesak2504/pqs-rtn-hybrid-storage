@@ -5,6 +5,12 @@
  * for easy importing and use throughout the application.
  */
 
+// Import classes and types for internal use
+import { CommandExecutor, ExecutionOptions, ExecutionResult, ExecutionStats } from './commandExecutor';
+import { CommandMonitor, CommandStatistics } from './commandMonitor';
+import { AICommandFilter, FilteredCommands } from './aiCommandFilter';
+import { CommandProtectionTest, TestSuite } from './commandProtectionTest';
+
 // Core components
 export { CommandSanitizer, sanitizeCommand, validateCommand, detectEncodingIssues, hasProblematicCharacters } from './commandSanitizer';
 export { CommandExecutor, executeCommand, executeCommands, getExecutionStats, testCommand } from './commandExecutor';

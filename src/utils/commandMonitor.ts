@@ -13,8 +13,7 @@
  * - Export capabilities for analysis
  */
 
-import { ExecutionResult, ExecutionStats } from './commandExecutor';
-import { ValidationResult } from './commandSanitizer';
+import { ExecutionResult } from './commandExecutor';
 
 export interface CommandExecution {
   id: string;
