@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Minus, Square, X } from 'lucide-react'
+import { Minus, Square, Copy, X } from 'lucide-react'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
 
 const WindowControls: React.FC = () => {
   const [windowApi, setWindowApi] = useState<any>(null)
+  const [isMaximized, setIsMaximized] = useState(false)
   
   // Use the window visibility hook (maximize tracking disabled to prevent crashes)
   useWindowVisibility({
@@ -21,11 +22,12 @@ const WindowControls: React.FC = () => {
           const currentWindow = getCurrent()
           setWindowApi(currentWindow)
           
-          // Maximize window on startup (moved from Rust to prevent memory issues)
+          // Check initial maximize state
           try {
-            await currentWindow.maximize()
+            const maximized = await currentWindow.isMaximized()
+            setIsMaximized(maximized)
           } catch (error) {
-            console.warn('Failed to maximize on startup:', error)
+            console.warn('Failed to check initial maximize state:', error)
           }
         } else {
           setWindowApi(null)
@@ -52,8 +54,15 @@ const WindowControls: React.FC = () => {
       try {
         await windowApi.toggleMaximize()
         
-        // Removed force UI update to prevent memory corruption
-        // The UI will update through the useWindowVisibility hook
+        // Update local state after toggle
+        setTimeout(async () => {
+          try {
+            const maximized = await windowApi.isMaximized()
+            setIsMaximized(maximized)
+          } catch (error) {
+            console.warn('Failed to check maximize state after toggle:', error)
+          }
+        }, 10)
       } catch (err) {
         console.warn('Failed to toggle maximize:', err)
         // Don't crash, just log the error
@@ -92,7 +101,7 @@ const WindowControls: React.FC = () => {
       
       <button 
         className={buttonClass} 
-        aria-label="Maximize" 
+        aria-label={isMaximized ? 'Restore' : 'Maximize'} 
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -103,7 +112,7 @@ const WindowControls: React.FC = () => {
           e.stopPropagation()
         }}
       >
-        <Square className="h-3.5 w-3.5" />
+        {isMaximized ? <Copy className="h-4 w-4" /> : <Square className="h-3.5 w-3.5" />}
       </button>
       
       <button 
