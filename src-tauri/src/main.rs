@@ -527,11 +527,15 @@ fn main() {
                     Ok(_) => {
                         logger::success("Main window shown successfully");
                         
+                        // Note: Maximize is now handled in JavaScript to prevent memory issues
+                        // Delay maximize to prevent memory issues
+                        // std::thread::sleep(std::time::Duration::from_millis(100));
+                        
                         // Maximize window after showing to prevent memory issues
-                        match window.maximize() {
-                            Ok(_) => logger::success("Main window maximized successfully"),
-                            Err(e) => logger::warn(&format!("Failed to maximize main window: {}", e)),
-                        }
+                        // match window.maximize() {
+                        //     Ok(_) => logger::success("Main window maximized successfully"),
+                        //     Err(e) => logger::warn(&format!("Failed to maximize main window: {}", e)),
+                        // }
                     },
                     Err(e) => logger::error(&format!("Failed to show main window: {}", e)),
                 }

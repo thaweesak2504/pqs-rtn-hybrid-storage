@@ -21,8 +21,12 @@ const WindowControls: React.FC = () => {
           const currentWindow = getCurrent()
           setWindowApi(currentWindow)
           
-          // Note: Window is already maximized in tauri.conf.json
-          // No need to manually maximize here to avoid conflicts
+          // Maximize window on startup (moved from Rust to prevent memory issues)
+          try {
+            await currentWindow.maximize()
+          } catch (error) {
+            console.warn('Failed to maximize on startup:', error)
+          }
         } else {
           setWindowApi(null)
         }

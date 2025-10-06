@@ -25,7 +25,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     onFocusChange,
     onResize,
     onMaximizeChange,
-    debounceMs = 100
+    debounceMs = 50  // Reduced from 100ms to 50ms for better responsiveness
   } = options
 
   const [state, setState] = useState<WindowVisibilityState>({
