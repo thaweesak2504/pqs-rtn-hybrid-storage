@@ -13,12 +13,21 @@
     overflow-x: hidden;
     overflow-y: auto;
     background: var(--github-bg-primary) !important;
+    
+    /* Optimize for resize performance */
+    will-change: auto;
+    contain: layout style paint;
+    transform: translateZ(0); /* Force hardware acceleration */
   }
   
   body {
     @apply font-sans antialiased;
     min-height: 100vh;
     background: var(--github-bg-primary) !important;
+    
+    /* Optimize resize performance */
+    will-change: auto;
+    contain: layout style;
   }
 
   /* Custom Scrollbar */
@@ -40,7 +49,17 @@
     background: var(--github-accent-primary);
   }
 
-  /* Typography System - Responsive Font Sizes */
+  /* Resize Performance Optimization */
+  .resize-optimized {
+    will-change: transform;
+    contain: layout style paint;
+    transform: translateZ(0);
+  }
+  
+  /* Prevent layout thrashing during resize */
+  .resize-container {
+    contain: layout;
+  }
   .text-display-1 {
     @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold;
   }

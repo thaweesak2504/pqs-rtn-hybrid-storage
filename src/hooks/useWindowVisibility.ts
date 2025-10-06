@@ -25,7 +25,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     onFocusChange,
     onResize,
     onMaximizeChange,
-    debounceMs = 50  // Reduced from 100ms to 50ms for better responsiveness
+    debounceMs = 16  // Reduced to 16ms (~60fps) for smooth resize
   } = options
 
   const [state, setState] = useState<WindowVisibilityState>({
@@ -86,7 +86,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     }
   }, [onFocusChange])
 
-  // Handle resize with debouncing to prevent excessive updates
+  // Handle resize with minimal debouncing for better responsiveness
   const handleResize = useCallback(() => {
     // Only update if window is actually resized and component is mounted
     if (typeof window !== 'undefined' && document.body) {
@@ -141,12 +141,12 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
           // Listen for window state changes with error handling
           const unlistenResize = await currentWindow.listen('tauri://resize', () => {
             try {
-              // Add small delay to prevent excessive resize events
-              setTimeout(() => {
+              // Use requestAnimationFrame for smooth updates during resize
+              requestAnimationFrame(() => {
                 if (document.body) { // Check if component is still mounted
                   handleResize()
                 }
-              }, 16) // ~60fps
+              })
             } catch (error) {
               console.warn('Error in resize listener:', error)
             }
@@ -202,13 +202,15 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     }
   }, [handleVisibilityChange, handleFocusChange, handleResize, handleMaximizeChange])
 
-  // Force refresh function for manual trigger
+  // Force refresh function for manual trigger (optimized)
   const forceRefresh = useCallback(() => {
-    // Force a complete re-render by triggering multiple events
-    window.dispatchEvent(new Event('resize'))
-    setTimeout(() => {
-      window.dispatchEvent(new Event('orientationchange'))
-    }, 10)
+    // Use requestAnimationFrame for smooth refresh
+    requestAnimationFrame(() => {
+      if (document.body) {
+        // Only trigger resize event, avoid orientationchange during resize
+        window.dispatchEvent(new Event('resize'))
+      }
+    })
   }, [])
 
   return {

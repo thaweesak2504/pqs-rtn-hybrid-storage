@@ -154,7 +154,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={containerClasses}>
+    <div className={`${containerClasses} resize-container resize-optimized`}>
       {/* Header - Fixed at top */}
       <header
         className="bg-github-bg-primary border-b border-github-border-primary fixed top-0 left-0 right-0 z-50 transition-colors duration-200"
