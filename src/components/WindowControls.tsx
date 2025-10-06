@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { Minus, Square, Copy, X } from 'lucide-react'
+import { useWindowVisibility } from '../hooks/useWindowVisibility'
 
 const WindowControls: React.FC = () => {
-  const [maximized, setMaximized] = useState(false)
   const [windowApi, setWindowApi] = useState<any>(null)
+  
+  // Use the window visibility hook to track maximize state
+  const { isMaximized } = useWindowVisibility({
+    onMaximizeChange: (maximized) => {
+      // State is automatically updated by the hook
+    }
+  })
   
   useEffect(() => {
     const initWindowApi = async () => {
@@ -17,7 +24,6 @@ const WindowControls: React.FC = () => {
           // Maximize window on startup
           try {
             await currentWindow.maximize()
-            setMaximized(true)
           } catch (error) {
             // Ignore maximize error
           }
@@ -44,7 +50,6 @@ const WindowControls: React.FC = () => {
     if (windowApi) {
       try { 
         await windowApi.toggleMaximize()
-        setMaximized(prev => !prev)
       } catch (err) { 
         // Ignore error
       }
@@ -82,7 +87,7 @@ const WindowControls: React.FC = () => {
       
       <button 
         className={buttonClass} 
-        aria-label={maximized ? 'Restore' : 'Maximize'} 
+        aria-label={isMaximized ? 'Restore' : 'Maximize'} 
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
@@ -93,7 +98,7 @@ const WindowControls: React.FC = () => {
           e.stopPropagation()
         }}
       >
-        {maximized ? <Copy className="h-4 w-4" /> : <Square className="h-3.5 w-3.5" />}
+        {isMaximized ? <Copy className="h-4 w-4" /> : <Square className="h-3.5 w-3.5" />}
       </button>
       
       <button 
