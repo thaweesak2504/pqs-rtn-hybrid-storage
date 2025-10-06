@@ -21,16 +21,13 @@ const WindowControls: React.FC = () => {
           const currentWindow = getCurrent()
           setWindowApi(currentWindow)
           
-          // Maximize window on startup
-          try {
-            await currentWindow.maximize()
-          } catch (error) {
-            // Ignore maximize error
-          }
+          // Note: Window is already maximized in tauri.conf.json
+          // No need to manually maximize here to avoid conflicts
         } else {
           setWindowApi(null)
         }
       } catch (error) {
+        console.warn('Failed to initialize window API:', error)
         setWindowApi(null)
       }
     }
@@ -48,10 +45,17 @@ const WindowControls: React.FC = () => {
   
   const handleMaximize = async () => {
     if (windowApi) {
-      try { 
+      try {
         await windowApi.toggleMaximize()
-      } catch (err) { 
-        // Ignore error
+        
+        // Small delay to allow state to settle
+        setTimeout(() => {
+          // Force UI update if needed
+          window.dispatchEvent(new Event('resize'))
+        }, 10)
+      } catch (err) {
+        console.warn('Failed to toggle maximize:', err)
+        // Don't crash, just log the error
       }
     }
   }

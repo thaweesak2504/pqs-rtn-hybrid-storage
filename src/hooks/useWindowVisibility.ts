@@ -103,13 +103,17 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
         setState(prev => ({ ...prev, isMaximized }))
         onMaximizeChange?.(isMaximized)
 
-        // Force re-render when maximize state changes
+        // Force re-render when maximize state changes (safer approach)
         setTimeout(() => {
-          window.dispatchEvent(new Event('resize'))
+          // Only dispatch if component is still mounted
+          if (document.body) {
+            window.dispatchEvent(new Event('resize'))
+          }
         }, 50)
       }
     } catch (error) {
       console.warn('Failed to check maximize state:', error)
+      // Don't crash the app, just log the error
     }
   }, [onMaximizeChange])
 
@@ -127,34 +131,51 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     window.addEventListener('orientationchange', handleResize)
     
     // Tauri window events
+    let cleanupTauri: (() => void) | undefined
+
     if (typeof window !== 'undefined' && window.__TAURI__) {
       // Listen for window state changes
       const setupTauriListeners = async () => {
         try {
           const { getCurrent } = await import('@tauri-apps/api/window')
           const currentWindow = getCurrent()
-          
-          // Listen for window state changes
-          const unlisten = await currentWindow.listen('tauri://resize', () => {
-            handleResize()
-          })
-          
-          const unlistenMaximize = await currentWindow.listen('tauri://maximize', () => {
-            handleMaximizeChange()
-          })
-          
-          const unlistenUnmaximize = await currentWindow.listen('tauri://unmaximize', () => {
-            handleMaximizeChange()
+
+          // Listen for window state changes with error handling
+          const unlistenResize = await currentWindow.listen('tauri://resize', () => {
+            try {
+              handleResize()
+            } catch (error) {
+              console.warn('Error in resize listener:', error)
+            }
           })
 
-          return () => {
-            unlisten()
-            unlistenMaximize()
-            unlistenUnmaximize()
+          const unlistenMaximize = await currentWindow.listen('tauri://maximize', () => {
+            try {
+              handleMaximizeChange()
+            } catch (error) {
+              console.warn('Error in maximize listener:', error)
+            }
+          })
+
+          const unlistenUnmaximize = await currentWindow.listen('tauri://unmaximize', () => {
+            try {
+              handleMaximizeChange()
+            } catch (error) {
+              console.warn('Error in unmaximize listener:', error)
+            }
+          })
+
+          cleanupTauri = () => {
+            try {
+              unlistenResize()
+              unlistenMaximize()
+              unlistenUnmaximize()
+            } catch (error) {
+              console.warn('Error cleaning up Tauri listeners:', error)
+            }
           }
         } catch (error) {
           console.warn('Failed to setup Tauri listeners:', error)
-          return () => {}
         }
       }
 
@@ -170,6 +191,11 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
       window.removeEventListener('blur', handleFocusChange)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', handleResize)
+      
+      // Cleanup Tauri listeners
+      if (cleanupTauri) {
+        cleanupTauri()
+      }
     }
   }, [handleVisibilityChange, handleFocusChange, handleResize, handleMaximizeChange])
 
