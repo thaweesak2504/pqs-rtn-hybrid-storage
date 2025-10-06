@@ -25,7 +25,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     onFocusChange,
     onResize,
     onMaximizeChange,
-    debounceMs = 16  // Reduced to 16ms (~60fps) for smooth resize
+    debounceMs = 100  // Increased back to 100ms to reduce event frequency
   } = options
 
   const [state, setState] = useState<WindowVisibilityState>({
@@ -96,23 +96,11 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     }
   }, [debouncedResize])
 
-  // Handle window maximize/minimize (Tauri specific)
+  // Handle window maximize/minimize (Tauri specific) - DISABLED to prevent crashes
   const handleMaximizeChange = useCallback(async () => {
-    try {
-      if (typeof window !== 'undefined' && window.__TAURI__) {
-        const { getCurrent } = await import('@tauri-apps/api/window')
-        const currentWindow = getCurrent()
-        const isMaximized = await currentWindow.isMaximized()
-        setState(prev => ({ ...prev, isMaximized }))
-        onMaximizeChange?.(isMaximized)
-
-        // Removed force re-render to prevent memory corruption
-        // The UI will update naturally through React state changes
-      }
-    } catch (error) {
-      console.warn('Failed to check maximize state:', error)
-      // Don't crash the app, just log the error
-    }
+    // Temporarily disabled to prevent memory corruption crashes
+    // TODO: Re-enable after fixing root cause
+    return
   }, [onMaximizeChange])
 
   // Set up event listeners
@@ -141,17 +129,19 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
           // Listen for window state changes with error handling
           const unlistenResize = await currentWindow.listen('tauri://resize', () => {
             try {
-              // Use requestAnimationFrame for smooth updates during resize
-              requestAnimationFrame(() => {
+              // Use setTimeout with longer delay to reduce event frequency
+              setTimeout(() => {
                 if (document.body) { // Check if component is still mounted
                   handleResize()
                 }
-              })
+              }, 50) // Reduced frequency to prevent memory issues
             } catch (error) {
               console.warn('Error in resize listener:', error)
             }
           })
 
+          // DISABLED: Maximize/unmaximize listeners to prevent memory corruption
+          /*
           const unlistenMaximize = await currentWindow.listen('tauri://maximize', () => {
             try {
               handleMaximizeChange()
@@ -167,12 +157,13 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
               console.warn('Error in unmaximize listener:', error)
             }
           })
+          */
 
           cleanupTauri = () => {
             try {
               unlistenResize()
-              unlistenMaximize()
-              unlistenUnmaximize()
+              // unlistenMaximize()  // DISABLED
+              // unlistenUnmaximize()  // DISABLED
             } catch (error) {
               console.warn('Error cleaning up Tauri listeners:', error)
             }
