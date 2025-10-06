@@ -7,7 +7,7 @@ const WindowControls: React.FC = () => {
   
   // Use the window visibility hook (maximize tracking disabled to prevent crashes)
   useWindowVisibility({
-    onMaximizeChange: (maximized) => {
+    onMaximizeChange: (_maximized) => {
       // State tracking disabled to prevent crashes
     }
   })
