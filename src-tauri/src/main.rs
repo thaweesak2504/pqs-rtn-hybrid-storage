@@ -524,7 +524,15 @@ fn main() {
             // Show window after it's ready (prevents flickering)
             if let Some(window) = app.get_window("main") {
                 match window.show() {
-                    Ok(_) => logger::success("Main window shown successfully"),
+                    Ok(_) => {
+                        logger::success("Main window shown successfully");
+                        
+                        // Maximize window after showing to prevent memory issues
+                        match window.maximize() {
+                            Ok(_) => logger::success("Main window maximized successfully"),
+                            Err(e) => logger::warn(&format!("Failed to maximize main window: {}", e)),
+                        }
+                    },
                     Err(e) => logger::error(&format!("Failed to show main window: {}", e)),
                 }
             } else {

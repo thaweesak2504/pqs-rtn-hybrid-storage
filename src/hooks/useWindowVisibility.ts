@@ -86,11 +86,14 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     }
   }, [onFocusChange])
 
-  // Handle window resize
+  // Handle resize with debouncing to prevent excessive updates
   const handleResize = useCallback(() => {
-    const width = window.innerWidth
-    const height = window.innerHeight
-    debouncedResize(width, height)
+    // Only update if window is actually resized and component is mounted
+    if (typeof window !== 'undefined' && document.body) {
+      const width = window.innerWidth
+      const height = window.innerHeight
+      debouncedResize(width, height)
+    }
   }, [debouncedResize])
 
   // Handle window maximize/minimize (Tauri specific)
@@ -103,13 +106,8 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
         setState(prev => ({ ...prev, isMaximized }))
         onMaximizeChange?.(isMaximized)
 
-        // Force re-render when maximize state changes (safer approach)
-        setTimeout(() => {
-          // Only dispatch if component is still mounted
-          if (document.body) {
-            window.dispatchEvent(new Event('resize'))
-          }
-        }, 50)
+        // Removed force re-render to prevent memory corruption
+        // The UI will update naturally through React state changes
       }
     } catch (error) {
       console.warn('Failed to check maximize state:', error)
@@ -143,7 +141,12 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
           // Listen for window state changes with error handling
           const unlistenResize = await currentWindow.listen('tauri://resize', () => {
             try {
-              handleResize()
+              // Add small delay to prevent excessive resize events
+              setTimeout(() => {
+                if (document.body) { // Check if component is still mounted
+                  handleResize()
+                }
+              }, 16) // ~60fps
             } catch (error) {
               console.warn('Error in resize listener:', error)
             }

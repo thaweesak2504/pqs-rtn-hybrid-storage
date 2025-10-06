@@ -48,11 +48,8 @@ const WindowControls: React.FC = () => {
       try {
         await windowApi.toggleMaximize()
         
-        // Small delay to allow state to settle
-        setTimeout(() => {
-          // Force UI update if needed
-          window.dispatchEvent(new Event('resize'))
-        }, 10)
+        // Removed force UI update to prevent memory corruption
+        // The UI will update through the useWindowVisibility hook
       } catch (err) {
         console.warn('Failed to toggle maximize:', err)
         // Don't crash, just log the error
