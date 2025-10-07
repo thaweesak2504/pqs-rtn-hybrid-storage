@@ -61,11 +61,16 @@ pub fn get_database_path() -> Result<PathBuf, String> {
     Ok(db_dir.join("database.db"))
 }
 
+/// Get connection to existing database or create new one
+/// WARNING: This will CREATE a new empty database file if it doesn't exist!
+/// Use get_connection_readonly() if you only want to check without creating.
+/// Use get_connection_safe() to prevent accidental database creation.
 pub fn get_connection() -> SqlResult<Connection> {
     let db_path = get_database_path().map_err(|e| rusqlite::Error::SqliteFailure(
         rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
         Some(e)
     ))?;
+    
     let conn = Connection::open(db_path)?;
     
     // Enhanced SQLite configuration for desktop performance
@@ -85,6 +90,78 @@ pub fn get_connection() -> SqlResult<Connection> {
     Ok(conn)
 }
 
+/// Safe wrapper for get_connection() that checks if database exists first
+/// Returns error if database doesn't exist instead of creating an empty file
+pub fn get_connection_safe() -> SqlResult<Connection> {
+    let db_path = get_database_path().map_err(|e| rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
+        Some(e)
+    ))?;
+    
+    // Check if database file exists
+    if !db_path.exists() {
+        logger::warn("Database file does not exist - rejecting connection request");
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some("Database not initialized. Please complete app initialization first.".to_string())
+        ));
+    }
+    
+    // Check if file is not empty
+    let file_size = std::fs::metadata(&db_path)
+        .map_err(|e| rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some(format!("Cannot check database file: {}", e))
+        ))?
+        .len();
+    
+    if file_size == 0 {
+        logger::warn("Database file is empty - removing and rejecting connection");
+        let _ = std::fs::remove_file(&db_path);
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some("Database file is empty. Please complete app initialization first.".to_string())
+        ));
+    }
+    
+    // Database exists and has content - safe to open
+    // Use READWRITE mode (not CREATE) to avoid creating new file if it was deleted
+    let conn = Connection::open_with_flags(
+        &db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE
+    )?;
+    
+    // Apply same SQLite configuration as get_connection()
+    conn.execute("PRAGMA foreign_keys = ON", [])?;
+    conn.execute("PRAGMA synchronous = NORMAL", [])?;
+    conn.execute("PRAGMA temp_store = MEMORY", [])?;
+    
+    Ok(conn)
+}
+
+/// Get read-only connection to database WITHOUT creating it if it doesn't exist
+/// Returns error if database doesn't exist
+pub fn get_connection_readonly() -> SqlResult<Connection> {
+    let db_path = get_database_path().map_err(|e| rusqlite::Error::SqliteFailure(
+        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
+        Some(e)
+    ))?;
+    
+    // Check if file exists first
+    if !db_path.exists() {
+        return Err(rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
+            Some("Database file does not exist".to_string())
+        ));
+    }
+    
+    // Open with read-only flag
+    Connection::open_with_flags(
+        db_path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+    )
+}
+
 pub fn initialize_database() -> Result<String, String> {
     logger::debug("Starting database initialization...");
     
@@ -101,7 +178,74 @@ pub fn initialize_database() -> Result<String, String> {
     }
 }
 
+/// Check if database exists and is valid (has required tables and data)
+pub fn check_database_exists_and_valid() -> Result<bool, String> {
+    let db_path = get_database_path()?;
+    
+    // Check if database file exists FIRST before trying to open it
+    // Important: Connection::open() will CREATE an empty file if it doesn't exist!
+    if !db_path.exists() {
+        logger::debug("Database file does not exist");
+        return Ok(false);
+    }
+    
+    // Check if the file has content (not empty)
+    let file_size = std::fs::metadata(&db_path)
+        .map_err(|e| format!("Failed to check database file size: {}", e))?
+        .len();
+    
+    if file_size == 0 {
+        logger::warn("Database file exists but is empty (0 bytes) - removing it");
+        // Delete the empty file so it doesn't interfere with initialization
+        if let Err(e) = std::fs::remove_file(&db_path) {
+            logger::error(&format!("Failed to remove empty database file: {}", e));
+        }
+        return Ok(false);
+    }
+    
+    // Try to connect and check if database is valid
+    // Use read-only connection to avoid creating/modifying the database
+    match get_connection_readonly() {
+        Ok(conn) => {
+            // Check if required tables exist
+            let users_table_exists = conn.query_row::<i32, _, _>(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='users'",
+                [],
+                |row| Ok(row.get(0)?)
+            ).unwrap_or(0) > 0;
+            
+            let officers_table_exists = conn.query_row::<i32, _, _>(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='high_ranking_officers'",
+                [],
+                |row| Ok(row.get(0)?)
+            ).unwrap_or(0) > 0;
+            
+            // Check if admin user exists
+            let admin_exists = conn.query_row::<i32, _, _>(
+                "SELECT COUNT(*) FROM users WHERE role = 'admin'",
+                [],
+                |row| Ok(row.get(0)?)
+            ).unwrap_or(0) > 0;
+            
+            let is_valid = users_table_exists && officers_table_exists && admin_exists;
+            
+            if is_valid {
+                logger::debug("Database exists and is valid");
+                Ok(true)
+            } else {
+                logger::warn("Database exists but is missing required tables or data");
+                Ok(false)
+            }
+        },
+        Err(e) => {
+            logger::warn(&format!("Database exists but cannot connect: {}", e));
+            Ok(false)
+        }
+    }
+}
+
 fn initialize_database_internal() -> Result<String, String> {
+    // Use get_connection() here because we WANT to create a new database file
     let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     // Log database initialization - DISABLED
@@ -277,7 +421,7 @@ pub fn migrate_plain_text_passwords(conn: &rusqlite::Connection) -> Result<(), S
 }
 
 pub fn get_all_users() -> Result<Vec<User>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
@@ -309,7 +453,7 @@ pub fn get_all_users() -> Result<Vec<User>, String> {
 }
 
 pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users WHERE id = ?")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
@@ -340,7 +484,7 @@ pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
 }
 
 pub fn get_user_by_email(email: &str) -> Result<Option<User>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users WHERE email = ?")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
@@ -371,7 +515,7 @@ pub fn get_user_by_email(email: &str) -> Result<Option<User>, String> {
 }
 
 pub fn create_user(username: &str, email: &str, password_hash: &str, full_name: &str, rank: Option<&str>, role: &str) -> Result<User, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     conn.execute(
         "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -393,7 +537,7 @@ pub fn create_user(username: &str, email: &str, password_hash: &str, full_name: 
 }
 
 pub fn update_user(id: i32, username: &str, email: &str, password_hash: &str, full_name: &str, rank: Option<&str>, role: &str) -> Result<User, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     conn.execute(
         "UPDATE users SET username = ?, email = ?, password_hash = ?, full_name = ?, rank = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
@@ -413,7 +557,7 @@ pub fn update_user(id: i32, username: &str, email: &str, password_hash: &str, fu
 }
 
 pub fn delete_user(id: i32) -> Result<bool, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     // Check if user exists before deletion
     let user_exists: bool = conn.query_row(
@@ -462,7 +606,7 @@ pub fn cleanup_orphaned_avatars() -> Result<i32, String> {
 }
 
 pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Option<User>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users WHERE (email = ? OR username = ?) AND is_active = 1")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
     
@@ -571,7 +715,7 @@ pub fn insert_default_high_ranking_officers(conn: &rusqlite::Connection) -> Resu
 
 // Get all high ranking officers
 pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     let mut stmt = conn.prepare("SELECT id, thai_name, position_thai, position_english, order_index, created_at, updated_at FROM high_ranking_officers ORDER BY order_index")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
@@ -604,7 +748,7 @@ pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String
 
 // Update high ranking officer
 pub fn update_high_ranking_officer(id: i32, thai_name: &str, position_thai: &str, position_english: &str, order_index: i32) -> Result<HighRankingOfficer, String> {
-    let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     // Update the officer
     conn.execute(

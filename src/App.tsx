@@ -7,6 +7,7 @@ import { UserProfileProvider } from './contexts/UserProfileContext';
 import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
 import { SlideBarProvider } from './contexts/SlideBarContext';
 import { LayoutProvider } from './contexts/LayoutContext';
+import { InitializationProvider } from './contexts/InitializationContext';
 import { useZoomShortcuts } from './hooks/useZoomShortcuts';
 import { logger } from './utils/logger';
 
@@ -67,8 +68,9 @@ function App() {
     >
       <DarkModeProvider>
         <ToastProvider>
-          <AuthProvider>
-            <UserProfileProvider>
+          <InitializationProvider>
+            <AuthProvider>
+              <UserProfileProvider>
               <BreadcrumbProvider>
                 <SlideBarProvider>
                   <LayoutProvider>
@@ -108,6 +110,7 @@ function App() {
               </BreadcrumbProvider>
             </UserProfileProvider>
           </AuthProvider>
+          </InitializationProvider>
         </ToastProvider>
       </DarkModeProvider>
     </Router>

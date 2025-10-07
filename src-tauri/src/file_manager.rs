@@ -301,4 +301,78 @@ impl FileManager {
         
         Ok(deleted_count)
     }
+
+    /// Check if media directory exists and has content
+    pub fn check_media_exists_and_valid(&self) -> Result<bool, String> {
+        // Check if media directory exists
+        if !self.media_dir.exists() {
+            logger::debug("Media directory does not exist");
+            return Ok(false);
+        }
+        
+        // Check if avatars directory exists and has files
+        let avatars_exist = self.avatars_dir.exists() && 
+            fs::read_dir(&self.avatars_dir)
+                .map(|mut entries| entries.next().is_some())
+                .unwrap_or(false);
+        
+        // Check if high_ranks directory exists and has files  
+        let high_ranks_exist = self.high_ranks_dir.exists() &&
+            fs::read_dir(&self.high_ranks_dir)
+                .map(|mut entries| entries.next().is_some())
+                .unwrap_or(false);
+        
+        let has_content = avatars_exist || high_ranks_exist;
+        
+        if has_content {
+            logger::debug("Media directory exists and has content");
+            Ok(true)
+        } else {
+            logger::debug("Media directory exists but is empty");
+            Ok(false)
+        }
+    }
+
+    /// Check if media directory exists and has content (without creating directories)
+    pub fn check_media_exists_and_valid_no_create() -> Result<bool, String> {
+        // Get app data directory
+        let app_data = match app_data_dir(&Config::default()) {
+            Some(dir) => dir,
+            None => {
+                return Err("Failed to get app data directory".to_string());
+            }
+        };
+        
+        let media_dir = app_data.join("pqs-rtn-hybrid-storage").join("media");
+        let avatars_dir = media_dir.join("avatars");
+        let high_ranks_dir = media_dir.join("high_ranks");
+        
+        // Check if media directory exists
+        if !media_dir.exists() {
+            logger::debug("Media directory does not exist");
+            return Ok(false);
+        }
+        
+        // Check if avatars directory exists and has files
+        let avatars_exist = avatars_dir.exists() && 
+            fs::read_dir(&avatars_dir)
+                .map(|mut entries| entries.next().is_some())
+                .unwrap_or(false);
+        
+        // Check if high_ranks directory exists and has files  
+        let high_ranks_exist = high_ranks_dir.exists() &&
+            fs::read_dir(&high_ranks_dir)
+                .map(|mut entries| entries.next().is_some())
+                .unwrap_or(false);
+        
+        let has_content = avatars_exist || high_ranks_exist;
+        
+        if has_content {
+            logger::debug("Media directory exists and has content");
+            Ok(true)
+        } else {
+            logger::debug("Media directory exists but is empty");
+            Ok(false)
+        }
+    }
 }

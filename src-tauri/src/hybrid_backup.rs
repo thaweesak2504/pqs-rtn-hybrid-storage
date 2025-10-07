@@ -12,7 +12,7 @@ use tauri::Config;
 use crate::logger;
 
 /// Backup manifest containing metadata about the backup
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupManifest {
     pub version: String,
     pub timestamp: u64,
@@ -304,6 +304,28 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         manifest.total_files.saturating_sub(1)))
 }
 
+/// Delete a hybrid backup file
+pub fn delete_hybrid_backup(filename: &str) -> Result<String, String> {
+    let backup_dir = get_backup_directory()?;
+    let backup_path = backup_dir.join(filename);
+
+    if !backup_path.exists() {
+        return Err(format!("Backup file '{}' not found", filename));
+    }
+
+    // Validate that it's actually a hybrid backup file
+    if !filename.starts_with("hybrid_backup_") || !filename.ends_with(".zip") {
+        return Err("Invalid hybrid backup filename".to_string());
+    }
+
+    fs::remove_file(&backup_path)
+        .map_err(|e| format!("Failed to delete backup file: {}", e))?;
+
+    logger::info(&format!("Hybrid backup deleted: {}", filename));
+
+    Ok(format!("Hybrid backup '{}' deleted successfully", filename))
+}
+
 /// Helper function to read backup manifest from zip
 fn read_backup_manifest(zip_path: &Path) -> Result<BackupManifest, String> {
     let zip_file = fs::File::open(zip_path)
@@ -386,9 +408,73 @@ fn get_media_directory() -> Result<PathBuf, String> {
     Ok(app_data.join("pqs-rtn-hybrid-storage").join("media"))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupInfo {
     pub filename: String,
     pub path: String,
     pub manifest: BackupManifest,
+}
+
+/// Information about available backups for initialization
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitializationBackupInfo {
+    pub has_backups: bool,
+    pub latest_backup: Option<BackupInfo>,
+    pub total_backups: usize,
+}
+
+/// Information about system state for initialization decision
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemStateInfo {
+    pub database_exists_and_valid: bool,
+    pub media_exists_and_valid: bool,
+    pub backup_info: InitializationBackupInfo,
+}
+
+/// Check system state and backups for initialization decision
+pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String> {
+    logger::info("🔍 Checking system state for initialization");
+    
+    // Check database state
+    let database_exists_and_valid = crate::database::check_database_exists_and_valid()
+        .unwrap_or(false);
+    logger::debug(&format!("📊 Database valid: {}", database_exists_and_valid));
+    
+    // Check media state (without creating directories)
+    let media_exists_and_valid = crate::file_manager::FileManager::check_media_exists_and_valid_no_create()
+        .unwrap_or(false);
+    logger::debug(&format!("📊 Media valid: {}", media_exists_and_valid));
+    
+    // Check backup info
+    let backup_info = check_backup_for_initialization()?;
+    logger::debug(&format!("📊 Backups available: {}", backup_info.has_backups));
+    
+    let result = SystemStateInfo {
+        database_exists_and_valid,
+        media_exists_and_valid,
+        backup_info,
+    };
+    
+    logger::info(&format!("📈 System state result: DB={}, Media={}, Backups={}", 
+        result.database_exists_and_valid, 
+        result.media_exists_and_valid, 
+        result.backup_info.has_backups));
+    
+    Ok(result)
+}
+
+/// Check for available backups during application initialization
+/// This is used to determine if the user should be prompted to restore from backup
+pub fn check_backup_for_initialization() -> Result<InitializationBackupInfo, String> {
+    let backups = discover_available_backups()?;
+
+    let has_backups = !backups.is_empty();
+    let latest_backup = backups.first().cloned();
+    let total_backups = backups.len();
+
+    Ok(InitializationBackupInfo {
+        has_backups,
+        latest_backup,
+        total_backups,
+    })
 }

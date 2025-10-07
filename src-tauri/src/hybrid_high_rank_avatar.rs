@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use rusqlite::params;
 use base64::{Engine as _, engine::general_purpose};
 
-use crate::database::get_connection;
+use crate::database::get_connection_safe;
 use crate::file_manager::FileManager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -30,7 +30,7 @@ impl HybridHighRankAvatarManager {
     }
     
     pub fn save_avatar(&self, officer_id: i32, file_data: &[u8], mime_type: &str) -> Result<HybridHighRankAvatarInfo, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // First, verify officer exists
         let officer_exists = conn.query_row::<i32, _, _>(
@@ -73,7 +73,7 @@ impl HybridHighRankAvatarManager {
     }
     
     pub fn get_avatar_info(&self, officer_id: i32) -> Result<HybridHighRankAvatarInfo, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         let result: Result<(Option<String>, Option<String>, Option<String>, Option<i32>), _> = conn.query_row(
             "SELECT avatar_path, avatar_updated_at, avatar_mime, avatar_size FROM high_ranking_officers WHERE id = ?",
@@ -113,7 +113,7 @@ impl HybridHighRankAvatarManager {
     }
     
     pub fn delete_avatar(&self, officer_id: i32) -> Result<bool, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // First, verify officer exists to prevent crashes
         let officer_exists: Result<i32, _> = conn.query_row(
@@ -222,7 +222,7 @@ impl HybridHighRankAvatarManager {
     }
     
     fn get_officer_avatar_path(&self, officer_id: i32) -> Result<Option<String>, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         let avatar_path: Option<String> = conn.query_row(
             "SELECT avatar_path FROM high_ranking_officers WHERE id = ?",
@@ -234,7 +234,7 @@ impl HybridHighRankAvatarManager {
     }
     
     pub fn cleanup_orphaned_files(&self) -> Result<u32, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // Get all valid avatar paths from officers
         let mut stmt = conn.prepare("SELECT avatar_path FROM high_ranking_officers WHERE avatar_path IS NOT NULL")
@@ -254,3 +254,4 @@ impl HybridHighRankAvatarManager {
         self.file_manager.cleanup_orphaned_files(&valid_paths)
     }
 }
+

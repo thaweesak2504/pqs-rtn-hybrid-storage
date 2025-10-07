@@ -91,7 +91,7 @@ fn cleanup_orphaned_avatars() -> Result<i32, String> {
 
 #[tauri::command]
 fn migrate_passwords() -> Result<String, String> {
-    let conn = database::get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = database::get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     database::migrate_plain_text_passwords(&conn)?;
     Ok("Password migration completed successfully".to_string())
 }
@@ -224,6 +224,29 @@ fn discover_hybrid_backups() -> Result<String, String> {
 
     serde_json::to_string(&backups)
         .map_err(|e| format!("Failed to serialize backups: {}", e))
+}
+
+#[tauri::command]
+fn delete_hybrid_backup(filename: String) -> Result<String, String> {
+    hybrid_backup::delete_hybrid_backup(&filename)
+}
+
+#[tauri::command]
+fn check_backup_for_initialization() -> Result<String, String> {
+    let backup_info = hybrid_backup::check_backup_for_initialization()
+        .map_err(|e| format!("Failed to check backups for initialization: {}", e))?;
+
+    serde_json::to_string(&backup_info)
+        .map_err(|e| format!("Failed to serialize backup info: {}", e))
+}
+
+#[tauri::command]
+fn check_system_state_for_initialization() -> Result<String, String> {
+    let system_state = hybrid_backup::check_system_state_for_initialization()
+        .map_err(|e| format!("Failed to check system state for initialization: {}", e))?;
+
+    serde_json::to_string(&system_state)
+        .map_err(|e| format!("Failed to serialize system state: {}", e))
 }
 
 // Backup management commands
@@ -387,7 +410,7 @@ fn cleanup_orphaned_high_rank_avatar_files() -> Result<u32, String> {
 // Test cleanup commands
 #[tauri::command]
 fn delete_test_users() -> Result<String, String> {
-    let conn = database::get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = database::get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     // First, check what users exist
     let user_count: i32 = conn.query_row(
@@ -438,7 +461,7 @@ fn delete_test_users() -> Result<String, String> {
 
 #[tauri::command]
 fn get_users_count() -> Result<i32, String> {
-    let conn = database::get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn = database::get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     
     let count: i32 = conn.query_row(
         "SELECT COUNT(*) FROM users",
@@ -447,6 +470,24 @@ fn get_users_count() -> Result<i32, String> {
     ).map_err(|e| format!("Failed to count users: {}", e))?;
     
     Ok(count)
+}
+
+#[tauri::command]
+fn initialize_database_if_needed() -> Result<String, String> {
+    // Check system state first
+    let system_state = hybrid_backup::check_system_state_for_initialization()
+        .map_err(|e| format!("Failed to check system state: {}", e))?;
+
+    // Only initialize if database or media is missing/invalid
+    let should_initialize = !(system_state.database_exists_and_valid && system_state.media_exists_and_valid);
+
+    if should_initialize {
+        logger::info("Initializing database and media as they are missing or invalid");
+        database::initialize_database()
+    } else {
+        logger::info("Database and media already exist and are valid, skipping initialization");
+        Ok("Database and media already initialized".to_string())
+    }
 }
 
 // DISABLED - Database logging functions removed
@@ -519,6 +560,9 @@ fn main() {
             create_hybrid_backup,
             import_hybrid_backup,
             discover_hybrid_backups,
+            delete_hybrid_backup,
+            check_backup_for_initialization,
+            check_system_state_for_initialization,
             // Backup management commands
             copy_backup_to_location,
             get_backup_directory_path,
@@ -542,24 +586,14 @@ fn main() {
             // Test cleanup commands
             delete_test_users,
             get_users_count,
+            // Database initialization command
+            initialize_database_if_needed,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
             
-            // Initialize database on app startup with comprehensive error handling
-            match database::initialize_database() {
-                Ok(msg) => {
-                    logger::success(&format!("Database initialization successful: {}", msg));
-                },
-                Err(e) => {
-                    logger::critical(&format!("Failed to initialize database: {}", e));
-                    logger::error("Application may not function correctly");
-                    // Don't return error here - allow app to start but log the issue
-                    // Users can still see the UI and potentially fix permissions
-                }
-            }
-            
-            // Initialize FileManager to ensure directories exist (singleton)
+            // Skip automatic database initialization - let frontend handle it
+            logger::info("Skipping automatic database initialization - frontend will handle based on system state");            // Initialize FileManager to ensure directories exist (singleton)
             match file_manager::FileManager::get_instance() {
                 Ok(_) => {
                     logger::success("File manager initialized successfully");

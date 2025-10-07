@@ -35,6 +35,12 @@ export const useHybridAvatar = ({
   const loadAvatar = useCallback(async (forceReload = false) => {
     if (!userId) return;
 
+    // Don't load avatar if initialization wizard is showing
+    const isInitializationComplete = localStorage.getItem('pqs_initialization_completed');
+    if (isInitializationComplete !== 'true') {
+      return; // Skip loading during initialization
+    }
+
     setIsLoading(true);
     setError(null);
 

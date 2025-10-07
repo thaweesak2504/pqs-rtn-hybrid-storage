@@ -155,6 +155,25 @@ const DatabaseManagementPage: React.FC = () => {
     }
   };
 
+  const deleteHybridBackup = async (filename: string) => {
+    const userInput = prompt(`⚠️ Are you sure you want to delete "${filename}"?\n\nThis action cannot be undone!\n\nType "DELETE" to confirm (case sensitive):`);
+    
+    if (userInput !== "DELETE") {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await invoke<string>('delete_hybrid_backup', { filename });
+      showMessage('success', result);
+      loadHybridBackups(); // Reload list after delete
+    } catch (error) {
+      showMessage('error', `Failed to delete hybrid backup: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const restoreBackup = async (filename: string) => {
     // Use a more reliable confirmation method
     const userInput = prompt(`⚠️ Are you sure you want to restore from "${filename}"?\n\nThis will replace ALL current data and cannot be undone!\n\nType "RESTORE" to confirm (case sensitive):`);
@@ -444,6 +463,16 @@ const DatabaseManagementPage: React.FC = () => {
                         iconPosition="left"
                       >
                         Import
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => deleteHybridBackup(backup.filename)}
+                        disabled={isLoading}
+                        icon={<Trash2 className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Delete
                       </Button>
                     </div>
                   </div>

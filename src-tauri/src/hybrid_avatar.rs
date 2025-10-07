@@ -1,7 +1,7 @@
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use crate::file_manager::FileManager;
-use crate::database::get_connection;
+use crate::database::get_connection_safe;
 use crate::logger;
 use std::io::{Read, Write};
 use std::fs::File;
@@ -37,7 +37,7 @@ impl HybridAvatarManager {
     }
     
     pub fn save_avatar(&self, user_id: i32, file_data: &[u8], mime_type: &str) -> Result<HybridAvatarInfo, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // First, verify user exists
         let user_exists = conn.query_row::<i32, _, _>(
@@ -92,7 +92,7 @@ impl HybridAvatarManager {
         expected_size: Option<usize>
     ) -> Result<HybridAvatarInfo, String> {
         // ✅ Verify user exists first
-        let conn = get_connection().map_err(|e| format!("Database connection error: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Database connection error: {}", e))?;
         
         let user_exists = conn.query_row::<i32, _, _>(
             "SELECT COUNT(*) FROM users WHERE id = ?",
@@ -202,7 +202,7 @@ impl HybridAvatarManager {
     }
     
     pub fn get_user_avatar_path(&self, user_id: i32) -> Result<Option<String>, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         let avatar_path: Option<String> = conn.query_row(
             "SELECT avatar_path FROM users WHERE id = ?",
@@ -214,7 +214,7 @@ impl HybridAvatarManager {
     }
     
     pub fn get_user_avatar_info(&self, user_id: i32) -> Result<HybridAvatarInfo, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         let (avatar_path, avatar_updated_at, avatar_mime, avatar_size): (Option<String>, Option<String>, Option<String>, Option<i32>) = 
             conn.query_row(
@@ -240,7 +240,7 @@ impl HybridAvatarManager {
     }
     
     pub fn delete_avatar(&self, user_id: i32) -> Result<bool, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // First, verify user exists to prevent crashes
         let user_exists: Result<i32, _> = conn.query_row(
@@ -384,7 +384,7 @@ impl HybridAvatarManager {
     }
     
     pub fn cleanup_orphaned_files(&self) -> Result<u32, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // Get all valid avatar paths from database
         let mut stmt = conn.prepare("SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL")
@@ -402,7 +402,7 @@ impl HybridAvatarManager {
     }
     
     pub fn migrate_blob_to_file(&self, user_id: i32) -> Result<bool, String> {
-        let conn = get_connection().map_err(|e| format!("Failed to connect to database: {}", e))?;
+        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
         
         // Check if user already has file-based avatar
         let has_file_avatar: bool = conn.query_row(
@@ -440,3 +440,4 @@ impl HybridAvatarManager {
         }
     }
 }
+

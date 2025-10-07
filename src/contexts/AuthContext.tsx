@@ -194,6 +194,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     let cancelled = false
     const run = async () => {
       if (!user?.id) return
+      
+      // Skip avatar integrity check during initialization
+      const isInitializationComplete = localStorage.getItem('pqs_initialization_completed')
+      if (isInitializationComplete !== 'true') {
+        return // Skip during initialization wizard
+      }
+      
       try {
         const { hybridAvatarService } = await import('../services/hybridAvatarService')
         const avatarInfo = await hybridAvatarService.getAvatarInfo(Number(user.id))
@@ -202,7 +209,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(prev => prev ? { ...prev, avatar: undefined, avatar_path: null } : prev)
         }
       } catch (error) {
-        console.warn('Error checking avatar integrity:', error)
+        // Silently ignore errors during initialization
+        if (isInitializationComplete === 'true') {
+          console.warn('Error checking avatar integrity:', error)
+        }
       }
     }
     run()
