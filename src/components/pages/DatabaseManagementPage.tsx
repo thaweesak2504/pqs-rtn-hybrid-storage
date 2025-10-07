@@ -1,13 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { Container, Title, Card, Button, Alert, CustomSelect } from '../ui';
-import { Database, Download, Upload, Trash2, RefreshCw, FileText, Archive } from 'lucide-react';
+import { Database, Download, Upload, Trash2, RefreshCw, FileText, Archive, Package } from 'lucide-react';
 
 interface BackupFile {
   filename: string;
   size?: number;
   created?: string;
   timestamp: number;
+}
+
+interface BackupManifest {
+  version: string;
+  timestamp: number;
+  database_size: number;
+  media_size: number;
+  total_files: number;
+  backup_type: string;
+  checksum: string;
+}
+
+interface HybridBackupFile {
+  filename: string;
+  path: string;
+  manifest: BackupManifest;
 }
 
 interface ExportFile {
@@ -18,6 +34,7 @@ interface ExportFile {
 
 const DatabaseManagementPage: React.FC = () => {
   const [backups, setBackups] = useState<BackupFile[]>([]);
+  const [hybridBackups, setHybridBackups] = useState<HybridBackupFile[]>([]);
   const [exports, setExports] = useState<ExportFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -26,6 +43,7 @@ const DatabaseManagementPage: React.FC = () => {
   // Load backups and exports on component mount
   useEffect(() => {
     loadBackups();
+    loadHybridBackups();
     loadExports();
   }, []);
 
@@ -35,6 +53,15 @@ const DatabaseManagementPage: React.FC = () => {
       setBackups(backupList);
     } catch (error) {
       console.error('Error loading backups:', error);
+    }
+  };
+
+  const loadHybridBackups = async () => {
+    try {
+      const hybridBackupList = await invoke<HybridBackupFile[]>('discover_hybrid_backups');
+      setHybridBackups(hybridBackupList);
+    } catch (error) {
+      console.error('Error loading hybrid backups:', error);
     }
   };
 
@@ -87,6 +114,40 @@ const DatabaseManagementPage: React.FC = () => {
       loadExports();
     } catch (error) {
       showMessage('error', `Failed to create SQL dump: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createHybridBackup = async () => {
+    setIsLoading(true);
+    try {
+      const result = await invoke<string>('create_hybrid_backup');
+      showMessage('success', result);
+      loadHybridBackups(); // Reload hybrid backup list
+    } catch (error) {
+      showMessage('error', `Failed to create hybrid backup: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const importHybridBackup = async (backupPath: string) => {
+    const userInput = prompt(`⚠️ Are you sure you want to import hybrid backup?\n\nThis will replace ALL current data (database + media files) and cannot be undone!\n\nType "IMPORT" to confirm (case sensitive):`);
+    
+    if (userInput !== "IMPORT") {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await invoke<string>('import_hybrid_backup', { zipPath: backupPath });
+      showMessage('success', result);
+      // Reload data after import
+      loadBackups();
+      loadHybridBackups();
+    } catch (error) {
+      showMessage('error', `Failed to import hybrid backup: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -259,6 +320,15 @@ const DatabaseManagementPage: React.FC = () => {
                 Create Universal SQLite Backup
               </Button>
               <Button
+                onClick={createHybridBackup}
+                disabled={isLoading}
+                className="w-full"
+                icon={<Package className="w-4 h-4" />}
+                iconPosition="left"
+              >
+                Create Hybrid Backup (Database + Media)
+              </Button>
+              <Button
                 onClick={createBackup}
                 disabled={true}
                 variant="outline"
@@ -320,6 +390,58 @@ const DatabaseManagementPage: React.FC = () => {
                         iconPosition="left"
                       >
                         Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Hybrid Backups Section */}
+            <div className="space-y-2 mt-6 pt-6 border-t border-github-border-primary">
+              <h3 className="font-medium text-github-text-primary mb-3">
+                Hybrid Backups (Database + Media) ({hybridBackups.length})
+              </h3>
+              {hybridBackups.length === 0 ? (
+                <p className="text-github-text-secondary text-sm">
+                  No hybrid backups available
+                </p>
+              ) : (
+                hybridBackups.map((backup, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg">
+                    <div className="flex items-center">
+                      <Package className="w-4 h-4 text-github-accent-primary mr-2" />
+                      <div className="flex flex-col">
+                        <span className="text-sm text-github-text-primary font-medium">
+                          {backup.filename}
+                        </span>
+                        <span className="text-xs text-github-text-secondary">
+                          Database: {(backup.manifest.database_size / 1024).toFixed(1)} KB, 
+                          Media: {(backup.manifest.media_size / 1024).toFixed(1)} KB, 
+                          Files: {backup.manifest.total_files}
+                        </span>
+                        <span className="text-xs text-github-text-tertiary">
+                          {new Date(backup.manifest.timestamp * 1000).toLocaleString('th-TH', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            timeZone: 'Asia/Bangkok'
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <Button
+                        size="small"
+                        onClick={() => importHybridBackup(backup.path)}
+                        disabled={isLoading}
+                        icon={<Upload className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Import
                       </Button>
                     </div>
                   </div>

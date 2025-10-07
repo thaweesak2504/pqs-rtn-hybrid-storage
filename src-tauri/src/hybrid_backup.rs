@@ -154,7 +154,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         hasher.update(&buffer[..bytes_read]);
     }
 
-    let checksum = format!("{:x}", hasher.finalize());
+    let _checksum = format!("{:x}", hasher.finalize());
 
     // Update manifest with checksum (this is a simplified approach)
     // In production, you might want to recalculate or store checksum separately
