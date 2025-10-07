@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 
 interface WindowVisibilityState {
   isVisible: boolean
@@ -18,6 +18,12 @@ interface WindowVisibilityOptions {
 /**
  * Custom hook for managing window visibility, focus, and resize events
  * Handles issues with display not showing full content after sleep/focus loss
+ * 
+ * Phase 1.1 Improvements:
+ * - Stable references using useRef to prevent memory corruption
+ * - Proper cleanup mechanism for all event listeners
+ * - Mounted flag to prevent setState after unmount
+ * - Re-enabled maximize listeners with safety measures
  */
 export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
   const {
@@ -25,8 +31,26 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     onFocusChange,
     onResize,
     onMaximizeChange,
-    debounceMs = 100  // Increased back to 100ms to reduce event frequency
+    debounceMs = 100
   } = options
+
+  // ✅ Use refs to maintain stable references and prevent recreation
+  const optionsRef = useRef({ onVisibilityChange, onFocusChange, onResize, onMaximizeChange })
+  const mountedRef = useRef(true)
+  const resizeTimerRef = useRef<number>()
+
+  // ✅ Update options ref on each render without causing effect re-runs
+  useEffect(() => {
+    optionsRef.current = { onVisibilityChange, onFocusChange, onResize, onMaximizeChange }
+  })
+
+  // ✅ Track mounted state
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
 
   const [state, setState] = useState<WindowVisibilityState>({
     isVisible: !document.hidden,
@@ -38,136 +62,169 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     }
   })
 
-  // Debounced resize handler
-  const debouncedResize = useCallback(
-    (() => {
-      let timeoutId: number
-      return (width: number, height: number) => {
-        clearTimeout(timeoutId)
-        timeoutId = setTimeout(() => {
-          setState(prev => ({
-            ...prev,
-            windowSize: { width, height }
-          }))
-          onResize?.({ width, height })
-        }, debounceMs)
-      }
-    })(),
-    [onResize, debounceMs]
-  )
-
-  // Handle visibility change
+  // ✅ Memoized handlers with stable references using optionsRef
   const handleVisibilityChange = useCallback(() => {
+    if (!mountedRef.current) return
+
     const isVisible = !document.hidden
     setState(prev => ({ ...prev, isVisible }))
+    
+    const { onVisibilityChange } = optionsRef.current
     onVisibilityChange?.(isVisible)
 
     // Force re-render when becoming visible to fix display issues
     if (isVisible) {
-      // Trigger a resize event to force layout recalculation
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-      }, 50)
+      requestAnimationFrame(() => {
+        if (mountedRef.current) {
+          window.dispatchEvent(new Event('resize'))
+        }
+      })
     }
-  }, [onVisibilityChange])
+  }, []) // Empty deps - stable function
 
-  // Handle focus change
   const handleFocusChange = useCallback(() => {
+    if (!mountedRef.current) return
+
     const isFocused = document.hasFocus()
     setState(prev => ({ ...prev, isFocused }))
+    
+    const { onFocusChange } = optionsRef.current
     onFocusChange?.(isFocused)
 
     // Force re-render when gaining focus to fix display issues
     if (isFocused) {
-      // Trigger a resize event to force layout recalculation
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'))
-      }, 50)
+      requestAnimationFrame(() => {
+        if (mountedRef.current) {
+          window.dispatchEvent(new Event('resize'))
+        }
+      })
     }
-  }, [onFocusChange])
+  }, []) // Empty deps - stable function
 
-  // Handle resize with minimal debouncing for better responsiveness
+  // ✅ Optimized resize handler with debouncing
   const handleResize = useCallback(() => {
-    // Only update if window is actually resized and component is mounted
-    if (typeof window !== 'undefined' && document.body) {
+    if (!mountedRef.current || typeof window === 'undefined' || !document.body) {
+      return
+    }
+
+    // Clear previous timer
+    if (resizeTimerRef.current) {
+      clearTimeout(resizeTimerRef.current)
+    }
+
+    // Use requestAnimationFrame for smoother updates
+    requestAnimationFrame(() => {
+      if (!mountedRef.current) return
+
       const width = window.innerWidth
       const height = window.innerHeight
-      debouncedResize(width, height)
-    }
-  }, [debouncedResize])
 
-  // Handle window maximize/minimize (Tauri specific) - DISABLED to prevent crashes
-  const handleMaximizeChange = useCallback(async () => {
-    // Temporarily disabled to prevent memory corruption crashes
-    // TODO: Re-enable after fixing root cause
-    return
-  }, [onMaximizeChange])
+      // Debounce state update
+      resizeTimerRef.current = window.setTimeout(() => {
+        if (mountedRef.current) {
+          setState(prev => ({
+            ...prev,
+            windowSize: { width, height }
+          }))
+          
+          const { onResize } = optionsRef.current
+          onResize?.({ width, height })
+        }
+      }, debounceMs)
+    })
+  }, [debounceMs]) // Only depend on debounceMs
 
-  // Set up event listeners
+  // ✅ RE-ENABLED: Maximize/minimize handler with safety measures
+  const handleMaximizeChange = useCallback(async (isMaximized: boolean) => {
+    if (!mountedRef.current) return
+
+    // Use requestIdleCallback for non-critical state updates
+    requestIdleCallback(() => {
+      if (mountedRef.current) {
+        setState(prev => ({ ...prev, isMaximized }))
+        
+        const { onMaximizeChange } = optionsRef.current
+        onMaximizeChange?.(isMaximized)
+      }
+    })
+  }, []) // Empty deps - stable function
+
+  // ✅ Set up event listeners with comprehensive cleanup
   useEffect(() => {
-    // Visibility change events
+    let cleanupFunctions: (() => void)[] = []
+
+    // Browser event listeners
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
-    // Focus events
     window.addEventListener('focus', handleFocusChange)
     window.addEventListener('blur', handleFocusChange)
-    
-    // Resize events
     window.addEventListener('resize', handleResize)
     window.addEventListener('orientationchange', handleResize)
-    
-    // Tauri window events
-    let cleanupTauri: (() => void) | undefined
 
+    // Tauri window events with proper cleanup tracking
     if (typeof window !== 'undefined' && window.__TAURI__) {
-      // Listen for window state changes
       const setupTauriListeners = async () => {
+        if (!mountedRef.current) return
+
         try {
           const { getCurrent } = await import('@tauri-apps/api/window')
           const currentWindow = getCurrent()
 
-          // Listen for window state changes with error handling
+          // ✅ Resize listener with safety checks
           const unlistenResize = await currentWindow.listen('tauri://resize', () => {
             try {
-              // Use setTimeout with longer delay to reduce event frequency
-              setTimeout(() => {
-                if (document.body) { // Check if component is still mounted
-                  handleResize()
-                }
-              }, 50) // Reduced frequency to prevent memory issues
+              if (mountedRef.current && document.body) {
+                // Throttle resize events
+                requestAnimationFrame(() => {
+                  if (mountedRef.current) {
+                    handleResize()
+                  }
+                })
+              }
             } catch (error) {
-              console.warn('Error in resize listener:', error)
+              console.warn('Error in Tauri resize listener:', error)
             }
           })
 
-          // DISABLED: Maximize/unmaximize listeners to prevent memory corruption
-          /*
+          cleanupFunctions.push(unlistenResize)
+
+          // ✅ RE-ENABLED: Maximize listener with safety measures
           const unlistenMaximize = await currentWindow.listen('tauri://maximize', () => {
             try {
-              handleMaximizeChange()
+              if (mountedRef.current) {
+                handleMaximizeChange(true)
+              }
             } catch (error) {
-              console.warn('Error in maximize listener:', error)
+              console.warn('Error in Tauri maximize listener:', error)
             }
           })
 
+          cleanupFunctions.push(unlistenMaximize)
+
+          // ✅ RE-ENABLED: Unmaximize listener with safety measures
           const unlistenUnmaximize = await currentWindow.listen('tauri://unmaximize', () => {
             try {
-              handleMaximizeChange()
+              if (mountedRef.current) {
+                handleMaximizeChange(false)
+              }
             } catch (error) {
-              console.warn('Error in unmaximize listener:', error)
+              console.warn('Error in Tauri unmaximize listener:', error)
             }
           })
-          */
 
-          cleanupTauri = () => {
+          cleanupFunctions.push(unlistenUnmaximize)
+
+          // ✅ Check initial maximize state
+          if (mountedRef.current) {
             try {
-              unlistenResize()
-              // unlistenMaximize()  // DISABLED
-              // unlistenUnmaximize()  // DISABLED
+              const isMaximized = await currentWindow.isMaximized()
+              if (mountedRef.current) {
+                handleMaximizeChange(isMaximized)
+              }
             } catch (error) {
-              console.warn('Error cleaning up Tauri listeners:', error)
+              console.warn('Failed to check initial maximize state:', error)
             }
           }
+
         } catch (error) {
           console.warn('Failed to setup Tauri listeners:', error)
         }
@@ -176,28 +233,39 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
       setupTauriListeners()
     }
 
-    // Initial state check
-    handleMaximizeChange()
-
+    // ✅ Comprehensive cleanup function
     return () => {
+      // Clear resize timer
+      if (resizeTimerRef.current) {
+        clearTimeout(resizeTimerRef.current)
+      }
+
+      // Remove browser event listeners
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('focus', handleFocusChange)
       window.removeEventListener('blur', handleFocusChange)
       window.removeEventListener('resize', handleResize)
       window.removeEventListener('orientationchange', handleResize)
       
-      // Cleanup Tauri listeners
-      if (cleanupTauri) {
-        cleanupTauri()
-      }
+      // Cleanup all Tauri listeners
+      cleanupFunctions.forEach(cleanup => {
+        try {
+          cleanup()
+        } catch (error) {
+          console.warn('Error during Tauri listener cleanup:', error)
+        }
+      })
+      cleanupFunctions = []
     }
   }, [handleVisibilityChange, handleFocusChange, handleResize, handleMaximizeChange])
 
-  // Force refresh function for manual trigger (optimized)
+  // ✅ Force refresh function for manual trigger (optimized)
   const forceRefresh = useCallback(() => {
+    if (!mountedRef.current) return
+
     // Use requestAnimationFrame for smooth refresh
     requestAnimationFrame(() => {
-      if (document.body) {
+      if (mountedRef.current && document.body) {
         // Only trigger resize event, avoid orientationchange during resize
         window.dispatchEvent(new Event('resize'))
       }
