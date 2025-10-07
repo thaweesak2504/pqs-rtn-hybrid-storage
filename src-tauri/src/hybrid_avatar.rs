@@ -5,6 +5,7 @@ use crate::database::get_connection;
 use crate::logger;
 use std::io::{Read, Write};
 use std::fs::File;
+use std::sync::Arc; // Phase 1.4: Arc for shared FileManager
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HybridAvatarInfo {
@@ -16,14 +17,16 @@ pub struct HybridAvatarInfo {
     pub file_exists: bool,
 }
 
+// Phase 1.4: Use Arc<FileManager> for zero-cost sharing
 pub struct HybridAvatarManager {
-    file_manager: FileManager,
+    file_manager: Arc<FileManager>,
 }
 
 impl HybridAvatarManager {
     pub fn new() -> Result<Self, String> {
         match FileManager::get_instance() {
             Ok(file_manager) => {
+                // file_manager is already Arc<FileManager>, no clone needed
                 Ok(HybridAvatarManager { file_manager })
             },
             Err(e) => {

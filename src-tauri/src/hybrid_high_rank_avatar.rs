@@ -1,4 +1,5 @@
 use std::fs;
+use std::sync::Arc; // Phase 1.4: Arc for shared FileManager
 use serde::{Deserialize, Serialize};
 use rusqlite::params;
 use base64::{Engine as _, engine::general_purpose};
@@ -16,13 +17,15 @@ pub struct HybridHighRankAvatarInfo {
     pub file_exists: bool,
 }
 
+// Phase 1.4: Use Arc<FileManager> for zero-cost sharing
 pub struct HybridHighRankAvatarManager {
-    file_manager: FileManager,
+    file_manager: Arc<FileManager>,
 }
 
 impl HybridHighRankAvatarManager {
     pub fn new() -> Result<Self, String> {
         let file_manager = FileManager::get_instance()?;
+        // file_manager is already Arc<FileManager>, no clone needed
         Ok(HybridHighRankAvatarManager { file_manager })
     }
     
