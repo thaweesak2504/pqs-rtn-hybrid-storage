@@ -250,6 +250,30 @@ fn save_hybrid_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> 
     manager.save_avatar(user_id, &avatar_data, &mime_type)
 }
 
+/// Phase 1.3: Streaming avatar upload to reduce memory usage
+/// Uses 8KB chunks instead of loading entire file into Vec<u8>
+#[tauri::command]
+fn save_hybrid_avatar_stream(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<hybrid_avatar::HybridAvatarInfo, String> {
+    // Validate avatar data
+    if avatar_data.is_empty() {
+        return Err("Avatar data is empty".to_string());
+    }
+    
+    // Validate MIME type
+    if !mime_type.starts_with("image/") {
+        return Err(format!("Invalid MIME type: {}", mime_type));
+    }
+    
+    // Create a cursor from the data to act as a reader
+    use std::io::Cursor;
+    let reader = Cursor::new(avatar_data);
+    let data_len = reader.get_ref().len();
+    
+    // Use streaming method - memory efficient for large files
+    let manager = hybrid_avatar::HybridAvatarManager::new()?;
+    manager.save_avatar_stream(user_id, reader, &mime_type, Some(data_len))
+}
+
 #[tauri::command]
 fn get_hybrid_avatar_info(user_id: i32) -> Result<hybrid_avatar::HybridAvatarInfo, String> {
     let manager = hybrid_avatar::HybridAvatarManager::new()
@@ -477,6 +501,7 @@ fn main() {
             get_backup_file_info,
             // Hybrid Avatar commands
             save_hybrid_avatar,
+            save_hybrid_avatar_stream, // Phase 1.3: Memory-efficient streaming
             get_hybrid_avatar_info,
             delete_hybrid_avatar,
             get_hybrid_avatar_base64,

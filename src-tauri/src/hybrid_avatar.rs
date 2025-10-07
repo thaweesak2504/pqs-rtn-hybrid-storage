@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::file_manager::FileManager;
 use crate::database::get_connection;
 use crate::logger;
+use std::io::{Read, Write};
+use std::fs::File;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HybridAvatarInfo {
@@ -70,6 +72,125 @@ impl HybridAvatarManager {
         Ok(HybridAvatarInfo {
             user_id,
             avatar_path: Some(avatar_path),
+            avatar_updated_at: Some(updated_at),
+            avatar_mime: Some(mime_type.to_string()),
+            avatar_size: Some(file_size),
+            file_exists: true,
+        })
+    }
+
+    /// Phase 1.3: Save avatar with streaming to reduce memory usage
+    /// Uses 8KB buffer chunks instead of loading entire file into memory
+    pub fn save_avatar_stream(
+        &self,
+        user_id: i32,
+        mut reader: impl Read,
+        mime_type: &str,
+        expected_size: Option<usize>
+    ) -> Result<HybridAvatarInfo, String> {
+        // ✅ Verify user exists first
+        let conn = get_connection().map_err(|e| format!("Database connection error: {}", e))?;
+        
+        let user_exists = conn.query_row::<i32, _, _>(
+            "SELECT COUNT(*) FROM users WHERE id = ?",
+            params![user_id],
+            |row| Ok(row.get(0)?)
+        ).map_err(|e| format!("Failed to check user: {}", e))?;
+        
+        if user_exists == 0 {
+            return Err(format!("User {} not found", user_id));
+        }
+
+        // ✅ Delete old avatar
+        if let Ok(Some(old_path)) = self.get_user_avatar_path(user_id) {
+            let _ = self.file_manager.delete_avatar_file(&old_path);
+        }
+
+        // ✅ Validate mime type and get extension
+        let extension = match mime_type {
+            "image/jpeg" | "image/jpg" => "jpg",
+            "image/png" => "png",
+            "image/webp" => "webp",
+            "image/gif" => "gif",
+            _ => return Err(format!("Unsupported image type: {}", mime_type)),
+        };
+
+        // ✅ Create filename and file path
+        let filename = format!("user_{}.{}", user_id, extension);
+        let file_path = self.file_manager.get_avatar_file_path(&filename)
+            .map_err(|e| format!("Failed to create file path: {}", e))?;
+        
+        // ✅ Open file for writing
+        let mut file = File::create(&file_path)
+            .map_err(|e| format!("Failed to create file: {}", e))?;
+
+        // ✅ Stream copy with 8KB buffer chunks
+        const BUFFER_SIZE: usize = 8 * 1024; // 8KB chunks
+        const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB limit
+        
+        let mut buffer = vec![0u8; BUFFER_SIZE];
+        let mut total_written = 0usize;
+
+        logger::debug(&format!("Starting streaming upload for user {} (expected size: {:?})", user_id, expected_size));
+
+        loop {
+            let bytes_read = reader.read(&mut buffer)
+                .map_err(|e| format!("Read error: {}", e))?;
+            
+            if bytes_read == 0 {
+                break; // EOF reached
+            }
+
+            // ✅ Write chunk to file
+            file.write_all(&buffer[..bytes_read])
+                .map_err(|e| format!("Write error: {}", e))?;
+            
+            total_written += bytes_read;
+
+            // ✅ Safety check for size limits
+            if total_written > MAX_FILE_SIZE {
+                // Clean up partial file
+                drop(file);
+                let _ = std::fs::remove_file(&file_path);
+                return Err(format!("File too large (max {}MB)", MAX_FILE_SIZE / 1024 / 1024));
+            }
+
+            // Log progress for large files
+            if expected_size.is_some() && total_written % (256 * 1024) == 0 {
+                logger::debug(&format!("Upload progress: {} bytes written", total_written));
+            }
+        }
+
+        // ✅ Ensure all data is written to disk
+        file.flush().map_err(|e| format!("Flush error: {}", e))?;
+        drop(file); // Close file handle
+
+        logger::debug(&format!("Upload completed: {} bytes written for user {}", total_written, user_id));
+
+        // ✅ Validate minimum file size (at least 100 bytes for valid image)
+        if total_written < 100 {
+            let _ = std::fs::remove_file(&file_path);
+            return Err("File too small to be a valid image".to_string());
+        }
+
+        // ✅ Update database metadata
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let file_size = total_written as i32;
+        
+        conn.execute(
+            "UPDATE users SET avatar_path = ?, avatar_updated_at = ?, avatar_mime = ?, avatar_size = ? WHERE id = ?",
+            params![filename, updated_at, mime_type, file_size, user_id]
+        ).map_err(|e| {
+            // Clean up file on database error
+            let _ = std::fs::remove_file(&file_path);
+            format!("Database update error: {}", e)
+        })?;
+
+        logger::info(&format!("Avatar saved successfully for user {} ({} bytes)", user_id, total_written));
+
+        Ok(HybridAvatarInfo {
+            user_id,
+            avatar_path: Some(filename),
             avatar_updated_at: Some(updated_at),
             avatar_mime: Some(mime_type.to_string()),
             avatar_size: Some(file_size),
