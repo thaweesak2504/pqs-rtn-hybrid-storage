@@ -14,6 +14,7 @@ mod file_manager;
 mod hybrid_avatar;
 mod hybrid_high_rank_avatar;
 mod logger; // Logger system for conditional debug output
+mod hybrid_backup; // New hybrid backup system
 // mod database_logger; // DISABLED - logging removed
 
 // Re-export database structs
@@ -203,6 +204,26 @@ fn create_universal_sqlite_backup() -> Result<String, String> {
 #[tauri::command]
 fn create_standard_sql_dump() -> Result<String, String> {
     universal_sqlite_backup::create_standard_sql_dump()
+}
+
+// Hybrid backup commands (Database + Media)
+#[tauri::command]
+fn create_hybrid_backup() -> Result<String, String> {
+    hybrid_backup::create_hybrid_backup()
+}
+
+#[tauri::command]
+fn import_hybrid_backup(zip_path: String) -> Result<String, String> {
+    hybrid_backup::import_backup(&zip_path)
+}
+
+#[tauri::command]
+fn discover_hybrid_backups() -> Result<String, String> {
+    let backups = hybrid_backup::discover_available_backups()
+        .map_err(|e| format!("Failed to discover backups: {}", e))?;
+
+    serde_json::to_string(&backups)
+        .map_err(|e| format!("Failed to serialize backups: {}", e))
 }
 
 // Backup management commands
@@ -494,6 +515,10 @@ fn main() {
             // Universal SQLite backup commands
             create_universal_sqlite_backup,
             create_standard_sql_dump,
+            // Hybrid backup commands (Database + Media)
+            create_hybrid_backup,
+            import_hybrid_backup,
+            discover_hybrid_backups,
             // Backup management commands
             copy_backup_to_location,
             get_backup_directory_path,
