@@ -11,7 +11,7 @@ const Footer: React.FC = () => {
   }
 
   return (
-    <footer className="bg-github-bg-primary border-t border-github-border-primary py-8 transition-colors duration-200">
+    <footer className="bg-github-bg-primary border-t border-github-border-primary py-3 transition-colors duration-200">
       <Container size="large" padding="medium">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-6 md:space-y-0">
           

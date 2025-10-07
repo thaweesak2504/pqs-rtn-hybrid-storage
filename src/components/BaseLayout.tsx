@@ -129,10 +129,10 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   ].filter(Boolean).join(' ')
 
   return (
-    <div className={`${containerClasses} resize-container resize-optimized`}>
-      {/* Header - Fixed at top */}
+    <div className={`${containerClasses} resize-container resize-optimized flex flex-col h-screen overflow-hidden`}>
+      {/* Header - Fixed at top (won't scroll) */}
       <header
-        className="bg-github-bg-primary border-b border-github-border-primary fixed top-0 left-0 right-0 z-50 transition-colors duration-200"
+        className="bg-github-bg-primary border-b border-github-border-primary flex-shrink-0 z-50 transition-colors duration-200"
         style={{
           WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'drag' : 'auto'
         } as React.CSSProperties}
@@ -259,27 +259,27 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
       {/* Custom Header Content */}
       {customHeaderContent}
 
-      {/* Main Content */}
-      <main className="transition-colors duration-200">
+      {/* Main Content - Scrollable area */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden transition-colors duration-200">
         {/* Slide Bar */}
         <SlideBar />
         
         {/* Content Area */}
         <div 
           id="main-content"
-          className="pt-16 min-h-screen"
+          className="min-h-full"
         >
           <RouteTransition>
             <Outlet />
           </RouteTransition>
         </div>
+        
+        {/* Custom Footer Content */}
+        {customFooterContent}
+        
+        {/* Footer - Always at bottom */}
+        <Footer />
       </main>
-      
-      {/* Custom Footer Content */}
-      {customFooterContent}
-      
-      {/* Footer - Always at bottom */}
-      <Footer />
       
       {/* Right Panel - User Profile */}
       {isAuthenticated && (
