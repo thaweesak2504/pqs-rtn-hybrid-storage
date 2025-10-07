@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import HeaderMenuBar from './HeaderMenuBar'
 import { Outlet, useNavigate } from 'react-router-dom'
 import navyLogo from '../assets/images/navy_logo.webp'
@@ -17,6 +17,12 @@ import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
 import { LogIn } from 'lucide-react'
 import RouteTransition from './ui/RouteTransition'
+
+// Phase 1.2: Custom hooks for better organization
+import { useAvatarSync } from '../hooks/useAvatarSync'
+import { useLayoutTypeSync } from '../hooks/useLayoutTypeSync'
+import { useRightPanelControl } from '../hooks/useRightPanelControl'
+import { useWindowVisibilityRefresh } from '../hooks/useWindowVisibilityRefresh'
 
 interface BaseLayoutProps {
   /** Layout type for context */
@@ -44,26 +50,6 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   
   const [isLoading, setIsLoading] = useState(true)
 
-  // Window visibility management to fix display issues after sleep/focus loss
-  const { forceRefresh } = useWindowVisibility({
-    onVisibilityChange: (visible) => {
-      if (visible) {
-        // Force refresh when becoming visible to fix display issues
-        setTimeout(() => {
-          forceRefresh()
-        }, 100)
-      }
-    },
-    onFocusChange: (focused) => {
-      if (focused) {
-        // Force refresh when gaining focus to fix display issues
-        setTimeout(() => {
-          forceRefresh()
-        }, 100)
-      }
-    }
-  })
-
   const { isAuthenticated, user, handleAvatarLoadError } = useAuth() as any
   const navigate = useNavigate()
   const { 
@@ -80,27 +66,33 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
     autoLoad: !!user?.id
   })
 
-  // Refresh avatar when user changes or avatar_updated_at changes
-  useEffect(() => {
+  // ✅ Phase 1.2: Window visibility management with stable references
+  const { forceRefresh } = useWindowVisibility({})
+  
+  useWindowVisibilityRefresh({
+    forceRefresh,
+    refreshDelay: 100
+  })
+
+  // ✅ Phase 1.2: Avatar refresh on user change with stable callback
+  const handleRefreshAvatar = useCallback(() => {
     if (user?.id) {
       refreshAvatar()
     }
-  }, [user?.id, (user as any)?.avatar_updated_at, refreshAvatar])
-
-  // Listen for global avatar update events
-  useEffect(() => {
-    const handleAvatarUpdate = (event: CustomEvent) => {
-      const { userId } = event.detail
-      if (Number(userId) === Number(user?.id)) {
-        refreshAvatar()
-      }
-    }
-
-    window.addEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    return () => {
-      window.removeEventListener('avatarUpdated', handleAvatarUpdate as EventListener)
-    }
   }, [user?.id, refreshAvatar])
+
+  useEffect(() => {
+    handleRefreshAvatar()
+  }, [user?.id, (user as any)?.avatar_updated_at, handleRefreshAvatar])
+
+  // ✅ Phase 1.2: Avatar sync with custom hook (replaces complex useEffect)
+  useAvatarSync(user?.id, handleRefreshAvatar)
+
+  // ✅ Phase 1.2: Layout type sync with custom hook
+  useLayoutTypeSync(layoutType, setLayoutType, setCurrentPage)
+
+  // ✅ Phase 1.2: Right panel control with custom hook
+  useRightPanelControl(showRightPanel, closeRightPanel)
 
   // Handle loading state
   useEffect(() => {
@@ -111,23 +103,6 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
 
     return () => clearTimeout(timer)
   }, [])
-
-  // Set layout type
-  useEffect(() => {
-    setLayoutType(layoutType)
-  }, [setLayoutType, layoutType])
-
-  // Set current page based on layout type
-  useEffect(() => {
-    setCurrentPage(layoutType)
-  }, [setCurrentPage, layoutType])
-
-  // Control right panel based on showRightPanel prop
-  useEffect(() => {
-    if (!showRightPanel) {
-      closeRightPanel()
-    }
-  }, [showRightPanel, closeRightPanel])
 
   // Default logo click handler
   const handleLogoClick = () => {
