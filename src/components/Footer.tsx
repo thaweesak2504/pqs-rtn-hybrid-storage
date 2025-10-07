@@ -17,10 +17,10 @@ const Footer: React.FC = () => {
           
           {/* Left Section: Copyright */}
           <div className="text-sm space-y-1">
-            <p className="text-github-text-primary">
-              © 2025 Royal Thai Navy – สงวนลิขสิทธิ์ทุกประการ
-            </p>
             <p className="text-github-text-secondary">
+              © 2025 Royal Thai Navy - สงวนลิขสิทธิ์ทุกประการ
+            </p>
+            <p className="text-github-text-secondary text-xs">
               พัฒนาโดย กองทัพเรือ เพื่อการปฏิบัติงานที่มีประสิทธิภาพ
             </p>
           </div>
@@ -29,7 +29,7 @@ const Footer: React.FC = () => {
           <div className="flex flex-wrap justify-end gap-6 text-sm">
             <button 
               onClick={handleContactClick}
-              className="flex items-center space-x-2 text-github-text-primary hover:text-github-accent-primary hover:translate-y-[-2px] transition-all duration-200"
+              className="flex items-center space-x-2 text-github-text-secondary hover:text-github-accent-primary hover:translate-y-[-2px] transition-all duration-200"
             >
               <Mail className="w-4 h-4" />
               <span>ติดต่อเรา</span>
@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
               onClick={() => {
                 // TODO: เพิ่มหน้าข้อมูลสำคัญในอนาคต
               }}
-              className="flex items-center space-x-2 text-github-text-primary hover:text-github-accent-primary hover:translate-y-[-2px] transition-all duration-200"
+              className="flex items-center space-x-2 text-github-text-secondary hover:text-github-accent-primary hover:translate-y-[-2px] transition-all duration-200"
             >
               <Info className="w-4 h-4" />
               <span>ข้อมูลสำคัญ</span>
