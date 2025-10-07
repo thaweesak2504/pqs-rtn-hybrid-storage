@@ -58,10 +58,12 @@ const DatabaseManagementPage: React.FC = () => {
 
   const loadHybridBackups = async () => {
     try {
-      const hybridBackupList = await invoke<HybridBackupFile[]>('discover_hybrid_backups');
+      const hybridBackupListJson = await invoke<string>('discover_hybrid_backups');
+      const hybridBackupList: HybridBackupFile[] = JSON.parse(hybridBackupListJson);
       setHybridBackups(hybridBackupList);
     } catch (error) {
       console.error('Error loading hybrid backups:', error);
+      setHybridBackups([]); // Set empty array on error
     }
   };
 
@@ -400,9 +402,9 @@ const DatabaseManagementPage: React.FC = () => {
             {/* Hybrid Backups Section */}
             <div className="space-y-2 mt-6 pt-6 border-t border-github-border-primary">
               <h3 className="font-medium text-github-text-primary mb-3">
-                Hybrid Backups (Database + Media) ({hybridBackups.length})
+                Hybrid Backups (Database + Media) ({Array.isArray(hybridBackups) ? hybridBackups.length : 0})
               </h3>
-              {hybridBackups.length === 0 ? (
+              {!Array.isArray(hybridBackups) || hybridBackups.length === 0 ? (
                 <p className="text-github-text-secondary text-sm">
                   No hybrid backups available
                 </p>
