@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::fs;
 use std::io::Write;
-use std::sync::Mutex;
+use std::sync::{Arc, RwLock}; // Phase 1.4: Arc + RwLock for better concurrency
 use serde::{Deserialize, Serialize};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
@@ -23,8 +23,11 @@ pub struct FileManager {
     high_ranks_dir: PathBuf,
 }
 
+// Phase 1.4: Use Arc + RwLock for better concurrency
+// - Arc: Shared ownership without cloning PathBuf
+// - RwLock: Multiple readers, single writer (better than Mutex)
 lazy_static! {
-    static ref FILE_MANAGER_INSTANCE: Mutex<Option<FileManager>> = Mutex::new(None);
+    static ref FILE_MANAGER_INSTANCE: RwLock<Option<Arc<FileManager>>> = RwLock::new(None);
 }
 
 impl FileManager {
@@ -70,22 +73,36 @@ impl FileManager {
         })
     }
     
-    /// Get or create singleton instance
-    pub fn get_instance() -> Result<Self, String> {
-        let mut instance = FILE_MANAGER_INSTANCE.lock()
-            .map_err(|e| format!("Failed to lock FileManager mutex: {}", e))?;
+    /// Phase 1.4: Get or create singleton instance with Arc
+    /// Returns Arc<FileManager> for zero-cost sharing
+    pub fn get_instance() -> Result<Arc<Self>, String> {
+        // Fast path: Try read lock first (allows multiple readers)
+        {
+            let instance = FILE_MANAGER_INSTANCE.read()
+                .map_err(|e| format!("Failed to acquire read lock on FileManager: {}", e))?;
+            
+            if let Some(ref fm) = *instance {
+                // Instance exists - return Arc clone (cheap, just increments ref count)
+                return Ok(Arc::clone(fm));
+            }
+        } // Read lock released here
         
-        if instance.is_none() {
-            *instance = Some(Self::new()?);
+        // Slow path: Instance doesn't exist, need write lock to create it
+        let mut instance = FILE_MANAGER_INSTANCE.write()
+            .map_err(|e| format!("Failed to acquire write lock on FileManager: {}", e))?;
+        
+        // Double-check pattern: Another thread might have initialized while we waited
+        if let Some(ref fm) = *instance {
+            return Ok(Arc::clone(fm));
         }
         
-        // Clone the paths (cheap operation for PathBuf)
-        let fm = instance.as_ref().unwrap();
-        Ok(FileManager {
-            media_dir: fm.media_dir.clone(),
-            avatars_dir: fm.avatars_dir.clone(),
-            high_ranks_dir: fm.high_ranks_dir.clone(),
-        })
+        // Create new instance
+        let new_instance = Arc::new(Self::new()?);
+        *instance = Some(Arc::clone(&new_instance));
+        
+        logger::debug("FileManager singleton instance created with Arc<T>");
+        
+        Ok(new_instance)
     }
     
     pub fn get_media_directory(&self) -> &PathBuf {
