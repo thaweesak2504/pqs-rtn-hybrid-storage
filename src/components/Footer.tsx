@@ -20,9 +20,6 @@ const Footer: React.FC = () => {
             <p className="text-github-text-secondary">
               © 2025 Royal Thai Navy - สงวนลิขสิทธิ์ทุกประการ
             </p>
-            <p className="text-github-text-secondary text-xs">
-              พัฒนาโดย กองทัพเรือ เพื่อการปฏิบัติงานที่มีประสิทธิภาพ
-            </p>
           </div>
           
           {/* Right Section: Navigation Links */}
