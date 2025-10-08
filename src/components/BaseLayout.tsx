@@ -260,7 +260,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
       {customHeaderContent}
 
       {/* Main Content - Scrollable area */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden transition-colors duration-200">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden main-with-footer transition-colors duration-200">
         {/* Slide Bar */}
         <SlideBar />
         
@@ -276,10 +276,10 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
         
         {/* Custom Footer Content */}
         {customFooterContent}
-        
-        {/* Footer - Always at bottom */}
-        <Footer />
       </main>
+      
+      {/* Footer - Fixed at bottom */}
+      <Footer />
       
       {/* Right Panel - User Profile */}
       {isAuthenticated && (

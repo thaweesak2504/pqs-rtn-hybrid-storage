@@ -238,7 +238,20 @@
     -webkit-app-region: no-drag !important;
   }
 
+  /* Footer Fixed Position */
+  .footer-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 40; /* Below header (z-50) but above content */
+    height: 2.5rem; /* 40px - reduced from 48px */
+  }
   
+  /* Main content with footer spacing */
+  .main-with-footer {
+    padding-bottom: 2.5rem; /* 40px - matches footer height */
+  }
   
   /* Toast stacking utility */
   .toast-stack {
