@@ -186,8 +186,11 @@ fn import_database(import_filename: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-fn list_database_exports() -> Result<Vec<String>, String> {
-    database_export::list_exports()
+fn list_database_exports() -> Result<String, String> {
+    // Return as JSON string for frontend
+    let exports = database_export::list_exports()?;
+    serde_json::to_string(&exports)
+        .map_err(|e| format!("Failed to serialize exports: {}", e))
 }
 
 #[tauri::command]
@@ -247,6 +250,90 @@ fn check_system_state_for_initialization() -> Result<String, String> {
 
     serde_json::to_string(&system_state)
         .map_err(|e| format!("Failed to serialize system state: {}", e))
+}
+
+// File export commands - copy backup files to external location
+#[tauri::command]
+fn export_backup_to_location(source_filename: String, destination_path: String) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    use tauri::api::path::app_data_dir;
+    use tauri::Config;
+
+    // Get source file path from backups directory
+    let app_data = app_data_dir(&Config::default())
+        .ok_or("Failed to get app data directory")?;
+    let backups_dir = app_data.join("pqs-rtn-hybrid-storage").join("backups");
+    let source_path = backups_dir.join(&source_filename);
+
+    // Verify source file exists
+    if !source_path.exists() {
+        return Err(format!("Source backup file not found: {}", source_filename));
+    }
+
+    // Copy file to destination
+    let dest = Path::new(&destination_path);
+    fs::copy(&source_path, dest)
+        .map_err(|e| format!("Failed to copy file: {}", e))?;
+
+    Ok(format!("✅ Backup exported successfully to: {}", destination_path))
+}
+
+#[tauri::command]
+fn export_hybrid_backup_to_location(source_filename: String, destination_path: String) -> Result<String, String> {
+    use std::fs;
+    use std::path::Path;
+    use tauri::api::path::app_data_dir;
+    use tauri::Config;
+
+    // Get source file path from backups directory
+    let app_data = app_data_dir(&Config::default())
+        .ok_or("Failed to get app data directory")?;
+    let backups_dir = app_data.join("pqs-rtn-hybrid-storage").join("backups");
+    let source_path = backups_dir.join(&source_filename);
+
+    // Verify source file exists
+    if !source_path.exists() {
+        return Err(format!("Source hybrid backup file not found: {}", source_filename));
+    }
+
+    // Copy file to destination
+    let dest = Path::new(&destination_path);
+    fs::copy(&source_path, dest)
+        .map_err(|e| format!("Failed to copy file: {}", e))?;
+
+    Ok(format!("✅ Hybrid backup exported successfully to: {}", destination_path))
+}
+
+#[tauri::command]
+fn export_sql_to_location(destination_path: String) -> Result<String, String> {
+    // Export SQL directly to destination (no intermediate file)
+    database_export::export_sql_directly(&destination_path)
+}
+
+#[tauri::command]
+fn copy_sql_export_to_location(source_filename: String, destination_path: String) -> Result<String, String> {
+    use std::fs;
+    use tauri::api::path::app_data_dir;
+    use tauri::Config;
+    
+    // Get source file from exports directory
+    let app_data = app_data_dir(&Config::default())
+        .ok_or("Failed to get app data directory")?;
+    let source_path = app_data
+        .join("pqs-rtn-hybrid-storage")
+        .join("exports")
+        .join(&source_filename);
+    
+    if !source_path.exists() {
+        return Err(format!("Export file not found: {}", source_filename));
+    }
+    
+    // Copy to destination
+    fs::copy(&source_path, &destination_path)
+        .map_err(|e| format!("Failed to copy SQL export: {}", e))?;
+    
+    Ok(format!("✅ SQL export copied successfully to: {}", destination_path))
 }
 
 // Backup management commands
@@ -563,6 +650,11 @@ fn main() {
             delete_hybrid_backup,
             check_backup_for_initialization,
             check_system_state_for_initialization,
+            // File export commands
+            export_backup_to_location,
+            export_hybrid_backup_to_location,
+            export_sql_to_location,
+            copy_sql_export_to_location,
             // Backup management commands
             copy_backup_to_location,
             get_backup_directory_path,

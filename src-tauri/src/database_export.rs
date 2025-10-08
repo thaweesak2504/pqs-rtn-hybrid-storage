@@ -42,6 +42,48 @@ pub struct ExportMetadata {
 }
 
 // Export functions
+pub fn export_sql_directly(destination_path: &str) -> Result<String, String> {
+    // Get database connection
+    let db_path = get_database_path()?;
+    let conn = Connection::open(&db_path)
+        .map_err(|e| format!("Failed to open database: {}", e))?;
+    
+    // Create export structure
+    let mut export = DatabaseExport {
+        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+        format: ExportFormat::Sql,
+        version: "1.0".to_string(),
+        tables: Vec::new(),
+        metadata: ExportMetadata {
+            created_at: chrono::Utc::now().to_rfc3339(),
+            total_tables: 0,
+            total_rows: 0,
+            file_size: 0,
+            format: "Sql".to_string(),
+        },
+    };
+    
+    // Export all tables
+    let table_names = vec!["users", "high_ranking_officers"];
+    for table_name in table_names {
+        let table_export = export_table(&conn, table_name)?;
+        export.tables.push(table_export);
+    }
+    
+    // Update metadata
+    export.metadata.total_tables = export.tables.len();
+    export.metadata.total_rows = export.tables.iter().map(|t| t.row_count).sum();
+    
+    // Generate SQL content
+    let sql_content = export_to_sql(&export)?;
+    
+    // Write directly to destination
+    fs::write(destination_path, sql_content)
+        .map_err(|e| format!("Failed to write SQL file: {}", e))?;
+    
+    Ok(format!("✅ SQL export saved successfully to: {}", destination_path))
+}
+
 pub fn export_database(format: ExportFormat) -> Result<String, String> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -167,7 +209,14 @@ pub fn import_database(import_filename: &str) -> Result<String, String> {
     Ok(format!("Database imported successfully from: {}", import_filename))
 }
 
-pub fn list_exports() -> Result<Vec<String>, String> {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportFileInfo {
+    pub filename: String,
+    pub size: u64,
+    pub created: String,
+}
+
+pub fn list_exports() -> Result<Vec<ExportFileInfo>, String> {
     let export_dir = get_export_directory()?;
     
     if !export_dir.exists() {
@@ -184,13 +233,26 @@ pub fn list_exports() -> Result<Vec<String>, String> {
         
         if path.is_file() {
             if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
-                exports.push(filename.to_string());
+                // Get file metadata
+                let metadata = fs::metadata(&path)
+                    .map_err(|e| format!("Failed to get file metadata: {}", e))?;
+                
+                let size = metadata.len();
+                let modified = metadata.modified()
+                    .map_err(|e| format!("Failed to get modification time: {}", e))?;
+                let created_time: chrono::DateTime<chrono::Utc> = modified.into();
+                
+                exports.push(ExportFileInfo {
+                    filename: filename.to_string(),
+                    size,
+                    created: created_time.to_rfc3339(),
+                });
             }
         }
     }
     
-    // Sort by timestamp (newest first)
-    exports.sort_by(|a, b| b.cmp(a));
+    // Sort by filename (newest first - timestamp in filename)
+    exports.sort_by(|a, b| b.filename.cmp(&a.filename));
     
     Ok(exports)
 }
@@ -243,22 +305,34 @@ fn export_table(conn: &Connection, table_name: &str) -> Result<TableExport, Stri
         .query_row([], |row| row.get::<_, String>(0))
         .map_err(|e| format!("Failed to get table schema: {}", e))?;
     
-    // Get table data - use a simpler approach to avoid borrowing issues
+    // Get table data with proper column names
     let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))
         .map_err(|e| format!("Failed to prepare data query: {}", e))?;
     
+    // Get column names
+    let column_names: Vec<String> = stmt.column_names()
+        .iter()
+        .map(|name| name.to_string())
+        .collect();
+    
     let rows = stmt.query_map([], |row| {
         let mut map = serde_json::Map::new();
-        // Use a simple approach - just get all columns as strings
-        let mut i = 0;
-        loop {
-            match row.get::<_, String>(i) {
-                Ok(value) => {
-                    map.insert(format!("column_{}", i), serde_json::Value::String(value));
-                    i += 1;
-                },
-                Err(_) => break,
-            }
+        for (i, col_name) in column_names.iter().enumerate() {
+            // Try to get value as different types
+            let value = if let Ok(val) = row.get::<_, i64>(i) {
+                serde_json::Value::Number(serde_json::Number::from(val))
+            } else if let Ok(val) = row.get::<_, f64>(i) {
+                serde_json::Number::from_f64(val)
+                    .map(serde_json::Value::Number)
+                    .unwrap_or(serde_json::Value::Null)
+            } else if let Ok(val) = row.get::<_, String>(i) {
+                serde_json::Value::String(val)
+            } else if let Ok(val) = row.get::<_, bool>(i) {
+                serde_json::Value::Bool(val)
+            } else {
+                serde_json::Value::Null
+            };
+            map.insert(col_name.clone(), value);
         }
         Ok(serde_json::Value::Object(map))
     }).map_err(|e| format!("Failed to query table data: {}", e))?;
@@ -327,13 +401,26 @@ fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
     sql_content.push_str(&format!("-- Total Tables: {}\n", export.metadata.total_tables));
     sql_content.push_str(&format!("-- Total Rows: {}\n", export.metadata.total_rows));
     sql_content.push_str("\n");
+    sql_content.push_str("-- Disable foreign keys during import\n");
+    sql_content.push_str("PRAGMA foreign_keys = OFF;\n");
+    sql_content.push_str("BEGIN TRANSACTION;\n\n");
     
     for table in &export.tables {
+        sql_content.push_str(&format!("-- ============================================\n"));
         sql_content.push_str(&format!("-- Table: {}\n", table.name));
-        sql_content.push_str(&format!("-- Schema: {}\n", table.schema));
         sql_content.push_str(&format!("-- Rows: {}\n", table.row_count));
+        sql_content.push_str(&format!("-- ============================================\n\n"));
         
+        // Add DROP TABLE IF EXISTS
+        sql_content.push_str(&format!("DROP TABLE IF EXISTS {};\n\n", table.name));
+        
+        // Add CREATE TABLE from schema
+        sql_content.push_str(&format!("{};\n\n", table.schema));
+        
+        // Add INSERT statements if there's data
         if !table.data.is_empty() {
+            sql_content.push_str(&format!("-- Insert data for table: {}\n", table.name));
+            
             // Get column names from first row
             if let Some(first_row) = table.data.first() {
                 if let Some(obj) = first_row.as_object() {
@@ -348,7 +435,7 @@ fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
                                     match value {
                                         serde_json::Value::String(s) => format!("'{}'", s.replace("'", "''")),
                                         serde_json::Value::Number(n) => n.to_string(),
-                                        serde_json::Value::Bool(b) => b.to_string(),
+                                        serde_json::Value::Bool(b) => if *b { "1" } else { "0" }.to_string(),
                                         serde_json::Value::Null => "NULL".to_string(),
                                         _ => "NULL".to_string(),
                                     }
@@ -369,6 +456,10 @@ fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
         
         sql_content.push_str("\n");
     }
+    
+    sql_content.push_str("COMMIT;\n");
+    sql_content.push_str("PRAGMA foreign_keys = ON;\n");
+    sql_content.push_str("\n-- Export completed successfully\n");
     
     Ok(sql_content)
 }
