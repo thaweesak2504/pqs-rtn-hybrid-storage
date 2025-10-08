@@ -102,24 +102,54 @@ fn get_all_avatars() -> Result<Vec<Avatar>, String> {
     database::get_all_avatars()
 }
 
-// Zoom commands using webview evaluation
+// Zoom commands using CSS transform scale (fixed approach)
 #[tauri::command]
 async fn zoom_in(window: tauri::Window) -> Result<(), String> {
-    window.eval("document.body.style.zoom = (parseFloat(document.body.style.zoom) || 1) * 1.1")
+    // Use transform scale instead of zoom to prevent window height issues
+    window.eval(r#"
+        (function() {
+            const root = document.documentElement;
+            const currentScale = parseFloat(root.dataset.zoomScale || '1');
+            const newScale = Math.min(currentScale * 1.1, 2.0); // Max 200%
+            root.dataset.zoomScale = newScale;
+            root.style.transformOrigin = 'top center';
+            root.style.transform = `scale(${newScale})`;
+            root.style.overflow = 'auto';
+        })()
+    "#)
         .map_err(|e| format!("Failed to zoom in: {}", e))?;
     Ok(())
 }
 
 #[tauri::command]
 async fn zoom_out(window: tauri::Window) -> Result<(), String> {
-    window.eval("document.body.style.zoom = (parseFloat(document.body.style.zoom) || 1) * 0.9")
+    // Use transform scale instead of zoom to prevent window height issues
+    window.eval(r#"
+        (function() {
+            const root = document.documentElement;
+            const currentScale = parseFloat(root.dataset.zoomScale || '1');
+            const newScale = Math.max(currentScale * 0.9, 0.5); // Min 50%
+            root.dataset.zoomScale = newScale;
+            root.style.transformOrigin = 'top center';
+            root.style.transform = `scale(${newScale})`;
+            root.style.overflow = 'auto';
+        })()
+    "#)
         .map_err(|e| format!("Failed to zoom out: {}", e))?;
     Ok(())
 }
 
 #[tauri::command]
 async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
-    window.eval("document.body.style.zoom = 1")
+    // Reset zoom using transform scale
+    window.eval(r#"
+        (function() {
+            const root = document.documentElement;
+            root.dataset.zoomScale = '1';
+            root.style.transform = 'scale(1)';
+            root.style.overflow = 'hidden';
+        })()
+    "#)
         .map_err(|e| format!("Failed to reset zoom: {}", e))?;
     Ok(())
 }

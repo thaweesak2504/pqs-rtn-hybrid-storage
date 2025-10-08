@@ -7,12 +7,18 @@
 @tailwind utilities;
 
 @layer base {
-  html, body, #root {
+  html {
     @apply w-full m-0 p-0;
-    height: 100vh;
+    /* Use fixed height instead of viewport units to prevent zoom issues */
+    height: 100%;
+    min-height: 100vh;
     overflow-x: hidden;
     overflow-y: auto;
     background: var(--github-bg-primary) !important;
+    
+    /* Zoom transform optimization */
+    transform-origin: top center;
+    transition: transform 0.2s ease-out;
     
     /* Optimize for resize performance */
     will-change: auto;
@@ -21,13 +27,25 @@
   }
   
   body {
-    @apply font-sans antialiased;
+    @apply font-sans antialiased w-full m-0 p-0;
+    /* Use percentage instead of viewport height */
+    height: 100%;
     min-height: 100vh;
     background: var(--github-bg-primary) !important;
     
     /* Optimize resize performance */
     will-change: auto;
     contain: layout style;
+  }
+  
+  #root {
+    @apply w-full m-0 p-0;
+    /* Use percentage for proper zoom behavior */
+    height: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background: var(--github-bg-primary) !important;
   }
 
   /* Custom Scrollbar */
