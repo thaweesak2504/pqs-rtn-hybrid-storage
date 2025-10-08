@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { open, save } from '@tauri-apps/api/dialog';
 import { Container, Title, Card, Button, Alert } from '../ui';
-import { Database, Download, Trash2, RefreshCw, FileText, Archive, Package, RotateCcw, FileInput } from 'lucide-react';
+import { Database, Download, Trash2, RefreshCw, FileText, Archive, Package, RotateCcw, FileInput, Shield } from 'lucide-react';
 
 interface BackupFile {
   filename: string;
@@ -466,142 +466,172 @@ const DatabaseManagementPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-medium text-github-text-primary mb-3">
+              <h3 className="font-medium text-github-text-primary mb-1">
                 Available Backups ({backups.length})
               </h3>
+              <p className="text-xs text-github-text-secondary mb-3">
+                ⚠️ The most recent backup is protected and cannot be deleted.
+              </p>
               {backups.length === 0 ? (
                 <p className="text-github-text-secondary text-sm">
                   No backups available
                 </p>
               ) : (
-                backups.map((backup, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg">
-                    <div className="flex items-center">
-                      <FileText className="w-4 h-4 text-github-text-secondary mr-2" />
-                      <div className="flex flex-col">
-                        <span className="text-sm text-github-text-primary font-medium">
-                          {backup.filename}
-                        </span>
-                        <span className="text-xs text-github-text-secondary">
-                          {new Date(backup.timestamp * 1000).toLocaleString('th-TH', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            timeZone: 'Asia/Bangkok'
-                          })}
-                        </span>
+                backups.map((backup, index) => {
+                  const isLatest = index === 0; // First item is the latest
+                  return (
+                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                      <div className="flex items-center flex-1">
+                        <FileText className="w-4 h-4 text-github-text-secondary mr-2" />
+                        <div className="flex flex-col flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-github-text-primary font-medium">
+                              {backup.filename}
+                            </span>
+                            {isLatest && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
+                                <Shield className="w-3 h-3" />
+                                Protected
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-github-text-secondary">
+                            {new Date(backup.timestamp * 1000).toLocaleString('th-TH', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              timeZone: 'Asia/Bangkok'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => restoreBackup(backup.filename)}
+                          disabled={isLoading}
+                          icon={<RotateCcw className="w-3 h-3" />}
+                          iconPosition="left"
+                        >
+                          Restore
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => exportBackupToFile(backup.filename)}
+                          disabled={isLoading}
+                          icon={<Download className="w-3 h-3" />}
+                          iconPosition="left"
+                        >
+                          Export
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => deleteBackup(backup.filename)}
+                          disabled={isLoading || isLatest}
+                          icon={<Trash2 className="w-3 h-3" />}
+                          iconPosition="left"
+                          className={isLatest ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => restoreBackup(backup.filename)}
-                        disabled={isLoading}
-                        icon={<RotateCcw className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Restore
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => exportBackupToFile(backup.filename)}
-                        disabled={isLoading}
-                        icon={<Download className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Export
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => deleteBackup(backup.filename)}
-                        disabled={isLoading}
-                        icon={<Trash2 className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
             {/* Hybrid Backups Section */}
             <div className="space-y-2 mt-6 pt-6 border-t border-github-border-primary">
-              <h3 className="font-medium text-github-text-primary mb-3">
+              <h3 className="font-medium text-github-text-primary mb-1">
                 Hybrid Backups (Database + Media) ({Array.isArray(hybridBackups) ? hybridBackups.length : 0})
               </h3>
+              <p className="text-xs text-github-text-secondary mb-3">
+                ⚠️ The most recent hybrid backup is protected and cannot be deleted.
+              </p>
               {!Array.isArray(hybridBackups) || hybridBackups.length === 0 ? (
                 <p className="text-github-text-secondary text-sm">
                   No hybrid backups available
                 </p>
               ) : (
-                hybridBackups.map((backup, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg">
-                    <div className="flex items-center">
-                      <Package className="w-4 h-4 text-github-accent-primary mr-2" />
-                      <div className="flex flex-col">
-                        <span className="text-sm text-github-text-primary font-medium">
-                          {backup.filename}
-                        </span>
-                        <span className="text-xs text-github-text-secondary">
-                          Database: {(backup.manifest.database_size / 1024).toFixed(1)} KB, 
-                          Media: {(backup.manifest.media_size / 1024).toFixed(1)} KB, 
-                          Files: {backup.manifest.total_files}
-                        </span>
-                        <span className="text-xs text-github-text-tertiary">
-                          {new Date(backup.manifest.timestamp * 1000).toLocaleString('th-TH', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            timeZone: 'Asia/Bangkok'
-                          })}
-                        </span>
+                hybridBackups.map((backup, index) => {
+                  const isLatest = index === 0; // First item is the latest
+                  return (
+                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                      <div className="flex items-center flex-1">
+                        <Package className="w-4 h-4 text-github-accent-primary mr-2" />
+                        <div className="flex flex-col flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-github-text-primary font-medium">
+                              {backup.filename}
+                            </span>
+                            {isLatest && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
+                                <Shield className="w-3 h-3" />
+                                Protected
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs text-github-text-secondary">
+                            Database: {(backup.manifest.database_size / 1024).toFixed(1)} KB, 
+                            Media: {(backup.manifest.media_size / 1024).toFixed(1)} KB, 
+                            Files: {backup.manifest.total_files}
+                          </span>
+                          <span className="text-xs text-github-text-tertiary">
+                            {new Date(backup.manifest.timestamp * 1000).toLocaleString('th-TH', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              timeZone: 'Asia/Bangkok'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => importHybridBackup(backup.path)}
+                          disabled={isLoading}
+                          icon={<RotateCcw className="w-3 h-3" />}
+                          iconPosition="left"
+                        >
+                          Restore
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => exportHybridBackupToFile(backup.filename)}
+                          disabled={isLoading}
+                          icon={<Download className="w-3 h-3" />}
+                          iconPosition="left"
+                        >
+                          Export
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => deleteHybridBackup(backup.filename)}
+                          disabled={isLoading || isLatest}
+                          icon={<Trash2 className="w-3 h-3" />}
+                          iconPosition="left"
+                          className={isLatest ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => importHybridBackup(backup.path)}
-                        disabled={isLoading}
-                        icon={<RotateCcw className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Restore
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => exportHybridBackupToFile(backup.filename)}
-                        disabled={isLoading}
-                        icon={<Download className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Export
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => deleteHybridBackup(backup.filename)}
-                        disabled={isLoading}
-                        icon={<Trash2 className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -675,59 +705,71 @@ const DatabaseManagementPage: React.FC = () => {
               </Button>
             </div>
             <p className="text-xs text-github-text-secondary mb-2">
-              Create SQL exports here, then click Export to save to external location.
+              ⚠️ The most recent SQL export is protected. Create SQL exports here, then click Export to save to external location.
             </p>
             {exports.length === 0 ? (
               <p className="text-github-text-secondary text-sm">
                 No SQL exports available. Create one using "Export Current Database (SQL)" button above.
               </p>
             ) : (
-              exports.map((exportFile, index) => (
-                <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start flex-1">
-                      <Database className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-github-text-primary font-medium break-all">
-                          {exportFile.filename}
-                        </p>
-                        {exportFile.size && (
-                          <p className="text-xs text-github-text-secondary mt-1">
-                            {(exportFile.size / 1024).toFixed(2)} KB
-                          </p>
-                        )}
-                        {exportFile.created && (
-                          <p className="text-xs text-github-text-secondary">
-                            {new Date(exportFile.created).toLocaleString()}
-                          </p>
-                        )}
+              exports.map((exportFile, index) => {
+                const isLatest = index === 0; // First item is the latest
+                return (
+                  <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start flex-1">
+                        <Database className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm text-github-text-primary font-medium break-all">
+                              {exportFile.filename}
+                            </p>
+                            {isLatest && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
+                                <Shield className="w-3 h-3" />
+                                Protected
+                              </span>
+                            )}
+                          </div>
+                          {exportFile.size && (
+                            <p className="text-xs text-github-text-secondary mt-1">
+                              {(exportFile.size / 1024).toFixed(2)} KB
+                            </p>
+                          )}
+                          {exportFile.created && (
+                            <p className="text-xs text-github-text-secondary">
+                              {new Date(exportFile.created).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex space-x-2 ml-2 flex-shrink-0">
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => exportSQLToFile(exportFile.filename)}
+                          disabled={isLoading}
+                          icon={<Download className="w-3 h-3" />}
+                          iconPosition="left"
+                        >
+                          Export
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outline"
+                          onClick={() => deleteExport(exportFile.filename)}
+                          disabled={isLoading || isLatest}
+                          icon={<Trash2 className="w-3 h-3" />}
+                          iconPosition="left"
+                          className={isLatest ? 'opacity-50 cursor-not-allowed' : ''}
+                        >
+                          Delete
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex space-x-2 ml-2 flex-shrink-0">
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => exportSQLToFile(exportFile.filename)}
-                        disabled={isLoading}
-                        icon={<Download className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Export
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outline"
-                        onClick={() => deleteExport(exportFile.filename)}
-                        disabled={isLoading}
-                        icon={<Trash2 className="w-3 h-3" />}
-                        iconPosition="left"
-                      >
-                        Delete
-                      </Button>
-                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
