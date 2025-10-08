@@ -772,69 +772,6 @@ const DatabaseManagementPage: React.FC = () => {
               })
             )}
           </div>
-
-          {/* Hybrid Exports Section */}
-          <div className="space-y-2 mt-6 pt-6 border-t border-github-border-primary">
-            <h3 className="font-medium text-github-text-primary mb-3">
-              Hybrid Exports (Database + Media) ({Array.isArray(hybridBackups) ? hybridBackups.length : 0})
-            </h3>
-            {!Array.isArray(hybridBackups) || hybridBackups.length === 0 ? (
-              <p className="text-github-text-secondary text-sm">
-                No hybrid exports available
-              </p>
-            ) : (
-              hybridBackups.map((backup, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg">
-                  <div className="flex items-center">
-                    <Package className="w-4 h-4 text-github-accent-primary mr-2" />
-                    <div className="flex flex-col">
-                      <span className="text-sm text-github-text-primary font-medium">
-                        {backup.filename}
-                      </span>
-                      <span className="text-xs text-github-text-secondary">
-                        Database: {(backup.manifest.database_size / 1024).toFixed(1)} KB, 
-                        Media: {(backup.manifest.media_size / 1024).toFixed(1)} KB, 
-                        Files: {backup.manifest.total_files}
-                      </span>
-                      <span className="text-xs text-github-text-tertiary">
-                        {new Date(backup.manifest.timestamp * 1000).toLocaleString('th-TH', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          timeZone: 'Asia/Bangkok'
-                        })}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      size="small"
-                      variant="outline"
-                      onClick={() => importHybridBackup(backup.path)}
-                      disabled={isLoading}
-                      icon={<RotateCcw className="w-3 h-3" />}
-                      iconPosition="left"
-                    >
-                      Restore
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outline"
-                      onClick={() => deleteHybridBackup(backup.filename)}
-                      disabled={isLoading}
-                      icon={<Trash2 className="w-3 h-3" />}
-                      iconPosition="left"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
         </div>
       </Card>
       </div>
