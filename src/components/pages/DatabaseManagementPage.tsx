@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { open } from '@tauri-apps/api/dialog';
+import { open, save } from '@tauri-apps/api/dialog';
 import { Container, Title, Card, Button, Alert } from '../ui';
-import { Database, Download, Upload, Trash2, RefreshCw, FileText, Archive, Package } from 'lucide-react';
+import { Database, Download, Trash2, RefreshCw, FileText, Archive, Package, RotateCcw, FileInput } from 'lucide-react';
 
 interface BackupFile {
   filename: string;
@@ -69,10 +69,12 @@ const DatabaseManagementPage: React.FC = () => {
 
   const loadExports = async () => {
     try {
-      const exportList = await invoke<string[]>('list_database_exports');
-      setExports(exportList.map(filename => ({ filename })));
+      const exportListJson = await invoke<string>('list_database_exports');
+      const exportList: ExportFile[] = JSON.parse(exportListJson);
+      setExports(exportList);
     } catch (error) {
       console.error('Error loading exports:', error);
+      setExports([]); // Set empty array on error
     }
   };
 
@@ -212,13 +214,43 @@ const DatabaseManagementPage: React.FC = () => {
     }
   };
 
-  // Export functions
-  const exportDatabase = async () => {
+  // Export functions for current data
+  const createSQLExport = async () => {
     setIsLoading(true);
     try {
-      const result = await invoke<string>('export_database', { format: 'sql' });
+      // Create SQL export in exports directory
+      const result = await invoke<string>('export_database', {
+        format: 'Sql'
+      });
+      
       showMessage('success', result);
-      loadExports();
+      loadExports(); // Reload export list
+    } catch (error) {
+      showMessage('error', `Failed to create SQL export: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportCurrentDatabase = async () => {
+    // Open save dialog to choose export location
+    const savePath = await save({
+      filters: [{ name: 'SQL File', extensions: ['sql'] }],
+      defaultPath: `database_export_${Date.now()}.sql`
+    });
+
+    if (!savePath) {
+      return; // User cancelled
+    }
+
+    setIsLoading(true);
+    try {
+      // Export SQL and copy to selected location
+      const result = await invoke<string>('export_sql_to_location', {
+        destinationPath: savePath
+      });
+      
+      showMessage('success', result);
     } catch (error) {
       showMessage('error', `Failed to export database: ${error}`);
     } finally {
@@ -226,18 +258,123 @@ const DatabaseManagementPage: React.FC = () => {
     }
   };
 
-  const importDatabase = async (filename: string) => {
-    if (!confirm(`Are you sure you want to import from ${filename}? This will replace all current data.`)) {
-      return;
+  const exportCurrentHybrid = async () => {
+    // Open save dialog to choose export location
+    const savePath = await save({
+      filters: [{ name: 'Hybrid Backup', extensions: ['zip'] }],
+      defaultPath: `hybrid_export_${Date.now()}.zip`
+    });
+
+    if (!savePath) {
+      return; // User cancelled
     }
 
     setIsLoading(true);
     try {
-      const result = await invoke<string>('import_database', { importFilename: filename });
-      showMessage('success', result);
-      loadExports();
+      // Create hybrid backup first
+      await invoke<string>('create_hybrid_backup');
+      
+      // Get the latest backup file
+      const hybridBackupListJson = await invoke<string>('discover_hybrid_backups');
+      const hybridBackupList: HybridBackupFile[] = JSON.parse(hybridBackupListJson);
+      
+      if (hybridBackupList.length > 0) {
+        // Get the most recent backup (first in the list)
+        const latestBackup = hybridBackupList[0];
+        
+        // Copy to selected location
+        const copyResult = await invoke<string>('export_hybrid_backup_to_location', {
+          sourceFilename: latestBackup.filename,
+          destinationPath: savePath
+        });
+        
+        showMessage('success', copyResult);
+        loadHybridBackups();
+      } else {
+        showMessage('error', 'Failed to create hybrid backup');
+      }
     } catch (error) {
-      showMessage('error', `Failed to import database: ${error}`);
+      showMessage('error', `Failed to export hybrid backup: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Export functions from backup list
+  const exportBackupToFile = async (filename: string) => {
+    // Open save dialog to choose export location
+    const savePath = await save({
+      filters: [{ name: 'Database Backup', extensions: ['db'] }],
+      defaultPath: filename
+    });
+
+    if (!savePath) {
+      return; // User cancelled
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await invoke<string>('export_backup_to_location', {
+        sourceFilename: filename,
+        destinationPath: savePath
+      });
+      
+      showMessage('success', result);
+    } catch (error) {
+      showMessage('error', `Failed to export backup: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportHybridBackupToFile = async (filename: string) => {
+    // Open save dialog to choose export location
+    const savePath = await save({
+      filters: [{ name: 'Hybrid Backup', extensions: ['zip'] }],
+      defaultPath: filename
+    });
+
+    if (!savePath) {
+      return; // User cancelled
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await invoke<string>('export_hybrid_backup_to_location', {
+        sourceFilename: filename,
+        destinationPath: savePath
+      });
+      
+      showMessage('success', result);
+    } catch (error) {
+      showMessage('error', `Failed to export hybrid backup: ${error}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const exportSQLToFile = async (filename: string) => {
+    // Open save dialog to choose export location
+    const savePath = await save({
+      filters: [{ name: 'SQL File', extensions: ['sql'] }],
+      defaultPath: filename
+    });
+
+    if (!savePath) {
+      return; // User cancelled
+    }
+
+    setIsLoading(true);
+    try {
+      // Copy SQL export from exports directory to selected location
+      const result = await invoke<string>('copy_sql_export_to_location', {
+        sourceFilename: filename,
+        destinationPath: savePath
+      });
+      
+      showMessage('success', result);
+    } catch (error) {
+      showMessage('error', `Failed to export SQL file: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -364,10 +501,20 @@ const DatabaseManagementPage: React.FC = () => {
                         variant="outline"
                         onClick={() => restoreBackup(backup.filename)}
                         disabled={isLoading}
-                        icon={<Upload className="w-3 h-3" />}
+                        icon={<RotateCcw className="w-3 h-3" />}
                         iconPosition="left"
                       >
                         Restore
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => exportBackupToFile(backup.filename)}
+                        disabled={isLoading}
+                        icon={<Download className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Export
                       </Button>
                       <Button
                         size="small"
@@ -424,12 +571,23 @@ const DatabaseManagementPage: React.FC = () => {
                     <div className="flex space-x-2">
                       <Button
                         size="small"
+                        variant="outline"
                         onClick={() => importHybridBackup(backup.path)}
                         disabled={isLoading}
-                        icon={<Upload className="w-3 h-3" />}
+                        icon={<RotateCcw className="w-3 h-3" />}
                         iconPosition="left"
                       >
-                        Import
+                        Restore
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => exportHybridBackupToFile(backup.filename)}
+                        disabled={isLoading}
+                        icon={<Download className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Export
                       </Button>
                       <Button
                         size="small"
@@ -464,22 +622,22 @@ const DatabaseManagementPage: React.FC = () => {
 
           <div className="mb-4 space-y-2">
             <Button
-              onClick={exportDatabase}
+              onClick={exportCurrentDatabase}
               disabled={isLoading}
               className="w-full"
               icon={<Download className="w-4 h-4" />}
               iconPosition="left"
             >
-              Export Database (SQL)
+              Export Current Database (SQL)
             </Button>
             <Button
-              onClick={createHybridBackup}
+              onClick={exportCurrentHybrid}
               disabled={isLoading}
               className="w-full"
               icon={<Package className="w-4 h-4" />}
               iconPosition="left"
             >
-              Export Hybrid (Database + Media)
+              Export Current Hybrid (Database + Media)
             </Button>
             <Button
               onClick={async () => {
@@ -494,7 +652,7 @@ const DatabaseManagementPage: React.FC = () => {
               disabled={isLoading}
               variant="outline"
               className="w-full"
-              icon={<Upload className="w-4 h-4" />}
+              icon={<FileInput className="w-4 h-4" />}
               iconPosition="left"
             >
               Import from File...
@@ -502,105 +660,71 @@ const DatabaseManagementPage: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <h3 className="font-medium text-github-text-primary mb-3">
-              Available Exports ({exports.length})
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-medium text-github-text-primary">
+                Available SQL Exports ({exports.length})
+              </h3>
+              <Button
+                onClick={createSQLExport}
+                disabled={isLoading}
+                size="small"
+                icon={<Database className="w-3 h-3" />}
+                iconPosition="left"
+              >
+                Create SQL Export
+              </Button>
+            </div>
+            <p className="text-xs text-github-text-secondary mb-2">
+              Create SQL exports here, then click Export to save to external location.
+            </p>
             {exports.length === 0 ? (
               <p className="text-github-text-secondary text-sm">
-                No exports available
+                No SQL exports available. Create one using "Export Current Database (SQL)" button above.
               </p>
             ) : (
               exports.map((exportFile, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg">
-                  <div className="flex items-center">
-                    <FileText className="w-4 h-4 text-github-text-secondary mr-2" />
-                    <span className="text-sm text-github-text-primary">
-                      {exportFile.filename}
-                    </span>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      size="small"
-                      variant="outline"
-                      onClick={() => importDatabase(exportFile.filename)}
-                      disabled={isLoading}
-                      icon={<Upload className="w-3 h-3" />}
-                      iconPosition="left"
-                    >
-                      Import
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outline"
-                      onClick={() => deleteExport(exportFile.filename)}
-                      disabled={isLoading}
-                      icon={<Trash2 className="w-3 h-3" />}
-                      iconPosition="left"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Hybrid Exports Section */}
-          <div className="space-y-2 mt-6 pt-6 border-t border-github-border-primary">
-            <h3 className="font-medium text-github-text-primary mb-3">
-              Hybrid Exports (Database + Media) ({Array.isArray(hybridBackups) ? hybridBackups.length : 0})
-            </h3>
-            {!Array.isArray(hybridBackups) || hybridBackups.length === 0 ? (
-              <p className="text-github-text-secondary text-sm">
-                No hybrid exports available
-              </p>
-            ) : (
-              hybridBackups.map((backup, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg">
-                  <div className="flex items-center">
-                    <Package className="w-4 h-4 text-github-accent-primary mr-2" />
-                    <div className="flex flex-col">
-                      <span className="text-sm text-github-text-primary font-medium">
-                        {backup.filename}
-                      </span>
-                      <span className="text-xs text-github-text-secondary">
-                        Database: {(backup.manifest.database_size / 1024).toFixed(1)} KB, 
-                        Media: {(backup.manifest.media_size / 1024).toFixed(1)} KB, 
-                        Files: {backup.manifest.total_files}
-                      </span>
-                      <span className="text-xs text-github-text-tertiary">
-                        {new Date(backup.manifest.timestamp * 1000).toLocaleString('th-TH', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          timeZone: 'Asia/Bangkok'
-                        })}
-                      </span>
+                <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start flex-1">
+                      <Database className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-github-text-primary font-medium break-all">
+                          {exportFile.filename}
+                        </p>
+                        {exportFile.size && (
+                          <p className="text-xs text-github-text-secondary mt-1">
+                            {(exportFile.size / 1024).toFixed(2)} KB
+                          </p>
+                        )}
+                        {exportFile.created && (
+                          <p className="text-xs text-github-text-secondary">
+                            {new Date(exportFile.created).toLocaleString()}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      size="small"
-                      onClick={() => importHybridBackup(backup.path)}
-                      disabled={isLoading}
-                      icon={<Upload className="w-3 h-3" />}
-                      iconPosition="left"
-                    >
-                      Import
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="outline"
-                      onClick={() => deleteHybridBackup(backup.filename)}
-                      disabled={isLoading}
-                      icon={<Trash2 className="w-3 h-3" />}
-                      iconPosition="left"
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex space-x-2 ml-2 flex-shrink-0">
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => exportSQLToFile(exportFile.filename)}
+                        disabled={isLoading}
+                        icon={<Download className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Export
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => deleteExport(exportFile.filename)}
+                        disabled={isLoading}
+                        icon={<Trash2 className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ))
