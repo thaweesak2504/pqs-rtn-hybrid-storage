@@ -812,12 +812,13 @@ const DatabaseManagementPage: React.FC = () => {
                   <div className="flex space-x-2">
                     <Button
                       size="small"
+                      variant="outline"
                       onClick={() => importHybridBackup(backup.path)}
                       disabled={isLoading}
-                      icon={<Upload className="w-3 h-3" />}
+                      icon={<RotateCcw className="w-3 h-3" />}
                       iconPosition="left"
                     >
-                      Import
+                      Restore
                     </Button>
                     <Button
                       size="small"
