@@ -102,19 +102,16 @@ fn get_all_avatars() -> Result<Vec<Avatar>, String> {
     database::get_all_avatars()
 }
 
-// Zoom commands using CSS transform scale (fixed approach)
+// Zoom commands using root font-size (proper approach for desktop app)
 #[tauri::command]
 async fn zoom_in(window: tauri::Window) -> Result<(), String> {
-    // Use transform scale instead of zoom to prevent window height issues
+    // Scale via root font-size - affects all rem-based sizes
     window.eval(r#"
         (function() {
             const root = document.documentElement;
-            const currentScale = parseFloat(root.dataset.zoomScale || '1');
-            const newScale = Math.min(currentScale * 1.1, 2.0); // Max 200%
-            root.dataset.zoomScale = newScale;
-            root.style.transformOrigin = 'top center';
-            root.style.transform = `scale(${newScale})`;
-            root.style.overflow = 'auto';
+            const currentSize = parseFloat(root.style.fontSize || '16');
+            const newSize = Math.min(currentSize * 1.1, 32); // Max 200%
+            root.style.fontSize = newSize + 'px';
         })()
     "#)
         .map_err(|e| format!("Failed to zoom in: {}", e))?;
@@ -123,16 +120,13 @@ async fn zoom_in(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 async fn zoom_out(window: tauri::Window) -> Result<(), String> {
-    // Use transform scale instead of zoom to prevent window height issues
+    // Scale via root font-size - affects all rem-based sizes
     window.eval(r#"
         (function() {
             const root = document.documentElement;
-            const currentScale = parseFloat(root.dataset.zoomScale || '1');
-            const newScale = Math.max(currentScale * 0.9, 0.5); // Min 50%
-            root.dataset.zoomScale = newScale;
-            root.style.transformOrigin = 'top center';
-            root.style.transform = `scale(${newScale})`;
-            root.style.overflow = 'auto';
+            const currentSize = parseFloat(root.style.fontSize || '16');
+            const newSize = Math.max(currentSize * 0.9, 8); // Min 50%
+            root.style.fontSize = newSize + 'px';
         })()
     "#)
         .map_err(|e| format!("Failed to zoom out: {}", e))?;
@@ -141,13 +135,10 @@ async fn zoom_out(window: tauri::Window) -> Result<(), String> {
 
 #[tauri::command]
 async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
-    // Reset zoom using transform scale
+    // Reset to default font size
     window.eval(r#"
         (function() {
-            const root = document.documentElement;
-            root.dataset.zoomScale = '1';
-            root.style.transform = 'scale(1)';
-            root.style.overflow = 'hidden';
+            document.documentElement.style.fontSize = '16px';
         })()
     "#)
         .map_err(|e| format!("Failed to reset zoom: {}", e))?;

@@ -36,13 +36,17 @@ html, body, #root {
 
 ---
 
-## ✅ Solution: Hybrid Approach
+## ✅ Solution: Font-Size Scaling Approach (REVISED)
+
+### ⚠️ Revision History:
+- **Attempt 1 (FAILED):** `transform: scale()` on `documentElement` → Scaled entire window (worse!)
+- **Attempt 2 (CURRENT):** Root `font-size` scaling → Content only, window fixed
 
 ### Strategy Overview:
-1. Replace `zoom` with `transform: scale()` (GPU-accelerated, no layout change)
-2. Change height units from `100vh` to `100%` + `min-height: 100vh`
-3. Add proper `transform-origin` and smooth transitions
-4. Implement zoom scale limits (50% - 200%)
+1. ~~Replace `zoom` with `transform: scale()`~~ ❌ **FAILED - Scaled window itself**
+2. **Use root `font-size` scaling** ✅ (Affects content only)
+3. Keep window at fixed `100vh` (never changes)
+4. Implement font-size limits (8px-32px = 50%-200%)
 
 ---
 
@@ -57,23 +61,19 @@ async fn zoom_in(window: tauri::Window) -> Result<(), String> {
     window.eval(r#"
         (function() {
             const root = document.documentElement;
-            const currentScale = parseFloat(root.dataset.zoomScale || '1');
-            const newScale = Math.min(currentScale * 1.1, 2.0); // Max 200%
-            root.dataset.zoomScale = newScale;
-            root.style.transformOrigin = 'top center';
-            root.style.transform = `scale(${newScale})`;
-            root.style.overflow = 'auto';
+            const currentSize = parseFloat(root.style.fontSize || '16');
+            const newSize = Math.min(currentSize * 1.1, 32); // Max 32px (200%)
+            root.style.fontSize = newSize + 'px';
         })()
     "#)
 }
 ```
 
 **Key Features:**
-- ✅ Uses `transform: scale()` instead of `zoom`
-- ✅ Stores scale in `dataset.zoomScale` for tracking
-- ✅ Max scale: 200% (prevents excessive zoom)
-- ✅ `transformOrigin: top center` - scales from top
-- ✅ `overflow: auto` - enables scrolling when needed
+- ✅ Uses root `font-size` scaling (affects rem units)
+- ✅ Default: 16px (100%), Max: 32px (200%)
+- ✅ Window size remains fixed at 100vh
+- ✅ Only content scales, not window itself
 
 #### Zoom Out:
 ```rust
@@ -82,19 +82,16 @@ async fn zoom_out(window: tauri::Window) -> Result<(), String> {
     window.eval(r#"
         (function() {
             const root = document.documentElement;
-            const currentScale = parseFloat(root.dataset.zoomScale || '1');
-            const newScale = Math.max(currentScale * 0.9, 0.5); // Min 50%
-            root.dataset.zoomScale = newScale;
-            root.style.transformOrigin = 'top center';
-            root.style.transform = `scale(${newScale})`;
-            root.style.overflow = 'auto';
+            const currentSize = parseFloat(root.style.fontSize || '16');
+            const newSize = Math.max(currentSize * 0.9, 8); // Min 8px (50%)
+            root.style.fontSize = newSize + 'px';
         })()
     "#)
 }
 ```
 
 **Key Features:**
-- ✅ Min scale: 50% (prevents excessive shrinking)
+- ✅ Min: 8px (50%), prevents excessive shrinking
 
 #### Zoom Reset:
 ```rust
@@ -102,14 +99,14 @@ async fn zoom_out(window: tauri::Window) -> Result<(), String> {
 async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
     window.eval(r#"
         (function() {
-            const root = document.documentElement;
-            root.dataset.zoomScale = '1';
-            root.style.transform = 'scale(1)';
-            root.style.overflow = 'hidden';
+            document.documentElement.style.fontSize = '16px';
         })()
     "#)
 }
 ```
+
+**Key Features:**
+- ✅ Reset to default 16px (100%)
 
 ---
 
@@ -118,15 +115,13 @@ async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
 #### HTML Element:
 ```css
 html {
-  /* Use fixed height instead of viewport units */
-  height: 100%;
-  min-height: 100vh;  /* Fallback for initial load */
-  overflow-x: hidden;
-  overflow-y: auto;
+  /* Fixed viewport height - NEVER changes */
+  height: 100vh;
+  overflow: hidden;
   
-  /* Zoom transform optimization */
-  transform-origin: top center;
-  transition: transform 0.2s ease-out;
+  /* Root font-size for zoom control */
+  font-size: 16px;  /* Default 100% */
+  transition: font-size 0.2s ease-out;
   
   /* Hardware acceleration */
   contain: layout style paint;
@@ -135,16 +130,16 @@ html {
 ```
 
 **Why This Works:**
-- ✅ `height: 100%` - percentage-based, not viewport-dependent
-- ✅ `min-height: 100vh` - ensures minimum viewport coverage
-- ✅ `transform-origin: top center` - consistent scale origin
-- ✅ `transition: transform 0.2s` - smooth zoom animation
+- ✅ `height: 100vh` - Fixed! Window never resizes
+- ✅ `font-size: 16px` - Base size for rem calculations
+- ✅ `transition: font-size 0.2s` - Smooth zoom animation
+- ✅ Only content scales, not the window itself
 
 #### Body Element:
 ```css
 body {
-  height: 100%;  /* Inherit from html */
-  min-height: 100vh;
+  height: 100vh;  /* Fixed viewport height */
+  overflow: hidden;
   /* ... */
 }
 ```
@@ -152,13 +147,17 @@ body {
 #### Root Element:
 ```css
 #root {
-  height: 100%;  /* Inherit from body */
-  min-height: 100vh;
+  height: 100vh;  /* Fixed viewport height */
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: auto;  /* Scrolling happens here */
   /* ... */
 }
 ```
+
+**Why This Works:**
+- ✅ All heights are `100vh` - fixed and consistent
+- ✅ Scrolling only in `#root` (content container)
+- ✅ When font-size changes, only content inside scales
 
 ---
 
@@ -167,15 +166,16 @@ body {
 ```html
 <style>
   html, body {
-    height: 100%;
-    min-height: 100vh;  /* Not 100vh alone */
+    height: 100vh;  /* Fixed - never changes! */
     overflow: hidden;
+    font-size: 16px;  /* Default zoom level */
   }
   
   #root {
-    width: 100%;  /* Not 100vw */
-    height: 100%;  /* Not 100vh */
-    min-height: 100vh;
+    width: 100vw;
+    height: 100vh;  /* Fixed - never changes! */
+    overflow-x: hidden;
+    overflow-y: auto;  /* Content scrolls here */
   }
 </style>
 ```
@@ -209,15 +209,17 @@ body {
 
 ## 📊 Technical Comparison
 
-| Aspect | Old (CSS zoom) | New (Transform scale) |
-|--------|----------------|----------------------|
-| **Standard** | ❌ Non-standard | ✅ W3C Standard |
-| **Layout Impact** | ❌ Recalculates | ✅ Visual only |
-| **Window Height** | ❌ Changes | ✅ Fixed |
-| **Performance** | ⚠️ Slow | ✅ Fast (GPU) |
-| **Animation** | ❌ None | ✅ Smooth 0.2s |
-| **Limits** | ❌ None | ✅ 50%-200% |
-| **Scrolling** | ⚠️ Issues | ✅ Proper |
+| Aspect | Old (CSS zoom) | Transform (Failed) | New (Font-size) |
+|--------|----------------|-------------------|-----------------|
+| **Standard** | ❌ Non-standard | ✅ W3C Standard | ✅ W3C Standard |
+| **Layout Impact** | ❌ Recalculates | ❌ Scales window! | ✅ Content only |
+| **Window Height** | ❌ Changes | ❌ Scales 2D! | ✅ Fixed 100vh |
+| **Window Width** | ⚠️ OK | ❌ Scales 2D! | ✅ Fixed 100vw |
+| **Performance** | ⚠️ Slow | ⚠️ OK | ✅ Fast |
+| **Animation** | ❌ None | ✅ Smooth 0.2s | ✅ Smooth 0.2s |
+| **Limits** | ❌ None | ✅ 50%-200% | ✅ 8px-32px |
+| **Scrolling** | ⚠️ Issues | ⚠️ Issues | ✅ Proper |
+| **Verdict** | ❌ Bad | ❌ Worse! | ✅ **BEST** |
 
 ---
 
