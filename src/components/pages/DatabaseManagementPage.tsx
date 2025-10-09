@@ -408,9 +408,24 @@ const DatabaseManagementPage: React.FC = () => {
   return (
     <Container size="large" padding="large" className="py-8">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Database className="w-8 h-8 text-github-accent-primary" />
-          <Title title="Database Management" className="mb-0" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Database className="w-8 h-8 text-github-accent-primary" />
+            <Title title="Database Management" className="mb-0" />
+          </div>
+          <Button
+            onClick={() => {
+              loadBackups();
+              loadHybridBackups();
+              loadExports();
+            }}
+            disabled={isLoading}
+            variant="outline"
+            icon={<RefreshCw className="w-4 h-4" />}
+            iconPosition="left"
+          >
+            Refresh
+          </Button>
         </div>
         <p className="text-github-text-secondary">
           จัดการฐานข้อมูล สำรองข้อมูล และนำเข้าข้อมูล
@@ -769,23 +784,6 @@ const DatabaseManagementPage: React.FC = () => {
             )}
           </div>
         </Card>
-      </div>
-
-
-      {/* Refresh Button */}
-      <div className="mt-8 text-center">
-        <Button
-          onClick={() => {
-            loadBackups();
-            loadExports();
-          }}
-          disabled={isLoading}
-          variant="outline"
-          icon={<RefreshCw className="w-4 h-4" />}
-          iconPosition="left"
-        >
-          Refresh
-        </Button>
       </div>
     </Container>
   );
