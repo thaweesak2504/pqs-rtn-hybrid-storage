@@ -39,11 +39,27 @@ const SearchBar: React.FC = () => {
   }
 
   return (
-    <div className="relative flex items-center bg-github-bg-secondary border border-github-border-primary rounded-md px-3 py-2 min-w-[300px] shadow-sm" role="search">
-      {/* Search Icon */}
-      <Search className="w-4 h-4 text-github-text-tertiary mr-2 flex-shrink-0" />
+    <div 
+      className={`
+        relative flex items-center bg-github-bg-secondary border border-github-border-primary rounded-md shadow-sm transition-all duration-200
+        ${state.isOpen || inputValue ? 'px-3 py-2' : 'px-2 py-2'}
+        ${state.isOpen || inputValue 
+          ? 'min-w-[180px] hd:min-w-[220px] 2k:min-w-[320px]' 
+          : 'w-10 hd:w-10'
+        }
+      `}
+      role="search"
+    >
+      {/* Search Icon (Always visible) */}
+      <button
+        onClick={() => !state.isOpen && toggle()}
+        className={`flex-shrink-0 ${state.isOpen || inputValue ? 'mr-2' : ''} hover:text-github-accent-primary transition-colors`}
+        aria-label={state.isOpen ? "Search active" : "Open search"}
+      >
+        <Search className="w-4 h-4 text-github-text-tertiary" />
+      </button>
       
-      {/* Search Input */}
+      {/* Search Input (Hidden on small screens until opened) */}
       <input
         ref={inputRef}
         type="text"
@@ -51,7 +67,10 @@ const SearchBar: React.FC = () => {
         onChange={handleInputChange}
         placeholder="Search in page..."
         aria-label="Search in page"
-        className="flex-1 bg-transparent text-sm text-github-text-primary placeholder-github-text-tertiary outline-none min-w-0"
+        className={`
+          flex-1 bg-transparent text-sm text-github-text-primary placeholder-github-text-tertiary outline-none min-w-0 transition-all duration-200
+          ${state.isOpen || inputValue ? 'opacity-100 w-full' : 'opacity-0 w-0 pointer-events-none'}
+        `}
       />
       
       {/* Clear Button (only when there's text) */}

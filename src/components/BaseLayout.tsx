@@ -203,15 +203,21 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               )}
             </div>
 
-            {/* Center Section: Search Bar */}
+            {/* Center Section: Search Bar (Only centered on large screens ≥2K) */}
             {showFullHeader && (
-              <div className="flex-1 flex justify-center px-4" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
+              <div className="hidden 2k:flex flex-1 justify-center px-4" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
                 <SearchBar />
               </div>
             )}
 
-              {/* Right Section: Window Controls + Dark Mode + Auth */}
+              {/* Right Section: Window Controls + Dark Mode + Search (compact) + Auth */}
               <div className="flex items-center space-x-3 flex-shrink-0">
+                {/* Search Bar (Compact on medium screens, icon-only on small) */}
+                {showFullHeader && (
+                  <div className="2k:hidden" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
+                    <SearchBar />
+                  </div>
+                )}
                 {/* Window Controls - Only show in Tauri environment */}
                 <WindowControls />
                 
