@@ -1,15 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Database, Edit3 } from 'lucide-react'
+import { Edit3 } from 'lucide-react'
 import Container from '../ui/Container'
 import Title from '../ui/Title'
-import Button from '../ui/Button'
 import UserCRUDForm from '../UserCRUDForm'
 import { checkDatabaseHealth } from '../../services/database'
 
 const DashboardPage: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking')
-  const navigate = useNavigate()
 
   // Check database health on component mount
   useEffect(() => {
@@ -76,20 +73,6 @@ const DashboardPage: React.FC = () => {
       {/* User Management Section */}
       {dbStatus === 'connected' && (
         <div className="mb-8">
-          {/* Quick Actions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            <Button
-              variant="primary"
-              size="medium"
-              onClick={() => navigate('/dashboard/database')}
-              className="w-full"
-              icon={<Database className="w-4 h-4" />}
-              iconPosition="left"
-            >
-              Database Viewer
-            </Button>
-          </div>
-          
           <div className="mt-8">
             <h3 className="text-xl font-semibold text-github-text-primary mb-4 flex items-center gap-2">
               <Edit3 className="w-5 h-5" />
