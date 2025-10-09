@@ -480,7 +480,7 @@ const DatabaseManagementPage: React.FC = () => {
                 backups.map((backup, index) => {
                   const isLatest = index === 0; // First item is the latest
                   return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
                       <div className="flex items-center flex-1">
                         <FileText className="w-4 h-4 text-github-text-secondary mr-2" />
                         <div className="flex flex-col flex-1">
@@ -563,7 +563,7 @@ const DatabaseManagementPage: React.FC = () => {
                 hybridBackups.map((backup, index) => {
                   const isLatest = index === 0; // First item is the latest
                   return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
                       <div className="flex items-center flex-1">
                         <Package className="w-4 h-4 text-github-accent-primary mr-2" />
                         <div className="flex flex-col flex-1">
@@ -714,7 +714,7 @@ const DatabaseManagementPage: React.FC = () => {
               exports.map((exportFile, index) => {
                 const isLatest = index === 0; // First item is the latest
                 return (
-                  <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                  <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start flex-1">
                         <Database className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
