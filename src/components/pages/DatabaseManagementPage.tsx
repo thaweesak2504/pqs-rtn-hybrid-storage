@@ -432,7 +432,7 @@ const DatabaseManagementPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Backup & Restore Section */}
-        <Card className="h-fit">
+        <Card className="h-fit p-0">
           <div className="p-6">
             <div className="flex items-center gap-3 mb-4">
               <Archive className="w-6 h-6 text-github-accent-primary" />
@@ -638,7 +638,7 @@ const DatabaseManagementPage: React.FC = () => {
         </Card>
 
         {/* Export/Import Section */}
-        <Card className="h-fit">
+        <Card className="h-fit p-0">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <Download className="w-6 h-6 text-github-accent-primary" />
