@@ -244,13 +244,13 @@
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 40; /* Below header (z-50) but above content */
-    height: 2.5rem; /* 40px - reduced from 48px */
+    z-index: 60; /* Above SlideBar (z-50) and header (z-50) to prevent overlap */
+    height: 2rem; /* 32px - compact footer height */
   }
   
   /* Main content with footer spacing */
   .main-with-footer {
-    padding-bottom: 2.5rem; /* 40px - matches footer height */
+    padding-bottom: 2rem; /* 32px - matches footer height */
   }
   
   /* Toast stacking utility */

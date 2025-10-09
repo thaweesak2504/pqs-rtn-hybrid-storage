@@ -408,9 +408,24 @@ const DatabaseManagementPage: React.FC = () => {
   return (
     <Container size="large" padding="large" className="py-8">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Database className="w-8 h-8 text-github-accent-primary" />
-          <Title title="Database Management" className="mb-0" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Database className="w-8 h-8 text-github-accent-primary" />
+            <Title title="Database Management" className="mb-0" />
+          </div>
+          <Button
+            onClick={() => {
+              loadBackups();
+              loadHybridBackups();
+              loadExports();
+            }}
+            disabled={isLoading}
+            variant="outline"
+            icon={<RefreshCw className="w-4 h-4" />}
+            iconPosition="left"
+          >
+            Refresh
+          </Button>
         </div>
         <p className="text-github-text-secondary">
           จัดการฐานข้อมูล สำรองข้อมูล และนำเข้าข้อมูล
@@ -433,13 +448,12 @@ const DatabaseManagementPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Backup & Restore Section */}
         <Card className="h-fit">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Archive className="w-6 h-6 text-github-accent-primary" />
-              <h2 className="text-xl font-semibold text-github-text-primary">
-                Backup & Restore
-              </h2>
-            </div>
+          <div className="flex items-center gap-3 mb-4">
+            <Archive className="w-6 h-6 text-github-accent-primary" />
+            <h2 className="text-xl font-semibold text-github-text-primary">
+              Backup & Restore
+            </h2>
+          </div>
             <p className="text-github-text-secondary text-sm mb-6">
               สำรองและกู้คืนข้อมูลภายในระบบ
             </p>
@@ -480,14 +494,14 @@ const DatabaseManagementPage: React.FC = () => {
                 backups.map((backup, index) => {
                   const isLatest = index === 0; // First item is the latest
                   return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border">
-                      <div className="flex items-center flex-1">
-                        <FileText className="w-4 h-4 text-github-text-secondary mr-2" />
-                        <div className="flex flex-col flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-github-text-primary font-medium">
+                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
+                      <div className="flex items-start flex-1">
+                        <FileText className="w-4 h-4 text-github-text-secondary mr-2 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm text-github-text-primary font-medium break-all">
                               {backup.filename}
-                            </span>
+                            </p>
                             {isLatest && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
                                 <Shield className="w-3 h-3" />
@@ -495,7 +509,7 @@ const DatabaseManagementPage: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-github-text-secondary">
+                          <p className="text-xs text-github-text-secondary mt-1">
                             {new Date(backup.timestamp * 1000).toLocaleString('th-TH', {
                               year: 'numeric',
                               month: '2-digit',
@@ -505,10 +519,10 @@ const DatabaseManagementPage: React.FC = () => {
                               second: '2-digit',
                               timeZone: 'Asia/Bangkok'
                             })}
-                          </span>
+                          </p>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 ml-2 flex-shrink-0">
                         <Button
                           size="small"
                           variant="outline"
@@ -563,14 +577,14 @@ const DatabaseManagementPage: React.FC = () => {
                 hybridBackups.map((backup, index) => {
                   const isLatest = index === 0; // First item is the latest
                   return (
-                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border">
-                      <div className="flex items-center flex-1">
-                        <Package className="w-4 h-4 text-github-accent-primary mr-2" />
-                        <div className="flex flex-col flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-github-text-primary font-medium">
+                    <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
+                      <div className="flex items-start flex-1">
+                        <Package className="w-4 h-4 text-github-accent-primary mr-2 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm text-github-text-primary font-medium break-all">
                               {backup.filename}
-                            </span>
+                            </p>
                             {isLatest && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
                                 <Shield className="w-3 h-3" />
@@ -578,12 +592,12 @@ const DatabaseManagementPage: React.FC = () => {
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-github-text-secondary">
+                          <p className="text-xs text-github-text-secondary mt-1">
                             Database: {(backup.manifest.database_size / 1024).toFixed(1)} KB, 
                             Media: {(backup.manifest.media_size / 1024).toFixed(1)} KB, 
                             Files: {backup.manifest.total_files}
-                          </span>
-                          <span className="text-xs text-github-text-tertiary">
+                          </p>
+                          <p className="text-xs text-github-text-tertiary">
                             {new Date(backup.manifest.timestamp * 1000).toLocaleString('th-TH', {
                               year: 'numeric',
                               month: '2-digit',
@@ -593,10 +607,10 @@ const DatabaseManagementPage: React.FC = () => {
                               second: '2-digit',
                               timeZone: 'Asia/Bangkok'
                             })}
-                          </span>
+                          </p>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 ml-2 flex-shrink-0">
                         <Button
                           size="small"
                           variant="outline"
@@ -634,12 +648,10 @@ const DatabaseManagementPage: React.FC = () => {
                 })
               )}
             </div>
-          </div>
         </Card>
 
         {/* Export/Import Section */}
         <Card className="h-fit">
-        <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
             <Download className="w-6 h-6 text-github-accent-primary" />
             <h2 className="text-xl font-semibold text-github-text-primary">
@@ -680,7 +692,6 @@ const DatabaseManagementPage: React.FC = () => {
                 }
               }}
               disabled={isLoading}
-              variant="outline"
               className="w-full"
               icon={<FileInput className="w-4 h-4" />}
               iconPosition="left"
@@ -715,7 +726,7 @@ const DatabaseManagementPage: React.FC = () => {
               exports.map((exportFile, index) => {
                 const isLatest = index === 0; // First item is the latest
                 return (
-                  <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border">
+                  <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start flex-1">
                         <Database className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
@@ -772,25 +783,7 @@ const DatabaseManagementPage: React.FC = () => {
               })
             )}
           </div>
-        </div>
-      </Card>
-      </div>
-
-
-      {/* Refresh Button */}
-      <div className="mt-8 text-center">
-        <Button
-          onClick={() => {
-            loadBackups();
-            loadExports();
-          }}
-          disabled={isLoading}
-          variant="outline"
-          icon={<RefreshCw className="w-4 h-4" />}
-          iconPosition="left"
-        >
-          Refresh
-        </Button>
+        </Card>
       </div>
     </Container>
   );
