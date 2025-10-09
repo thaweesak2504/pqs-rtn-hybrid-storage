@@ -680,7 +680,6 @@ const DatabaseManagementPage: React.FC = () => {
                 }
               }}
               disabled={isLoading}
-              variant="outline"
               className="w-full"
               icon={<FileInput className="w-4 h-4" />}
               iconPosition="left"
