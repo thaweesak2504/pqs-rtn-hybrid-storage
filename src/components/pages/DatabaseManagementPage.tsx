@@ -432,14 +432,13 @@ const DatabaseManagementPage: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Backup & Restore Section */}
-        <Card className="h-fit p-0">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Archive className="w-6 h-6 text-github-accent-primary" />
-              <h2 className="text-xl font-semibold text-github-text-primary">
-                Backup & Restore
-              </h2>
-            </div>
+        <Card className="h-fit">
+          <div className="flex items-center gap-3 mb-4">
+            <Archive className="w-6 h-6 text-github-accent-primary" />
+            <h2 className="text-xl font-semibold text-github-text-primary">
+              Backup & Restore
+            </h2>
+          </div>
             <p className="text-github-text-secondary text-sm mb-6">
               สำรองและกู้คืนข้อมูลภายในระบบ
             </p>
@@ -634,12 +633,10 @@ const DatabaseManagementPage: React.FC = () => {
                 })
               )}
             </div>
-          </div>
         </Card>
 
         {/* Export/Import Section */}
-        <Card className="h-fit p-0">
-        <div className="p-6">
+        <Card className="h-fit">
           <div className="flex items-center gap-3 mb-4">
             <Download className="w-6 h-6 text-github-accent-primary" />
             <h2 className="text-xl font-semibold text-github-text-primary">
@@ -771,8 +768,7 @@ const DatabaseManagementPage: React.FC = () => {
               })
             )}
           </div>
-        </div>
-      </Card>
+        </Card>
       </div>
 
 
