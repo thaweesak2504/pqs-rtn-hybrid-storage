@@ -726,57 +726,58 @@ const DatabaseManagementPage: React.FC = () => {
               exports.map((exportFile, index) => {
                 const isLatest = index === 0; // First item is the latest
                 return (
-                  <div key={index} className="p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start flex-1">
-                        <Database className="w-4 h-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm text-github-text-primary font-medium break-all">
-                              {exportFile.filename}
-                            </p>
-                            {isLatest && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
-                                <Shield className="w-3 h-3" />
-                                Protected
-                              </span>
-                            )}
-                          </div>
-                          {exportFile.size && (
-                            <p className="text-xs text-github-text-secondary mt-1">
-                              {(exportFile.size / 1024).toFixed(2)} KB
-                            </p>
-                          )}
-                          {exportFile.created && (
-                            <p className="text-xs text-github-text-secondary">
-                              {new Date(exportFile.created).toLocaleString()}
-                            </p>
+                  <div key={index} className="flex items-center justify-between p-3 bg-github-bg-secondary rounded-lg border border-github-border-primary">
+                    <div className="flex items-start flex-1">
+                      <Database className="w-4 h-4 text-github-text-secondary mr-2 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm text-github-text-primary font-medium break-all">
+                            {exportFile.filename}
+                          </p>
+                          {isLatest && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-600 text-xs font-medium rounded border border-green-500/20">
+                              <Shield className="w-3 h-3" />
+                              Protected
+                            </span>
                           )}
                         </div>
+                        {exportFile.created && (
+                          <p className="text-xs text-github-text-secondary mt-1">
+                            {new Date(exportFile.created).toLocaleString('th-TH', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              timeZone: 'Asia/Bangkok'
+                            })}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex space-x-2 ml-2 flex-shrink-0">
-                        <Button
-                          size="small"
-                          variant="outline"
-                          onClick={() => exportSQLToFile(exportFile.filename)}
-                          disabled={isLoading}
-                          icon={<Download className="w-3 h-3" />}
-                          iconPosition="left"
-                        >
-                          Export
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="outline"
-                          onClick={() => deleteExport(exportFile.filename)}
-                          disabled={isLoading || isLatest}
-                          icon={<Trash2 className="w-3 h-3" />}
-                          iconPosition="left"
-                          className={isLatest ? 'opacity-50 cursor-not-allowed' : ''}
-                        >
-                          Delete
-                        </Button>
-                      </div>
+                    </div>
+                    <div className="flex space-x-2 ml-2 flex-shrink-0">
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => exportSQLToFile(exportFile.filename)}
+                        disabled={isLoading}
+                        icon={<Download className="w-3 h-3" />}
+                        iconPosition="left"
+                      >
+                        Export
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outline"
+                        onClick={() => deleteExport(exportFile.filename)}
+                        disabled={isLoading || isLatest}
+                        icon={<Trash2 className="w-3 h-3" />}
+                        iconPosition="left"
+                        className={isLatest ? 'opacity-50 cursor-not-allowed' : ''}
+                      >
+                        Delete
+                      </Button>
                     </div>
                   </div>
                 );
