@@ -132,7 +132,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
     <div className={`${containerClasses} resize-container resize-optimized flex flex-col h-screen overflow-hidden`}>
       {/* Header - Fixed at top (won't scroll) */}
       <header
-        className="bg-github-bg-primary border-b border-github-border-primary flex-shrink-0 z-50 transition-colors duration-200"
+        className="bg-github-bg-primary border-b border-github-border-primary flex-shrink-0 z-[70] transition-colors duration-200"
         style={{
           WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'drag' : 'auto'
         } as React.CSSProperties}
