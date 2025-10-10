@@ -6,7 +6,7 @@ import DarkModeToggle from './DarkModeToggle'
 import Avatar from './ui/Avatar'
 import HamburgerMenu from './HamburgerMenu'
 import SlideBar from './SlideBar'
-import SearchBar from './search/SearchBar'
+import SearchBarDropdown from './search/SearchBarDropdown'
 import Footer from './Footer'
 import Breadcrumb from './Breadcrumb'
 import WindowControls from './WindowControls'
@@ -203,15 +203,14 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               )}
             </div>
 
-            {/* Center Section: Search Bar */}
-            {showFullHeader && (
-              <div className="flex-1 flex justify-center px-4" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
-                <SearchBar />
-              </div>
-            )}
-
-              {/* Right Section: Window Controls + Dark Mode + Auth */}
-              <div className="flex items-center space-x-3 flex-shrink-0">
+              {/* Right Section: Window Controls + Dark Mode + Search + Auth */}
+              <div className="flex items-center space-x-3 flex-shrink-0 ml-auto">
+                {/* Search Dropdown */}
+                {showFullHeader && (
+                  <div style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
+                    <SearchBarDropdown onRightPanelOpen={isRightPanelOpen} />
+                  </div>
+                )}
                 {/* Window Controls - Only show in Tauri environment */}
                 <WindowControls />
                 
