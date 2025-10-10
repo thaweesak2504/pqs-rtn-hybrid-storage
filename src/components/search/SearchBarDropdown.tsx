@@ -50,8 +50,8 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K or Cmd+K to open search
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      // Ctrl+F or Cmd+F to open search (standard search shortcut)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
         e.preventDefault()
         setIsDropdownOpen(true)
         toggle()
@@ -95,7 +95,7 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
         className="p-2 rounded-lg hover:bg-github-bg-hover transition-all duration-200 transform hover:scale-105"
         aria-label="Search in page"
         aria-expanded={isDropdownOpen}
-        title="Search (Ctrl+K)"
+        title="Search (Ctrl+F)"
       >
         <Search className="w-4 h-4 text-github-text-primary" />
       </button>
