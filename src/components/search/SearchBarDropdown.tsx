@@ -27,10 +27,11 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
 
   // Close dropdown when right panel opens
   useEffect(() => {
-    if (onRightPanelOpen && isDropdownOpen) {
+    if (onRightPanelOpen) {
       setIsDropdownOpen(false)
+      close()
     }
-  }, [onRightPanelOpen, isDropdownOpen])
+  }, [onRightPanelOpen, close])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -102,48 +103,38 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
       {/* Dropdown Panel */}
       {isDropdownOpen && (
         <div 
-          className="absolute right-0 top-full mt-2 w-80 bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-github-large z-50 overflow-hidden"
+          className="absolute right-0 top-full mt-3 w-80 bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-github-large z-50 overflow-hidden"
           role="search"
         >
           <div className="p-3">
-            <div className="flex items-center gap-2 mb-3">
-              {/* Search Input */}
-              <div className="flex-1 flex items-center bg-github-bg-tertiary border border-github-border-primary rounded-md px-3 py-2">
-                <Search className="w-4 h-4 text-github-text-tertiary mr-2 flex-shrink-0" />
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputValue}
-                  onChange={handleInputChange}
-                  placeholder="Search in page..."
-                  aria-label="Search in page"
-                  className="flex-1 bg-transparent text-sm text-github-text-primary placeholder-github-text-tertiary outline-none min-w-0"
-                />
-                
-                {/* Clear Button */}
-                {inputValue && (
-                  <button
-                    onClick={handleClear}
-                    className="p-1 rounded hover:bg-github-bg-hover transition-colors text-github-text-secondary hover:text-github-text-primary"
-                    title="Clear search"
-                    aria-label="Clear search"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-
-              {/* Close Button */}
+            {/* Search Input with integrated Clear/Close button */}
+            <div className="flex items-center bg-github-bg-tertiary border border-github-border-primary rounded-md px-3 py-2 mb-3">
+              <Search className="w-4 h-4 text-github-text-tertiary mr-2 flex-shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={handleInputChange}
+                placeholder="Search in page..."
+                aria-label="Search in page"
+                className="flex-1 bg-transparent text-sm text-github-text-primary placeholder-github-text-tertiary outline-none min-w-0"
+              />
+              
+              {/* Clear/Close Button (shows X when has text, otherwise close icon) */}
               <button
                 onClick={() => {
-                  setIsDropdownOpen(false)
-                  close()
+                  if (inputValue) {
+                    handleClear()
+                  } else {
+                    setIsDropdownOpen(false)
+                    close()
+                  }
                 }}
-                className="p-2 rounded hover:bg-github-bg-hover transition-colors text-github-text-secondary hover:text-github-text-primary"
-                title="Close (Esc)"
-                aria-label="Close search"
+                className="p-1 rounded hover:bg-github-bg-hover transition-colors text-github-text-secondary hover:text-github-text-primary ml-1"
+                title={inputValue ? "Clear search" : "Close (Esc)"}
+                aria-label={inputValue ? "Clear search" : "Close search"}
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
