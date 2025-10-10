@@ -106,9 +106,9 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
           className="absolute right-0 top-full mt-6 w-80 bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-github-large z-50 overflow-hidden"
           role="search"
         >
-          <div className="p-3">
+          <div className="px-3 py-0">
             {/* Search Input with integrated Clear/Close button */}
-            <div className="flex items-center bg-github-bg-tertiary border border-github-border-primary rounded-md px-3 py-2 mb-3">
+            <div className="flex items-center bg-github-bg-tertiary border border-github-border-primary rounded-md px-3 py-2 my-3">
               <Search className="w-4 h-4 text-github-text-tertiary mr-2 flex-shrink-0" />
               <input
                 ref={inputRef}
