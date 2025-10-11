@@ -160,7 +160,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
         }}
       >
         <div className="w-full px-6 lg:px-8">
-          <div className="flex items-center h-16">
+          <div className="flex items-center h-10">
             {/* Left Section: Hamburger + Logo + Title + MenuBar */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <div><HamburgerMenu /></div>
@@ -175,7 +175,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                 <img
                   src={navyLogo}
                   alt="PQS RTN Logo"
-                  className="h-10 lg:h-12 w-auto object-contain max-h-12 min-h-10 transition-transform duration-200 ease-out hover:scale-110 hover:brightness-125 group-hover:scale-110 group-hover:brightness-125"
+                  className="h-8 lg:h-10 w-auto object-contain max-h-10 min-h-8 transition-transform duration-200 ease-out hover:scale-110 hover:brightness-125 group-hover:scale-110 group-hover:brightness-125"
                 />
               </button>
 
