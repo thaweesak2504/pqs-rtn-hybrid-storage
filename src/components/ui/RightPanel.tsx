@@ -55,7 +55,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
       
                    {/* Panel */}
                <div
-                 className={`fixed top-16 ${position === 'left' ? 'left-0' : 'right-0'} ${height} ${width} bg-github-bg-primary shadow-github-large z-50 transform transition-all duration-300 ease-out ${className} ${
+                 className={`fixed top-12 ${position === 'left' ? 'left-0' : 'right-0'} ${height} ${width} bg-github-bg-primary shadow-github-large z-50 transform transition-all duration-300 ease-out ${className} ${
                    isOpen ? 'translate-x-0' : 'translate-x-full'
                  } ${
                    position === 'right' ? 'border-l border-github-border-primary' : ''

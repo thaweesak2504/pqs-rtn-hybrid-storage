@@ -103,7 +103,7 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
       {/* Dropdown Panel */}
       {isDropdownOpen && (
         <div 
-          className="absolute right-0 top-full mt-6 w-80 bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-github-large z-50 overflow-hidden"
+          className="absolute right-0 top-full mt-4 w-80 bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-github-large z-50 overflow-hidden"
           role="search"
         >
           <div className="px-3 py-0">
