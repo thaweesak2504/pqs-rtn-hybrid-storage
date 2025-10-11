@@ -160,7 +160,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
         }}
       >
         <div className="w-full px-6 lg:px-8">
-          <div className="flex items-center h-12">
+          <div className="flex items-center h-10">
             {/* Left Section: Hamburger + Logo + Title + MenuBar */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <div><HamburgerMenu /></div>

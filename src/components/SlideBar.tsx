@@ -197,11 +197,11 @@ const SlideBar: React.FC = () => {
       {/* Slide Bar */}
       <div 
         className={`
-          fixed top-12 left-0 h-[calc(100vh-3rem)] w-64 bg-github-bg-tertiary border-r border-github-border-primary shadow-github-large z-50
+          fixed top-10 left-0 h-[calc(100vh-2.5rem)] w-64 bg-github-bg-tertiary border-r border-github-border-primary shadow-github-large z-50
           transform transition-transform duration-300 ease-in-out rounded-tr-[20px]
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           ${!isOpen ? 'pointer-events-none' : 'pointer-events-auto'}
-          md:fixed md:top-12 md:left-0 md:h-[calc(100vh-3rem)] md:shadow-github-large md:z-50 md:rounded-tr-[20px]
+          md:fixed md:top-10 md:left-0 md:h-[calc(100vh-2.5rem)] md:shadow-github-large md:z-50 md:rounded-tr-[20px]
           ${isOpen ? 'md:translate-x-0' : 'md:-translate-x-full'}
         `}
         id="sidebar-panel"
