@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แนะนำหัวข้อ 100</title>
+
+    <style>
+        /* TH Sarabun New Font - Local Font Files */
+        /* Thai Government Font for Official Documents */
+
+        /* Regular Weight (400) */
+        @font-face {
+            font-family: 'TH Sarabun New';
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-regular.woff2') format('woff2');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+            unicode-range: U+0E00-0E7F, U+0020-007F;
+        }
+
+        /* Bold Weight (700) */
+        @font-face {
+            font-family: 'TH Sarabun New';
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+            unicode-range: U+0E00-0E7F, U+0020-007F;
+        }
+
+        /* Page setup for A4 printing */
+        @page {
+            size: A4;
+            margin: 2.5cm 2.0cm 2.0cm 3.0cm; /* top right bottom left */
+        }
+
+        /* Body styling */
+        body {
+            font-family: 'TH Sarabun New', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.8;
+            margin: 0;
+            padding: 2.5cm 2.0cm 2.0cm 3.0cm; /* Match @page margins */
+            background: rgb(255, 255, 255);
+            color: black;
+            box-sizing: border-box;
+        }
+
+        /* Container for content */
+        .content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Title styling */
+        .title {
+            font-weight: bold;
+            font-size: 18px;
+            text-align: center;
+            /*margin-bottom: 2em;*/
+        }
+
+        /* Section numbering */
+        .section-number {
+            font-weight: bold;
+            margin-right: 2ch; /* 2 เคาะห่างจากข้อความ */
+        }
+        
+
+        /* Section block */
+        .section {
+            margin-top: 1em;
+        }
+        .section-title {
+            font-weight: bold;
+            text-align: left;
+        }
+        .section-number {
+            font-weight: bold;
+            margin-right: 2ch;
+        }
+        .section-content {
+            margin-left: 4ch;
+            text-indent: 4ch;
+            text-align: justify;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .content {
+                margin: 2.5cm 2.0cm 2.0cm 3.0cm;
+            }
+        }
+
+        /* Screen styles for better readability */
+        @media screen {
+            body {
+                max-width: 210mm; /* A4 width */
+                min-height: 297mm; /* A4 height */
+                margin: 1cm auto;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1 class="title">แนะนำความรู้พื้นฐาน (หัวข้อ ๑๐๐)</h1>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๑.</span><span class="section-main"><strong>คำนำ</strong></span></div>
+            <div class="section-content">มาตรฐานกำลังพล เริ่มด้วยหัวข้อ “ความรู้พื้นฐาน” ซึ่งครอบคลุมพื้นฐานความรู้ และส่วนสำคัญที่จำเป็นต้องรู้และเข้าใจก่อนที่จะเข้าศึกษาและปฏิบัติใน หัวข้อ ๒๐๐ และ ๓๐๐ ตามลำดับ โดยปกติผู้รับการทดสอบจะผ่านการฝึกอบรมในหัวข้อ ความรู้พื้นฐานจากโรงเรียน แต่ถ้าผู้การทดสอบยังไม่ได้รับการฝึกอบรมมาก่อน หรือเป็นการทดสอบปฏิบัติเพื่อเป็นการทบทวน เอกสารอ้างอิงจะช่วยให้ผู้รับการทดสอบสามารถศึกษาได้ด้วยตนเอง เอกสารอ้างอิงทั้งหมดที่นำมาใช้ในการเรียนรู้นั้น ต้องได้รับการคัดเลือกด้วยความเหมาะสม เข้าถึงได้ และเข้าใจง่าย</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๒.</span><span class="section-main"><strong>ความปลอดภัย</strong></span></div>
+            <div class="section-content">ความปลอดภัยต่อบุคคล และอุปกรณ์เป็นสิ่งสำคัญอย่างยิ่ง ดังนั้น หัวข้อแรกของหัวข้อความรู้พื้นฐาน (หัวข้อ ๑๐๐) จะกล่าวถึงข้อระมัดระวังอันตรายพื้นฐานที่จำเป็นในการปฏิบัติ ส่วนหัวข้อระบบ (หัวข้อ ๒๐๐) จะเพิ่มหัวข้อย่อยคือ ข้อระมัดระวังอันตรายเฉพาะระบบ</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๓.</span><span class="section-main"><strong>วิธีปฏิบัติ</strong></span></div>
+            <div class="section-content">ความรู้พื้นฐานที่ผู้รับการทดสอบจะต้องผ่านการทดสอบ มีรายการอยู่ในหัวข้อการปฏิบัติหน้าที่ (หัวข้อ ๓๐๐)  ผู้รับการทดสอบจะต้องผ่านการทดสอบความรู้พื้นฐานทั้งหมดตามที่กำหนดก่อนที่จะเริ่มหัวข้อระบบ (หัวข้อ ๒๐๐) และหัวข้อการปฏิบัติหน้าที่ (หัวข้อ ๓๐๐)  ความรู้ที่ผู้รับการทดสอบได้รับจากหัวข้อความรู้พื้นฐาน (หัวข้อ ๑๐๐) จะช่วยให้ผู้รับการทดสอบมีความเข้าในระบบและการปฏิบัติหน้าที่ที่เกี่ยวข้องกับระบบนั้นๆ เมื่อผู้รับการทดสอบมั่นใจว่ามีความเข้าใจในความรู้พื้นฐานอย่างดีแล้ว ให้ติดต่อกับผู้ทดสอบ ถ้าผู้รับการทดสอบทำการสอบเป็นครั้งแรก ผู้ทดสอบจะกำหนดให้ผู้รับการทดสอบตอบคำถามจนเป็นที่น่าพอในในทุกๆ หัวข้อของหัวข้อความรู้พื้นฐานก่อนที่ผู้ทดสอบจะลงนามรับรองในหัวข้อความรู้พื้นฐานนั้นๆ ถ้าผู้รับการทดสอบทำการสอบทบทวน หรือเคยผ่านการฝึกอบรมจากโรงเรียน ผู้ทดสอบจะให้ผู้รับการทดสอบตอบคำถามตามหัวข้อที่กำหนด เพื่อที่จะยืนยันว่า ผู้รับการทดสอบมีความรู้ที่จำเป็นเพียงพอสำหรับการปฏิบัติหน้าที่ในตำแหน่งที่ทำการทดสอบหรือไม่ ถ้าผู้รับการทดสอบต้องการที่จะทำการทดสอบขั้นสุดท้าย ด้วยวิธีการสอบปากเปล่าหรือสอบข้อเขียน ผู้รับการทดสอบอาจสอบถามผู้ทดสอบถึงขัวข้อความรู้พื้นฐานที่ต้องใช้ในการสอบการปฏิบัติหน้าที่ในตำแหน่งที่ต้องการทดสอบ</div>
+        </div>
+    </div>
+</body>
+</html>
