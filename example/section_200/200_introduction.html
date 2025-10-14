@@ -88,25 +88,7 @@
             text-indent: 4ch;
             text-align: justify;
         }
-
-        ol.thai-alpha {
-        counter-reset: thaiAlpha;
-        list-style: none;
-        padding-left: 1.5em;
-        }
-
-        ol.thai-alpha li {
-        counter-increment: thaiAlpha;
-        position: relative;
-        margin-bottom: 0.5em;
-        }
-
-        ol.thai-alpha li::before {
-        content: counter(thaiAlpha, thai) ". ";
-        position: absolute;
-        left: 0;
-        }
-
+        
         /* Print styles */
         @media print {
             body {
