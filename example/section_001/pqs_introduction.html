@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>กล่าวนำ-มาตรฐานกำลังพล</title>
+
+    <style>
+        /* TH Sarabun New Font - Local Font Files */
+        /* Thai Government Font for Official Documents */
+
+        /* Regular Weight (400) */
+        @font-face {
+            font-family: 'TH Sarabun New';
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-regular.woff2') format('woff2');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+            unicode-range: U+0E00-0E7F, U+0020-007F;
+        }
+
+        /* Bold Weight (700) */
+        @font-face {
+            font-family: 'TH Sarabun New';
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+            unicode-range: U+0E00-0E7F, U+0020-007F;
+        }
+
+        /* Page setup for A4 printing */
+        @page {
+            size: A4;
+            margin: 2.5cm 2.0cm 2.0cm 3.0cm; /* top right bottom left */
+        }
+
+        /* Body styling */
+        body {
+            font-family: 'TH Sarabun New', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.8;
+            margin: 0;
+            padding: 2.5cm 2.0cm 2.0cm 3.0cm; /* Match @page margins */
+            background: rgb(255, 255, 255);
+            color: black;
+            box-sizing: border-box;
+        }
+
+        /* Container for content */
+        .content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Title styling */
+        .title {
+            font-weight: bold;
+            font-size: 18px;
+            text-align: center;
+            /*margin-bottom: 2em;*/
+        }
+
+        /* Section numbering */
+        .section-number {
+            font-weight: bold;
+            margin-right: 2ch; /* 2 เคาะห่างจากข้อความ */
+        }
+        
+
+        /* Section block */
+        .section {
+            margin-top: 1em;
+        }
+        .section-title {
+            font-weight: bold;
+            text-align: left;
+        }
+        .section-number {
+            font-weight: bold;
+            margin-right: 2ch;
+        }
+        .section-content {
+            margin-left: 4ch;
+            text-indent: 4ch;
+            text-align: justify;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .content {
+                margin: 2.5cm 2.0cm 2.0cm 3.0cm;
+            }
+        }
+
+        /* Screen styles for better readability */
+        @media screen {
+            body {
+                max-width: 210mm; /* A4 width */
+                min-height: 297mm; /* A4 height */
+                margin: 1cm auto;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <h1 class="title">กล่าวนำ</h1>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๑.</span><span class="section-main"><strong>มาตรฐานกำลังพล</strong></span></div>
+            <div class="section-content">มาตรฐานกำลังพล ใช้สำหรับทดสอบกำลังพลทั้งนายทหารสัญญาบัตรและนายทหารประทวนที่จะต้องเข้าปฏิบัติหน้าที่ใดๆ  เพื่อที่จะมั่นใจได้ว่าผู้ปฏิบัติมีความรู้ ความชำนาญอย่างพอเพียงที่สามารถปฏิบัติหน้าที่ต่างๆ  ได้อย่างถูกต้องและปลอดภัย  มาตรฐานนี้จึงประกอบด้วย  คำถามและคำสั่งการปฏิบัติเรียงลำดับกันอย่างเป็นระเบียบ จาก ความรู้พื้นฐาน  ระบบ  การปฏิบัติหน้าที่ ที่อำนวยประโยชน์ให้ผู้เข้ารับการทดสอบสามารถเข้าใจลำดับขั้นในการศึกษาและการปฏิบัติ พร้อมทั้งผู้ทดสอบสามารถ คัดเลือก ปรับปรุงแก้ไข ให้การทดสอบครอบคลุมประเด็นสำคัญๆ ตรงตามสภาวะหรือสถานการณ์ที่ผู้เข้ารับการทดสอบต้องปฏิบัติหน้าที่จริง</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๒.</span><span class="section-main"><strong>การประยุกต์ใช้</strong></span></div>
+            <div class="section-content">มาตรฐานกำลังพล เล่มนี้ ใช้กับ เรือทุกจำที่ติดตั้งระบบ CIWS MK15 Mods 1-4, 6 และ 11-14</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๓.</span><span class="section-main"><strong>การปรับปรุงแก้ไข</strong></span></div>
+            <div class="section-content">แนวทางในการปรับปรุงแก้ไขเอกสารนี้ คือผู้ทดสอบที่ได้รับการแต่งตั้งในแต่ละอุปกรณ์จำนวน ๑ คนหรือมากกว่า ทำการพิจารณาทบทวนในแต่ละหัวข้อ แล้วทำการยกเลิกส่วนต่างๆ ของระบบหรืออุปกรณ์ที่ไม่ได้ติดตั้งของหน่วยฯ จากนั้นให้เพิ่มเติม คำถามต่างๆ ในความรู้พื้นฐาน ระบบ  และการปฏิบัติหน้าที่ ซึ่งเกี่ยวข้องกับระบบที่ติดตั้งของหน่วยฯ แต่ไม่มีอยู่ในเอกสารนี้ ท้ายสุดเอกสารนี้จะผ่านการตรวจสอบโดยหัวหน้าแผนก แล้วเสนอความต้องการในการปรับปรุงแก้ไขให้กับ หน.หน่วยฯ  เพื่อเสนอปรับปรุงแก้ไขต่อไป</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๔.</span><span class="section-main"><strong>ผู้ทดสอบ</strong></span></div>
+            <div class="section-content">หน.หน่วยฯ  เป็นผู้แต่งตั้งผู้ทดสอบให้เป็นผู้ลงนามรับรองการผ่านการทดสอบ  โดยผู้ทดสอบควรมียศจ่าเอก หรือสูงกว่า และจะต้องผ่านการทดสอบในหัวข้อที่จะทำการทดสอบที่ได้รับการลงนามรับรองเรียบร้อยแล้ว รายชื่อของผู้ทดสอบสามารถดูได้จากแผงประกาศรายชื่อผู้ทดสอบของหน่วยฯ</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๕.</span><span class="section-main"><strong>เนื้อเรื่อง</strong></span></div>
+            <div class="section-content">มาตรฐานกำลังพล  แบ่งออกเป็น  ๓  หัวข้อ คือ  หัวข้อ ๑๐๐ (ความรู้พื้นฐาน)  ประกอบด้วยความรู้พื้นฐาน  และรายการหนังสืออ้างอิง  ที่จำเป็นสำหรับการปฏิบัติหน้าที่แต่ละตำแหน่ง  เพื่อให้ผู้รับการทดสอบมีความรู้  ความเข้าใจในข้อระมัดระวังอันตรายทั่วไปและความรู้พื้นฐานของระบบ  หัวข้อ ๒๐๐ (ระบบ) เป็นหัวข้อที่ให้ผู้รับการทดสอบมีความรู้ความเข้าใจใน  หน้าที่และหลักการทำงาน  ส่วนประกอบและชิ้นส่วนประกอบของระบบ พร้อมทั้งมีความรู้ความเข้าใจในการเชื่อมต่อระบบ ค่าการทำงานปกติ สูงสุด ต่ำสุดของการทำงาน และข้อระมัดระวังอันตรายเฉพาะของระบบต่างๆ ที่เป็นส่วนประกอบในการปฏิบัติหน้าที่ หัวข้อ ๓๐๐ (การปฏิบัติหน้าที่) เป็นหัวข้อที่เน้นการทดสอบทางปฏิบัติ โดยที่ผู้รับการทดสอบต้องสามารถปฏิบัติได้ตามที่กำหนดตามลำดับ ทั้งในสถานการณ์ปฏิบัติงานปกติ กรณีพิเศษ กรณีเหตุขัด กรณีเหตุฉุกเฉิน จนกระทั้งให้ผู้รับการทดสอบเข้าปฏิบัติประจำตำแหน่งจริง และอาจมีการสอบความรู้ ข้อเขียน หรือสอบปากเปล่า เป็นลำดับสุดท้ายด้วย</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๖.</span><span class="section-main"><strong>เอกสารอ้างอิง</strong></span></div>
+            <div class="section-content">เอกสารอ้างอิงที่ใช้ ต้องเป็นเอกสารเล่มล่าสุดที่ใช้ในการปฏิบัติงาน และสามารถเบิกยืมหรือ ทราบแหล่งค้นคว้าได้โดยง่าย</div>
+        </div>
+
+        <div class="section">
+            <div class="section-title"><span class="section-number">๗.</span><span class="section-main"><strong>ผู้รับการทดสอบ</strong></span></div>
+            <div class="section-content">ผู้ควบคุมการทดสอบ จะเป็นผู้กำหนดหัวข้อ "การปฏิบัติหน้าที่" ที่จะต้องผ่านการทดสอบ ก่อนที่จะทำการทดสอบให้เปิดไปที่หัวข้อ ๓๐๐ เพื่อตรวจดูหัวข้อการปฏิบัติหน้าที่ที่เกี่ยวข้องกับผู้รับการทดสอบ ซึ่งจะทำให้ทราบว่าจะต้องทำอะไรก่อนที่จะเริ่มการปฏิบัติหน้าที่ในแต่ละตำแหน่ง เช่น ผู้รับการทดสอบอาจจะต้องผ่านการทดสอบมาตรฐานกำลังพลเล่มอื่นมาก่อน ต้องผ่านการอบรมหลักสูตรจากโรงเรียน  ต้องผ่านลำดับการปฏิบัติหน้าที่อื่นๆ  ที่มีอยู่ในมาตรฐานกำลังพลเล่มนี้ ความรู้พื้นฐานและระบบใดที่ผู้รับการทดสอบจะต้องผ่านการทดสอบ ถ้ามีคำถามเพิ่มเติมหรือไม่สามารถหาเอกสารอ้างอิงได้  ให้ติดต่อกับผู้ควบคุมการทดสอบหรือผู้ทดสอบ</div>
+        </div>
+    </div>
+</body>
+</html>
