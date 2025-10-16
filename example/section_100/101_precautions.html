@@ -155,7 +155,7 @@
             /* marker customization variables */
             --marker-gap: 0.5em;
             --marker-prefix: "";
-            --marker-weight: 700;
+            --marker-weight: 400; /* default to normal weight */
             --marker-color: inherit;
         }
 
@@ -191,8 +191,10 @@
         /* shorthand classes */
         ol.li-marker-gap.no-dot > li::before { content: var(--marker-prefix, "") attr(data-prefix) counter(li, thai) " "; }
         ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
-        ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
-        ol.li-marker-gap.marker-muted  > li::before { color: #666; }
+    ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
+    ol.li-marker-gap.marker-muted  > li::before { color: #666; }
+    /* utility to force bold when needed */
+    ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
 
         /* hide any native ::marker for safety in browsers that still render it */
         ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
