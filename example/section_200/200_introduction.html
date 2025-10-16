@@ -6,7 +6,7 @@
     <title>แนะนำหัวข้อ 200</title>
 
     <style>
-             
+           
         /* TH Sarabun New Font - Local Font Files */
         /* Thai Government Font for Official Documents */
 
@@ -76,10 +76,7 @@
             font-weight: bold;
             text-align: left;
         }
-        .section-number {
-            font-weight: bold;
-            margin-right: 2ch;
-        }
+        
         .section-content {
             margin-left: 4ch;
             text-indent: 4ch;
@@ -123,6 +120,21 @@
                 box-shadow: 0 0 10px rgba(0,0,0,0.1);
             }
         }
+
+        /* Thai-alphabetic list with prefix ๑๐๑. */
+        ol.thai-alphabetic.prefix-101 li::marker {
+            content: '๑๐๑.' counter(list-item, thai-alphabetic-custom) ' ';
+        }
+
+        /* Remove dot after number in ol at line 148 */
+        ol.thai-no-dot li::marker {
+            content: counter(list-item) " ";
+        }
+
+        ol.thai-no-dot li::marker {
+            content: counter(list-item, thai-alphabetic-custom) " ";
+        }
+          
     </style>
 </head>
 <body>
@@ -145,7 +157,9 @@
         </div>
         
         <div style="margin-left: 5ch;">
-            <ol class="thai-alphabetic" lang="th" start="1">
+            <!-- <ol class="thai-alphabetic prefix-101" lang="th" start="1"> -->
+            <!-- <ol class="thai-alphabetic thai-no-dot" lang="th" start="1"> -->
+            <ol class="thai-alphabetic thai-no-dot" lang="th" start="1">
                 <li>มีรายชื่อเอกสารอ้างอิงเพื่อใช้ในการเรียนรู้ และมีคำถามให้ผู้รับการทดสอบอธิบายหน้าที่ของแต่ละระบบ</li>
                 <li>มีการสอบถามโดยทั่วไป ถึงความสัมพันธ์ของส่วนประกอบ และชิ้นส่วนในส่วนประกอบของระบบว่าคืออะไร อยู่ที่ไหน ฯ</li>
                 <li>มีการกล่าวถึงการทำงานของส่วนประกอบ และชิ้นส่วนในส่วนประกอบว่าทำหน้าที่อย่างไร</li>
@@ -192,7 +206,7 @@
 
             <section>
                 <h2>อักษรไทย (Custom @counter-style)</h2>
-                <ol class="thai-alphabetic" lang="th" start="1">
+                <ol class="thai-alphabetic thai-no-dot" lang="th" start="1">
                     <li>รายการ ก</li>
                     <li>รายการ ข</li>
                     <li>รายการ ค</li>

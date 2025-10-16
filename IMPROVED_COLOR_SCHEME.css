@@ -123,6 +123,15 @@
   font-weight: 400;
 }
 
+/* ระยะห่างระหว่าง marker กับข้อความใน li */
+.li-marker-gap li {
+  padding-left: 0.5em; /* ปรับค่าตามต้องการ */
+  text-indent: 0;
+}
+.li-marker-gap li::marker {
+  margin-right: 0.5em; /* ปรับค่าตามต้องการ */
+}
+
 /* ===== CONTRAST TESTING ===== */
 /* Use these classes to test contrast ratios */
 .contrast-test-high {
