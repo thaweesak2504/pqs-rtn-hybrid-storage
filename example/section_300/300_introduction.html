@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>แนะนำหัวข้อ 300V2</title>
+    <title>แนะนำหัวข้อ ๓๐๐</title>
 
     <style>
         /* TH Sarabun New Font - Local Font Files */
@@ -133,15 +133,16 @@
         list-style-type: thai;
         }
 
-    /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
-    ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
-    content: counter(list-item, thai) " ";
-    }
+        /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
+        ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
+        content: counter(list-item, thai) " ";
+        }
 
-    /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
-    ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
-    content: '๑๐๑.' counter(list-item, thai) " ";
-    }
+        /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
+        ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
+        content: '๑๐๑.' counter(list-item, thai) " ";
+        }
+
         /* ระยะห่างระหว่าง marker กับข้อความใน li (ใช้กับ .li-marker-gap)
            ::marker ไม่รองรับ margin/better spacing ในบางเบราว์เซอร์ ดังนั้นใช้ ::before
            เพื่อสร้าง marker แบบกำหนดเองสำหรับ ol.li-marker-gap (ปลอดภัยและปรับแต่งได้) */
@@ -189,9 +190,11 @@
         ol.thai-numerals.prefix-101.li-marker-gap > li::before {
             content: '๑๐๑.' counter(li, thai) " ";
         }
+
         ol.thai-numerals.no-dot.li-marker-gap > li::before {
             content: counter(li, thai) " ";
         }
+
         ol.thai-numerals.prefix-101.no-dot.li-marker-gap > li::before {
             content: '๑๐๑' counter(li, thai) " ";
         }
