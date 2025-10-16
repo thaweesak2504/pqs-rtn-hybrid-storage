@@ -160,9 +160,10 @@
         }
 
         /* utilities for gap sizes (useful across documents) */
-        ol.li-marker-gap.gap-sm { --marker-gap: 0.3em; }
-        ol.li-marker-gap.gap-md { --marker-gap: 0.8em; }
-        ol.li-marker-gap.gap-lg { --marker-gap: 1.5em; }
+    ol.li-marker-gap.gap-sm { --marker-gap: 0.3em; }
+    ol.li-marker-gap.gap-md { --marker-gap: 0.8em; }
+    ol.li-marker-gap.gap-lg { --marker-gap: 1.5em; }
+    ol.li-marker-gap.gap-xl { --marker-gap: 2.4em; }
 
         /* option: use alphabetic thai counter */
         ol.li-marker-gap.alpha > li::before {
@@ -191,10 +192,10 @@
         /* shorthand classes */
         ol.li-marker-gap.no-dot > li::before { content: var(--marker-prefix, "") attr(data-prefix) counter(li, thai) " "; }
         ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
-    ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
-    ol.li-marker-gap.marker-muted  > li::before { color: #666; }
-    /* utility to force bold when needed */
-    ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
+        ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
+        ol.li-marker-gap.marker-muted  > li::before { color: #666; }
+        /* utility to force bold when needed */
+        ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
 
         /* hide any native ::marker for safety in browsers that still render it */
         ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
@@ -205,7 +206,7 @@
     
     <div class="content">
         <div class="section">
-            <ol class="thai-numerals li-marker-gap" lang="th" start="101">
+            <ol class="thai-numerals li-marker-gap.marker-bold" lang="th" start="101">
                 <li class="section-title">ข้อควรระมัดระวังอันตรายพื้นฐาน</li>
                     <div class="section-content">เอกสารออ้างอิง :</div>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
@@ -229,6 +230,11 @@
 
                 <ol class="thai-numerals li-marker-gap gap-lg prefix-101 marker-muted" lang="th" start="1" data-prefix="">
                     <li>ตัวอย่าง prefix-101 และช่องว่างใหญ่</li>
+                </ol>
+
+                <ol class="thai-numerals li-marker-gap gap-xl" lang="th" start="1" data-prefix="">
+                    <li>ตัวอย่างช่องว่างพิเศษ (gap-xl)</li>
+                    <li>ตัวอย่างช่องว่างพิเศษ (gap-xl)</li>
                 </ol>
 
                 <ol class="thai-alphabetic li-marker-gap alpha no-dot" lang="th" start="1" data-prefix="">
