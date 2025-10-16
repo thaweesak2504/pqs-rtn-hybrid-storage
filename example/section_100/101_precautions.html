@@ -171,26 +171,31 @@
         }
 
         /* default li styling inside our custom list */
+        /* Use a 2-column grid: marker column (auto width) + content column (flexible).
+           This ensures wrapped lines align under the content column, not under the marker. */
         ol.li-marker-gap > li {
             list-style: none !important;
             counter-increment: li;
-            position: relative;
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: var(--marker-gap);
+            align-items: start;
             padding-left: 0;
         }
 
-        /* custom marker using variables and attr fallback for prefix */
+        /* custom marker: we render a per-li attribute `data-marker` via JS and use it here */
         ol.li-marker-gap > li::before {
-            display: inline-block;
+            /* place marker into the first grid column */
+            grid-column: 1;
+            display: block;
             font-weight: var(--marker-weight);
             color: var(--marker-color);
             white-space: nowrap;
-            margin-right: var(--marker-gap);
-            /* prefer CSS variable prefix, fallback to data-prefix attribute */
-            content: var(--marker-prefix, "") attr(data-prefix) counter(li, thai) " ";
+            content: attr(data-marker);
         }
 
         /* shorthand classes */
-        ol.li-marker-gap.no-dot > li::before { content: var(--marker-prefix, "") attr(data-prefix) counter(li, thai) " "; }
+    ol.li-marker-gap.no-dot > li::before { content: attr(data-marker) " "; }
         ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
         ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
         ol.li-marker-gap.marker-muted  > li::before { color: #666; }
@@ -206,7 +211,7 @@
     
     <div class="content">
         <div class="section">
-            <ol class="thai-numerals li-marker-gap.marker-bold" lang="th" start="101">
+            <ol class="thai-numerals li-marker-gap.marker-bold li-marker-gap gap-xl" lang="th" start="101">
                 <li class="section-title">ข้อควรระมัดระวังอันตรายพื้นฐาน</li>
                     <div class="section-content">เอกสารออ้างอิง :</div>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
@@ -220,7 +225,9 @@
                             <li>NAVSEA SE 000-00-EIM-100, Electronics Installation and Maintenance</li>
                         </ol>
             </ol>
-            <!-- Examples for different marker utilities -->
+
+
+            <!-- Examples for different marker utilities
             <div style="margin-top:1em;">
                 <p><strong>ตัวอย่าง marker utilities</strong></p>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="">
@@ -240,41 +247,37 @@
                 <ol class="thai-alphabetic li-marker-gap alpha no-dot" lang="th" start="1" data-prefix="">
                     <li>ตัวอย่างอักษรไทย (ก ข ค) และ no-dot</li>
                 </ol>
-            </div>
-            <ol class="thai-numerals prefix-101 li-marker-gap" lang="th" start="9">
+            </div> -->
+
+            <ol class="thai-numerals li-marker-gap gap-xl" lang="th" start="1" data-prefix="๑๐๑.">
                 <li>จุดประสงค์ของโปรแกรมการสั่งการในด้านความปลอดภัย (Command Safety Program) (ก.)</li>
+                <li>หน่วยงานใดเป็นผู้ประเมินผลกระทบที่มีต่อโปรแกรมการสั่งการด้านความปลอดภัย (ก.)</li>
+                <li>ใครคือผู้รับผิดชอบต่อการจัดการโปรแกรมในด้านความปลอดภัย (Command Safety Program) ( ก.)</li>
+                <li>อธิบายจุดประสงค์ Interlocks และอุปกรณ์เกี่ยวกับความปลอดภัยต่างๆ (Safety Devices) ที่ติดตั้งในอุปกรณ์อิเล็กทรอนิกส์ และที่จะมีการแก้ไขเปลี่ยนแปลง(ก.)</li>
+                <li>อธิบายการใช้แผ่นป้ายอันตรายหรือข้อควรระมัดระวัง (Danger/Caution Tags)</li>
+                <li>อธิบายขั้นตอนในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ (Fighting an Electrical Fire) (ข.)</li>
+                <li>บอกชื่อสารที่ใช้ในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ในตอนเริ่มแรกคือ</li>
+                <li>แยกแยะตําแหน่งสวิทช์ไฟฟ้ากําลังหลักๆ ของระบบ CIWS (คู่มือติดตั้งระบบของหน่วย)</li>
+                <li>อธิบายจุดประสงค์และการทํางานของ Circuit Breakers : CB  (ข., ซ.)</li>
+                <li>อธิบายอันตรายที่เกิดจากสภาวะแวดล้อม  และสภาวะวงจรไฟฟ้าเปิดวงจร ( Open Eletrical-Circuits) (ข.)</li>
+                <li>อธิบายขั้นตอนในการเคลื่อนย้ายผู้ประสบอันตรายที่เกิดจากอุปกรณ์ไฟฟ้าอิเล็กทรอนิกส์ขณะเดินเครื่อง (ข., จ., ฉ.)</li>
+                <li>อธิบายการปฏิบัติต่อผู้ป่วยซึ่งเกิดจากไฟฟ้าดูด (ข., จ., ฉ.)</li>
+                <li>อธิบายขั้นตอนในการปฏิบัติต่อผู้ป่วยซึ่งได้รับอันตรายเกิดบาดแผลพุพอง</li>
+                <li>วิธีผายปอดที่นิยมคือ (ค., จ., ฉ.)</li>
+                <li>ตําแหน่งที่ตั้งของกล่องใส่อุปกรณ์ช่วยชีวิตเบื้องต้นที่ใกล้ที่สุด (คู่มือติดตั้งระบบของหน่วย)</li>
+                <li>ข้อควรปฏิบัติเพื่อความปลอดภัยเบื้องต้นขณะปฏิบัติงานกับอุปกรณ์ CIWS ขณะเดินเครื่อง (ข., ง., ช.)</li>
+                <li>น้ำหนักสูงสุดของอุปกรณ์ที่ผู้ปฏิบัติงานเกี่ยวกับระบบ CIWS หนึ่งคนควรยกหรือเคลื่อนย้ายควรมีน้ำหนักเท่าใด (ง. ช.)</li>
+                <li>จงบอกตําแหน่งที่ตั้งและการใช้ขวดบรรจุไนโตรเจนที่ถูกต้อง (ข.)</li>
+                <li>ทําไมจึงมีความจําเป็นต้องดูแลรักษาห้องเก็บอุปกรณ์ของระบบ CIWS ให้สะอาดเรียบร้อยอยู่เสมอ (ง., ช.)</li>
+                <li>ข้อควรปฏิบัติขณะปฏิบัติงานกับอุปกรณ์ CIWS ที่เป็นสารอันตราย/ของเหลวต่างๆ ที่ติดไฟได้</li>
+                <li>อธิบายวิธีช่วยชีวิตคนที่มีร่างกายอ้านถูกไฟฟ้าดูด (ค.)</li>
+                <li>อธิบายสิ่งที่ต้องกระทําเมื่ออุปกรณ์อิเล็กทรอนิกส์รายงานผลว่ามีความร้อนและความชื้นสูง ( ก.)</li>
+                <li>ข้อควรระมัดระวังเบื้องต้นที่จะต้องปฏิบัติขณะทํางานใกล้กับอุปกรณ์ที่หมุน หรือเคลื่อนที่ (ข., ค.)</li>
+                <li>อธิบายอันตรายซึ่งเกิดจากสภาพเครื่องอยู่ในตําแหน่งไม่ปลอดภัยหรือมีลักษณะอาการไม่ปลอดภัย (ข., ค.)</li>
+                <li>อธิบายอันตรายซึ่งอาจเกิดจากการใช้อุปกรณ์เครื่องมือเครื่องใช้ที่อยู่ในสภาพไม่สมบูรณ์ (ข., ค.)</li>
+                <li>อธิบายอันตรายซึ่งอาจเกิดจากอุปกรณ์ที่ไม่ได้ผูกมัดยึด , กวดให้แน่น โดยเกิดจากการเลื่อนหรือเคลื่อนที่ (ข., ค.)</li>
+                <li>อธิบายอุปกรณ์ต่อไปนี้ Botted Deckplates, Grating และ Hand Rails (ข.)</li>
             </ol>
-        </div>
-        <div>
-            
-            ๑๐๑.๑    จุดประสงค์ของโปรแกรมการสั่งการในด้านความปลอดภัย (Command Safety Program) (ก.) 
-            ๑๐๑.๒    หน่วยงานใดเป็นผู้ประเมินผลกระทบที่มีต่อโปรแกรมการสั่งการด้านความปลอดภัย (ก.) 
-            ๑๐๑.๓    ใครคือผู้รับผิดชอบต่อการจัดการโปรแกรมในด้านความปลอดภัย (Command Safety Program) ( ก.) 
-            ๑๐๑.๔    อธิบายจุดประสงค์ Interlocks และอุปกรณ์เกี่ยวกับความปลอดภัยต่างๆ (Safety Devices) 
-                    ที่ติดตั้งในอุปกรณ์อิเล็กทรอนิกส์ และที่จะมีการแก้ไขเปลี่ยนแปลง(ก.) 
-            ๑๐๑.๕    อธิบายการใช้แผนปายอันตรายหรือข้อควรระมัดระวัง (Danger/Caution Tags) 
-            ๑๐๑.๖    อธิบายขั้นตอนในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ (Fighting an Electrical Fire) (ข.) 
-            ๑๐๑.๗    บอกชื่อสารที่ใช้ในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ในตอนเริ่มแรกคือ 
-            ๑๐๑.๘    แยกแยะตําแหน่งสวิทช์ไฟ ฟากําลังหลักๆ ของระบบ CIWS (คู่มือติดตั้งระบบของหน่วย) 
-            ๑๐๑.๙    อธิบายจุดประสงค์และการทํางานของ Circuit Breakers : CB  (ข., ซ.) 
-            ๑๐๑.๑๐   อธิบายอันตรายที่เกิดจากสภาวะแวดล้อม  และสภาวะวงจรไฟฟ้าเปิดวงจร ( Open Eletrical-Circuits) (ข.) 
-            ๑๐๑.๑๑   อธิบายขั้นตอนในการเคลื่อนย้ายผู้ประสบอันตรายที่เกิดจากอุปกรณ์ไฟฟ้าอิเล็กทรอนิกส์ขณะเดินเครื่อง (ข., จ., ฉ.) 
-            ๑๐๑.๑๒   อธิบายการปฏิบัติต่อผู้ป่วยซึ่งเกิดจากไฟฟ้าดูด (ข., จ., ฉ.) 
-            ๑๐๑.๑๓   อธิบายขั้นตอนในการปฏิบัติต่อผู้ป่วยซึ่งได้รับอันตรายเกิดบาดแผลพุพอง 
-            ๑๐๑.๑๔   วิธีผายปอดที่นิยมคือ (ค., จ., ฉ.) 
-            ๑๐๑.๑๕   ตําแหน่งที่ตั้งของกล่องใส่อุปกรณ์ช่วยชีวิตเบื้องต้นที่ใกล้ที่สุด (คู่มือติดตั้งระบบของหน่วย) 
-            ๑๐๑.๑๖   ข้อควรปฏิบัติเพื่อความปลอดภัยเบื้องต้นขณะปฏิบัติงานกับอุปกรณ์ CIWS ขณะเดินเครื่อง (ข., ง., ช.)  
-            ๑๐๑.๑๗   น้ำหนักสูงสุดของอุปกรณ์ที่ผู้ปฏิบัติงานเกี่ยวกับระบบ CIWS หนึ่งคนควรยกหรือเคลื่อนย้ายควรมีน้ำหนักเท่าใด (ง. ช.) 
-            ๑๐๑.๑๘   จงบอกตําแหน่งที่ตั้งและการใช้ขวดบรรจุไนโตรเจนที่ถูกต้อง (ข.) 
-            ๑๐๑.๑๙   ทําไมจึงมีความจําเป็นต้องดูแลรักษาห้องเก็บอุปกรณ์ของระบบ CIWS ให้สะอาดเรียบร้อยอยู่เสมอ (ง., ช.) 
-            ๑๐๑.๒๐   ข้อควรปฏิบัติขณะปฏิบัติงานกับอุปกรณ์ CIWS ที่เป็นสารอันตราย/ของเหลวต่างๆ ที่ติดไฟได้
-            ๑๐๑.๒๑   อธิบายวิธีช่วยชีวิตคนที่มีร่างกายอ้านถูกไฟฟ้าดูด (ค.) 
-            ๑๐๑.๒๒   อธิบายสิ่งที่ต้องกระทําเมื่ออุปกรณ์อิเล็กทรอนิกส์รายงานผลว่ามีความร้อนและความชื้นสูง ( ก.) 
-            ๑๐๑.๒๓   ข้อควรระมัดระวังเบื้องต้นที่จะต้องปฏิบัติขณะทํางานใกล้กับอุปกรณ์ที่หมุน หรือเคลื่อนที่ (ข., ค.) 
-            ๑๐๑.๒๔   อธิบายอันตรายซึ่งเกิดจากสภาพเครื่องอยู่ในตําแหน่งไม่ปลอดภัยหรือมีลักษณะอาการไม่ปลอดภัย (ข., ค.) 
-            ๑๐๑.๒๕   อธิบายอันตรายซึ่งอาจเกิดจากการใช้อุปกรณ์เครื่องมือเครื่องใช้ที่อยู่ในสภาพไม่สมบูรณ (ข., ค.) 
-            ๑๐๑.๒๖   อธิบายอันตรายซึ่งอาจเกิดจากอุปกรณ์ที่ไม่ได้ผูกมัดยึด , กวดให้แน่น โดยเกิดจากการเลื่อนหรือเคลื่อนที่ (ข., ค.) 
-            ๑๐๑.๒๗   อธิบายอุปกรณ์ต่อไปนี้ Botted Deckplates, Grating และ Hand Rails (ข.)
         </div>
 
         <!-- ตัวอย่างการใช้คลาสสำหรับการควบคุม marker 
@@ -300,12 +303,61 @@
         // Ensure ol.li-marker-gap honors the HTML start attribute by setting counter-reset
         (function(){
             document.addEventListener('DOMContentLoaded', function(){
+                // handle start attribute for counter-reset
                 document.querySelectorAll('ol.li-marker-gap[start]').forEach(function(ol){
                     const s = parseInt(ol.getAttribute('start'), 10);
                     if (!Number.isNaN(s)) {
                         // CSS counter-reset should be start-1 so first item becomes start
                         ol.style.counterReset = 'li ' + (s - 1);
                     }
+                });
+
+                // propagate data-prefix on the <ol> into the CSS variable --marker-prefix
+                // so `data-prefix="..."` placed on the ol will be used by the li::before content
+                document.querySelectorAll('ol.li-marker-gap[data-prefix]').forEach(function(ol){
+                    const p = ol.getAttribute('data-prefix') || '';
+                    // write it as-is into the CSS variable; no extra quotes
+                    try { ol.style.setProperty('--marker-prefix', p); } catch (e) { /* ignore */ }
+                });
+
+                // compute per-<li> marker text and set as data-marker attribute
+                // This avoids cross-browser counter() rendering issues and makes data-prefix reliable.
+                function numberToThai(n) {
+                    const digits = ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'];
+                    return String(n).split('').map(ch => digits[ch] || ch).join('');
+                }
+
+                const thaiAlpha = ['ก','ข','ค','ง','จ','ฉ','ช','ซ','ฌ','ญ','ฎ','ฏ','ฐ','ฑ','ฒ','ณ','ด','ต','ถ','ท','ธ','น','บ','ป','ผ','ฝ','พ','ฟ','ภ','ม','ย','ร','ล','ว','ศ','ษ','ส','ห','ฬ','อ','ฮ'];
+
+                document.querySelectorAll('ol.li-marker-gap').forEach(function(ol){
+                    // determine start value; default 1
+                    const sAttr = parseInt(ol.getAttribute('start'), 10);
+                    const start = (!Number.isNaN(sAttr) && sAttr > 0) ? sAttr : 1;
+                    const prefix = ol.getAttribute('data-prefix') || ol.style.getPropertyValue('--marker-prefix') || '';
+                    const isAlpha = ol.classList.contains('alpha') || ol.classList.contains('thai-alphabetic');
+                    const noDot = ol.classList.contains('no-dot');
+
+                    // iterate direct li children
+                    const children = Array.prototype.filter.call(ol.children, function(ch){ return ch.tagName === 'LI'; });
+                    children.forEach(function(li, idx){
+                        const value = start + idx;
+                        let marker = '';
+                        if (isAlpha) {
+                            const sym = thaiAlpha[(value - 1) % thaiAlpha.length] || String(value);
+                            marker = prefix + sym;
+                        } else {
+                            // numeric -> convert to thai digits
+                            marker = prefix + numberToThai(value);
+                        }
+
+                        // if ol has no-dot, remove trailing dot characters from marker
+                        if (noDot) {
+                            marker = marker.replace(/\.+$/, '');
+                        }
+
+                        // assign as attribute used by CSS ::before
+                        li.setAttribute('data-marker', marker);
+                    });
                 });
             });
         })();
