@@ -166,16 +166,16 @@ PHALANX MK15 MODS 1 -4, 6 & 11-14
 ๑๐๒      ข้อระมัดระวังอันตรายด้านการสรรพาวุธ Ordnance Safety Fundamentals 
             เอกสารออ้างอิง :  
                ก. OPNAVINST 3120.32, Standard Organization and Regulations of the U.S. Navy  
-               ข. NAVSEA OP4154 Close In Weapon system Mk.15 Mode  1-6 (Phalanx) Vol.2  
+               ข. NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 (Phalanx) Vol.2  
                ค. SW300-BC-SAF-010, Safety Manual for Clearing of Live Ammunition from  Guns  
                ง. NAVEDTRA 10054, Basic Military Requirements  
-               จ. NAVSEA OP4 , Ammunition Afloat  
-               ฉ. SW221– JO–MMO –010 thru 110, Close In Weapon System Mk.15 Mods 11 -14 
+               จ. NAVSEA OP4, Ammunition Afloat  
+               ฉ. SW221–JO–MMO–010 thru 110, Close In Weapon System Mk.15 Mods 11-14 
                ช. NAVSEA SE 000-00-EIM-100, Electronics Installation and Maintenance Book General  
  
 ๑๐๒.๑   อธิบายความสําคัญ จากอันตรายของการแพร่คลื่นแมเหล็กไฟฟ้าที่มีต่อระบบอาวุธ (HERO) และการควบคุมการแพร่คลื่น (EMCON)
          ที่เกี่ยวข้องกับระบบอาวุธ และความปลอดภัยของบุคคล (ก., ช.) 
-๑๐๒.๒   ข้อจํากัดชิ้นส่วนของลูกปืนขณะทําการยิงที่จะเป็นอันตรายต่อบุคคล ( ข., ฉ)   
+๑๐๒.๒   ข้อจํากัดชิ้นส่วนของลูกปืนขณะทําการยิงที่จะเป็นอันตรายต่อบุคคล (ข., ฉ)   
             ก. การกระเด็นของชิ้นส่วน Sabot       
             ข. การกระเด็นของชิ้นส่วน Pusher 
 ๑๐๒.๓   บุคคลใดในขณะยิงปืนจําเป็นต้องสวมเครื่องป้องกันหู (ข., ฉ.) 
@@ -218,9 +218,8 @@ PHALANX MK15 MODS 1 -4, 6 & 11-14
             ศ. PSCG (ก., ง.)       ษ. PSE (ข., ง.)      
             ส. PSOT (ข., ง.)       ห. RADHAZ (ข., ง.)     
             ฬ. RF (ข., ง.)         อ. STBY MAINT (ข., ง.)     
-            ฮ. SW (ข., ง.)         กก. TE RM (ค., จ.)     
-            กข. TTY (ข., จ.)       กค. WCG (ก., ง.)     
-            กง. XMTR  TEST (ข., ง.)
+            ฮ. SW (ข., ง.)
+            
 
 --------------------------------------------------------------------------------------------
 

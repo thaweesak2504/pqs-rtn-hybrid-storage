@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>101 Precautions</title>
+    <title>103 Abbreviation</title>
 
     <style>
         /* TH Sarabun New Font - Local Font Files */
@@ -204,104 +204,93 @@
 
         /* hide any native ::marker for safety in browsers that still render it */
         ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
+        /*--------------------------------------------------
+          Two-column utility for short list items: .cols-2
+          - Uses CSS multi-column flow and prevents breaking
+            individual <li> across columns.
+        --------------------------------------------------*/
+        /* support .cols-2 on any ol, and also keep the previous li-marker-gap variant */
+        ol.cols-2,
+        ol.li-marker-gap.cols-2 {
+            column-count: 2;
+            column-gap: 3ch;
+            -webkit-column-gap: 3ch;
+            column-fill: balance;
+        }
+
+        ol.cols-2 > li,
+        ol.li-marker-gap.cols-2 > li {
+            /* avoid breaking a single li across columns */
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+        }
         /*----------------------------------------------*/        
     </style>
 </head>
 <body>
     <div class="content">
         <div class="section">
-            <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="101">
-                <li class="section-title">ข้อควรระมัดระวังอันตรายพื้นฐาน</li>
+            <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="103">
+                <li class="section-title">คําย่อของระบบอาวุธป้องกันตนเองระยะประชิด Phalanx Mk.15</li>
                     <div class="section-content">เอกสารออ้างอิง :</div>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 6ch;">
-                            <li>OPNAVINST 3120.32, Standard Org. and Regulations of the U.S. Navy</li>
-                            <li>OPNAVINST 5100.19, Navy Occupational Safety and Health (NAVOSH)</li>
-                            <li>NAVEDTRA 10054, Basic Military Requirements</li>
-                            <li>NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 Vol.2</li>
-                            <li>NAVEDTRA 10669, Hospital Corpsman 3&2</li>
-                            <li>NAVEDTRA 10081, Standard First Aid Training Course</li>
-                            <li>SW221-JO-MMO-010 to 110, Close In Weapon System Mk.15 Mods 11-14</li>
-                            <li>NAVSEA SE 000-00-EIM-100, Electronics Installation and Maintenance</li>
-                        </ol>
+                            <li>NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 (Phalanx) Vol.1 Pt.1</li>
+                            <li>NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 (Phalanx) Vol.2</li>
+                            <li>Teletype Corporation How to Operate Manual 367</li>
+                            <li>SW221-JO-MMO-010 thru 110, Close In Weapon System Mk.15 Mods 11-14</li>
+                            <li>NAVSEA O P4234, Peculiar Support Equipment for CIWS Mk.15 (Phalanx), Vol.4</li>
+                    </ol>
             </ol>
 
-            <ol class="thai-numerals li-marker-gap gap-md" lang="th" start="1" data-prefix="๑๐๑.">
-                <li>จุดประสงค์ของโปรแกรมการสั่งการในด้านความปลอดภัย (Command Safety Program) (ก.)</li>
-                <li>หน่วยงานใดเป็นผู้ประเมินผลกระทบที่มีต่อโปรแกรมการสั่งการด้านความปลอดภัย (ก.)</li>
-                <li>ใครคือผู้รับผิดชอบต่อการจัดการโปรแกรมในด้านความปลอดภัย (Command Safety Program) (ก.)</li>
-                <li>อธิบายจุดประสงค์ Interlocks และอุปกรณ์เกี่ยวกับความปลอดภัยต่างๆ (Safety Devices) ที่ติดตั้งในอุปกรณ์อิเล็กทรอนิกส์ และที่จะมีการแก้ไขเปลี่ยนแปลง (ก.)</li>
-                <li>อธิบายการใช้แผ่นป้ายอันตรายหรือข้อควรระมัดระวัง (Danger/Caution Tags)</li>
-                <li>อธิบายขั้นตอนในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ (Fighting an Electrical Fire) (ข.)</li>
-                <li>บอกชื่อสารที่ใช้ในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ในตอนเริ่มแรกคือ</li>
-                <li>แยกแยะตําแหน่งสวิทช์ไฟฟ้ากําลังหลักๆ ของระบบ CIWS (คู่มือติดตั้งระบบของหน่วย)</li>
-                <li>อธิบายจุดประสงค์และการทํางานของ Circuit Breakers: CB (ข., ซ.)</li>
+            <ol class="thai-numerals li-marker-gap gap-md" lang="th" start="1" data-prefix="๑๐๓.">
+                <li>คําย่อต่อไปนี้ มีคําเต็มว่าอะไร</li>
+                    <ol class="thai-alphabetic cols-2" lang="th" start="1" style="margin-left: 6ch;">
+                        <li>AAW (ข., ง.)</li>
+                        <li>AIM CALIB (ข., ง.)</li>
+                        <li>AUTO (ข., ง.)</li>
+                        <li>AVAIL (ข., ง.)</li>
+                        <li>BOT (ข., ง.)</li>
+                        <li>CAC (ข., ง.)</li>
+                        <li>CB (ข., ง.)</li>
+                        <li>CIC (ก., ง.)</li>
+                        <li>COORD (ข., ง.)</li>
+                        <li>CPS (ค., ง.)</li>
+                        <li>CQO  (ข., ง.)</li>
+                        <li>DEG (ข., ง.)</li>
+                        <li>DESIG (ข., ง.)</li>
+                        <li>DU (ข., ง.)</li>
+                        <li>ECG (ก., ง.)</li>
+                        <li>ELX (ก., ง.)</li>
+                        <li>EM (ข., ง.)</li>
+                        <li>ENVIR (ข., ง.)</li>
+                        <li>FT (ข., ง.)</li>
+                        <li>HPRF (ง.)</li>
+                        <li>Hz (ข., ง.)</li>
+                        <li>HF (ข., ง.)</li>
+                        <li>IND (ข., ง.)</li>
+                        <li>INTRPT (ข., ง)</li>
+                        <li>INTFC (ข., ง.)</li>
+                        <li>LPRF (ง.)</li>
+                        <li>MHz (ข., ง.)</li>
+                        <li>MTR (ข., ง.)</li>
+                        <li>MWC (ข., ง.)</li>
+                        <li>OLI (ข., ง.)</li>
+                        <li>OPR test (ข., ง.)</li>
+                        <li>PAC (ข., ง.)</li>
+                        <li>PASS (ง., จ.)</li>
+                        <li>POT (ข., ง.)</li>
+                        <li>PSCG (ก., ง.)</li>
+                        <li>PSE (ข., ง.)</li>
+                        <li>PSOT (ข., ง.)</li>
+                        <li>RADHAZ (ข., ง.)</li>
+                        <li>RF (ข., ง.)</li>
+                        <li>STBY MAINT (ข., ง.)</li>
+                        <li>SW (ข., ง.)</li>
+                    </ol>
+
             </ol>
-            <!-- จบลำดับที่ 9 เริ่ม ol ใหม่สำหรับลำดับที่ 10 -->
-            <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="10" data-prefix="๑๐๑.">
-                <li>อธิบายอันตรายที่เกิดจากสภาวะแวดล้อม และสภาวะวงจรไฟฟ้าเปิดวงจร (Open Eletrical-Circuits) (ข.)</li>
-                <li>อธิบายขั้นตอนในการเคลื่อนย้ายผู้ประสบอันตรายที่เกิดจากอุปกรณ์ไฟฟ้าอิเล็กทรอนิกส์ขณะเดินเครื่อง (ข., จ., ฉ.)</li>
-                <li>อธิบายการปฏิบัติต่อผู้ป่วยซึ่งเกิดจากไฟฟ้าดูด (ข., จ., ฉ.)</li>
-                <li>อธิบายขั้นตอนในการปฏิบัติต่อผู้ป่วยซึ่งได้รับอันตรายเกิดบาดแผลพุพอง</li>
-                <li>วิธีผายปอดที่นิยมคือ (ค., จ., ฉ.)</li>
-                <li>ตําแหน่งที่ตั้งของกล่องใส่อุปกรณ์ช่วยชีวิตเบื้องต้นที่ใกล้ที่สุด (คู่มือติดตั้งระบบของหน่วย)</li>
-                <li>ข้อควรปฏิบัติเพื่อความปลอดภัยเบื้องต้นขณะปฏิบัติงานกับอุปกรณ์ CIWS ขณะเดินเครื่อง (ข., ง., ช.)</li>
-                <li>น้ำหนักสูงสุดของอุปกรณ์ที่ผู้ปฏิบัติงานเกี่ยวกับระบบ CIWS หนึ่งคนควรยกหรือเคลื่อนย้ายควรมีน้ำหนักเท่าใด (ง., ช.)</li>
-                <li>จงบอกตําแหน่งที่ตั้งและการใช้ขวดบรรจุไนโตรเจนที่ถูกต้อง (ข.)</li>
-                <li>ทําไมจึงมีความจําเป็นต้องดูแลรักษาห้องเก็บอุปกรณ์ของระบบ CIWS ให้สะอาดเรียบร้อยอยู่เสมอ (ง., ช.)</li>
-                <li>ข้อควรปฏิบัติขณะปฏิบัติงานกับอุปกรณ์ CIWS ที่เป็นสารอันตราย/ของเหลวต่างๆ ที่ติดไฟได้</li>
-                <li>อธิบายวิธีช่วยชีวิตคนที่มีร่างกายอ้านถูกไฟฟ้าดูด (ค.)</li>
-                <li>อธิบายสิ่งที่ต้องกระทําเมื่ออุปกรณ์อิเล็กทรอนิกส์รายงานผลว่ามีความร้อนและความชื้นสูง (ก.)</li>
-                <li>ข้อควรระมัดระวังเบื้องต้นที่จะต้องปฏิบัติขณะทํางานใกล้กับอุปกรณ์ที่หมุน หรือเคลื่อนที่ (ข., ค.)</li>
-                <li>อธิบายอันตรายซึ่งเกิดจากสภาพเครื่องอยู่ในตําแหน่งไม่ปลอดภัยหรือมีลักษณะอาการไม่ปลอดภัย (ข., ค.)</li>
-                <li>อธิบายอันตรายซึ่งอาจเกิดจากการใช้อุปกรณ์เครื่องมือเครื่องใช้ที่อยู่ในสภาพไม่สมบูรณ์ (ข., ค.)</li>
-                <li>อธิบายอันตรายซึ่งอาจเกิดจากอุปกรณ์ที่ไม่ได้ผูกมัดยึด, กวดให้แน่น โดยเกิดจากการเลื่อนหรือเคลื่อนที่ (ข., ค.)</li>
-                <li>อธิบายอุปกรณ์ต่อไปนี้ Botted Deckplates, Grating และ Hand Rails (ข.)</li>
-            </ol>
-        </div>
     </div>
-
-        <!-- ตัวอย่างการใช้คลาสสำหรับการควบคุม marker 
-        <div class="section">
-            <div class="section-title"><span class="section-number">ตัวอย่าง</span><span class="section-main"><strong>ตัวอย่างการใช้คลาส marker</strong></span></div>
-            <div class="section-content">
-                <p>ตัวอย่างนี้ใช้คลาส: <code>thai-numerals prefix-101 no-dot li-marker-gap</code></p>
-                <ol class="thai-numerals prefix-101 no-dot li-marker-gap" lang="th">
-                    <li>ข้อความตัวอย่างข้อที่หนึ่ง</li>
-                    <li>ข้อความตัวอย่างข้อที่สอง</li>
-                    <li>ข้อความตัวอย่างข้อที่สาม</li>
-                </ol>
-                <p><strong>ผลลัพธ์ที่คาดหวัง (ลักษณะตัวอักษร):</strong></p>
-                <p>๑๐๑.๑ &nbsp; ข้อความตัวอย่างข้อที่หนึ่ง<br>
-                   ๑๐๑.๒ &nbsp; ข้อความตัวอย่างข้อที่สอง<br>
-                   ๑๐๑.๓ &nbsp; ข้อความตัวอย่างข้อที่สาม</p>
-                <p>หากต้องการปรับระยะช่องว่าง ให้แก้ค่าสำหรับ <code>.li-marker-gap li</code> (padding-left) หรือ <code>.li-marker-gap li::marker</code> (margin-right) ในไฟล์ <code>IMPROVED_COLOR_SCHEME.css</code>.</p>
-            </div>
-        </div>
-    
-        <div>
-            <h3>Examples for different marker utilities</h3>
-            <div style="margin-top:1em;">
-                <p><strong>ตัวอย่าง marker utilities</strong></p>
-                <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="">
-                    <li>ตัวอย่างช่องว่างเล็ก (gap-sm)</li>
-                    <li>ตัวอย่างช่องว่างเล็ก (gap-sm)</li>
-                </ol>
-
-                <ol class="thai-numerals li-marker-gap gap-lg prefix-101 marker-muted" lang="th" start="1" data-prefix="">
-                    <li>ตัวอย่าง prefix-101 และช่องว่างใหญ่</li>
-                </ol>
-
-                <ol class="thai-numerals li-marker-gap gap-xl" lang="th" start="1" data-prefix="">
-                    <li>ตัวอย่างช่องว่างพิเศษ (gap-xl)</li>
-                    <li>ตัวอย่างช่องว่างพิเศษ (gap-xl)</li>
-                </ol>
-
-                <ol class="thai-alphabetic li-marker-gap alpha no-dot" lang="th" start="1" data-prefix="">
-                    <li>ตัวอย่างอักษรไทย (ก ข ค) และ no-dot</li>
-                </ol>
-            </div> 
-        </div>
-        -->
 
     <script>
         // Ensure ol.li-marker-gap honors the HTML start attribute by setting counter-reset
