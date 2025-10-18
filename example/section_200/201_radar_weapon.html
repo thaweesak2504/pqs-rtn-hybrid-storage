@@ -202,9 +202,7 @@
         /* utility to force bold when needed */
         ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
 
-        /* hide any native ::marker for safety in browsers that still render it */
-        ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
-        /*----------------------------------------------*/        
+        /* right-aligned UI utilities removed as requested */
     </style>
 </head>
 <body>
@@ -234,13 +232,15 @@
                         <li>ในแต่ละตําแหน่งทําหน้าที่อะไร</li>
                     </ol>
                     <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๒.">
-                        <li>ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"</li>
+                        <li>ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"
+                        </li>
                             <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                                 <li>สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"</li>
                                 <li>สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"</li>
                                 <li>ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"</li>
                                 <li>ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"</li>
                             </ol>
+
                         <li>ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"</li>
                             <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                                 <li>ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"</li>
@@ -358,6 +358,42 @@
                         li.setAttribute('data-marker', marker);
                     });
                 });
+
+                /* Detect wrapping for .li-checkbox-right items and stack checkbox when needed */
+                function checkWrapForCheckboxes(){
+                    document.querySelectorAll('.li-checkbox-right').forEach(function(li){
+                        // the question column is the second grid column; we'll measure its height vs single-line height
+                        const question = li; // li itself contains marker and question
+                        const cb = li.querySelector('.cb-slot');
+                        if(!cb) return;
+
+                        // Create a range covering the text node(s) except the cb-slot to get natural height
+                        const clone = li.cloneNode(true);
+                        // remove cb-slot from clone so we measure only the left content
+                        const cbClone = clone.querySelector('.cb-slot'); if(cbClone) cbClone.remove();
+                        clone.style.visibility = 'hidden';
+                        clone.style.position = 'absolute';
+                        clone.style.width = getComputedStyle(li).width;
+                        document.body.appendChild(clone);
+                        const singleHeight = li.offsetHeight;
+                        const cloneHeight = clone.offsetHeight;
+                        document.body.removeChild(clone);
+
+                        // If cloneHeight > singleHeight then wrapping forced extra height
+                        if(cloneHeight > singleHeight){
+                            li.classList.add('stacked');
+                        } else {
+                            li.classList.remove('stacked');
+                        }
+                    });
+                }
+
+                // debounce helper
+                function debounce(fn, wait){ let t; return function(){ clearTimeout(t); t=setTimeout(()=>fn(), wait); }; }
+                const debouncedCheck = debounce(checkWrapForCheckboxes, 120);
+                window.addEventListener('resize', debouncedCheck);
+                // run after paint
+                requestAnimationFrame(checkWrapForCheckboxes);
             });
         })();
     </script>
