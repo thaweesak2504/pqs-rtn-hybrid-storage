@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>201 Radar Weapon</title>
+
+    <style>
+        /* TH Sarabun New Font - Local Font Files */
+        /* Thai Government Font for Official Documents */
+
+        /* Regular Weight (400) */
+        @font-face {
+            font-family: 'TH Sarabun New';
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-regular.woff2') format('woff2');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+            unicode-range: U+0E00-0E7F, U+0020-007F;
+        }
+
+        /* Bold Weight (700) */
+        @font-face {
+            font-family: 'TH Sarabun New';
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-bold.woff2') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: swap;
+            unicode-range: U+0E00-0E7F, U+0020-007F;
+        }
+
+        /* Page setup for A4 printing */
+        @page {
+            size: A4;
+            margin: 2.5cm 2.0cm 2.0cm 3.0cm; /* top right bottom left */
+        }
+
+        /* Body styling */
+        body {
+            font-family: 'TH Sarabun New', Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.8;
+            margin: 0;
+            padding: 2.0cm 1.0cm 2.0cm 2.5cm; /* Match @page margins */
+            background: rgb(255, 255, 255);
+            color: black;
+            box-sizing: border-box;
+        }
+
+        /* Container for content */
+        .content {
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Title styling */
+        .title {
+            font-weight: bold;
+            font-size: 18px;
+            text-align: center;
+            /*margin-bottom: 2em;*/
+        }
+
+        /* Section numbering */
+        .section-number {
+            font-weight: bold;
+            margin-right: 2ch; /* 2 เคาะห่างจากข้อความ */
+        }
+
+        /* Section block */
+        .section {
+            margin-top: 1em;
+        }
+        .section-title {
+            font-weight: bold;
+            text-align: left;
+        }
+        .section-number {
+            font-weight: bold;
+            margin-right: 2ch;
+        }
+        .section-content {
+            margin-left: 5ch;
+            text-indent: 4ch;
+            text-align: justify;
+        }
+
+        /* Print styles */
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .content {
+                margin: 2.0cm 1.0cm 2.0cm 2.5cm;
+            }
+        }
+
+        /* Screen styles for better readability */
+        @media screen {
+            body {
+                max-width: 210mm; /* A4 width */
+                min-height: 297mm; /* A4 height */
+                margin: 1cm auto;
+                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            }
+        }
+
+        /*----------------------------------------------*/
+          /* เลขไทย (๑ ๒ ๓ ...) */
+          .thai-numerals {
+          list-style-type: thai;
+          /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
+              เพื่อให้การจัดแนวของหัวข้อ li เหมือนกับหัวข้อที่ใช้ div */
+          list-style-position: inside;
+          padding-left: 0;
+          margin-left: 0;
+          }
+
+        /* อักษรไทย (ก ข ค ...) */
+        @counter-style thai-alphabetic-custom {
+        system: alphabetic;
+        symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
+        }
+
+        .thai-alphabetic {
+        list-style-type: thai-alphabetic-custom;
+        }
+        
+        /* เลขไทย (๑ ๒ ๓ ...) */
+        .thai-numerals {
+        list-style-type: thai;
+        }
+
+        /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
+        ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
+        content: counter(list-item, thai) " ";
+        }
+
+        /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
+        ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
+        content: '๑๐๑.' counter(list-item, thai) " ";
+        }
+
+        /* ระยะห่างระหว่าง marker กับข้อความใน li (ใช้กับ .li-marker-gap)
+           เราสร้าง marker แบบกำหนดเองด้วย ::before และใช้ CSS variables เพื่อให้
+           ปรับแต่งได้ง่าย: gap, prefix, รูปแบบ (ไทย/อักษรไทย) และขนาดสีของ marker */
+        ol.li-marker-gap {
+            list-style: none !important; /* ปิด native marker */
+            padding-left: 0;
+            margin-left: 0;
+            /* default counter; script may override from start attr */
+            counter-reset: li;
+            /* marker customization variables */
+            --marker-gap: 0.5em;
+            --marker-prefix: "";
+            --marker-weight: 400; /* default to normal weight */
+            --marker-color: inherit;
+        }
+
+        /* utilities for gap sizes (useful across documents) */
+        ol.li-marker-gap.gap-sm { --marker-gap: 2ch; }
+        ol.li-marker-gap.gap-md { --marker-gap: 4ch; }
+        ol.li-marker-gap.gap-lg { --marker-gap: 5ch; }
+        ol.li-marker-gap.gap-xl { --marker-gap: 6ch; }
+
+        /* option: use alphabetic thai counter */
+        ol.li-marker-gap.alpha > li::before {
+            content: var(--marker-prefix) counter(li, thai-alphabetic-custom) " ";
+        }
+
+        /* default li styling inside our custom list */
+        /* Use a 2-column grid: marker column (auto width) + content column (flexible).
+           This ensures wrapped lines align under the content column, not under the marker. */
+        ol.li-marker-gap > li {
+            list-style: none !important;
+            counter-increment: li;
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: var(--marker-gap);
+            align-items: start;
+            padding-left: 0;
+        }
+
+        /* custom marker: we render a per-li attribute `data-marker` via JS and use it here */
+        ol.li-marker-gap > li::before {
+            /* place marker into the first grid column */
+            grid-column: 1;
+            display: block;
+            font-weight: var(--marker-weight);
+            color: var(--marker-color);
+            white-space: nowrap;
+            content: attr(data-marker);
+        }
+
+        /* shorthand classes */
+    ol.li-marker-gap.no-dot > li::before { content: attr(data-marker) " "; }
+        ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
+        ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
+        ol.li-marker-gap.marker-muted  > li::before { color: #666; }
+        /* utility to force bold when needed */
+        ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
+
+        /* hide any native ::marker for safety in browsers that still render it */
+        ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
+        /*----------------------------------------------*/        
+    </style>
+</head>
+<body>
+    <div class="content">
+        <div class="section">
+            <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="201">
+                <li class="section-title">ความรู้พื้นฐานระบบอาวุธป้องกันตนเองระยะประชิด Phalanx Mk.15</li>
+                    <div class="section-content">เอกสารออ้างอิง :</div>
+                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                        <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2</li>
+                        <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
+                        <li>SW221-JO-MMO-010 thru 110, CIWS Mk.15 Mods 11-14</li>
+                    </ol>
+            </ol>
+
+            <ol class="thai-numerals li-marker-gap gap-md" lang="th" start="1" data-prefix="๒๐๑.">
+                <li>หน้าที่</li>
+                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๑.">
+                    <li>ระบบนี้ทําหน้าที่อะไร</li>
+                    </ol>
+                <li>ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li>
+                    <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคําถามที่กําหนด</div>
+                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                        <li>มีหน้าที่อะไร</li>
+                        <li>ตําแหน่งที่ติดตั้งอยู่ที่ไหน</li>
+                        <li>อุปกรณ์นี้ใช้ป้องกันในลักษณะใด</li>
+                        <li>ในแต่ละตําแหน่งทําหน้าที่อะไร</li>
+                    </ol>
+                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๒.">
+                        <li>ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"</li>
+                                <li>สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"</li>
+                                <li>ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"</li>
+                                <li>ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"</li>
+                            </ol>
+                        <li>ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"</li>
+                                <li>สวิตช์ดโยกตําแหน่งเก็บทางกระดก "Elevation Stow Pin"</li>
+                                <li>ขวงมือหมุนทางกระดก "Elevation Manual Hand Crank"</li>
+                            </ol>
+                        <li>ปืน 20 mm.</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>ไฮดรอลิกส์ขับเคลื่อนปืน "Gun Hydraulic Drive"</li>
+                                <li>ขอเกียวลํากล้องเกลี้ยง "Clearing Sector Hold Back Tool"</li>
+                            </ol>
+                        <li>ระบบลําเลียงและบรรจุ "Ammunition Handling/Conveyor System"</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>Feed Chute</li>
+                                <li>Element Chuting</li>
+                                <li>Entrance Unit</li>
+                                <li>Exit Unit</li>
+                                <li>Exit Unit Drive Socket</li>
+                                <li>Loading Gate</li>
+                                <li>Ammunition Drum</li>
+                                <li>Drum Timing Pin</li>
+                                <li>Hydraulic/Pneumatic Control Actuator</li>
+                            </ol>
+                        <li>ส่วนประกอบตัวบรรจุลูกปืน "Ammunition Loader Assembly"</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>Loader Timing Pin</li>
+                                <li>Link Chute</li>
+                                <li>Loader Gears (Rs and LS)</li>
+                            </ol>                                                                        
+                    </ol>
+                <li>หลักการทํางาน</li>
+                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๓.">
+                    <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
+                    <li>เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</li>
+                    </ol>
+                <li>ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย)</li>
+                <li>การเชื่อมต่อระบบ</li>
+                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๕.">
+                        <li>ถ้าขาดสิ่งดังต่อไปนี้จะมีผลกระทบต่อระบบอย่างไร</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>ขาดการควบคุมจาก LCP และ/หรือ RCP</li>
+                                <li>ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</li>
+                            </ol>   
+                    </ol>
+                <li>ข้อระมัดระวังอันตราย</li>
+                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๖.">
+                        <li>มีข้อระมัดระวังอันตรายอะไรบ้าง ในการปฏิ บัติงาน ดังต่อไปนี้</li>
+                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                                <li>ขณะกระดกปืน โดยวิธีใช้ขวง มือหมุน</li>
+                                <li>ขณะบรรจุและถอนบรรจุลูกปืน</li>
+
+                        </ol>   
+                    </ol>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Ensure ol.li-marker-gap honors the HTML start attribute by setting counter-reset
+        (function(){
+            document.addEventListener('DOMContentLoaded', function(){
+                // handle start attribute for counter-reset
+                document.querySelectorAll('ol.li-marker-gap[start]').forEach(function(ol){
+                    const s = parseInt(ol.getAttribute('start'), 10);
+                    if (!Number.isNaN(s)) {
+                        // CSS counter-reset should be start-1 so first item becomes start
+                        ol.style.counterReset = 'li ' + (s - 1);
+                    }
+                });
+
+                // propagate data-prefix on the <ol> into the CSS variable --marker-prefix
+                // so `data-prefix="..."` placed on the ol will be used by the li::before content
+                document.querySelectorAll('ol.li-marker-gap[data-prefix]').forEach(function(ol){
+                    const p = ol.getAttribute('data-prefix') || '';
+                    // write it as-is into the CSS variable; no extra quotes
+                    try { ol.style.setProperty('--marker-prefix', p); } catch (e) { /* ignore */ }
+                });
+
+                // compute per-<li> marker text and set as data-marker attribute
+                // This avoids cross-browser counter() rendering issues and makes data-prefix reliable.
+                function numberToThai(n) {
+                    const digits = ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'];
+                    return String(n).split('').map(ch => digits[ch] || ch).join('');
+                }
+
+                const thaiAlpha = ['ก','ข','ค','ง','จ','ฉ','ช','ซ','ฌ','ญ','ฎ','ฏ','ฐ','ฑ','ฒ','ณ','ด','ต','ถ','ท','ธ','น','บ','ป','ผ','ฝ','พ','ฟ','ภ','ม','ย','ร','ล','ว','ศ','ษ','ส','ห','ฬ','อ','ฮ'];
+
+                document.querySelectorAll('ol.li-marker-gap').forEach(function(ol){
+                    // determine start value; default 1
+                    const sAttr = parseInt(ol.getAttribute('start'), 10);
+                    const start = (!Number.isNaN(sAttr) && sAttr > 0) ? sAttr : 1;
+                    const prefix = ol.getAttribute('data-prefix') || ol.style.getPropertyValue('--marker-prefix') || '';
+                    const isAlpha = ol.classList.contains('alpha') || ol.classList.contains('thai-alphabetic');
+                    const noDot = ol.classList.contains('no-dot');
+
+                    // iterate direct li children
+                    const children = Array.prototype.filter.call(ol.children, function(ch){ return ch.tagName === 'LI'; });
+                    children.forEach(function(li, idx){
+                        const value = start + idx;
+                        let marker = '';
+                        if (isAlpha) {
+                            const sym = thaiAlpha[(value - 1) % thaiAlpha.length] || String(value);
+                            marker = prefix + sym;
+                        } else {
+                            // numeric -> convert to thai digits
+                            marker = prefix + numberToThai(value);
+                        }
+
+                        // if ol has no-dot, remove trailing dot characters from marker
+                        if (noDot) {
+                            marker = marker.replace(/\.+$/, '');
+                        }
+
+                        // assign as attribute used by CSS ::before
+                        li.setAttribute('data-marker', marker);
+                    });
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

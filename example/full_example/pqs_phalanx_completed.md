@@ -303,11 +303,11 @@ PHALANX MK15 MODS 1 -4, 6 & 11-14
                ค. อุปกรณ์นี้ใช้ป้องกันในลักษณะใด 
                ง. ในแต่ละตําแหน่งทําหน้าที่อะไร 
                                                                               คําถาม  ก.  ข.  ค.  ง. 
-๒๐๑.๒.๑    ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"                     X   X 
-               ก. สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"                            X 
-               ข. สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"                                 X   X
-               ค. ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"                   X 
-               ง. ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"              X 
+๒๐๑.๒.๑    ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"                    X   X 
+               ก. สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"                           X 
+               ข. สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"                                X   X
+               ค. ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"                  X 
+               ง. ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"             X 
 ๒๐๑.๒.๒    ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"                       X  X 
                ก. ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"                    X 
                ข. สวิตช์ดโยกตําแหน่งเก็บทางกระดก "Elevation Stow Pin"                      X 
