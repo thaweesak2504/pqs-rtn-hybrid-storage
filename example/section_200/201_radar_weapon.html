@@ -108,6 +108,46 @@
         }
 
         /*----------------------------------------------*/
+        /* === Checkbox row for li (checkbox always on first line) === */
+        .li-checkbox-row {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1.5em;
+        }
+        .li-checkbox-row .li-checkbox-question {
+            flex: 1 1 0;
+            min-width: 0;
+            word-break: break-word;
+            white-space: normal;
+        }
+        .li-checkbox-row .checkbox-group {
+            display: flex;
+            gap: 0.5em;
+            flex-shrink: 0;
+        }
+        .li-checkbox-row input[type="checkbox"] {
+            width: 1.1em;
+            height: 1.1em;
+            accent-color: #1976d2;
+            vertical-align: middle;
+        }
+        /* === Checkbox row for li === */
+        .li-checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 1.5em; /* ระยะห่างระหว่างข้อความกับ checkbox */
+        }
+        .li-checkbox-row .checkbox-group {
+            display: flex;
+            gap: 0.1em; /* ระยะห่างระหว่าง checkbox แต่ละตัว */
+        }
+        .li-checkbox-row input[type="checkbox"] {
+            width: 0.8em;
+            height: 0.8em;
+            accent-color: #1976d2;
+            vertical-align: middle;
+        }
           /* เลขไทย (๑ ๒ ๓ ...) */
           .thai-numerals {
           list-style-type: thai;
@@ -153,7 +193,7 @@
             /* default counter; script may override from start attr */
             counter-reset: li;
             /* marker customization variables */
-            --marker-gap: 0.5em;
+            --marker-gap: 0.3em;
             --marker-prefix: "";
             --marker-weight: 400; /* default to normal weight */
             --marker-color: inherit;
@@ -194,6 +234,28 @@
             content: attr(data-marker);
         }
 
+        /* ------------------
+           Override for li items that should show checkboxes on the first line
+           We switch those li to flex so the question and option-group sit inline.
+           Keep these rules scoped to li.li-checkbox-row so other lists keep the grid.
+        ------------------ */
+        ol.li-marker-gap > li.li-checkbox-row {
+            display: flex !important;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: var(--marker-gap);
+            padding-left: 0;
+        }
+
+        /* make the marker inline and give a small gap to the question */
+        ol.li-marker-gap > li.li-checkbox-row::before {
+            display: inline-block !important;
+            grid-column: auto !important;
+            font-weight: var(--marker-weight);
+            color: var(--marker-color);
+            white-space: nowrap;
+        }
+
         /* shorthand classes */
     ol.li-marker-gap.no-dot > li::before { content: attr(data-marker) " "; }
         ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
@@ -205,6 +267,17 @@
         /* hide any native ::marker for safety in browsers that still render it */
         ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
         /*----------------------------------------------*/        
+
+        /* Header that aligns with checkbox groups (ก. ข. ค. ง.) */
+        .options-header {
+            display: flex;
+            justify-content: flex-end; /* align to same right edge as checkbox groups */
+            gap: 0.4em; /* same gap as checkbox-group */
+            margin: 0.0em 0 0.0em 0;
+            padding-right: 0; /* keep alignment with list content */
+            font-weight: 400;
+        }
+        .options-header span { white-space: nowrap; }
     </style>
 </head>
 <body>
@@ -227,19 +300,75 @@
                     </ol>
                 <li>ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li>
                     <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคําถามที่กําหนด</div>
-                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
                         <li>มีหน้าที่อะไร</li>
                         <li>ตําแหน่งที่ติดตั้งอยู่ที่ไหน</li>
                         <li>อุปกรณ์นี้ใช้ป้องกันในลักษณะใด</li>
                         <li>ในแต่ละตําแหน่งทําหน้าที่อะไร</li>
                     </ol>
+                        <div class="options-header"> คำตอบ:
+                            <span>ก.</span>
+                            <span>ข.</span>
+                            <span>ค.</span>
+                            <span>ง.</span>
+                        </div>
                     <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๒.">
-                        <li>ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"</li>
-                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
-                                <li>สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"</li>
-                                <li>สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"</li>
-                                <li>ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"</li>
-                                <li>ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"</li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                            <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
+                                <li class="li-checkbox-row">
+                                    <div class="li-checkbox-question">
+                                       สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"
+                                    </div>
+                                    <span class="checkbox-group">
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                    </span>
+                                </li>
+                                <li class="li-checkbox-row">
+                                    <div class="li-checkbox-question">
+                                       สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"
+                                    </div>
+                                    <span class="checkbox-group">
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                    </span>
+                                </li>                                
+                                <li class="li-checkbox-row">
+                                    <div class="li-checkbox-question">
+                                       ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"
+                                    </div>
+                                    <span class="checkbox-group">
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                    </span>
+                                </li>
+                                <li class="li-checkbox-row">
+                                    <div class="li-checkbox-question">
+                                       ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"
+                                    </div>
+                                    <span class="checkbox-group">
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                        <label><input type="checkbox" checked> </label>
+                                    </span>
+                                </li>
                             </ol>
                         <li>ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"</li>
                             <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
@@ -343,7 +472,8 @@
                         let marker = '';
                         if (isAlpha) {
                             const sym = thaiAlpha[(value - 1) % thaiAlpha.length] || String(value);
-                            marker = prefix + sym;
+                            // add a dot after alphabetic marker so it appears like 'ก.'
+                            marker = prefix + sym + '.';
                         } else {
                             // numeric -> convert to thai digits
                             marker = prefix + numberToThai(value);
