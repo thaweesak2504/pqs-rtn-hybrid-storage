@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>OL พร้อม Checkbox 4 ช่อง (ควบคุมระยะ/ขนาดได้)</title>
+<style>
+:root {
+  /* === 🧩 ค่าที่ปรับได้ทั้งหมด === */
+  --gap-between-number-and-text: 0.5em;  /* ระยะระหว่างตัวเลขกับข้อความ */
+  --gap-between-text-and-checkbox: 1.5em;/* ระยะระหว่างข้อความกับกล่อง checkbox */
+  --gap-between-checkboxes: 0.5em;       /* ระยะระหว่างตัวเลือกแต่ละช่อง (ก ข ค ง) */
+  --checkbox-size: 0.6em;                /* ขนาดของ checkbox */
+}
+
+body {
+  font-family: "Sarabun","Noto Sans Thai","TH Sarabun New",sans-serif;
+  line-height: 1.3;
+  color: #111;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+/* กำหนดพื้นที่รวมไม่เกิน A4 */
+.container {
+  max-width: 210mm;
+  width: 100%;
+}
+
+/* ลิสต์หลัก */
+ol.question-list {
+  counter-reset: item;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* แต่ละข้อ */
+ol.question-list > li {
+  counter-increment: item;
+  display: flex;
+  justify-content: space-between;   /* ซ้ายข้อความ - ขวา checkbox */
+  align-items: flex-start;          /* ให้อยู่บรรทัดบนเสมอ */
+  border-bottom: 1px dotted #aaa;
+  padding: 0;
+  gap: var(--gap-between-text-and-checkbox); /* ระยะข้อความ↔checkbox */
+}
+
+/* ตัวเลขลำดับ */
+ol.question-list > li::before {
+  content: counter(item) ".";
+  font-weight: 600;
+  margin-right: var(--gap-between-number-and-text); /* ระยะตัวเลข↔ข้อความ */
+  flex-shrink: 0;
+}
+
+/* กล่องข้อความคำถาม */
+.question-text {
+  display: flex;
+  align-items: flex-start;
+  flex: 1;
+  word-break: break-word;
+}
+
+/* กลุ่ม checkbox */
+.option-group {
+  display: flex;
+  gap: var(--gap-between-checkboxes); /* ระยะระหว่าง ก ข ค ง */
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+/* ตัวเลือกแต่ละช่อง */
+.option-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* ขนาดของ checkbox */
+.option-group input[type="checkbox"] {
+  width: var(--checkbox-size);
+  height: var(--checkbox-size);
+  cursor: pointer;
+}
+
+/* ตัวอย่างตกแต่งเมื่อ checked */
+.option-group input[type="checkbox"]:checked {
+  accent-color: #007bff; /* สีน้ำเงินเมื่อเลือก (modern browsers) */
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h3>ตัวอย่าง: รายการคำถามพร้อม checkbox 4 ช่อง (ควบคุมได้ทุกพารามิเตอร์)</h3>
+
+<ol class="question-list">
+  <li>
+    <div class="question-text">
+      <span>ขับเคลื่อนสลักเก็บตำแหน่งทางหัน "Train Stow Pin Manual Drive" ขับเคลื่อนสลักเก็บตำแหน่งทางหัน "Train Stow Pin Manual Drive" ขับเคลื่อนสลักเก็บตำแหน่งทางหัน "Train Stow Pin Manual Drive"</span>
+    </div>
+    <div class="option-group">
+      <label>ก. <input type="checkbox" checked></label>
+      <label>ข. <input type="checkbox"></label>
+      <label>ค. <input type="checkbox" checked></label>
+      <label>ง. <input type="checkbox"></label>
+    </div>
+  </li>
+
+  <li>
+    <div class="question-text">
+      <span>ตัวอย่างคำถามข้อที่ 2: สามารถควบคุมระยะและขนาด checkbox ได้</span>
+    </div>
+    <div class="option-group">
+      <label>ก. <input type="checkbox"></label>
+      <label>ข. <input type="checkbox" checked></label>
+      <label>ค. <input type="checkbox"></label>
+      <label>ง. <input type="checkbox"></label>
+    </div>
+  </li>
+
+  <li>
+    <div class="question-text">
+      <span>ตัวอย่างคำถามข้อที่ 3</span>
+    </div>
+    <div class="option-group">
+      <label>ก. <input type="checkbox"></label>
+      <label>ข. <input type="checkbox"></label>
+      <label>ค. <input type="checkbox"></label>
+      <label>ง. <input type="checkbox" checked></label>
+    </div>
+  </li>
+</ol>
+</div>
+
+</body>
+</html>
