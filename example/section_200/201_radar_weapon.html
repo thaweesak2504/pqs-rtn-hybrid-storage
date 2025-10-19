@@ -129,8 +129,23 @@
         .li-checkbox-row input[type="checkbox"] {
             width: 1.1em;
             height: 1.1em;
-            accent-color: #1976d2;
+            /* Use custom monochrome checkbox: remove native accent and draw a black tick */
+            -webkit-appearance: none;
+            appearance: none;
+            border: 1px solid #333;
+            border-radius: 3px;
+            background-color: #fff;
+            display: inline-block;
             vertical-align: middle;
+            position: relative;
+        }
+        /* checked state: draw a simple black tick via inline SVG background */
+        .li-checkbox-row input[type="checkbox"]:checked {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 9l2 2 8-8' stroke='black' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 70% 70%;
+            border-color: #333;
         }
         /* === Checkbox row for li === */
         .li-checkbox-row {
@@ -145,8 +160,22 @@
         .li-checkbox-row input[type="checkbox"] {
             width: 0.8em;
             height: 0.8em;
-            accent-color: #1976d2;
+            /* Use custom monochrome checkbox for the smaller size too */
+            -webkit-appearance: none;
+            appearance: none;
+            border: 1px solid #333;
+            border-radius: 2px;
+            background-color: #fff;
+            display: inline-block;
             vertical-align: middle;
+            position: relative;
+        }
+        .li-checkbox-row input[type="checkbox"]:checked {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M3 9l2 2 8-8' stroke='black' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 70% 70%;
+            border-color: #333;
         }
           /* เลขไทย (๑ ๒ ๓ ...) */
           .thai-numerals {
