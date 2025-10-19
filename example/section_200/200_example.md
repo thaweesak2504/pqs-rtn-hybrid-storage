@@ -1,60 +1,3 @@
-๒๐๑        ส่วนประกอบเรดาร์ ควบคุมการยิง Radar Weapon Assembly System  
-            เอกสารออ้างอิง :  
-            ก. NAVSEA OP4154 Close In Weapon System Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2  
-            ข. NAVSEA OP4154 Close In Weapon System Mk.15 Mods 1-6 (Phalanx) Vol.2  
-            ค. SW221–JO–MMO–010 thru 110, Close In Weapon System Mk.15 Mods 11-14 
-
-๒๐๑.๑      หน้าที่ 
-๒๐๑.๑.๑    ระบบนี้ทําหน้าที่อะไร  
-๒๐๑.๒      ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ  
-               อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้  
-            แล้วตอบคําถามที่กําหนด 
-            ก. มีหน้าที่อะไร 
-            ข. ตําแหน่งที่ติดตั้งอยู่ที่ไหน 
-            ค. อุปกรณ์นี้ใช้ป้องกันในลักษณะใด 
-            ง. ในแต่ละตําแหน่งทําหน้าที่อะไร 
-                                                                              คําถาม  ก.  ข.  ค.  ง. 
-๒๐๑.๒.๑    ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"                    X   X 
-            ก. สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"                             X 
-            ข. สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"                                   X   X
-            ค. ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"                     X 
-            ง. ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"               X      X   X
-๒๐๑.๒.๒    ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"                      X  X 
-            ก. ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"                    X 
-            ข. สวิตช์ดโยกตําแหน่งเก็บทางกระดก "Elevation Stow Pin"                        X 
-            ค. ขวงมือหมุนทางกระดก "Elevation Manual Hand Crank"                        X 
-๒๐๑.๒.๓    ปืน 20 mm.                                                                X   X 
-            ก. ไฮดรอลิกส์ขับเคลื่อนปืน "Gun Hydraulic Drive"                              X 
-            ข. ขอเกียวลํากล้องเกลี้ยง "Clearing Sector Hold Back Tool"                    X             X 
-๒๐๑.๒.๔    ระบบลําเลียงและบรรจุ "Ammunition Handling/Conveyor System"                   X   X 
-            ก. Feed Chute                                                           X 
-            ข. Element Chuting                                                      X 
-            ค. Entrance Unit                                                        X 
-            ง. Exit Unit                                                            X 
-            จ. Exit Unit Drive Socket                                               X 
-            ฉ. Loading Gate                                                         X 
-            ช. Ammunition Drum                                                      X 
-            ซ. Drum Timing Pin               X 
-            ฌ. Hydraulic/Pneumatic Control Actuator                                 X
-๒๐๑.๒.๕    ส่วนประกอบตัวบรรจุลูกปืน "Ammunition Loader Assembly"                        X   X 
-            ก. Loader Timing Pin                                                    X 
-            ข. Link Chute                                                           X 
-            ค. Loader Gears (Rs and LS)                                             X 
-๒๐๑.๓      หลักการทํางาน 
-๒๐๑.๓.๑    ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร  
-๒๐๑.๓.๒    เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ 
-๒๐๑.๔      ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย) 
-๒๐๑.๕      การเชื่อมต่อระบบ  
-๒๐๑.๕.๑    ถ้าขาดสิ่งดังต่อไปนี้จะมีผลกระทบต่อระบบอย่างไร     
-            ก. ขาดการควบคุมจาก LCP และ/หรือ RCP     
-            ข. ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ 
-๒๐๑.๖      ข้อระมัดระวังอันตราย  
-๒๐๑.๖.๑    มีข้อระมัดระวังอันตรายอะไรบ้าง ในการปฏิ บัติงาน ดังต่อไปนี้   
-            ก. ขณะกระดกปืน โดยวิธีใช้ขวง มือหมุน      
-            ข. ขณะบรรจุและถอนบรรจุลูกปืน
-
---------------------------------------------------------------------------------------------
-
 ๒๐๒        ระบบควบคุม Local Control Panel (LCP) System 
             เอกสารออ้างอิง :  
             ก. NAVSEA OP4154 Close In Weapon System Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2  
@@ -87,7 +30,7 @@
             ข. มิเตอร์ "ELECTRONICS ”                                  X    
             ค. มิเตอร์ "RADIATE "                                      X    
             ง. มิเตอร์ "AUTO PWR "                                     X
-๒๐๒.๒.๓    ภาคส่วนสําหรับการซอมบํารุง "Maintenance Section"             X    X   
+๒๐๒.๒.๓    ภาคส่วนสําหรับการซ่อมบํารุง "Maintenance Section"             X    X   
             ก. สวิตช์ปุ่มกดไฟแสดง "Auto Power"                          X        X
             ข. สวิตช์ปุ่มกดไฟแสดง "ELX Power"                           X        X
             ค. สวิตช์ปุ่มกดไฟแสดง "MAINT"                               X        X
