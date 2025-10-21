@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,7 +33,8 @@
         /* Page setup for A4 printing */
         @page {
             size: A4;
-            margin: 2.5cm 2.0cm 2.0cm 3.0cm; /* top right bottom left */
+            margin: 2.5cm 2.0cm 2.0cm 3.0cm;
+            /* top right bottom left */
         }
 
         /* Body styling */
@@ -41,7 +43,8 @@
             font-size: 16px;
             line-height: 1.8;
             margin: 0;
-            padding: 2.0cm 1.0cm 2.0cm 2.5cm; /* Match @page margins */
+            padding: 2.0cm 1.0cm 2.0cm 2.5cm;
+            /* Match @page margins */
             background: rgb(255, 255, 255);
             color: black;
             box-sizing: border-box;
@@ -64,21 +67,25 @@
         /* Section numbering */
         .section-number {
             font-weight: bold;
-            margin-right: 2ch; /* 2 เคาะห่างจากข้อความ */
+            margin-right: 2ch;
+            /* 2 เคาะห่างจากข้อความ */
         }
 
         /* Section block */
         .section {
             margin-top: 1em;
         }
+
         .section-title {
             font-weight: bold;
             text-align: left;
         }
+
         .section-number {
             font-weight: bold;
             margin-right: 2ch;
         }
+
         .section-content {
             margin-left: 5ch;
             text-indent: 4ch;
@@ -100,10 +107,12 @@
         /* Screen styles for better readability */
         @media screen {
             body {
-                max-width: 210mm; /* A4 width */
-                min-height: 297mm; /* A4 height */
+                max-width: 210mm;
+                /* A4 width */
+                min-height: 297mm;
+                /* A4 height */
                 margin: 1cm auto;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }
         }
 
@@ -115,79 +124,89 @@
             justify-content: space-between;
             gap: 1.5em;
         }
+
         .li-checkbox-row .li-checkbox-question {
             flex: 1 1 0;
             min-width: 0;
             word-break: break-word;
             white-space: normal;
         }
+
         .li-checkbox-row .checkbox-group {
             display: flex;
             gap: 0.5em;
             flex-shrink: 0;
         }
+
         .li-checkbox-row input[type="checkbox"] {
             width: 1.1em;
             height: 1.1em;
             accent-color: #1976d2;
             vertical-align: middle;
         }
+
         /* === Checkbox row for li === */
         .li-checkbox-row {
             display: flex;
             align-items: center;
-            gap: 1.5em; /* ระยะห่างระหว่างข้อความกับ checkbox */
+            gap: 1.5em;
+            /* ระยะห่างระหว่างข้อความกับ checkbox */
         }
+
         .li-checkbox-row .checkbox-group {
             display: flex;
-            gap: 0.1em; /* ระยะห่างระหว่าง checkbox แต่ละตัว */
+            gap: 0.1em;
+            /* ระยะห่างระหว่าง checkbox แต่ละตัว */
         }
+
         .li-checkbox-row input[type="checkbox"] {
             width: 0.8em;
             height: 0.8em;
             accent-color: #1976d2;
             vertical-align: middle;
         }
-          /* เลขไทย (๑ ๒ ๓ ...) */
-          .thai-numerals {
-          list-style-type: thai;
-          /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
+
+        /* เลขไทย (๑ ๒ ๓ ...) */
+        .thai-numerals {
+            list-style-type: thai;
+            /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
               เพื่อให้การจัดแนวของหัวข้อ li เหมือนกับหัวข้อที่ใช้ div */
-          list-style-position: inside;
-          padding-left: 0;
-          margin-left: 0;
-          }
+            list-style-position: inside;
+            padding-left: 0;
+            margin-left: 0;
+        }
 
         /* อักษรไทย (ก ข ค ...) */
         @counter-style thai-alphabetic-custom {
-        system: alphabetic;
-        symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
+            system: alphabetic;
+            symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
         }
 
         .thai-alphabetic {
-        list-style-type: thai-alphabetic-custom;
+            list-style-type: thai-alphabetic-custom;
         }
-        
+
         /* เลขไทย (๑ ๒ ๓ ...) */
         .thai-numerals {
-        list-style-type: thai;
+            list-style-type: thai;
         }
 
         /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
         ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
-        content: counter(list-item, thai) " ";
+            content: counter(list-item, thai) " ";
         }
 
         /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
         ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
-        content: '๑๐๑.' counter(list-item, thai) " ";
+            content: '๑๐๑.' counter(list-item, thai) " ";
         }
 
         /* ระยะห่างระหว่าง marker กับข้อความใน li (ใช้กับ .li-marker-gap)
            เราสร้าง marker แบบกำหนดเองด้วย ::before และใช้ CSS variables เพื่อให้
            ปรับแต่งได้ง่าย: gap, prefix, รูปแบบ (ไทย/อักษรไทย) และขนาดสีของ marker */
         ol.li-marker-gap {
-            list-style: none !important; /* ปิด native marker */
+            list-style: none !important;
+            /* ปิด native marker */
             padding-left: 0;
             margin-left: 0;
             /* default counter; script may override from start attr */
@@ -195,25 +214,37 @@
             /* marker customization variables */
             --marker-gap: 0.3em;
             --marker-prefix: "";
-            --marker-weight: 400; /* default to normal weight */
+            --marker-weight: 400;
+            /* default to normal weight */
             --marker-color: inherit;
         }
 
         /* utilities for gap sizes (useful across documents) */
-        ol.li-marker-gap.gap-sm { --marker-gap: 2ch; }
-        ol.li-marker-gap.gap-md { --marker-gap: 3.5ch; }
-        ol.li-marker-gap.gap-lg { --marker-gap: 5ch; }
-        ol.li-marker-gap.gap-xl { --marker-gap: 6ch; }
+        ol.li-marker-gap.gap-sm {
+            --marker-gap: 2ch;
+        }
+
+        ol.li-marker-gap.gap-md {
+            --marker-gap: 3.5ch;
+        }
+
+        ol.li-marker-gap.gap-lg {
+            --marker-gap: 5ch;
+        }
+
+        ol.li-marker-gap.gap-xl {
+            --marker-gap: 6ch;
+        }
 
         /* option: use alphabetic thai counter */
-        ol.li-marker-gap.alpha > li::before {
+        ol.li-marker-gap.alpha>li::before {
             content: var(--marker-prefix) counter(li, thai-alphabetic-custom) " ";
         }
 
         /* default li styling inside our custom list */
         /* Use a 2-column grid: marker column (auto width) + content column (flexible).
            This ensures wrapped lines align under the content column, not under the marker. */
-        ol.li-marker-gap > li {
+        ol.li-marker-gap>li {
             list-style: none !important;
             counter-increment: li;
             display: grid;
@@ -224,7 +255,7 @@
         }
 
         /* custom marker: we render a per-li attribute `data-marker` via JS and use it here */
-        ol.li-marker-gap > li::before {
+        ol.li-marker-gap>li::before {
             /* place marker into the first grid column */
             grid-column: 1;
             display: block;
@@ -239,7 +270,7 @@
            We switch those li to flex so the question and option-group sit inline.
            Keep these rules scoped to li.li-checkbox-row so other lists keep the grid.
         ------------------ */
-        ol.li-marker-gap > li.li-checkbox-row {
+        ol.li-marker-gap>li.li-checkbox-row {
             display: flex !important;
             align-items: flex-start;
             justify-content: space-between;
@@ -248,7 +279,7 @@
         }
 
         /* make the marker inline and give a small gap to the question */
-        ol.li-marker-gap > li.li-checkbox-row::before {
+        ol.li-marker-gap>li.li-checkbox-row::before {
             display: inline-block !important;
             grid-column: auto !important;
             font-weight: var(--marker-weight);
@@ -257,65 +288,105 @@
         }
 
         /* shorthand classes */
-    ol.li-marker-gap.no-dot > li::before { content: attr(data-marker) " "; }
-        ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
-        ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
-        ol.li-marker-gap.marker-muted  > li::before { color: #666; }
+        ol.li-marker-gap.no-dot>li::before {
+            content: attr(data-marker) " ";
+        }
+
+        ol.li-marker-gap.prefix-101 {
+            --marker-prefix: '๑๐๑.';
+        }
+
+        ol.li-marker-gap.marker-small>li::before {
+            font-size: 0.9em;
+        }
+
+        ol.li-marker-gap.marker-muted>li::before {
+            color: #666;
+        }
+
         /* utility to force bold when needed */
-        ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
+        ol.li-marker-gap.marker-bold>li::before {
+            font-weight: 700;
+        }
 
         /* hide any native ::marker for safety in browsers that still render it */
-        ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
-        /*----------------------------------------------*/        
+        ol.li-marker-gap>li::marker {
+            content: "";
+            visibility: hidden;
+            width: 0;
+            height: 0;
+        }
+
+        /*----------------------------------------------*/
 
         /* Header that aligns with checkbox groups (ก. ข. ค. ง.) */
         .options-header {
             display: flex;
-            justify-content: flex-end; /* align to same right edge as checkbox groups */
-            gap: 0.4em; /* same gap as checkbox-group */
+            justify-content: flex-end;
+            /* align to same right edge as checkbox groups */
+            gap: 0.4em;
+            /* same gap as checkbox-group */
             margin: 0.0em 0 0.0em 0;
-            padding-right: 0; /* keep alignment with list content */
+            padding-right: 0;
+            /* keep alignment with list content */
             font-weight: 400;
         }
-        .options-header span { white-space: nowrap; }
+
+        .options-header span {
+            white-space: nowrap;
+        }
     </style>
 </head>
+
 <body>
     <div class="content">
         <div class="section">
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="201">
                 <li class="section-title">ความรู้พื้นฐานระบบอาวุธป้องกันตนเองระยะประชิด Phalanx Mk.15</li>
-                    <div class="section-content">เอกสารออ้างอิง :</div>
-                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
-                        <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2</li>
-                        <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
-                        <li>SW221-JO-MMO-010 thru 110, CIWS Mk.15 Mods 11-14</li>
-                    </ol>
+                <div class="section-content">เอกสารออ้างอิง :</div>
+                <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                    <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2</li>
+                    <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
+                    <li>SW221-JO-MMO-010 thru 110, CIWS Mk.15 Mods 11-14</li>
+                </ol>
             </ol>
 
             <ol class="thai-numerals li-marker-gap marker-bold gap-md" lang="th" start="1" data-prefix="๒๐๑.">
                 <li>หน้าที่</li>
-                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๑.">
+                <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๑.">
                     <li>ระบบนี้ทําหน้าที่อะไร</li>
-                    </ol>
+                </ol>
                 <li>ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li>
-                    <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคําถามที่กําหนด</div>
-                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
-                        <li>มีหน้าที่อะไร</li>
-                        <li>ตําแหน่งที่ติดตั้งอยู่ที่ไหน</li>
-                        <li>อุปกรณ์นี้ใช้ป้องกันในลักษณะใด</li>
-                        <li>ในแต่ละตําแหน่งทําหน้าที่อะไร</li>
-                    </ol>
-                        <div class="options-header"> คำตอบ:
-                            <span>ก.</span>
-                            <span>ข.</span>
-                            <span>ค.</span>
-                            <span>ง.</span>
+                <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์
+                    เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคําถามที่กําหนด</div>
+                <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
+                    <li>มีหน้าที่อะไร</li>
+                    <li>ตําแหน่งที่ติดตั้งอยู่ที่ไหน</li>
+                    <li>อุปกรณ์นี้ใช้ป้องกันในลักษณะใด</li>
+                    <li>ในแต่ละตําแหน่งทําหน้าที่อะไร</li>
+                </ol>
+                <div class="options-header"> คำตอบ:
+                    <span>ก.</span>
+                    <span>ข.</span>
+                    <span>ค.</span>
+                    <span>ง.</span>
+                </div>
+                <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๒.">
+                    <li class="li-checkbox-row">
+                        <div class="li-checkbox-question">
+                            ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"
                         </div>
-                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๒.">
+                        <span class="checkbox-group">
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                        </span>
+                    </li>
+                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
                         <li class="li-checkbox-row">
                             <div class="li-checkbox-question">
-                                ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"
+                                สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"
                             </div>
                             <span class="checkbox-group">
                                 <label><input type="checkbox" checked> </label>
@@ -324,56 +395,9 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
-                            <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>                                
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                            </ol>
-
                         <li class="li-checkbox-row">
                             <div class="li-checkbox-question">
-                                ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"
+                                สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"
                             </div>
                             <span class="checkbox-group">
                                 <label><input type="checkbox" checked> </label>
@@ -382,46 +406,9 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
-                            <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       สวิตช์ดโยกตําแหน่งเก็บทางกระดก "Elevation Stow Pin"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>                                
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       ขวงมือหมุนทางกระดก "Elevation Manual Hand Crank"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                
-                            </ol>
-
                         <li class="li-checkbox-row">
                             <div class="li-checkbox-question">
-                                ปืน 20 mm.
+                                ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"
                             </div>
                             <span class="checkbox-group">
                                 <label><input type="checkbox" checked> </label>
@@ -430,34 +417,9 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
-                            <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       ไฮดรอลิกส์ขับเคลื่อนปืน "Gun Hydraulic Drive"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       ขอเกียวลํากล้องเกลี้ยง "Clearing Sector Hold Back Tool"
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>                                
-                            </ol>
-
                         <li class="li-checkbox-row">
                             <div class="li-checkbox-question">
-                                ระบบลําเลียงและบรรจุ "Ammunition Handling/Conveyor System"
+                                ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"
                             </div>
                             <span class="checkbox-group">
                                 <label><input type="checkbox" checked> </label>
@@ -466,188 +428,285 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
-                            <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Feed Chute
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Element Chuting
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Entrance Unit
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>                                
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Exit Unit
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Exit Unit Drive Socket
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Loading Gate
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Ammunition Drum
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Drum Timing Pin
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Hydraulic/Pneumatic Control Actuator
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                            </ol>
-
-                        <li class="li-checkbox-row">
-                            <div class="li-checkbox-question">
-                                ส่วนประกอบตัวบรรจุลูกปืน "Ammunition Loader Assembly"
-                            </div>
-                            <span class="checkbox-group">
-                                <label><input type="checkbox" checked> </label>
-                                <label><input type="checkbox" checked> </label>
-                                <label><input type="checkbox" checked> </label>
-                                <label><input type="checkbox" checked> </label>
-                            </span>
-                        </li>
-                            <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Loader Timing Pin
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Link Chute
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>
-                                </li>
-                                <li class="li-checkbox-row">
-                                    <div class="li-checkbox-question">
-                                       Loader Gears (Rs and LS)
-                                    </div>
-                                    <span class="checkbox-group">
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                        <label><input type="checkbox" checked> </label>
-                                    </span>                                
-                                </li>
-                            </ol>
                     </ol>
+
+                    <li class="li-checkbox-row">
+                        <div class="li-checkbox-question">
+                            ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"
+                        </div>
+                        <span class="checkbox-group">
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                        </span>
+                    </li>
+                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                สวิตช์ดโยกตําแหน่งเก็บทางกระดก "Elevation Stow Pin"
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                ขวงมือหมุนทางกระดก "Elevation Manual Hand Crank"
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+
+                    </ol>
+
+                    <li class="li-checkbox-row">
+                        <div class="li-checkbox-question">
+                            ปืน 20 mm.
+                        </div>
+                        <span class="checkbox-group">
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                        </span>
+                    </li>
+                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                ไฮดรอลิกส์ขับเคลื่อนปืน "Gun Hydraulic Drive"
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                ขอเกียวลํากล้องเกลี้ยง "Clearing Sector Hold Back Tool"
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                    </ol>
+
+                    <li class="li-checkbox-row">
+                        <div class="li-checkbox-question">
+                            ระบบลําเลียงและบรรจุ "Ammunition Handling/Conveyor System"
+                        </div>
+                        <span class="checkbox-group">
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                        </span>
+                    </li>
+                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Feed Chute
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Element Chuting
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Entrance Unit
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Exit Unit
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Exit Unit Drive Socket
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Loading Gate
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Ammunition Drum
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Drum Timing Pin
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Hydraulic/Pneumatic Control Actuator
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                    </ol>
+
+                    <li class="li-checkbox-row">
+                        <div class="li-checkbox-question">
+                            ส่วนประกอบตัวบรรจุลูกปืน "Ammunition Loader Assembly"
+                        </div>
+                        <span class="checkbox-group">
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                            <label><input type="checkbox" checked> </label>
+                        </span>
+                    </li>
+                    <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Loader Timing Pin
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Link Chute
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                        <li class="li-checkbox-row">
+                            <div class="li-checkbox-question">
+                                Loader Gears (Rs and LS)
+                            </div>
+                            <span class="checkbox-group">
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox" checked> </label>
+                            </span>
+                        </li>
+                    </ol>
+                </ol>
                 <li>หลักการทํางาน</li>
-                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๓.">
+                <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๓.">
                     <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
                     <li>เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</li>
-                    </ol>
+                </ol>
                 <li>ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย)</li>
                 <li>การเชื่อมต่อระบบ</li>
-                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๕.">
-                        <li>ถ้าขาดสิ่งดังต่อไปนี้จะมีผลกระทบต่อระบบอย่างไร</li>
-                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
-                                <li>ขาดการควบคุมจาก LCP และ/หรือ RCP</li>
-                                <li>ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</li>
-                            </ol>   
+                <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๕.">
+                    <li>ถ้าขาดสิ่งดังต่อไปนี้จะมีผลกระทบต่อระบบอย่างไร</li>
+                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                        <li>ขาดการควบคุมจาก LCP และ/หรือ RCP</li>
+                        <li>ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</li>
                     </ol>
+                </ol>
                 <li>ข้อระมัดระวังอันตราย</li>
-                    <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๖.">
-                        <li>มีข้อระมัดระวังอันตรายอะไรบ้าง ในการปฏิ บัติงาน ดังต่อไปนี้</li>
-                            <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
-                                <li>ขณะกระดกปืน โดยวิธีใช้ขวง มือหมุน</li>
-                                <li>ขณะบรรจุและถอนบรรจุลูกปืน</li>
+                <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๖.">
+                    <li>มีข้อระมัดระวังอันตรายอะไรบ้าง ในการปฏิ บัติงาน ดังต่อไปนี้</li>
+                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
+                        <li>ขณะกระดกปืน โดยวิธีใช้ขวง มือหมุน</li>
+                        <li>ขณะบรรจุและถอนบรรจุลูกปืน</li>
 
-                        </ol>   
                     </ol>
+                </ol>
             </ol>
         </div>
     </div>
 
     <script>
         // Ensure ol.li-marker-gap honors the HTML start attribute by setting counter-reset
-        (function(){
-            document.addEventListener('DOMContentLoaded', function(){
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 // handle start attribute for counter-reset
-                document.querySelectorAll('ol.li-marker-gap[start]').forEach(function(ol){
+                document.querySelectorAll('ol.li-marker-gap[start]').forEach(function (ol) {
                     const s = parseInt(ol.getAttribute('start'), 10);
                     if (!Number.isNaN(s)) {
                         // CSS counter-reset should be start-1 so first item becomes start
@@ -657,7 +716,7 @@
 
                 // propagate data-prefix on the <ol> into the CSS variable --marker-prefix
                 // so `data-prefix="..."` placed on the ol will be used by the li::before content
-                document.querySelectorAll('ol.li-marker-gap[data-prefix]').forEach(function(ol){
+                document.querySelectorAll('ol.li-marker-gap[data-prefix]').forEach(function (ol) {
                     const p = ol.getAttribute('data-prefix') || '';
                     // write it as-is into the CSS variable; no extra quotes
                     try { ol.style.setProperty('--marker-prefix', p); } catch (e) { /* ignore */ }
@@ -666,13 +725,13 @@
                 // compute per-<li> marker text and set as data-marker attribute
                 // This avoids cross-browser counter() rendering issues and makes data-prefix reliable.
                 function numberToThai(n) {
-                    const digits = ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'];
+                    const digits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
                     return String(n).split('').map(ch => digits[ch] || ch).join('');
                 }
 
-                const thaiAlpha = ['ก','ข','ค','ง','จ','ฉ','ช','ซ','ฌ','ญ','ฎ','ฏ','ฐ','ฑ','ฒ','ณ','ด','ต','ถ','ท','ธ','น','บ','ป','ผ','ฝ','พ','ฟ','ภ','ม','ย','ร','ล','ว','ศ','ษ','ส','ห','ฬ','อ','ฮ'];
+                const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'];
 
-                document.querySelectorAll('ol.li-marker-gap').forEach(function(ol){
+                document.querySelectorAll('ol.li-marker-gap').forEach(function (ol) {
                     // determine start value; default 1
                     const sAttr = parseInt(ol.getAttribute('start'), 10);
                     const start = (!Number.isNaN(sAttr) && sAttr > 0) ? sAttr : 1;
@@ -681,8 +740,8 @@
                     const noDot = ol.classList.contains('no-dot');
 
                     // iterate direct li children
-                    const children = Array.prototype.filter.call(ol.children, function(ch){ return ch.tagName === 'LI'; });
-                    children.forEach(function(li, idx){
+                    const children = Array.prototype.filter.call(ol.children, function (ch) { return ch.tagName === 'LI'; });
+                    children.forEach(function (li, idx) {
                         const value = start + idx;
                         let marker = '';
                         if (isAlpha) {
@@ -707,4 +766,5 @@
         })();
     </script>
 </body>
+
 </html>
