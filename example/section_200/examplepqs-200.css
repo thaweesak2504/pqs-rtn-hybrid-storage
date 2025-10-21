@@ -11,11 +11,11 @@
             unicode-range: U+0E00-0E7F, U+0020-007F;
         }
 
-        /* Bold Weight (700) */
+        /* Semibold Weight (600) */
         @font-face {
             font-family: 'TH Sarabun New';
-            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-bold.woff2') format('woff2');
-            font-weight: 700;
+            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-semibold.woff2') format('woff2');
+            font-weight: 600;
             font-style: normal;
             font-display: swap;
             unicode-range: U+0E00-0E7F, U+0020-007F;
