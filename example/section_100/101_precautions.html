@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -32,7 +33,8 @@
         /* Page setup for A4 printing */
         @page {
             size: A4;
-            margin: 2.5cm 2.0cm 2.0cm 3.0cm; /* top right bottom left */
+            margin: 2.5cm 2.0cm 2.0cm 3.0cm;
+            /* top right bottom left */
         }
 
         /* Body styling */
@@ -41,7 +43,8 @@
             font-size: 16px;
             line-height: 1.8;
             margin: 0;
-            padding: 2.0cm 1.5cm 2.0cm 2.5cm; /* Match @page margins */
+            padding: 2.0cm 1.5cm 2.0cm 2.5cm;
+            /* Match @page margins */
             background: rgb(255, 255, 255);
             color: black;
             box-sizing: border-box;
@@ -64,21 +67,25 @@
         /* Section numbering */
         .section-number {
             font-weight: bold;
-            margin-right: 2ch; /* 2 เคาะห่างจากข้อความ */
+            margin-right: 2ch;
+            /* 2 เคาะห่างจากข้อความ */
         }
 
         /* Section block */
         .section {
             margin-top: 1em;
         }
+
         .section-title {
             font-weight: bold;
             text-align: left;
         }
+
         .section-number {
             font-weight: bold;
             margin-right: 2ch;
         }
+
         .section-content {
             margin-left: 8ch;
             text-indent: 0ch;
@@ -100,54 +107,57 @@
         /* Screen styles for better readability */
         @media screen {
             body {
-                max-width: 210mm; /* A4 width */
-                min-height: 297mm; /* A4 height */
+                max-width: 210mm;
+                /* A4 width */
+                min-height: 297mm;
+                /* A4 height */
                 margin: 1cm auto;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
             }
         }
 
         /*----------------------------------------------*/
-          /* เลขไทย (๑ ๒ ๓ ...) */
-          .thai-numerals {
-          list-style-type: thai;
-          /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
+        /* เลขไทย (๑ ๒ ๓ ...) */
+        .thai-numerals {
+            list-style-type: thai;
+            /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
               เพื่อให้การจัดแนวของหัวข้อ li เหมือนกับหัวข้อที่ใช้ div */
-          list-style-position: inside;
-          padding-left: 0;
-          margin-left: 0;
-          }
+            list-style-position: inside;
+            padding-left: 0;
+            margin-left: 0;
+        }
 
         /* อักษรไทย (ก ข ค ...) */
         @counter-style thai-alphabetic-custom {
-        system: alphabetic;
-        symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
+            system: alphabetic;
+            symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
         }
 
         .thai-alphabetic {
-        list-style-type: thai-alphabetic-custom;
+            list-style-type: thai-alphabetic-custom;
         }
-        
+
         /* เลขไทย (๑ ๒ ๓ ...) */
         .thai-numerals {
-        list-style-type: thai;
+            list-style-type: thai;
         }
 
         /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
         ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
-        content: counter(list-item, thai) " ";
+            content: counter(list-item, thai) " ";
         }
 
         /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
         ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
-        content: '๑๐๑.' counter(list-item, thai) " ";
+            content: '๑๐๑.' counter(list-item, thai) " ";
         }
 
         /* ระยะห่างระหว่าง marker กับข้อความใน li (ใช้กับ .li-marker-gap)
            เราสร้าง marker แบบกำหนดเองด้วย ::before และใช้ CSS variables เพื่อให้
            ปรับแต่งได้ง่าย: gap, prefix, รูปแบบ (ไทย/อักษรไทย) และขนาดสีของ marker */
         ol.li-marker-gap {
-            list-style: none !important; /* ปิด native marker */
+            list-style: none !important;
+            /* ปิด native marker */
             padding-left: 0;
             margin-left: 0;
             /* default counter; script may override from start attr */
@@ -155,25 +165,37 @@
             /* marker customization variables */
             --marker-gap: 0.5em;
             --marker-prefix: "";
-            --marker-weight: 400; /* default to normal weight */
+            --marker-weight: 400;
+            /* default to normal weight */
             --marker-color: inherit;
         }
 
         /* utilities for gap sizes (useful across documents) */
-        ol.li-marker-gap.gap-sm { --marker-gap: 2ch; }
-        ol.li-marker-gap.gap-md { --marker-gap: 3ch; }
-        ol.li-marker-gap.gap-lg { --marker-gap: 4ch; }
-        ol.li-marker-gap.gap-xl { --marker-gap: 5ch; }
+        ol.li-marker-gap.gap-sm {
+            --marker-gap: 2ch;
+        }
+
+        ol.li-marker-gap.gap-md {
+            --marker-gap: 3ch;
+        }
+
+        ol.li-marker-gap.gap-lg {
+            --marker-gap: 4ch;
+        }
+
+        ol.li-marker-gap.gap-xl {
+            --marker-gap: 5ch;
+        }
 
         /* option: use alphabetic thai counter */
-        ol.li-marker-gap.alpha > li::before {
+        ol.li-marker-gap.alpha>li::before {
             content: var(--marker-prefix) counter(li, thai-alphabetic-custom) " ";
         }
 
         /* default li styling inside our custom list */
         /* Use a 2-column grid: marker column (auto width) + content column (flexible).
            This ensures wrapped lines align under the content column, not under the marker. */
-        ol.li-marker-gap > li {
+        ol.li-marker-gap>li {
             list-style: none !important;
             counter-increment: li;
             display: grid;
@@ -184,7 +206,7 @@
         }
 
         /* custom marker: we render a per-li attribute `data-marker` via JS and use it here */
-        ol.li-marker-gap > li::before {
+        ol.li-marker-gap>li::before {
             /* place marker into the first grid column */
             grid-column: 1;
             display: block;
@@ -195,41 +217,63 @@
         }
 
         /* shorthand classes */
-    ol.li-marker-gap.no-dot > li::before { content: attr(data-marker) " "; }
-        ol.li-marker-gap.prefix-101 { --marker-prefix: '๑๐๑.'; }
-        ol.li-marker-gap.marker-small > li::before { font-size: 0.9em; }
-        ol.li-marker-gap.marker-muted  > li::before { color: #666; }
+        ol.li-marker-gap.no-dot>li::before {
+            content: attr(data-marker) " ";
+        }
+
+        ol.li-marker-gap.prefix-101 {
+            --marker-prefix: '๑๐๑.';
+        }
+
+        ol.li-marker-gap.marker-small>li::before {
+            font-size: 0.9em;
+        }
+
+        ol.li-marker-gap.marker-muted>li::before {
+            color: #666;
+        }
+
         /* utility to force bold when needed */
-        ol.li-marker-gap.marker-bold > li::before { font-weight: 700; }
+        ol.li-marker-gap.marker-bold>li::before {
+            font-weight: 700;
+        }
 
         /* hide any native ::marker for safety in browsers that still render it */
-        ol.li-marker-gap > li::marker { content: ""; visibility: hidden; width: 0; height: 0; }
-        /*----------------------------------------------*/        
+        ol.li-marker-gap>li::marker {
+            content: "";
+            visibility: hidden;
+            width: 0;
+            height: 0;
+        }
+
+        /*----------------------------------------------*/
     </style>
 </head>
+
 <body>
     <div class="content">
         <div class="section">
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="101">
                 <li class="section-title">ข้อควรระมัดระวังอันตรายพื้นฐาน</li>
-                    <div class="section-content">เอกสารออ้างอิง :</div>
-                    <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 6ch;">
-                        <li>OPNAVINST 3120.32, Standard Org. and Regulations of the U.S. Navy</li>
-                        <li>OPNAVINST 5100.19, Navy Occupational Safety and Health (NAVOSH)</li>
-                        <li>NAVEDTRA 10054, Basic Military Requirements</li>
-                        <li>NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 Vol.2</li>
-                        <li>NAVEDTRA 10669, Hospital Corpsman 3&2</li>
-                        <li>NAVEDTRA 10081, Standard First Aid Training Course</li>
-                        <li>SW221-JO-MMO-010 to 110, Close In Weapon System Mk.15 Mods 11-14</li>
-                        <li>NAVSEA SE 000-00-EIM-100, Electronics Installation and Maintenance</li>
-                    </ol>
+                <div class="section-content">เอกสารออ้างอิง :</div>
+                <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 6ch;">
+                    <li>OPNAVINST 3120.32, Standard Org. and Regulations of the U.S. Navy</li>
+                    <li>OPNAVINST 5100.19, Navy Occupational Safety and Health (NAVOSH)</li>
+                    <li>NAVEDTRA 10054, Basic Military Requirements</li>
+                    <li>NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 Vol.2</li>
+                    <li>NAVEDTRA 10669, Hospital Corpsman 3&2</li>
+                    <li>NAVEDTRA 10081, Standard First Aid Training Course</li>
+                    <li>SW221-JO-MMO-010 to 110, Close In Weapon System Mk.15 Mods 11-14</li>
+                    <li>NAVSEA SE 000-00-EIM-100, Electronics Installation and Maintenance</li>
+                </ol>
             </ol>
 
             <ol class="thai-numerals li-marker-gap gap-md" lang="th" start="1" data-prefix="๑๐๑.">
                 <li>จุดประสงค์ของโปรแกรมการสั่งการในด้านความปลอดภัย (Command Safety Program) (ก.)</li>
                 <li>หน่วยงานใดเป็นผู้ประเมินผลกระทบที่มีต่อโปรแกรมการสั่งการด้านความปลอดภัย (ก.)</li>
                 <li>ใครคือผู้รับผิดชอบต่อการจัดการโปรแกรมในด้านความปลอดภัย (Command Safety Program) (ก.)</li>
-                <li>อธิบายจุดประสงค์ Interlocks และอุปกรณ์เกี่ยวกับความปลอดภัยต่างๆ (Safety Devices) ที่ติดตั้งในอุปกรณ์อิเล็กทรอนิกส์ และที่จะมีการแก้ไขเปลี่ยนแปลง (ก.)</li>
+                <li>อธิบายจุดประสงค์ Interlocks และอุปกรณ์เกี่ยวกับความปลอดภัยต่างๆ (Safety Devices)
+                    ที่ติดตั้งในอุปกรณ์อิเล็กทรอนิกส์ และที่จะมีการแก้ไขเปลี่ยนแปลง (ก.)</li>
                 <li>อธิบายการใช้แผ่นป้ายอันตรายหรือข้อควรระมัดระวัง (Danger/Caution Tags)</li>
                 <li>อธิบายขั้นตอนในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ (Fighting an Electrical Fire) (ข.)</li>
                 <li>บอกชื่อสารที่ใช้ในการดับไฟเกี่ยวกับอุปกรณ์อิเล็กทรอนิกส์ในตอนเริ่มแรกคือ</li>
@@ -237,30 +281,40 @@
                 <li>อธิบายจุดประสงค์และการทํางานของ Circuit Breakers: CB (ข., ซ.)</li>
                 <!-- จบลำดับที่ 9 เริ่ม ol ใหม่สำหรับลำดับที่ 10 -->
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="10" data-prefix="๑๐๑.">
-                    <li>อธิบายอันตรายที่เกิดจากสภาวะแวดล้อม และสภาวะวงจรไฟฟ้าเปิดวงจร (Open Eletrical-Circuits) (ข.)</li>
-                    <li>อธิบายขั้นตอนในการเคลื่อนย้ายผู้ประสบอันตรายที่เกิดจากอุปกรณ์ไฟฟ้าอิเล็กทรอนิกส์ขณะเดินเครื่อง (ข., จ., ฉ.)</li>
+                    <li>อธิบายอันตรายที่เกิดจากสภาวะแวดล้อม และสภาวะวงจรไฟฟ้าเปิดวงจร (Open Eletrical-Circuits) (ข.)
+                    </li>
+                    <li>อธิบายขั้นตอนในการเคลื่อนย้ายผู้ประสบอันตรายที่เกิดจากอุปกรณ์ไฟฟ้าอิเล็กทรอนิกส์ขณะเดินเครื่อง
+                        (ข., จ., ฉ.)</li>
                     <li>อธิบายการปฏิบัติต่อผู้ป่วยซึ่งเกิดจากไฟฟ้าดูด (ข., จ., ฉ.)</li>
                     <li>อธิบายขั้นตอนในการปฏิบัติต่อผู้ป่วยซึ่งได้รับอันตรายเกิดบาดแผลพุพอง</li>
                     <li>วิธีผายปอดที่นิยมคือ (ค., จ., ฉ.)</li>
-                    <li>ตําแหน่งที่ตั้งของกล่องใส่อุปกรณ์ช่วยชีวิตเบื้องต้นที่ใกล้ที่สุด (คู่มือติดตั้งระบบของหน่วย)</li>
-                    <li>ข้อควรปฏิบัติเพื่อความปลอดภัยเบื้องต้นขณะปฏิบัติงานกับอุปกรณ์ CIWS ขณะเดินเครื่อง (ข., ง., ช.)</li>
-                    <li>น้ำหนักสูงสุดของอุปกรณ์ที่ผู้ปฏิบัติงานเกี่ยวกับระบบ CIWS หนึ่งคนควรยกหรือเคลื่อนย้ายควรมีน้ำหนักเท่าใด (ง., ช.)</li>
+                    <li>ตําแหน่งที่ตั้งของกล่องใส่อุปกรณ์ช่วยชีวิตเบื้องต้นที่ใกล้ที่สุด (คู่มือติดตั้งระบบของหน่วย)
+                    </li>
+                    <li>ข้อควรปฏิบัติเพื่อความปลอดภัยเบื้องต้นขณะปฏิบัติงานกับอุปกรณ์ CIWS ขณะเดินเครื่อง (ข., ง., ช.)
+                    </li>
+                    <li>น้ำหนักสูงสุดของอุปกรณ์ที่ผู้ปฏิบัติงานเกี่ยวกับระบบ CIWS
+                        หนึ่งคนควรยกหรือเคลื่อนย้ายควรมีน้ำหนักเท่าใด (ง., ช.)</li>
                     <li>จงบอกตําแหน่งที่ตั้งและการใช้ขวดบรรจุไนโตรเจนที่ถูกต้อง (ข.)</li>
-                    <li>ทําไมจึงมีความจําเป็นต้องดูแลรักษาห้องเก็บอุปกรณ์ของระบบ CIWS ให้สะอาดเรียบร้อยอยู่เสมอ (ง., ช.)</li>
+                    <li>ทําไมจึงมีความจําเป็นต้องดูแลรักษาห้องเก็บอุปกรณ์ของระบบ CIWS ให้สะอาดเรียบร้อยอยู่เสมอ (ง., ช.)
+                    </li>
                     <li>ข้อควรปฏิบัติขณะปฏิบัติงานกับอุปกรณ์ CIWS ที่เป็นสารอันตราย/ของเหลวต่างๆ ที่ติดไฟได้</li>
                     <li>อธิบายวิธีช่วยชีวิตคนที่มีร่างกายอ้านถูกไฟฟ้าดูด (ค.)</li>
                     <li>อธิบายสิ่งที่ต้องกระทําเมื่ออุปกรณ์อิเล็กทรอนิกส์รายงานผลว่ามีความร้อนและความชื้นสูง (ก.)</li>
-                    <li>ข้อควรระมัดระวังเบื้องต้นที่จะต้องปฏิบัติขณะทํางานใกล้กับอุปกรณ์ที่หมุน หรือเคลื่อนที่ (ข., ค.)</li>
-                    <li>อธิบายอันตรายซึ่งเกิดจากสภาพเครื่องอยู่ในตําแหน่งไม่ปลอดภัยหรือมีลักษณะอาการไม่ปลอดภัย (ข., ค.)</li>
-                    <li>อธิบายอันตรายซึ่งอาจเกิดจากการใช้อุปกรณ์เครื่องมือเครื่องใช้ที่อยู่ในสภาพไม่สมบูรณ์ (ข., ค.)</li>
-                    <li>อธิบายอันตรายซึ่งอาจเกิดจากอุปกรณ์ที่ไม่ได้ผูกมัดยึด, กวดให้แน่น โดยเกิดจากการเลื่อนหรือเคลื่อนที่ (ข., ค.)</li>
+                    <li>ข้อควรระมัดระวังเบื้องต้นที่จะต้องปฏิบัติขณะทํางานใกล้กับอุปกรณ์ที่หมุน หรือเคลื่อนที่ (ข., ค.)
+                    </li>
+                    <li>อธิบายอันตรายซึ่งเกิดจากสภาพเครื่องอยู่ในตําแหน่งไม่ปลอดภัยหรือมีลักษณะอาการไม่ปลอดภัย (ข., ค.)
+                    </li>
+                    <li>อธิบายอันตรายซึ่งอาจเกิดจากการใช้อุปกรณ์เครื่องมือเครื่องใช้ที่อยู่ในสภาพไม่สมบูรณ์ (ข., ค.)
+                    </li>
+                    <li>อธิบายอันตรายซึ่งอาจเกิดจากอุปกรณ์ที่ไม่ได้ผูกมัดยึด, กวดให้แน่น
+                        โดยเกิดจากการเลื่อนหรือเคลื่อนที่ (ข., ค.)</li>
                     <li>อธิบายอุปกรณ์ต่อไปนี้ Botted Deckplates, Grating และ Hand Rails (ข.)</li>
                 </ol>
             </ol>
         </div>
     </div>
 
-        <!-- ตัวอย่างการใช้คลาสสำหรับการควบคุม marker 
+    <!-- ตัวอย่างการใช้คลาสสำหรับการควบคุม marker 
         <div class="section">
             <div class="section-title"><span class="section-number">ตัวอย่าง</span><span class="section-main"><strong>ตัวอย่างการใช้คลาส marker</strong></span></div>
             <div class="section-content">
@@ -305,10 +359,10 @@
 
     <script>
         // Ensure ol.li-marker-gap honors the HTML start attribute by setting counter-reset
-        (function(){
-            document.addEventListener('DOMContentLoaded', function(){
+        (function () {
+            document.addEventListener('DOMContentLoaded', function () {
                 // handle start attribute for counter-reset
-                document.querySelectorAll('ol.li-marker-gap[start]').forEach(function(ol){
+                document.querySelectorAll('ol.li-marker-gap[start]').forEach(function (ol) {
                     const s = parseInt(ol.getAttribute('start'), 10);
                     if (!Number.isNaN(s)) {
                         // CSS counter-reset should be start-1 so first item becomes start
@@ -318,7 +372,7 @@
 
                 // propagate data-prefix on the <ol> into the CSS variable --marker-prefix
                 // so `data-prefix="..."` placed on the ol will be used by the li::before content
-                document.querySelectorAll('ol.li-marker-gap[data-prefix]').forEach(function(ol){
+                document.querySelectorAll('ol.li-marker-gap[data-prefix]').forEach(function (ol) {
                     const p = ol.getAttribute('data-prefix') || '';
                     // write it as-is into the CSS variable; no extra quotes
                     try { ol.style.setProperty('--marker-prefix', p); } catch (e) { /* ignore */ }
@@ -327,13 +381,13 @@
                 // compute per-<li> marker text and set as data-marker attribute
                 // This avoids cross-browser counter() rendering issues and makes data-prefix reliable.
                 function numberToThai(n) {
-                    const digits = ['๐','๑','๒','๓','๔','๕','๖','๗','๘','๙'];
+                    const digits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
                     return String(n).split('').map(ch => digits[ch] || ch).join('');
                 }
 
-                const thaiAlpha = ['ก','ข','ค','ง','จ','ฉ','ช','ซ','ฌ','ญ','ฎ','ฏ','ฐ','ฑ','ฒ','ณ','ด','ต','ถ','ท','ธ','น','บ','ป','ผ','ฝ','พ','ฟ','ภ','ม','ย','ร','ล','ว','ศ','ษ','ส','ห','ฬ','อ','ฮ'];
+                const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'];
 
-                document.querySelectorAll('ol.li-marker-gap').forEach(function(ol){
+                document.querySelectorAll('ol.li-marker-gap').forEach(function (ol) {
                     // determine start value; default 1
                     const sAttr = parseInt(ol.getAttribute('start'), 10);
                     const start = (!Number.isNaN(sAttr) && sAttr > 0) ? sAttr : 1;
@@ -342,8 +396,8 @@
                     const noDot = ol.classList.contains('no-dot');
 
                     // iterate direct li children
-                    const children = Array.prototype.filter.call(ol.children, function(ch){ return ch.tagName === 'LI'; });
-                    children.forEach(function(li, idx){
+                    const children = Array.prototype.filter.call(ol.children, function (ch) { return ch.tagName === 'LI'; });
+                    children.forEach(function (li, idx) {
                         const value = start + idx;
                         let marker = '';
                         if (isAlpha) {
@@ -367,4 +421,5 @@
         })();
     </script>
 </body>
+
 </html>
