@@ -1,255 +1,64 @@
 <!DOCTYPE html>
 <html lang="th">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>แนะนำหัวข้อ ๒๐๐</title>
+    <link rel="stylesheet" href="../example_styles/introduction.css">
 
-    <link rel="stylesheet" href="examplepqs-200.css">
-
-    <style>
-        /* TH Sarabun New Font - Local Font Files */
-        /* Thai Government Font for Official Documents */
-
-        /* Regular Weight (400) */
-        @font-face {
-            font-family: 'TH Sarabun New';
-            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-regular.woff2') format('woff2');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-            unicode-range: U+0E00-0E7F, U+0020-007F;
-        }
-
-        /* Bold Weight (700) */
-        @font-face {
-            font-family: 'TH Sarabun New';
-            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-bold.woff2') format('woff2');
-            font-weight: 700;
-            font-style: normal;
-            font-display: swap;
-            unicode-range: U+0E00-0E7F, U+0020-007F;
-        }
-
-        /* Page setup for A4 printing */
-        @page {
-            size: A4;
-            margin: 2.5cm 2.0cm 2.0cm 3.0cm; /* top right bottom left */
-        }
-
-        /* Body styling */
-        body {
-            font-family: 'TH Sarabun New', Arial, sans-serif;
-            font-size: 16px;
-            line-height: 1.8;
-            margin: 0;
-            padding: 2.5cm 2.0cm 2.0cm 3.0cm; /* Match @page margins */
-            background: rgb(255, 255, 255);
-            color: black;
-            box-sizing: border-box;
-        }
-
-        /* Container for content */
-        .content {
-            max-width: 100%;
-            margin: 0 auto;
-        }
-
-        /* Title styling */
-        .title {
-            font-weight: bold;
-            font-size: 18px;
-            text-align: center;
-            /*margin-bottom: 2em;*/
-        }
-
-        /* Section numbering */
-        .section-number {
-            font-weight: bold;
-            margin-right: 2ch; /* 2 เคาะห่างจากข้อความ */
-        }
-
-        /* Section block */
-        .section {
-            margin-top: 1em;
-        }
-        .section-title {
-            font-weight: bold;
-            text-align: left;
-        }
-        .section-number {
-            font-weight: bold;
-            margin-right: 2ch;
-        }
-        .section-content {
-            margin-left: 4ch;
-            text-indent: 4ch;
-            text-align: justify;
-        }
-
-        /* Print styles */
-        @media print {
-            body {
-                margin: 0;
-                padding: 0;
-            }
-
-            .content {
-                margin: 2.5cm 2.0cm 2.0cm 3.0cm;
-            }
-        }
-
-        /* Screen styles for better readability */
-        @media screen {
-            body {
-                max-width: 210mm; /* A4 width */
-                min-height: 297mm; /* A4 height */
-                margin: 1cm auto;
-                box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            }
-        }
-
-        /*----------------------------------------------*/
-          /* เลขไทย (๑ ๒ ๓ ...) */
-          .thai-numerals {
-          list-style-type: thai;
-          /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
-              เพื่อให้การจัดแนวของหัวข้อ li เหมือนกับหัวข้อที่ใช้ div */
-          list-style-position: inside;
-          padding-left: 0;
-          margin-left: 0;
-          }
-
-        /* อักษรไทย (ก ข ค ...) */
-        @counter-style thai-alphabetic-custom {
-        system: alphabetic;
-        symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
-        }
-
-        .thai-alphabetic {
-        list-style-type: thai-alphabetic-custom;
-        }
-        
-        /* เลขไทย (๑ ๒ ๓ ...) */
-        .thai-numerals {
-        list-style-type: thai;
-        }
-
-        /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
-        ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
-        content: counter(list-item, thai) " ";
-        }
-
-        /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
-        ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
-        content: '๑๐๑.' counter(list-item, thai) " ";
-        }
-
-        /* ระยะห่างระหว่าง marker กับข้อความใน li (ใช้กับ .li-marker-gap)
-           ::marker ไม่รองรับ margin/better spacing ในบางเบราว์เซอร์ ดังนั้นใช้ ::before
-           เพื่อสร้าง marker แบบกำหนดเองสำหรับ ol.li-marker-gap (ปลอดภัยและปรับแต่งได้) */
-        ol.li-marker-gap {
-            list-style: none !important; /* ปิด marker เดิม */
-            padding-left: 0;
-            margin-left: 0;
-            counter-reset: li; /* รีเซ็ต counter สำหรับรายการนี้ */
-        }
-
-        /* ซ่อน ::marker ของกฎเดิมสำหรับกรณีใช้ .li-marker-gap (ป้องกันการซ้อนกันของ marker) */
-        /* เพิ่มการซ่อนแบบเข้มงวดสำหรับ ::marker ของเบราว์เซอร์ เพื่อป้องกันการซ้อนกัน
-           ใช้หลายวิธีเพราะบางเบราว์เซอร์จำกัดการสไตลิ่งของ ::marker */
-        ol.li-marker-gap > li::marker,
-        ol.thai-numerals.prefix-101.li-marker-gap > li::marker,
-        ol.thai-numerals.no-dot.li-marker-gap > li::marker,
-        ol.thai-numerals.prefix-101.no-dot.li-marker-gap > li::marker {
-            content: "" !important;
-            color: transparent !important;
-            font-size: 0 !important;
-            visibility: hidden !important;
-            width: 0 !important;
-        }
-
-        /* และกันเผื่อตัว list-style ยังคงถูกตั้งจากที่อื่น ให้ปิดที่ li ด้วย */
-        ol.li-marker-gap > li {
-            list-style: none !important;
-        }
-
-        ol.li-marker-gap > li {
-            counter-increment: li;
-            position: relative;
-            padding-left: 0;
-        }
-
-        /* ตัว marker ที่กำหนดเอง - ปรับ margin-right เพื่อควบคุมช่องว่าง */
-        ol.li-marker-gap > li::before {
-            display: inline-block;
-            content: counter(li, thai) " ";
-            margin-right: 1.5em; /* ปรับค่านี้เพื่อเพิ่ม/ลดช่องว่าง */
-            white-space: nowrap;
-        }
-
-        /* กรณีที่ใช้ prefix-101 และ/หรือ no-dot ให้ override content ตามคลาส */
-        ol.thai-numerals.prefix-101.li-marker-gap > li::before {
-            content: '๑๐๑.' counter(li, thai) " ";
-        }
-
-        ol.thai-numerals.no-dot.li-marker-gap > li::before {
-            content: counter(li, thai) " ";
-        }
-
-        ol.thai-numerals.prefix-101.no-dot.li-marker-gap > li::before {
-            content: '๑๐๑' counter(li, thai) " ";
-        }
-        /*----------------------------------------------*/        
-    </style>
 </head>
+
 <body>
-    
+
     <div class="content">
         <div class="section">
             <h1 class="title">แนะนำความรู้พื้นฐาน (หัวข้อ ๒๐๐)</h1>
             <ol class="thai-numerals li-marker-gap">
                 <li class="section-title">โครงสร้างพื้นฐาน</li>
-                    <div class="section-content">ในหัวข้อนี้จะแบ่งอุปกรณ์ออกเป็นส่วนย่อยๆ และอธิบายหน้าที่ เพื่อเป็นการเรียนรู้และเข้าใจการทำงานของระบบ เนื้อหาข้อระบบจะกล่าวถึงความต้องการ ในการปฏิบัติหน้าที่ โดยเลือกเฉพาะอุปกรณ์ที่ตรงกับการปฏิบัติหน้าที่ในแต่ละตำแหน่ง ระบบที่ไม่มีความซับซ้อนจะอธิบายเพียงเล็กน้อย โดยจะเน้นระบบที่มีความสำคัญ หรือมีความซับซ้อนมากกว่า</div>
+                <div class="section-content">ในหัวข้อนี้จะแบ่งอุปกรณ์ออกเป็นส่วนย่อยๆ และอธิบายหน้าที่
+                    เพื่อเป็นการเรียนรู้และเข้าใจการทำงานของระบบ เนื้อหาข้อระบบจะกล่าวถึงความต้องการ ในการปฏิบัติหน้าที่
+                    โดยเลือกเฉพาะอุปกรณ์ที่ตรงกับการปฏิบัติหน้าที่ในแต่ละตำแหน่ง
+                    ระบบที่ไม่มีความซับซ้อนจะอธิบายเพียงเล็กน้อย โดยจะเน้นระบบที่มีความสำคัญ หรือมีความซับซ้อนมากกว่า
+                </div>
 
                 <li class="section-title">ส่วนประกอบและชิ้นส่วนในส่วนประกอบ</li>
-                    <div class="section-content">เป็นระบบที่แยกออกจากกัน เพื่อที่จะแบ่งการเรียนรู้ออกเป็น ๒ ระดับ คือแบ่งออกเป็นส่วนประกอบและชิ้นส่วนในส่วนประกอบ จะไม่มีรายการชิ้นส่วนทั้งหมดดังเช่นมีในหนังสือคู่มือทางเทคนิค จะมีเฉพาะรายการที่จำเป็นต้องรู้และเข้าใจในการปฏิบัติหน้าที่ โดยปกติแต่ละระบบจะมีรูปภาพแสดงให้เห็น ซึงจะแยกแสดงเป็นภาพส่วนประกอบและภาพชิ้นส่วนในส่วนประกอบ เช่น เครื่องกำเนิดไฟฟ้าและสวิตช์เกียร์ จะมีรายการชิ้นส่วนอยู่ในส่วนประกอบของระบบไฟฟ้าเรือ และรายละเอียดอื่นๆ ของแต่ละระบบ ในส่วนหัวข้อถัดไปจะเป็นการเรียนรู้ลึกลงไปในรายละเอียด</div>    
+                <div class="section-content">เป็นระบบที่แยกออกจากกัน เพื่อที่จะแบ่งการเรียนรู้ออกเป็น ๒ ระดับ
+                    คือแบ่งออกเป็นส่วนประกอบและชิ้นส่วนในส่วนประกอบ
+                    จะไม่มีรายการชิ้นส่วนทั้งหมดดังเช่นมีในหนังสือคู่มือทางเทคนิค
+                    จะมีเฉพาะรายการที่จำเป็นต้องรู้และเข้าใจในการปฏิบัติหน้าที่ โดยปกติแต่ละระบบจะมีรูปภาพแสดงให้เห็น
+                    ซึงจะแยกแสดงเป็นภาพส่วนประกอบและภาพชิ้นส่วนในส่วนประกอบ เช่น เครื่องกำเนิดไฟฟ้าและสวิตช์เกียร์
+                    จะมีรายการชิ้นส่วนอยู่ในส่วนประกอบของระบบไฟฟ้าเรือ และรายละเอียดอื่นๆ ของแต่ละระบบ
+                    ในส่วนหัวข้อถัดไปจะเป็นการเรียนรู้ลึกลงไปในรายละเอียด</div>
 
                 <li class="section-title">รูปแบบ</li>
-                    <div style="margin-left: 4ch;">
-                        <div style="margin-left: 3ch;">แต่ละระบบจะมีรูปแบบการจัดระบบ ดังนี้</div>
-                        <ol class="thai-alphabetic" lang="th" start="1">
-                            <li>มีรายชื่อเอกสารอ้างอิงเพื่อใช้ในการเรียนรู้ และมีคำถามให้ผู้รับการทดสอบอธิบายหน้าที่ของแต่ละระบบ</li>
-                            <li>มีการสอบถามโดยทั่วไป ถึงความสัมพันธ์ของส่วนประกอบ และชิ้นส่วนในส่วนประกอบของระบบว่าคืออะไร อยู่ที่ไหนฯ </li>
-                            <li>มีการกล่าวถึงการทำงานของส่วนประกอบ และชิ้นส่วนในส่วนประกอบว่าทำหน้าที่อย่างไร</li>
-                            <li>มีรายละเอียดของค่าการทำงานที่สามารถนำมาตรวจสอบได้ในทันทีทันใด</li>
-                            <li>มีการศึกษาเรียนรู้ถึงความสัมพันธ์ระหว่างระบบ ที่กำลังศึกษากับระบบอื่น หรือพื้นที่ใกล้เคียง</li>
-                            <li>มีการอธิบายถึงอุปกรณ์ที่ให้ความปลอดภัยแก่ระบบ และมีข้อระมัดระวังอันตรายสำหรับบุคคลและอุปกรณ์</li>
-                        </ol>
-                    </div>
+                <div style="margin-left: 4ch;">
+                    <div style="margin-left: 3ch;">แต่ละระบบจะมีรูปแบบการจัดระบบ ดังนี้</div>
+                    <ol class="thai-alphabetic" lang="th" start="1">
+                        <li>มีรายชื่อเอกสารอ้างอิงเพื่อใช้ในการเรียนรู้
+                            และมีคำถามให้ผู้รับการทดสอบอธิบายหน้าที่ของแต่ละระบบ</li>
+                        <li>มีการสอบถามโดยทั่วไป ถึงความสัมพันธ์ของส่วนประกอบ และชิ้นส่วนในส่วนประกอบของระบบว่าคืออะไร
+                            อยู่ที่ไหนฯ </li>
+                        <li>มีการกล่าวถึงการทำงานของส่วนประกอบ และชิ้นส่วนในส่วนประกอบว่าทำหน้าที่อย่างไร</li>
+                        <li>มีรายละเอียดของค่าการทำงานที่สามารถนำมาตรวจสอบได้ในทันทีทันใด</li>
+                        <li>มีการศึกษาเรียนรู้ถึงความสัมพันธ์ระหว่างระบบ ที่กำลังศึกษากับระบบอื่น หรือพื้นที่ใกล้เคียง
+                        </li>
+                        <li>มีการอธิบายถึงอุปกรณ์ที่ให้ความปลอดภัยแก่ระบบ และมีข้อระมัดระวังอันตรายสำหรับบุคคลและอุปกรณ์
+                        </li>
+                    </ol>
+                </div>
                 <li class="section-title">วิธีปฏิบัติ</li>
-                    <div class="section-content">ผู้รับการทดสอบจะต้องผ่านการทดสอบตามรายการในหัวข้อการปฏิบัติหน้าที่ (หัวข้อ ๓๐๐) สำหรับการปฏิบัติหน้าที่ในแต่ละตำแหน่ง เมื่อผู้รับการทดสอบเข้าใจในระบบใดระบบหนึ่งหรือมากกว่าอย่างดีแล้ว ให้ติดต่อกับผู้ทดสอบ เพื่อที่ผู้ทดสอบจะสัมภาษณ์ในแต่ละระบบ ถ้าผู้ทดสอบมีความพอใจว่าผู้รับการทดสอบมีความรู้เกี่ยวกับระบบเพียงพอ ผู้ทดสอบจะลงนามรับรอง ผู้รับการทดสอบที่พร้อมจะทำการทดสอบ จะต้องทดสอบปากเปล่า และสอบข้อเขียน เพื่อที่จะแสดงว่าเป็นผู้ที่มีความรู้ ความเข้าใจในระบบที่เกี่ยวกับการปฏิบัติหน้าที่</div>
+                <div class="section-content">ผู้รับการทดสอบจะต้องผ่านการทดสอบตามรายการในหัวข้อการปฏิบัติหน้าที่ (หัวข้อ
+                    ๓๐๐) สำหรับการปฏิบัติหน้าที่ในแต่ละตำแหน่ง
+                    เมื่อผู้รับการทดสอบเข้าใจในระบบใดระบบหนึ่งหรือมากกว่าอย่างดีแล้ว ให้ติดต่อกับผู้ทดสอบ
+                    เพื่อที่ผู้ทดสอบจะสัมภาษณ์ในแต่ละระบบ
+                    ถ้าผู้ทดสอบมีความพอใจว่าผู้รับการทดสอบมีความรู้เกี่ยวกับระบบเพียงพอ ผู้ทดสอบจะลงนามรับรอง
+                    ผู้รับการทดสอบที่พร้อมจะทำการทดสอบ จะต้องทดสอบปากเปล่า และสอบข้อเขียน
+                    เพื่อที่จะแสดงว่าเป็นผู้ที่มีความรู้ ความเข้าใจในระบบที่เกี่ยวกับการปฏิบัติหน้าที่</div>
             </ol>
         </div>
 
-        <!-- ตัวอย่างการใช้คลาสสำหรับการควบคุม marker 
-        <div class="section">
-            <div class="section-title"><span class="section-number">ตัวอย่าง</span><span class="section-main"><strong>ตัวอย่างการใช้คลาส marker</strong></span></div>
-            <div class="section-content">
-                <p>ตัวอย่างนี้ใช้คลาส: <code>thai-numerals prefix-101 no-dot li-marker-gap</code></p>
-                <ol class="thai-numerals prefix-101 no-dot li-marker-gap" lang="th">
-                    <li>ข้อความตัวอย่างข้อที่หนึ่ง</li>
-                    <li>ข้อความตัวอย่างข้อที่สอง</li>
-                    <li>ข้อความตัวอย่างข้อที่สาม</li>
-                </ol>
-                <p><strong>ผลลัพธ์ที่คาดหวัง (ลักษณะตัวอักษร):</strong></p>
-                <p>๑๐๑.๑ &nbsp; ข้อความตัวอย่างข้อที่หนึ่ง<br>
-                   ๑๐๑.๒ &nbsp; ข้อความตัวอย่างข้อที่สอง<br>
-                   ๑๐๑.๓ &nbsp; ข้อความตัวอย่างข้อที่สาม</p>
-                <p>หากต้องการปรับระยะช่องว่าง ให้แก้ค่าสำหรับ <code>.li-marker-gap li</code> (padding-left) หรือ <code>.li-marker-gap li::marker</code> (margin-right) ในไฟล์ <code>IMPROVED_COLOR_SCHEME.css</code>.</p>
-            </div>
-        </div> -->
-
     </div>
 </body>
+
 </html>
