@@ -326,3 +326,25 @@
         .options-header span {
             white-space: nowrap;
         }
+
+        /*--------------------------------------------------
+          Two-column utility for short list items: .cols-2
+          - Uses CSS multi-column flow and prevents breaking
+            individual <li> across columns.
+        --------------------------------------------------*/
+        /* support .cols-2 on any ol, and also keep the previous li-marker-gap variant */
+        ol.cols-2,
+        ol.li-marker-gap.cols-2 {
+            column-count: 2;
+            column-gap: 3ch;
+            -webkit-column-gap: 3ch;
+            column-fill: balance;
+        }
+
+        ol.cols-2>li,
+        ol.li-marker-gap.cols-2>li {
+            /* avoid breaking a single li across columns */
+            break-inside: avoid;
+            -webkit-column-break-inside: avoid;
+            page-break-inside: avoid;
+        }
