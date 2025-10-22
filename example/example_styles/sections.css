@@ -348,3 +348,25 @@
             -webkit-column-break-inside: avoid;
             page-break-inside: avoid;
         }
+
+
+        /* Utility for lines with left and right aligned text */
+        
+       .line-left-right {
+           display: flex;
+           justify-content: space-between;
+       }
+
+        .line-left-right .left {
+            text-align: left;
+        }
+
+        .line-left-right .right {
+            text-align: right;
+        }
+
+        /* วิธีใช้:
+        <div class="line-left-right">
+            <span class="left">ข้อความชิดซ้าย</span>
+            <span class="right">ข้อความชิดขวา</span>
+        </div> */
