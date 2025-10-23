@@ -201,3 +201,26 @@
         ol.thai-numerals.prefix-101.no-dot.li-marker-gap>li::before {
             content: '๑๐๑' counter(li, thai) " ";
         }
+
+        /* สำหรับทำหน้าปก */
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 60px;
+        }
+
+        .logo-container img {
+            width: 100px;
+            height: auto;
+            object-fit: contain;
+        }
+
+        .flex-center {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 28px;
+            font-weight: 500;
+            gap: 5px;
+        }
