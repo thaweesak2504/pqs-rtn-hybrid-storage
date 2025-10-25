@@ -83,6 +83,11 @@
             text-align: justify;
         }
 
+        .pargraph-no-indent {
+            margin-left: 5ch;
+            text-align: justify;
+        }
+
         /* Print styles */
         @media print {
             body {
