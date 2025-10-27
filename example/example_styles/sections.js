@@ -60,3 +60,20 @@
         });
     });
 })();
+
+// Toggle all answers visibility
+
+let allVisible = false;
+
+function toggleAllAnswers() {
+    const wrappers = document.querySelectorAll('.answer-wrapper');
+    const button = document.querySelector('.toggle-all-btn');
+
+    allVisible = !allVisible;
+
+    wrappers.forEach(el => {
+        el.style.display = allVisible ? 'block' : 'none';
+    });
+
+    button.textContent = allVisible ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ';
+}

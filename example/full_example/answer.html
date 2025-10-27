@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="th">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>แบบฝึกหัด</title>
+    <link rel="stylesheet" href="../example_styles/sections.css">
+    <script src="../example_styles/sections.js"></script>
+
+    <style>
+        .answer-box {
+            border: 1px solid #333;
+            padding: 5px 5px;
+            /* margin-top: 5px; */
+            font-size: 14px;
+            line-height: 1.8;
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+            /* white-space: pre-wrap; */
+            word-wrap: break-word;
+            /* width: 100%; */
+            border-radius: 4px;
+        }
+
+        .toggle-button {
+            font-family: 'TH Sarabun New';
+            font-size: 16px;
+            padding: 6px 12px;
+            /* margin-top: 16px; */
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .toggle-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+
+</head>
+
+<body>
+    <button class="toggle-button" onclick="toggleAnswer(this, 'answer1')">แสดงคำเฉลย</button>
+
+    <div id="answer1" class="answer-wrapper" style="display: none;">
+        <div>คำถาม ก.</div>
+        <div class="answer-box">
+            ใส่คำเฉลยที่นี่ ใช้ html แท็กต่างๆ ได้ตามต้องการ
+        </div>
+    </div>
+    <div>ข้อถัดไป</div>
+
+
+    <script>
+
+        function toggleAnswer(button, id) {
+            const el = document.getElementById(id);
+            const isHidden = el.style.display === 'none';
+
+            el.style.display = isHidden ? 'block' : 'none';
+            button.textContent = isHidden ? 'ซ่อนคำเฉลย' : 'แสดงคำเฉลย';
+        }
+
+    </script>
+
+
+</body>
+
+</html>

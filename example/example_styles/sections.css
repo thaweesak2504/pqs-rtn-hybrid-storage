@@ -370,6 +370,45 @@
             text-align: right;
         }
 
+        /* Style สำหรับ คำตอบ แบบ ซ่อน/แสดง (Show/Hide Answers) ทั้งหมด */
+
+                .answer-wrapper {
+            display: none;
+            margin-left: 5em;
+            margin-top: 5px;
+            /* max-width: 600px; */
+        }
+
+        .answer-box {
+            font-family: 'TH Sarabun New';
+            border: 1px solid #333;
+            padding: 5px 5px;
+            margin: 5px;
+            font-size: 14px;
+            line-height: 1.6;
+            background-color: #f9f9f9;
+            box-sizing: border-box;
+            /* white-space: pre-wrap; */
+            word-wrap: break-word;
+            border-radius: 4px;
+        }
+
+        .toggle-all-btn {
+            font-family: 'TH Sarabun New';
+            font-size: 14px;
+            padding: 4px 12px;
+            background-color: #f9f9f9;
+            border: 1px solid #333;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .toggle-all-btn:hover {
+            background-color: #e8e6e6;
+        }
+
+
         /* วิธีใช้:
         <div class="line-left-right">
             <span class="left">ข้อความชิดซ้าย</span>
