@@ -15,7 +15,8 @@
         <div class="section">
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="201">
                 <li class="section-title">ระบบเรดาร์ควบคุมการยิง Radar Weapon Assembly System</li>
-                <div class="section-content">เอกสารออ้างอิง :</div>
+                <div class="section-content">เอกสารออ้างอิง : <span style="margin-left: 23em;"><button
+                            class="toggle-all-btn" onclick="toggleAllAnswers()">แสดงคำตอบ</button></span></div>
                 <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                     <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2</li>
                     <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
@@ -27,6 +28,12 @@
                 <li style="font-weight: bold;">หน้าที่</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๑.">
                     <li>ระบบนี้ทําหน้าที่อะไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๑.๑.๑ :</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">ชี้เป้าเพื่อที่จะทําการยิงและทําการยิง</span></div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li>
                 <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์
@@ -100,6 +107,47 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๒.๑ : ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมตำแหน่งปืนทางหัน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่บนตู้ Barbette Assembly</span>
+                                </div>
+                                <div>๒๐๑.๒.๑ ก. : สวิตช์โยกตําแหน่งเก็บทางหัน "Mount Train Stow"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมการเคลื่อนตัวเข้าออกของ Stow Pin ทางหัน (Gearlock) และมีไฟแสดง
+                                        เมื่อ Switch ตัวนี้ทํางานในตำแหน่ง Engage และ Retract.</span>
+                                </div>
+                                <div>๒๐๑.๒.๑ ข. : สวิตช์โยกแท่นฐานปลอดภัย "Mount Safety"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ห้ามหันและกระดกปืน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label>
+                                    <span class="span-after">ในแต่ละตําแหน่งทําหน้าที่ดังนี้</span>
+                                </div>
+                                <ol style="list-style-type: thai;">
+                                    <li>OPERATE เป็นตําแหน่งใช้งานปกติของระบบ</li>
+                                    <li>SAFE ห้ามหัน/กระดกและตัดวงจรไฟยิง</li>
+                                    <li>RELOAD เหมือนกับตําแหน่ง SAFE และทําให้ระบบ Hydraulic ทํางานขณะทําการ Loading
+                                        และ Downloading ลูกปืน</li>
+                                </ol>
+                                <div>๒๐๑.๒.๑ ค. : ขับเคลื่อนทางหันแบบแมนนวล "Mount Train Manual Drive"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เป็นที่หันปืนโดยใช้พวงหมุนขนาด 0.5 นิ้ว และปรับแต่ง Stow Pin ให้อยู่ในตำแหน่ง
+                                        Engage พอดี</span>
+                                </div>
+                                <div>๒๐๑.๒.๑ ง. : ขับเคลื่อนสลักเก็บตําแหน่งทางหัน "Train Stow Pin Manual Drive"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เพื่อที่จะหมุน TRAIN Stow Pin ให้อยู่ในตําแหน่ง Retract หรือ Engage
+                                        ด้วยมือ</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -147,7 +195,37 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๒.๒ : ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมตำแหน่งปืนทางกระดก</span>
+                                </div>
 
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่บน Train Platform Assembly</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๒ ก. : ขับเคลื่อนสลักเก็บตําแหน่งทางกระดก "Elevation Stow Pin Manual Drive"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เพื่อที่จะหมุนให้ Elevation Stow Pin อยู่ในตำแหน่ง Stow Engage หรือ
+                                        Retract ด้วยมือ</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๒ ข. : สวิตช์ดโยกตําแหน่งเก็บทางกระดก "Elevation Stow Pin"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุม Elevation Stow Pin ให้อยู่ในตำแหน่ง Stow หรือ Retract</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๒ ค. : ขวงมือหมุนทางกระดก "Elevation Manual Hand Crank"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เป็นเครื่องมือใช้สำหรับปลดเบรคและหมุนกระดกปืน ขึ้น-ลง</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -184,6 +262,36 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๒.๓ : ปืน 20 mm.</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ทำหน้าที่ยิงทำลายเป้า</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ติดตั้งอยู่บน Elevation Yoke Structure</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๓ ก. : ไฮดรอลิกส์ขับเคลื่อนปืน "Gun Hydraulic Drive"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ขับเคลื่อนปืนและระบบการลำเลียงด้วยระบบไฮโดรลิกในขณะ
+                                        Uploading/Downloading, Firing</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๓ ข. : ขอเกียวลํากล้องเกลี้ยง "Clearing Sector Hold Back Tool"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เมื่อติดตั้งจะรักษาลูกเลื่อน (Breech Bolt) ให้อยู่ในทางเดิน Clearing Cam
+                                        Path</span>
+                                </div>
+
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ป้องกันไม่ให้ลูกปืน เข้่าไปในรังเพลิง</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -297,6 +405,67 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๒.๔ : ระบบลําเลียงและบรรจุ "Ammunition Handling/Conveyor System"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after"> รับ - ส่ง ลูกปืนจาก DRUM ถึงตัวปืน และจากตัวปืนถึง DRUM</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข. </label>
+                                    <span class="span-after">ใต้วตัวปืน ๒๐ มม</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ก. : Feed Chute</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่ใช้เป็นทางลำเลียงลูกปืน</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ข. : Element Chuting</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่ส่ง Element ระหว่าง DRUM และปืน</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ค. : Entrance Unit</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ส่งลูกปืนจาก Chuting เข้าสู่ Drum</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ง. : Exit Unit</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่ส่งลูกปืนจาก Drum ไปยัง Feed Chute</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ จ. : Exit Unit Drive Socket</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เป็นที่ใส่พวงหมุน (Handcrank) เพื่อทําการ Cycle ลูกปืนด้วยมือ</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ฉ. : Loading Gate</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เป็นส่วนประกอบของ Exit Unit เมื่อเปิดโดยการยกขึ้นลูกปืนจะสามารถผ่านได้
+                                        ขณะ Upload และ Download</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ช. : Ammunition Drum</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่เป็นที่เก็บขณะ Loading และส่งผ่านลูกปืน</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ซ. : Drum Timing Pin</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่ใช้งานสำหรับตั้ง Timing ของ Drum</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๔ ฌ. : Hydraulic/Pneumatic Control Actuator</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เป็นคันโยกเพื่อควบคุมการหมุนของตัวปืนและส่วนลำเลียงลูกปืนโดยระบบ
+                                        ไฮโดรลิก</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -344,34 +513,168 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๒.๕ : ส่วนประกอบตัวบรรจุลูกปืน "Ammunition Loader Assembly"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่ใช้งานสำหรับการ Upload และ Download ลูกปืนเท่านั้น</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after"> ติดตั้งบน Exit Unit</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๕ ก. : Loader Timing Pin</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">มีหน้าที่ตั้ง Timming ของ Loader</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๕ ข. : Link Chute</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใช้ขณะ Download เพื่อนำลูกปืนที่ยิงแล้วออกจากระบบ</span>
+                                </div>
+
+                                <div>๒๐๑.๒.๕ ค. : Loader Gears (Rs and LS)</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">หน้าที่ทำให้ Gear Timing ในขณะ Upload และ Download เป็นไปอย่างถูกต้อง</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
                 </ol>
                 <li style="font-weight: bold;">หลักการทํางาน</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๓.">
                     <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๑.๓.๑ : ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">มีเพื่อชี้ตําแหน่งเป้าหมายและบรรจุลูกปืน</span></div>
+                        </div>
+                    </div>
                     <li>เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๑.๓.๒ : เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">ไม่สามารถทําการยิงได้</span></div>
+                        </div>
+                    </div>
                 </ol>
+
                 <li style="font-weight: bold;">ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย)</li>
+
                 <li style="font-weight: bold;">การเชื่อมต่อระบบ</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๕.">
                     <li>ถ้าขาดสิ่งดังต่อไปนี้จะมีผลกระทบต่อระบบอย่างไร</li>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                         <li>ขาดการควบคุมจาก LCP และ/หรือ RCP</li>
                         <li>ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</li>
+                        <div class="answer-wrapper" style="margin-left: -2.0ch;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๕.๑ ก. : ขาดการควบคุมจาก LCP และ/หรือ RCP</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">จะไม่ตอบสนองต่อสัญญาณคําสั่งต่าง ๆ</span></div>
+                                <div>๒๐๑.๕.๑ ข. : ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">ไม่สามารถทําการยิงได้</span></div>
+                            </div>
+                        </div>
                     </ol>
                 </ol>
+
                 <li style="font-weight: bold;">ข้อระมัดระวังอันตราย</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๑.๖.">
                     <li>มีข้อระมัดระวังอันตรายอะไรบ้าง ในการปฏิ บัติงาน ดังต่อไปนี้</li>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                         <li>ขณะกระดกปืน โดยวิธีใช้ขวง มือหมุน</li>
                         <li>ขณะบรรจุและถอนบรรจุลูกปืน</li>
+                        <div class="answer-wrapper" style="margin-left: -2.0ch;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๖.๑ ก. : ขณะกระดกปืน โดยวิธีใช้ขวง มือหมุน</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">ต้องแน่ใจว่าได้จับพวงหมุนให้แน่น ขณะใส่พวงหมุนเพื่อหมุนปืน</span></div>
+                                <div>๒๐๑.๖.๑ ข. : ขณะบรรจุและถอนบรรจุลูกปืน</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">มีข้อระมัดระวังอันตราย ดังนี้</span></div>
+                                <ol style="list-style-type: thai;">
+                                    <li>ต้องแน่ใจว่าโหมดการทํางานของเครื่องอยู่ที่ Standby และงดแพร่คลื่นเรดาร์ทุกชนิด</li>
+                                    <li>สําหรับลูกปืนที่ใช้งานไม่ได้ควรทิ้งทะเล</li>
+                                    <li>ประกาศแจ้งให้ทราบทั่วกันถึงอันตรายที่เกิดจากการแพร่คลื่นต่อระบบอาวุธ (Hero)
+                                        ก่อนการขนย้ายลูกปืน</li>
+                                    <li>บริเวณรอบๆ แท่นปืน ห้ามเข้านอกบริเวณก่อน 30 นาที หลังจากยิงเสร็จ</li>
+                                    <li>ต้องสวมถุงมืออย่างหนาขณะทำงาน</li>
+                                    <li>หลีกเลี่ยงการสัมผัส Primer และ Primer สัมผัสกับวัตถุที่เป็นโลหะ</li>
+                                    <li>พื้นที่ปฏิบัติงานต้องเรียบร้อย</li>
+                                    <li>ต้องระมัดระวังมือและเสื้อผ้าที่จะโดนเกี่ยวขณะทำงาน</li>
+                                    <li>ต้องไม่เดินระบบไฮโดรลิกนานติดต่อเกิน ๗ นาที</li>
+                                    <li>ต้องติดตั้ง Sector Holdback Tool ให้ถูกต้อง</li>
+                                    <li>ต้องถอด Mount Safety Connector ที่ Lcp ออก</li>
+                                    <li> ตรวจสอบ Guide Bolt ก่อนทำการ Upload และ Download</li>
 
+                                </ol>
+                            </div>
+                        </div>
                     </ol>
                 </ol>
             </ol>
         </div>
     </div>
+
+    <!-- คำตอบ: หัวข้อหลัก-->
+    <!-- <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๑.๒.๒ :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div>๒๐๑.๒.๒ ก. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div>๒๐๑.๒.๒ ข. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div>๒๐๑.๒.๒ ค. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง. </label>
+                                    <span>ใส่คำตอบที่นี่</span>
+                                </div>
+                            </div>
+                        </div> -->
+    <!-- จบคำตอบ หัวข้อหลัก-->
 
 </body>
 

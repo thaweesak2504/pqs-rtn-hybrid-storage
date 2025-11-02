@@ -158,7 +158,7 @@
         .li-checkbox-row input[type="checkbox"] {
             width: 0.8em;
             height: 0.8em;
-            accent-color: #1976d2;
+            accent-color: #ff0000;
             vertical-align: middle;
         }
 
@@ -175,7 +175,7 @@
         /* อักษรไทย (ก ข ค ...) */
         @counter-style thai-alphabetic-custom {
             system: alphabetic;
-            symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ';
+            symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ' 'กก' 'ขข' 'คค' 'งง' 'จจ' 'ฉฉ' 'ชช' 'ซซ' 'ฌฌ' 'ญญ';
         }
 
         .thai-alphabetic {
@@ -356,11 +356,11 @@
 
 
         /* Utility for lines with left and right aligned text */
-        
-       .line-left-right {
-           display: flex;
-           justify-content: space-between;
-       }
+
+        .line-left-right {
+            display: flex;
+            justify-content: space-between;
+        }
 
         .line-left-right .left {
             text-align: left;
@@ -372,8 +372,9 @@
 
         /* Style สำหรับ คำตอบ แบบ ซ่อน/แสดง (Show/Hide Answers) ทั้งหมด */
 
-                .answer-wrapper {
-            display: none;
+        .answer-wrapper {
+            /* display: none; ใช้ block ชั่วคราว เพื่อให้แสดงตอน save code จะได้เห็นเลย*/
+            display: block;
             margin-left: 5em;
             margin-top: 5px;
             /* max-width: 600px; */
@@ -408,6 +409,88 @@
             background-color: #e8e6e6;
         }
 
+        /* Small helper class for answer checkboxes used in answer boxes */
+        .answer-checkbox {
+            accent-color: #008000;
+            width: 0.8em;
+            height: 0.8em;
+            vertical-align: middle;
+            margin-right: 0.2em;
+            /* Make it slightly easier to click on touch devices */
+            touch-action: manipulation;
+        }
+
+        /* Optional: align label text nicely when checkbox is inside label */
+        .answer-box label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35em;
+        }
+
+        /*--------------------------------------------------*/
+
+        .span-after {
+            margin-left: 0.15em;
+        }
+
+        /* Modern table styling for this page only */
+        .modern-table {
+            margin: 0 auto;
+            width: 70%;
+            max-width: 100%;
+            border-collapse: collapse;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+            font-family: 'TH Sarabun New', system-ui, sans-serif;
+        }
+
+        .modern-table thead th {
+            background: linear-gradient(180deg, #f5f7fa, #e9eef7);
+            color: #0b2545;
+            font-weight: 600;
+            padding: 12px 16px;
+            text-align: center;
+            border-bottom: 1px solid rgba(11, 37, 69, 0.08);
+        }
+
+        .modern-table tbody td {
+            padding: 10px 14px;
+            text-align: center;
+            color: #0b2545;
+            background: #fff;
+        }
+
+        .modern-table tbody tr:nth-child(even) td {
+            background: #fbfdff;
+        }
+
+        /* Small screens: make table full width */
+        @media (max-width: 640px) {
+            .modern-table {
+                width: 100%;
+            }
+
+            .modern-table thead {
+                display: none;
+            }
+
+            .modern-table tbody td {
+                display: block;
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+            }
+
+            .modern-table tbody td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 14px;
+                width: calc(50% - 28px);
+                text-align: left;
+                font-weight: 600;
+            }
+        }
 
         /* วิธีใช้:
         <div class="line-left-right">

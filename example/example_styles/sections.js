@@ -77,3 +77,30 @@ function toggleAllAnswers() {
 
     button.textContent = allVisible ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ';
 }
+
+// แบบที่ให้แสดงคำตอบทั้งหมดเมื่อโหลดหน้า ต้องไปแก้ไข css class .answer-wrapper แสดงเป็น display: none;ด้วย
+//   let allVisible = true;
+
+//   function toggleAllAnswers() {
+//     const wrappers = document.querySelectorAll('.answer-wrapper');
+//     const button = document.querySelector('.toggle-all-btn');
+
+//     allVisible = !allVisible;
+
+//     wrappers.forEach(el => {
+//       el.style.display = allVisible ? 'block' : 'none';
+//     });
+
+//     button.textContent = allVisible ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ';
+//   }
+
+//   // เรียกใช้ทันทีเมื่อโหลดหน้า
+//   window.addEventListener('DOMContentLoaded', () => {
+//     const wrappers = document.querySelectorAll('.answer-wrapper');
+//     wrappers.forEach(el => {
+//       el.style.display = 'block';
+//     });
+
+//     const button = document.querySelector('.toggle-all-btn');
+//     button.textContent = 'ซ่อนคำตอบ';
+//   });
