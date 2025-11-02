@@ -15,7 +15,8 @@
         <div class="section">
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="203">
                 <li class="section-title">ระบบควบคุม Remote Control Panel (RCP)</li>
-                <div class="section-content">เอกสารออ้างอิง :</div>
+                <div class="section-content">เอกสารออ้างอิง :<span style="margin-left: 23em;"><button
+                            class="toggle-all-btn" onclick="toggleAllAnswers()">แสดงคำตอบ</button></span></div>
                 <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                     <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2</li>
                     <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
@@ -67,6 +68,21 @@
                             <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๑ : สวิตช์ปุ่มกดไฟแสดง "Battle Short"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">เมื่อกดปุ่มนี้จะส่งสัญญาณผ่าน LCP ไปยัง PSCG และ WCG
+                                    เพื่อข้ามสัญญาณ
+                                    Interlock ต่างๆ และไฟติดสีแดง</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">อยู่บน RCP</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label><span
+                                    class="span-after">เป็นปุ่มที่มีฝาครอบ</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label><span
+                                    class="span-after">แดง / แดง</span></div>
+                        </div>
+                    </div>
 
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -83,6 +99,22 @@
                             <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๒ : สวิตช์ปุ่มกดไฟแสดง "Normal Sector Null"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">เมื่อกดปุ่มนี้จะทำให้เครื่องควบคุมไม่สนใจข้อมูลที่ตั้งไว้ของ NO
+                                    Engagement
+                                    Sector และ Search Sector ไฟแสดงสีขาว NORMAL, ไฟแสดงสีเหลือง (Sector Null)</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บนแผง RCP</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label><span
+                                    class="span-after">เป็นสวิทช์ ๒ ทางมีฝาครอบ</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label><span
+                                    class="span-after">ขาว / ขาว, เหลือง / เหลือง</span></div>
+                        </div>
+                    </div>
 
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -99,6 +131,20 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๓ : สวิตช์กุญแจบิดเลือก การควบคุม "Rcp/Lcp"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">ในตําแหน่ง RCP, RCP สามารถควบคุมการทํางานของระบบได้ถ้าไฟ STANDBY
+                                    ติดและกุญแจสวิทช์ที่ LCP บิดไปที่ตําแหน่ง STBY/MAINT ในตําแหน่ง LCPจะควบคุมระบบ
+                                    โดย LCP เท่านั้น (การหยุดการติดตามเป้าหมาย Break Engage สามารถควบคุมได้ทั้ง LCP และ
+                                    RCP ทุกเวลา) </span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บนแผงควบคุม RCP</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label><span
+                                    class="span-after">สามารถโอนาการควบคุมระบบจาก LCP ไปให้ RCP ได้</span></div>
+                        </div>
+                    </div>
 
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -115,6 +161,15 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๔ : ตัวแสดงผลแบริ่ง "Bearing.....Deg"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">แสดงมุมแบริ่งของเป้าหมายเป็นองศา </span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บนแผงควบคุม RCP</span></div>
+                        </div>
+                    </div>
 
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -128,9 +183,20 @@
                             <label><input type="checkbox"> </label>
                             <label><input type="checkbox"> </label>
                             <label><input type="checkbox"> </label>
-                            <label><input type="checkbox"> </label>
+                            <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๕ : ปุ่มไฟแสดง "Relative Coord/True Coord"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">แสดงว่าพนักงานเลือกแบริ่งจริงหรือแบริ่งสัมพันธ์ </span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บนแผงควบคุม RCP</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label><span
+                                    class="span-after">ขาว / ขาว</span></div>
+                        </div>
+                    </div>
 
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -144,9 +210,20 @@
                             <label><input type="checkbox"> </label>
                             <label><input type="checkbox"> </label>
                             <label><input type="checkbox"> </label>
-                            <label><input type="checkbox"> </label>
+                            <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๖ : ปุ่มไฟแสดง "Local/Remote"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">แสดงว่าเลือกการควบคุมแบบ LOCAL หรือ REMOTE </span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บนแผงควบคุม RCP</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label><span
+                                    class="span-after">ขาว / ขาว</span></div>
+                        </div>
+                    </div>
 
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -299,6 +376,90 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๗ : ภาคส่วนควบคุมขั้นการทำงาน "Mode Control Section"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">ควบคุมโหมดในการทำงานต่างๆ ของระบบ CIWS</span></div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label> <span
+                                        class="span-after">บนแผงควบคุม RCP</span></div>
+
+                                <div>๒๐๓.๒.๗ ก. : สวิตช์ปุ่มกดไฟแสดง "Standby"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้ไฟจะเปลี่ยนจากสีขาวเป็นสีเขียวเมื่อเงื่อนไข
+                                        Standby พร้อม</span></div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / เขียว</span></div>
+
+                                <div>๒๐๓.๒.๗ ข. : สวิตช์ปุ่มกดไฟแสดง "Air Ready"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้จะทำให้ระบบ CIWS เข้าสู่ Mode Air Ready
+                                        ไฟจะเปลี่ยนจากสีขาวเป็นสีเขียวเมื่อ WCG คอมพิวเตอร์สั่ง</span></div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / เขียว</span></div>
+
+                                <div>๒๐๓.๒.๗ ค. : สวิตช์ปุ่มกดไฟแสดง "Aaw Manual"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้จะทำให้ระบบ CIWS เข้าสู่โหมดการทำงาน AAW MANUAL
+                                        ไฟจะเปลี่ยนจากขาวเป็นสีเขียวเมื่อ WCG คอมพิวเตอร์สั่งให้เข้าสู่โหมดนี้</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / เขียว</span></div>
+
+                                <div>๒๐๓.๒.๗ ง. : สวิตช์ปุ่มกดไฟแสดง "Mount Warning"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้จะมีสัญญาณเสียงเตือนว่าจะแทนที่แท่นปืน
+                                        ควรกดประมาณ 5 วินาทีก่อนที่จะกดโหมดหนึ่งโหมดใดที่ทำให้แท่นปืนมีการหมุน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ฉ.</label> <span
+                                        class="span-after">เป็นสัญญาณเสียงเตือนให้ไม่มีผู้ใดอยู่ใกล้บริเวณแท่นปืน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">แดง / -</span></div>
+
+                                <div>๒๐๓.๒.๗ จ. : สวิตช์ปุ่มกดไฟแสดง "Auto Desig Enable"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้จะทำให้ Mode Remote Design ทำงานโดยอัตโนมัติ
+                                        ไฟจะเปลี่ยนจากสีขาวเป็นสีเขียวเมื่อ WCG คอมพิวเตอร์สั่งให้เข้าสู่โหมดนี้</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / ขาว</span></div>
+
+                                <div>๒๐๓.๒.๗ ฉ. : สวิตช์ปุ่มกดไฟแสดง "Aaw Auto"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้จะทำให้ WCG คอมพิวเตอร์สั่งให้ระบบ CIWS เข้าสู่
+                                        Mode AAW Auto ไฟจะเปลี่ยนจากสีขาวเป็นสีเขียว</span></div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / เขียว</span></div>
+
+                                <div>๒๐๓.๒.๗ ช. : สวิตช์ปุ่มกดไฟแสดง "Stow Engage/Stow Retract"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">ควบคุมการเคลื่อนตัวเข้าออกของ STOW PIN ในตำแหน่ง STOW Engage
+                                        ไฟจะติดสีเหลือง ในตำแหน่ง STOW Retract ไฟติดสีเขียว</span></div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">เหลือง / เขียว</span></div>
+
+                                <div>๒๐๓.๒.๗ ซ. : สวิตช์ปุ่มกดไฟแสดง "Remote Desig"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">จะกดปุ่มนี้ก็ต่อเมื่ออยู่ในโหมด AIR Ready หรือสูงกว่า
+                                        จะส่งสัญญาณไปให้ WCG โดยไฟติดสีขาว และไฟจะเปลี่ยนเป็นสีเขียวเมื่อ WCG
+                                        คอมพิวเตอร์เข้าสู่โหมดนี้ จะต่อสัญญาณ Synchro จากตัวชี้เป้าไปยังแท่นปืน
+                                        ไฟแสดงสีเขียวดับแสดงว่า สายอากาศ Track ได้รับข้อมูลเป้าแล้ว (ไม่มีใช้งาน)</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / เขียว</span></div>
+
+                                <div>๒๐๓.๒.๗ ฌ. : สวิตช์ปุ่มกดไฟแสดง "Surface"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label> <span
+                                        class="span-after">เมื่อกดปุ่มนี้ WCG คอมพิวเตอร์สั่งให้ระบบ CIWS เข้าสู่ Mode
+                                        SURFACE และจะทำให้ไฟแสดงผลเปลี่ยนจากสีขาวเป็นสีเขียว</span></div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label> <span
+                                        class="span-after">ขาว / เขียว</span></div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -392,6 +553,66 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๘ : ภาคส่วนสถานะระบ "System Status"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงผลสถานะของข้อมูลที่ทำการติดต่อ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">บนแผงควบคุม RCP </span>
+                                </div>
+
+                                <div>๒๐๓.๒.๘ ก. : ปุ่มไฟแสดง "Designate Alert"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ฟจะติดแสดงสีเหลืองเมื่อข้อมูลเปลี่ยนจากที่อื่นส่งให้ระบบ
+                                        CIWS แล้ว (ไม่มีใช้ )</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เหลือง / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๘ ข. : ปุ่มไฟแสดง "Go/No Go"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงสถานะการทํางานของระบบไฟ GO
+                                        ติดสีเขียวแสดงว่าการทํางานของ
+                                        ระบบเป็นไปอย่างถูกต้องไฟ NO GO ติดสีเเดงแสดงว่าการทํางานของระบบไม่ถูกต้อง
+                                    </span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เขียว / แดง</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๘ ค. : ปุ่มไฟแสดง "Maintenance"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ติดสีแดงเมื่อที่ LCP มีการกดสวิทช์ MAINT
+                                        อยู่ในโหมดการซ่อมบำรุง </span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">แดง / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๘ ง. : ปุ่มไฟแสดง "Transmission Error"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">จะกระพริบด้วยความถี่ 2 Hz เมื่อ RCP
+                                        พบว่ามีการส่งข้อมูลผิดพลาด</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">แดง / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๘ จ. : ปุ่มไฟแสดง "Interference"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟติดสีเหลืองเมื่อ WCG พบว่าเรดาห์ถูกรบกวน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เหลือง / -</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -485,6 +706,66 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๙ : ภาคส่วนสถานะเข้าต่อตี "Engage Status"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงผลสถานะของข้อมูลที่ทำการต่อตี</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">บนแผงควบคุม RCP</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๙ ก. : ปุ่มไฟแสดง "Search"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟแสดงสีเขียวติดเมื่อ Radar Search กําลังทํางาน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เขียว / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๙ ข. : ปุ่มไฟแสดง "Assign"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span
+                                        class="span-after">ไฟแสดงสีเขียวติดเมื่อคอมพิวเตอร์พบว่าข้อมูลเป้าได้เปลี่ยนจากสายอากาศ
+                                        Search มาเป็นสายอากาศ Track โดยได้จากวงจร Track Processor</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เขียว / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๙ ค. : ปุ่มไฟแสดง "Track"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟแสดงสีเขียวติดเมื่อ WCG คอมพิวเตอร์พบว่าสายอากาศ Track
+                                        กําลังติดตาม
+                                        เป้า </span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เขียว / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๙ ง. : ปุ่มไฟแสดง "Recommend Fire"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟแสดงติดสีเหลืองเมื่อโปรแกรมปฏิบัติการ (Operational
+                                        Program ) แนะนํา
+                                        ให้พนักงาน LCP กดปุ่มยิง หรือข้อมูล PAC Fire ถูกค้นพบ (PAC MODE)</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เหลือง / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๙ จ. : ปุ่มไฟแสดง "Gun Firing"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">จะติดสีแดงเมื่อขณะทําการยิง</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">แดง / -</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -563,6 +844,68 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๑๐ : ภาคส่วนควบคุมการยิง "Fire Control Section"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมความปลอดภัยขณะทําการยิง </span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">บนแผงควบคุม RCP</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๐ ก. : สวิตช์ปุ่มกดไฟแสดง "Break Engage"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เมื่อกดปุ่มนี้จะสั่งให้ WCG
+                                        ขัดจังหวะการทํางานของโปรแกรมซึ่งทําการ
+                                        ประมวลผลข้อมูลที่ทําการต่อตีเป้าและกลับไปสู่การทํางานของสายอากาศ Search และไฟจะ
+                                        ติดสีขาวชั่วขณะเมื่อ WCG รับทราบคําสั่งนี้</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ขาว / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๐ ข. : สวิตช์ปุ่มกดไฟแสดง "Hold Fire"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span
+                                        class="span-after">เมื่อกดปุ่มนี้ไฟติดสีเหลืองแสดงว่ามีการขัดจังหวะวงจรไฟยิงเมื่อกดให้ดับแสดง
+                                        ว่าวงจรไฟยิงทํางาน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เหลือง / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๐ ค. : สวิตช์ปุ่มกดไฟแสดง "Pre Arm/Amn/Safe"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใช้สําหรับ Mode Air Ready
+                                        หรือสูงกว่าเป็นการเลือกสถานะของปืนว่า SAFE หรือ Armed ไฟ ARM/PRE ARM
+                                        ติดสีแดงแสดงว่าวงจรไฟยิงทํางานไฟ Safe ติดสีเขียว
+                                        แสดงว่าปืนอยู่ในตําแหน่ง Safe และเป็นการตัดวงจรไฟยิง</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label>
+                                    <span class="span-after">ปุ่มที่มีฝาครอบ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">แดง / -, เขียว / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๐ ง. : สวิตช์ปุ่มกดไฟแสดง "Fire"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เมื่อกดปุ่มนี้ในโหมดการทํางาน AAW MANUAL Mode
+                                        จะต่อวงจรไฟยิง ถ้าไฟ
+                                        RECOMMEND FIRE ติด ไฟติดสีแดงเมื่อ LCP รับทราบการต่อวงจรไฟยิงใน AAW AUTO,
+                                        AAW MANUAL หรือ SURFACE Mode</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label>
+                                    <span class="span-after">เปนสวิทช์แบบ กด - ปล่อย ที่มีฝาครอบ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">แดง / -</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -580,7 +923,23 @@
                             <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
-
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๑๑ : สวิตช์ปุ่มกดไฟแสดง "Normal Sector Null"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">ใช้ในกรณีที่มี CIWS หลายแท่น เพื่อป้องกันการต่อตีเป้าเดียวกัน OFF
+                                    ไฟติดสี
+                                    แดง ON ไฟติดสีเขียว</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บน RCP Power Panel</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label><span
+                                    class="span-after">AWW MANUAL และ AAW AUTO</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label><span
+                                    class="span-after">เป็นปุ่มที่มีฝาครอบ</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label><span
+                                    class="span-after">เขียว / แดง</span></div>
+                        </div>
+                    </div>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             ภาคส่วนควบคุมไฟแสดง "Intensity Control Section"
@@ -627,6 +986,30 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๑๒ : ภาคส่วนควบคุมไฟแสดง "Intensity Control Section"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมความเข้มของแสงหลอดไฟและจอ Read Out</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">บนตู้ RCP</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๒ ก. : ปุ่มปรับความสว่าง "Lamp"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ปรับแต่งความเข้มของหลอดไฟและสวิทช์แสดงผลต่างๆ บน RCP
+                                        ทั้งหมด</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๒ ข. : ปุ่มปรับความสว่าง "Readout"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ปรับแต่งความเข้มของตัวเลขทั้งหมดบน RCP</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -675,6 +1058,37 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๑๓ : สวิตช์ปุ่มกด "Lamp Test"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใช้สำหรับทดสอบหลอดไฟต่าง ๆ ในแบบ Primary/Alternate </span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">บนแผงควบคุม RCP Power Panel</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๓ ก. : สวิตช์ "Primary Color/Off/Alternate Color"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ประยุกต์ไฟเพื่อทดสอบหลอดไฟและตัวเลขแสดงผลทั้งหมดโดยทดสอบ
+                                        Primary หรือ Alternate Color</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ช.</label>
+                                    <span class="span-after">เพื่อประยุกต์ไฟเพื่อที่จะทดสอบหลอดไฟในแต่ละตำแหน่ง</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๓ ข. : สวิตช์ปุ่มกด "RCP"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">เลือก RCP เพื่อที่จะทําการทดสอบหลอดไฟ </span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -735,9 +1149,52 @@
                                 <label><input type="checkbox"> </label>
                                 <label><input type="checkbox" checked> </label>
                                 <label><input type="checkbox"> </label>
-                                <label><input type="checkbox" checked> </label>
+                                <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- คำตอบ: หัวข้อหลัก-->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๒.๑๔ : ภาคส่วนควบคุมการเดินระบบ "Power Control Section"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ประยุกต์และเลิกไฟให้กับ RCP </span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">บน RCP Power Panel</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๔ ก. : สวิตช์ "Power Off (avail)"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ลิกไฟให้กับ RCP ไฟแสดงสีเหลืองติดแสดงว่า Power
+                                        พร้อมที่จะใช้งาน </span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๔ ข. : สวิตช์ "Power On"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เมื่อกดปุ่มนี้ประยุกต์ไฟให้กับ RCP
+                                        ไฟติดสีขาวแสดงว่าได้ประยุกต์ไฟให้กับ
+                                        RCP แล้ว</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ขาว / -</span>
+                                </div>
+
+                                <div>๒๐๓.๒.๑๔ ค. : ปุ่มกด "CB1"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ในตําแหน่งกดลงแสดงว่าได้จ่ายไฟ 115V. 60Hz ไปยัง Power Off
+                                        (avail)
+                                        Switch และ Power On Switch</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">มาจากแผงสวิทช์บอร์ดเรือ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ฉ.</label>
+                                    <span class="span-after">ป้องกันการ Overload</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ หัวข้อหลัก-->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -755,12 +1212,38 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
-
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๒.๑๕ : มิเตอร์เวลา "Total Time"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">แสดงเวลาทั้งหมดที่เดินเครื่อง </span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">บน RCP Power Panel</span></div>
+                        </div>
+                    </div>
                 </ol>
+                <!-- ถึงข้อนี้ -->
                 <li style="font-weight: bold;">หลักการทํางาน</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๓.๓.">
                     <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๓.๑ : ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">RCP จะควบคุมและแสดงผลของระบบ CIWS โดยควบคุมจากห้องศูนย์ยุทธการ
+                                    (CIC)</span></div>
+
+                        </div>
+                    </div>
                     <li>เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๓.๓.๒ : ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ไม่สามารถควบคุมโหมดในการทํางานและการแสดงผล</span></div>
+
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย)</li>
                 <li style="font-weight: bold;">การเชื่อมต่อระบบ</li>
@@ -768,22 +1251,138 @@
                     <li>ถ้าขาดสิ่งดังต่อไปนี้จะมีผลกระทบต่อระบบอย่างไร</li>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                         <li>ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</li>
-                        <li>การส่งถ่ายข้อมูลภายใน Local Control Panel (LCP) ไม่ได้</li>
+                        <li>การส่งถ่ายข้อมูลภายใน Remote Control Panel (RCP) ไม่ได้</li>
+                        <div class="answer-wrapper" style="margin-left: -2.0ch;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๕.๑ ก. : ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                        class="span-after">ไม่สามารถเดินระบบ RCP ได้</span></div>
+                                <div>๒๐๓.๕.๑ ข. : การส่งถ่ายข้อมูลภายใน Remote Control Panel (RCP) ไม่ได้</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                        class="span-after">ไม่สามารถเดินระบบ RCP ได้</span></div>
+                            </div>
+                        </div>
                     </ol>
-                    <li>LCP ทํางานร่วมกับคอมพิวเตอร์ WCG อย่างไร</li>
                 </ol>
                 <li style="font-weight: bold;">ข้อระมัดระวังอันตราย</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๓.๖.">
                     <li>มีข้อระมัดระวังอันตรายอะไรบ้าง ในการปฏิ บัติงาน ดังต่อไปนี้</li>
                     <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                         <li>การเลือกโหมดการทํางาน AIR READY</li>
-                        <li>การเลือกควบคุมการหมุนแท่นยิงแบบ LOCAL</li>
                         <li>การเลือกขั้นการทํางาน AAW AUTO</li>
                         <li>การเปลี่ยนสวิทช์ PRE ARM/ARM/SAFE ไว้ตําแหน่ง ARM</li>
+                        <div class="answer-wrapper" style="margin-left: -2.0ch;">
+                            <div class="answer-box">
+                                <div>๒๐๓.๖.๑ ก. : การเลือกโหมดการทำงาน AIR READY</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">ต้องแน่ใจว่าบริเวณรอบๆ แท่นปืนต้องปราศจากผู้คนก่อนเลือกโหมดนี้ ต้องกด Mount Warning ประมาณ ๕ วินาที</span></div>
+
+                                <div>๒๐๓.๖.๑ ข. : การเลือกขั้นการทำงาน AAW AUTO</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">เมื่อเลือกโหมดนี้ต้องแน่ใจว่าต้องไม่มีอากาศยานหรือเรือฝ่ายเดียวกันอยู่อย่างน้อย ๖ ไมล์ในมุมที่ทำการต่อตีเป้า เพราะถ้าเลือกโหมดนี้ระบบ CIWS จะทำงานเต็มระบบตั้งแต่ค้นหา ตรวจจับ ติดตามต่อตีเป้า และทำการยิงโดยอัตโนมัติ</span></div>
+
+                                <div>๒๐๓.๖.๑ ค. : การเปลี่ยนสวิตช์ PRE ARM/ARM/SAFE ไว้ตำแหน่ง ARM</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox"></label><span class="span-after">เมื่อสวิตช์อยู่ในตำแหน่ง ARM จะมีการต่อวงจรไฟยิง การยิงอาจเกิดขึ้นได้ถ้าเงื่อนไขการยิงอื่นๆ พร้อม ต้องไม่เปลี่ยนสวิตช์ให้อยู่ในตำแหน่ง ARM นอกจากทำการยิง หรือได้รับอนุญาตจากผู้มีอำนาจหน้าที่เท่านั้น</span></div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
                     </ol>
                 </ol>
         </div> <!-- /content -->
     </div> <!-- /container -->
+
+    <!-- คำตอบ: หัวข้อหลัก-->
+    <!-- <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๒.x.x :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ก. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ข. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ค. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ง. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x จ. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ฉ. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ช. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ซ. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ฌ. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+
+                                <div>๒๐๒.x.x ญ. :</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ใส่คำตอบที่นี่</span>
+                                </div>                                
+                            </div>
+                        </div> -->
+    <!-- จบคำตอบ หัวข้อหลัก-->
 
 </body>
 
