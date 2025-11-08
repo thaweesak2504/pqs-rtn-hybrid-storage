@@ -15,7 +15,8 @@
         <div class="section">
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="205">
                 <li class="section-title">ระบบโหลดโปรแกรม การทํางาน Solid State Tape Emulator (SSTE)</li>
-                <div class="section-content">เอกสารออ้างอิง :</div>
+                <div class="section-content">เอกสารออ้างอิง :<span style="margin-left: 23em;"><button
+                            class="toggle-all-btn" onclick="toggleAllAnswers()">แสดงคำตอบ</button></span></div>
                 <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                     <li>Technical Manual Solid State Tape Emulator (SSTE)</li>
                 </ol>
@@ -25,6 +26,14 @@
                 <li style="font-weight: bold;">หน้าที่</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๕.๑.">
                     <li>ระบบนี้ทําหน้าที่อะไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๑.๑ : ระบบนี้ทําหน้าที่อะไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">เก็บโปรแกรมการทํางานของระบบ และข้อมูลการทํางาน</span></div>
+                        </div>
+
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li>
                 <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์
@@ -53,6 +62,24 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <!-- เริ่มคำตอบ -->
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๒.๑ : SSTE Assembly"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                <span class="span-after">เก็บโปรแกรมการทํางานของระบบ เพื่อโหลดเข้าสู่ระบบ
+                                    และเก็บข้อมูลสถานะ
+                                    ของระบบต่างๆ ใช้ทดแทนการโหลดจากตลับเทปโปรแกรมเดิม</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                <span class="span-after">ไฟฟ้าเรือ 115V.ac 60Hz Single Phase</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                <span class="span-after">ไฟแสดงสถานะ "Error" จะติดสว่างสีแดง</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- จบคำตอบ -->
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             ไฟแสดงสถานะ "SSTE Status Indicator"
@@ -63,6 +90,7 @@
                             <label><input type="checkbox"> </label>
                             <label><input type="checkbox"> </label>
                         </span>
+
                     </li>
                     <ol class="thai-alphabetic li-marker-gap" lang="th" start="1" style="margin-left: 10ch;">
                         <li class="li-checkbox-row">
@@ -98,6 +126,42 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๕.๒.๒ : ไฟแสดงสถานะ "SSTE Status Indicator"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงสถานการทํางานของ SSTE</span>
+                                </div>
+
+                                <div>๒๐๕.๒.๒ ก. : ไฟแสดงสถานะ "Status Go"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงสถานการทํางานปกติ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label>
+                                    <span class="span-after">สีเขียว</span>
+                                </div>
+
+                                <div>๒๐๕.๒.๒ ข. : ไฟแสดงสถานะ "Error"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงการทํางานผิดปกติ มีข้อขัดข้องเกิดขึ้น</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label>
+                                    <span class="span-after">สีแดง</span>
+                                </div>
+
+                                <div>๒๐๕.๒.๒ ค. : ไฟแสดงสถานะ "Busy"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">กระพริบเมื่อกําลังมีการถ่ายโอนข้อมูลระหว่าง SSTE กับระบบ
+                                        CIWS</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">กระพริบสีเขียว</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
                     </li>
                     <li class="li-checkbox-row">
@@ -111,6 +175,14 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๒.๓ : สวิตช์โหลดโปรแกรม "Program Load"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">กดสวิตช์เริ่มต้นโหลดโปรแกรมจาก SSTE</span>
+                            </div>
+                        </div>
+                    </div>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             ช่องเชื่อมต่อกับระบบ "System Interface Connector"
@@ -122,6 +194,14 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๒.๔ : ช่องเชื่อมต่อกับระบบ "System Interface Connector"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">เชื่อมต่อสายสัญญาณข้อมูลระหว่าง SSTE กับระบบ CIWS</span>
+                            </div>
+                        </div>
+                    </div>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             ช่องเชื่อมต่อ RS-232 "RS -232 Interface Connector"
@@ -133,6 +213,14 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๒.๕ : ช่องเชื่อมต่อ RS-232 "RS -232 Interface Connector"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">เชื่อมต่อกับคอมพิวเตอร์ภายนอกเพื่อโหลดโปรแกรมให้กับ SSTE</span>
+                            </div>
+                        </div>
+                    </div>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             แผ่นโปรแกรม CD
@@ -144,22 +232,75 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๒.๖ : แผ่นโปรแกรม CD</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">บรรจุโปรแกรมการทํางานของระบบ CIWS ที่ติดตั้งใน ทร. ไทย
+                                    เท่านั้น</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
-
+                <!-- ถึงตรงนี้แล้ว -->
                 <li style="font-weight: bold;">หลักการทํางาน</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๕.๓.">
                     <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๓.๑ : ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ภายใน SSTE จะเก็บโปรแกรมการทํางานของระบบ CIWS ต้องโหลดโปรแกรมให้
+                                    ระบบ CIWS ก่อน</span></div>
+                        </div>
+                    </div>
                     <li>เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๓.๒ : เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ไฟแสดงสถานะ "Error" จะติดสว่างสีแดง
+                                    หรือไม่มีการแสดงของไฟแสดงต่างๆ เลย</span></div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย)</li>
                 <li style="font-weight: bold;">การเชื่อมต่อระบบ</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๕.๕.">
                     <li>SSTE ทํางานเชื่อมต่อกับคอมพิวเตอร์ของระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๕.๑ : SSTE ทํางานเชื่อมต่อกับคอมพิวเตอร์ของระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ด้วยสายเชื่อมตอสัญญาณข้อมูล SSTE
+                                    จะถ่ายโอนโปรแกรมที่บรรจุอยู่ภายในไปเก็บไว้
+                                    ในคอมพิวเตอร์ของระบบ CIWS</span></div>
+                        </div>
+                    </div>
                     <li>SSTE เชื่อมต่อกับคอมพิวเตอร์ภายนอกได้อย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๕.๒ : SSTE เชื่อมต่อกับคอมพิวเตอร์ภายนอกได้อย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after"></span>ด้วยสายเชื่อมต่อข้อมูลแบบ RS-232
+                                ทําให้สามารถใช้คอมพิวเตอร์ทั่วไปที่มีหัวต่อแบบ
+                                นี้โหลดโปรแกรมจากแผ่น CD เข้าสู่ SSTE ได้</span></div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ข้อระมัดระวังอันตราย</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๕.๖.">
                     <li>มีข้อระมัดระวังอันตรายอะไรบ้างในการใช้งาน SSTE</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๕.๖.๑ : มีข้อระมัดระวังอันตรายอะไรบ้างในการใช้งาน SSTE</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">อุปกรณ์อิเล็กทรอนิกส์ภายในของ SSTE
+                                    เป็นประเภทที่ไวต่อผลกระทบของไฟฟ้าสถิตย์
+                                    มาก (ElectroStatic Discharge Sensitive:ESDS) การจับต้องอุปกรณ์ดังกล่าวต้องทำอย่าง
+                                    ระมัดระวังและเป็นไปตามมาตรฐาน MIL-STD-1686</span></div>
+                        </div>
+                    </div>
                 </ol>
             </ol>
         </div>

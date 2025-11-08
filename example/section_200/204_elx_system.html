@@ -7,7 +7,7 @@
     <title>204 Electronics Unit</title>
     <link rel="stylesheet" href="../example_styles/sections.css">
     <script src="../example_styles/sections.js"></script>
-    
+
 </head>
 
 <body>
@@ -15,7 +15,8 @@
         <div class="section"> <!-- Root section -->
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="204">
                 <li class="section-title">ระบบอิเล็กทรอนิคส์ Electronics (ELX) Enclosure System</li>
-                <div class="section-content">เอกสารออ้างอิง :</div>
+                <div class="section-content">เอกสารออ้างอิง :<span style="margin-left: 23em;"><button
+                            class="toggle-all-btn" onclick="toggleAllAnswers()">แสดงคำตอบ</button></span></div>
                 <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                     <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.1 Pt.1,2</li>
                     <li>NAVSEA OP4154 CIWS Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
@@ -32,6 +33,14 @@
                 <!-- Sub-list 204.1 -->
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๔.๑.">
                     <li>ระบบนี้ทําหน้าที่อะไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๔.๑.๑ : ระบบนี้ทําหน้าที่อะไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">เป็นที่ติดตั้งของระบบอิเล็กทรอนิกส์ มีการป้องกันมิดชิดและมีระบบรักษาอุณภูมิ</span></div>
+                        </div>
+
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li> <!-- Main-list 20x.2 -->
                 <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์
@@ -103,6 +112,46 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๑ : (2A1) Elevation Servo Electronics Removable Unit</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมแท่นปืนทางกระดก</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">มุมบนด้านซ้ายของตู ELX (2A1)</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๑ ก. : สวิตช์ "Reset/Norm/Disable"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ในแต่ละตำแหน่งมีหน้าที่ ดังนี้</span>
+                                    <ol style="list-style-type: thai;">
+                                        <li>Reset : เพื่อรีเซ็ต Elevation Status GO หลังจากมีการขัดจังหวะ</li>
+                                        <li>Norm : เป็นตำแหน่งการทำงานปกติ</li>
+                                        <li>Disable : เป็นการขัดจังหวะวงจร Mount Elevation Drive Circuit ส่วนของ
+                                            วงจรอื่นสามารถทดสอบได้ตามปกติ</li>
+                                    </ol>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">มุมล่างซ้ายของ 2A1</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label>
+                                    <span class="span-after">เป็น Toggle Switch แบบ ๓ ตำแหน่ง</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๑ ข. : ไฟแสดง "Status Go"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟติดสีเขียวเมื่อสถานะปืนทางกระดกพร้อมและสามารถกระดกปืน
+                                        ขึ้นลงได้</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">มุมบนด้านขวา</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -151,6 +200,46 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๒ : (2A4) Train Servo Electronic Removable Unit</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมแท่นปืนทางหัน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ใต้ Elevation Servo Electronic Removable Unit</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๒ ก. : สวิตช์ "Reset/Norm/Disable"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ในแต่ละตำแหน่งมีหน้าที่ ดังนี้</span>
+                                    <ol style="list-style-type: thai;">
+                                        <li>Reset : เพื่อรีเซ็ต Elevation Status GO หลังจากมีการขัดจังหวะ</li>
+                                        <li>Norm : เป็นตำแหน่งการทำงานปกติ</li>
+                                        <li>Disable : เป็นการขัดจังหวะวงจร Mount Elevation Drive Circuit ส่วนของ
+                                            วงจรอื่นสามารถทดสอบได้ตามปกติ</li>
+                                    </ol>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ที่มุมล่างด้านซ้าย</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">จ.</label>
+                                    <span class="span-after">เป็นสวิทช์แบบ Toggle ๓ ทาง</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๒ ข. : ไฟแสดง "Status Go"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงสถานะเพื่อบอกว่าสถานะของแท่นปืนพร้อมที่จะหันซ้าย -
+                                        ขวาได้</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ด้านบนขวาของตู้อุปกรณ์ 2A4</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -214,6 +303,47 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๓ : (2A5) Gun Control Unit (GCU) Removable Unit</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมการจ่ายไฟและคําสั่งต่างๆ
+                                        ไปยังปืนพร้อมทั้งบอกสถานะของปืน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ด้านล่างซ้ายของตู้อุปกรณ์ ELX</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๓ ก. : ไฟแสดง "System Status Go"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟติดสีเขียวเมื่อสถานะของปืนพร้อม (GO)</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ด้านบนสุดซ้าย</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๓ ข. : สวิตช์กุญแจ "Fire Intergrity"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ในตําแหน่ง Open จะตัดไฟยิงไปยังปืน ในตําแหน่ง Close
+                                        จะต่อไฟยิงให้กับปืน
+                                        ปกติต้องอยู่ในตําแหน่ง Open จะเปลี่ยนเป็น Close ก่อนทําการยิงเท่านั้น</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านบนสุดด้านขวาของ 2A5</span>
+                                </div>
+                                <div>๒๐๔.๒.๓ ค. : สวิตช์ "Gun Maintenance Clear Command"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">จะกดก็ต่อเมื่ออยู่ในโหมด AIR Ready หรือสูงกว่าจะเป็นการ
+                                        Disable ไฟยิง แต่ปืนจะมีอาการ Cycle เหมือนทําการยิงทุกประการ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ด้านบนกลางของ 2A5</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -262,6 +392,59 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๔ : (2A8) Weapon Control Group (WCG) Unit</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ประมวลผลข้อมูลทางเข้าและส่งข้อมูลออกให้ระบบย่อยต่างๆ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านขวาของตู้ ELX</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๔ ก. : สวิตช์ควบคุม "Test Set"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ในตําแหน่ง Enable
+                                        จะยอมให้มีการทดสอบระบบแต่จะไม่ยอมให้มีการอาน
+                                        ข้อมูลจาก ROM ในตําแหน่ง Disable จะเป็นการ Disable วงจรทดสอบ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านล่างซ้ายของ 2A8</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label>
+                                    <span class="span-after">Enable/Disable</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ช.</label>
+                                    <span class="span-after">ในตําแหน่ง Enable ยอมให้วงจรทดสอบทํางาน ในตําแหน่ง Disable
+                                        ไม่ยอมให้
+                                        วงจรทดสอบ ทํางาน</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">Disable</span>
+
+                                    <div>๒๐๔.๒.๔ ข. : สวิตช์ "Computer Mode"</div>
+                                    <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                        <span class="span-after">เปลี่ยนให้คอมพิวเตอร์อยู่ในตำแหน่ง Stop หรือ Run
+                                            ไฟสีแดงติดแสดงว่าอยู่ใน
+                                            ตำแหน่ง Run</span>
+                                    </div>
+                                    <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                        <span class="span-after">ด้านล่างขวาของ 2A8</span>
+                                    </div>
+                                    <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label>
+                                        <span class="span-after">Stop/Run</span>
+                                    </div>
+                                    <div><label><input type="checkbox" checked class="answer-checkbox">ช.</label>
+                                        <span class="span-after">Run ยอมให้การทำงานเป็นไปอย่างปกติ Stop หยุดการทำงานของ
+                                            คอมพิวเตอร์</span>
+                                    </div>
+                                    <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                        <span class="span-after">Run</span>
+
+                                    </div>
+                                </div>
+                                <!-- จบคำตอบ -->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -310,6 +493,49 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๕ : (2A15) Junction Box</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เป็นที่ติดตั้ง CBS1, 2 (MODS 1-4,6) เป็นที่ติดตั้ง CB1
+                                        (MODS 11-14)</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านขวาของตู้ ELX</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๕ ก. : สวิตช์ "CB1"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมไฟ 440V. 60Hz 3 เฟส ไฟ EM ให้กับระบบ CIWS</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ภายใน 2A15</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ฉ.</label>
+                                    <span class="span-after">ป้องกันการ Overload</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ตําแหน่ง ON (ผลักขึ้น)</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๕ ข. : สวิตช์ "CB2"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมไฟ 440V. 60Hz 3 เฟส ไฟ ELX ให้กับระบบ CIWS</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ภายใน 2A15</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ฉ.</label>
+                                    <span class="span-after">ป้องกันการ Overload</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ตำแหน่ง ON (ผลักขึ้น)</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -343,7 +569,31 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๖ : (2A6A1) Power Supply and Control Group (PSCG) Panel</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมไฟการแจกจ่ายไฟทางออกของ PSCG</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านซ้ายล่างของตู้ ELX</span>
+                                </div>
 
+                                <div>๒๐๔.๒.๖ ก. : สวิตช์ "CBS 1-9"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมการจ่ายไฟให้กับระบบย่อยต่างๆ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านหน้า 2A6A1</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ตําแหน่ง ON (ผลักขึ้น)</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -376,7 +626,30 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๗ : (2A12A1) PSCG Panel</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมการแจกจ่ายไฟทางออกของ PSCG</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านล่างขวาของตู้ ELX</span>
+                                </div>
 
+                                <div>๒๐๔.๒.๗ ก. : สวิตช์ "CBS 1-9"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมการจ่ายไฟ 440Vac</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านหน้าของ 2A12A1</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ซ.</label>
+                                    <span class="span-after">ในตำแหน่ง ON (กดเข้า)</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
 
                     <li class="li-checkbox-row">
@@ -425,6 +698,38 @@
                                 <label><input type="checkbox"> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๔.๒.๘ : (2A13) Liquid to Liquid Heat Exchanger</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span
+                                        class="span-after">เป็นอุปกรณ์ระบายความร้อนจากสารหล่อเย็นไปยังน้ำทะเลแล้วระบายออกนอก
+                                        ตัวเรือ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านซ้ายมือของตู้ ELX</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๘ ก. : M-1 Flow Meter</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงจํานวนอัตราการไหลของน้ําทะเล (20-25 gpm)</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">อยู่ด้านล่าง Heat Exchange</span>
+                                </div>
+
+                                <div>๒๐๔.๒.๘ ข. : V-1 Globe Valve</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมอัตราการไหลของน้ําทะเลที่ผ่าน Heat Exchanger</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ใต้ตู้ ELX</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
@@ -441,10 +746,36 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๔.๒.๙ : (2A16) Suppressor Assembly Indicator</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">แสดงผลว่าไฟ 440V.ac 3 เฟส ที่จะจ่ายให้ระบบ CIWS
+                                    พร้อมใช้งาน</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">ด้านล่างขวาของตู้ ELX</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label><span
+                                    class="span-after">แผงสวิตช์บอร์ดในเรือ</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
+
                 <li style="font-weight: bold;">หลักการทํางาน</li> <!-- Main-list 20x.3 -->
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๔.๓.">
                     <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๔.๒.๙ : ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">มีการจ่ายไฟสัญญาณคําสั่งควบคุมและป้องกันอุปกรณ์อิเล็กทรอนิกส์จาก
+                                    สภาพแวดล้อมภายนอก</span>
+                            </div>
+
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน</li> <!-- Main-list 20x.4 -->
                 <div class="section-content" style="margin-left: 5.5ch;">อธิบายถึงค่าการทํางานปกติ ค่าสูงสุด ต่ำสุด
@@ -473,6 +804,20 @@
                             <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๔.๔.๑ : มิเตอร์ M -1 Flowmeter</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label><span
+                                    class="span-after">๒๐-๒๕ แกลลอนต่อนาที</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label><span
+                                    class="span-after">๑๐-๒๕ แกลลอนต่อนาที</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label><span
+                                    class="span-after">อยู่ใต้ชุดระบายความร้อนของเหลวสู่ของเหลว (Liquid to Liquid Heat
+                                    Exchanger)</span></div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ง.</label><span
+                                    class="span-after">น้อยกว่า ๑๐ แกลลอนต่อนาที</span></div>
+                        </div>
+                    </div>
                 </ol>
 
                 <li style="font-weight: bold;">การเชื่อมต่อระบบ</li> <!-- Main-list 20x.5 -->
@@ -482,10 +827,28 @@
                         <li>ไม่มีน้ำหล่อเย็นจากภายนอก</li>
                         <li>ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</li>
                     </ol>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๔.๕.๑ ก. : ไม่มีน้ำหล่อเย็นจากภายนอก</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">เป็นสาเหตุทำให้อุปกรณ์อิเล็กทรอนิกส์ภายในร้อนเกินไป</span></div>
+                            <div>๒๐๔.๕.๑ ข. : ไม่มีไฟฟ้าเรือจ่ายให้กับระบบ</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ELX Enclosure ไม่ทํางาน</span></div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ข้อระมัดระวังอันตราย</li> <!-- Main-list 20x.6 -->
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๔.๖.">
                     <li>มีข้อระมัดระวังอันตรายเกี่ยวกับ Fire Integrity Key Switch</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๔.๖.๑ : มีข้อระมัดระวังอันตรายเกี่ยวกับ Fire Integrity Key Switch</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ต้องแน่ใจว่าสวิทช์อยู่ในตำแหน่ง Open จนกว่าจะทำการยิง</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
             </ol> <!-- End of Main-list 20x -->
         </div> <!-- .section-content -->

@@ -373,8 +373,8 @@
         /* Style สำหรับ คำตอบ แบบ ซ่อน/แสดง (Show/Hide Answers) ทั้งหมด */
 
         .answer-wrapper {
-            /* display: none; ใช้ block ชั่วคราว เพื่อให้แสดงตอน save code จะได้เห็นเลย*/
-            display: block;
+            display: none;
+            /* display: block; ยกเลิกการใช้ block เมื่อเสร็จแล้ว*/
             margin-left: 5em;
             margin-top: 5px;
             /* max-width: 600px; */

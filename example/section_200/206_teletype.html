@@ -9,12 +9,14 @@
     <script src="../example_styles/sections.js"></script>
 
 </head>
+
 <body>
     <div class="content">
         <div class="section">
             <ol class="thai-numerals li-marker-gap marker-bold gap-lg" lang="th" start="206">
                 <li class="section-title">ระบบเครื่องพิมพ์ Teletype (KSR 43) System</li>
-                <div class="section-content">เอกสารออ้างอิง :</div>
+                <div class="section-content">เอกสารออ้างอิง :<span style="margin-left: 23em;"><button
+                            class="toggle-all-btn" onclick="toggleAllAnswers()">แสดงคำตอบ</button></span></div>
                 <ol class="thai-alphabetic" lang="th" start="1" style="margin-left: 7ch;">
                     <li>NAVSEA OP4154 Close In Weapon System Mk.15 Mods 1-6 (Phalanx) Vol.2</li>
                     <li>TTeletype Corporation How to Operate Manual 367</li>
@@ -25,6 +27,14 @@
                 <li style="font-weight: bold;">หน้าที่</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๖.๑.">
                     <li>ระบบนี้ทําหน้าที่อะไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๑.๑ : ระบบนี้ทําหน้าที่อะไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">เพื่อติดต่อกับคอมพิวเตอร์โดยการป้อนข้อมูลเข้าและแสดงผลข้อมูลโดยการพิมพ์ข้อมูลออกมาเพื่อดูข้อมูล</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ</li>
                 <div class="section-content" style="margin-left: 9ch;">อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์
@@ -146,6 +156,122 @@
                                 <label><input type="checkbox" checked> </label>
                             </span>
                         </li>
+                        <!-- เริ่มคำตอบ -->
+                        <div class="answer-wrapper" style="margin-left: 0em;">
+                            <div class="answer-box">
+                                <div>๒๐๖.๒.๑ : ส่วนควบคุมและแสดงผล "Control and Status"</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">เพื่อป้อนข้อมูลติดต่อสื่อสาร/โหมดในการทํางาน และ
+                                        การทดสอบการซอม
+                                        บํารุงรักษา</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">ด้านหน้าของ Teletype</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ก. : Local</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ยอมให้มีการป้อนข้อมูลแบบ Local</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนซ้าย</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ไฟไม่ติด</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ข. : DATA</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ยอมให้มีการป้อนข้อมูล/และแสดงผลข้อมูล</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนซ้าย</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ปกติไฟติด</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ค. : TERM READY</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">แสดงสถานะ Terminal Operating Status</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนซ้าย</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ไฟไม่ติด</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ง. : INTRPT</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ขัดจังหวะการส่งข้อมูล</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนซ้าย</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ไฟไม่ติดสว่าง</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ จ. : ALARM</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ไฟติดเมื่อมีเงื่อนไข Alarm</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนซ้าย</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ไฟไม่ติด</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ฉ. : PRITER TEST</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ยอมให้มีการทดสอบ Teletype โดยอิสระ</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนขวา</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ไฟไม่ติดสว่าง</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ช. : PARITY</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ยอมให้มีการทดสอบ Teletype</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนขวา</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ปกติกดขึ้น</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ซ. : Duplex</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span class="span-after">ควบคุมโหมดในการรับ-ส่งข้อมูล Teletype</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนขวา</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">ปกติกดลง</span>
+                                </div>
+
+                                <div>๒๐๖.๒.๑ ฌ. : CPS (Character Per Second)</div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                    <span
+                                        class="span-after">เพื่อร่วมจังหวะข้อมูลระหว่างตัวส่งตัวรับเป็นไปอย่างถูกต้อง</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                    <span class="span-after">แผงด้านบนขวา</span>
+                                </div>
+                                <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                    <span class="span-after">กดลง</span>
+                                </div>
+
+                            </div>
+                        </div>
+                        <!-- จบคำตอบ -->
                     </ol>
                     </li>
                     <li class="li-checkbox-row">
@@ -158,6 +284,20 @@
                             <label><input type="checkbox" checked> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๒.๒ : สวิตช์ "ON/OFF"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                <span class="span-after">จ่ายและเลิกไฟ AC ให้กับ Teletype</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                <span class="span-after">มุมด้านล่างซ้าย (ด้านหลัง)</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ค.</label>
+                                <span class="span-after">ตําแหน่ง ON</span>
+                            </div>
+                        </div>
+                    </div>
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             ปุ่มแป้นพิมพ์ "Keyboard"
@@ -168,6 +308,18 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๒.๓ : ปุ่มแป้นพิมพ์ "Keyboard"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                <span class="span-after">ยอมให้มีการป้อนข้อมูล</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                <span class="span-after">อยู่ใต้ Operational Controls and Status Indicators</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <li class="li-checkbox-row">
                         <div class="li-checkbox-question">
                             ตลับผ้าหมึก "Ribbon Cartridge"
@@ -178,22 +330,73 @@
                             <label><input type="checkbox"> </label>
                         </span>
                     </li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๒.๔ : ตลับผ้าหมึก "Ribbon Cartridge"</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ก.</label>
+                                <span class="span-after">ทําให้การพิมพ์ข้อมูลออกมาชัดเจน</span>
+                            </div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox">ข.</label>
+                                <span class="span-after">อยู่ภายใน Teletype</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
 
                 <li style="font-weight: bold;">หลักการทํางาน</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๖.๓.">
                     <li>ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๓.๑ : ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">ป้อนข้อมูล - พิมพ์ข้อมูลแสดงผล</span>
+                            </div>
+                        </div>
+                    </div>
                     <li>เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๓.๒ : เมื่อระบบขัดข้องหรือทํางานผิดปกติ มีอะไรเป็นสิ่งบอกเหตุ</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">Printer ไม่สามารถทํางานในโหมด Local  หรือ Remote ได้</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน (ไม่ต้องอธิบาย)</li>
                 <li style="font-weight: bold;">การเชื่อมต่อระบบ</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๖.๕.">
                     <li>ถ้าไม่มีไฟฟ้ากําลังจ่ายให้กับ Teletype จะมีผลกระทบต่อระบบอย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๕.๑ : ถ้าไม่มีไฟฟ้ากําลังจ่ายให้กับ Teletype จะมีผลกระทบต่อระบบอย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">Printer ไม่สามารถทํางานในโหมด Local  หรือ Remote ได้</span>
+                            </div>
+                        </div>
+                    </div>
                     <li>Teletype ทํางานร่วมกับ Tape Control Mk. 179 อย่างไร</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๕.๒ : Teletype ทํางานร่วมกับ Tape Control Mk. 179 อย่างไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">โดยการรับ - ส่ง ข้อมูลซึ่งกันและกัน</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
                 <li style="font-weight: bold;">ข้อระมัดระวังอันตราย</li>
                 <ol class="thai-numerals li-marker-gap gap-sm" lang="th" start="1" data-prefix="๒๐๖.๖.">
                     <li>มีข้อระมัดระวังอันตรายอย่างไรในการเปลี่ยนตลับ Ribbon</li>
+                    <div class="answer-wrapper" style="margin-left: 5.2em;">
+                        <div class="answer-box">
+                            <div>๒๐๖.๖.๑ : ระบบนี้ทําหน้าที่อะไร</div>
+                            <div><label><input type="checkbox" checked class="answer-checkbox"></label><span
+                                    class="span-after">เพื่อติดต่อกับคอมพิวเตอร์โดยการป้อนข้อมูลเข้าและแสดงผลข้อมูลโดยการพิมพ์ข้อมูลออกมาเพื่อดูข้อมูล</span>
+                            </div>
+                        </div>
+                    </div>
                 </ol>
             </ol>
         </div>
