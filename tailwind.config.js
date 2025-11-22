@@ -3,6 +3,7 @@ export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
+    "./example/**/*.{js,ts,jsx,tsx,html}", // เพิ่ม path นี้เพื่อให้ Tailwind สแกนหา class ในโฟลเดอร์ example
   ],
   darkMode: 'class',
   theme: {
