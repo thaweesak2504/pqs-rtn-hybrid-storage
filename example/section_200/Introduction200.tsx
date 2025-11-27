@@ -61,7 +61,8 @@ const Introduction200: React.FC = () => {
   return (
     <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
       <div
-        className="bg-white shadow-lg text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2cm_1cm_2cm_2.5cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8]">
+        // className="bg-white shadow-lg text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2cm_1cm_2cm_2.5cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8]">
+        className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
         <div className="mb-8">
           <h1 className='font-bold text-center text-lg'>
             แนะระบบ (หัวข้อ ๒๐๐)
@@ -78,7 +79,7 @@ const Introduction200: React.FC = () => {
                   className="text-justify indent-8 font-normal mt-1 whitespace-pre-line">
                   {section.content.replace(/\s+/g, ' ').trim()}
                 </div>
-                
+
                 {/* Nested List for Section 3 (index 2) */}
                 {section.subItems && (
                   <ol className="list-none mt-2 space-y-1 ml-8">

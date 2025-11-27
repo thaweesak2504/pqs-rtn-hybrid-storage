@@ -45,7 +45,8 @@ const Introduction100: React.FC = () => {
   return (
     <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
       <div
-        className="bg-white shadow-lg text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2cm_1cm_2cm_2.5cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8]">
+        // className="bg-white shadow-lg text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2cm_1cm_2cm_2.5cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8]">
+        className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
         {/* ใช้ className แทนการกำหนด style widht '210mm', minHeight: '297mm', padding:'2.0cm 1.0cm 2.0cm 2.5cm', fontFamily:'TH Sarabun New', lineHeight:'1.8' */}
         <div className="mb-8">
           <h1 className='font-bold text-center text-lg'> {/* ใช้ text-lg แทนการกำหนดขนาดฟอนต์ด้วย style ซึ่ง text-lg จะเท่ากับ 18px */}
@@ -74,13 +75,3 @@ const Introduction100: React.FC = () => {
 };
 
 export default Introduction100;
-
-// สิ่งที่ทำไป:
-// แก้ไข tailwind.config.js:
-
-// เพิ่ม path "./example/**/*.{js,ts,jsx,tsx,html}" เข้าไปใน content configuration
-// สาเหตุ: เนื่องจากไฟล์ Introduction100.tsx อยู่นอกโฟลเดอร์ src ทำให้ Tailwind ไม่ได้เข้าไปอ่าน class ที่เขียนไว้ (เช่น gap-[2ch]) ส่งผลให้ style ไม่ถูกนำมาใช้
-// แก้ไข Introduction100.tsx:
-
-// เพิ่ม style={{ gap: '2ch' }} เข้าไปที่ <li> โดยตรง
-// สาเหตุ: เพื่อให้มั่นใจว่าระยะห่างจะแสดงผลทันทีโดยไม่ต้องรอให้ระบบ Build ตรวจจับการเปลี่ยนแปลง Config ใหม่ (ซึ่งบางครั้งอาจต้อง Restart Server)
