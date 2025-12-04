@@ -9,11 +9,13 @@ import Precautions101 from '../../../example/section_100/101Precautions'
 import OrdnanceSafety102 from '../../../example/section_100/102OrdnanceSafety'
 import Abbreviation103 from '../../../example/section_100/103Abbreviation'
 import CiwsBasic104 from '../../../example/section_100/104CiwsBasic'
+import RadarWeapon201 from '../../../example/section_200/201RadarWeapon'
+
 import { BookOpen, Home } from 'lucide-react'
 
 const VisitorPage: React.FC = () => {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<'home' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104' | 'radarWeapon201'>('home')
 
   const renderContent = () => {
     switch (activeTab) {
@@ -33,6 +35,9 @@ const VisitorPage: React.FC = () => {
         return <Abbreviation103 />
       case 'ciwsBasic104':
         return <CiwsBasic104 />
+      case 'radarWeapon201':
+        return <RadarWeapon201 />
+
       case 'home':
       default:
         return (
@@ -87,26 +92,6 @@ const VisitorPage: React.FC = () => {
               Introduction Pqs
             </button>
             <button
-              onClick={() => setActiveTab('introduction100')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'introduction100'
-                ? 'bg-github-bg-active text-github-text-primary'
-                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
-                }`}
-            >
-              <BookOpen className="mr-3 h-5 w-5" />
-              Introduction 100
-            </button>
-            <button
-              onClick={() => setActiveTab('introduction200')}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'introduction200'
-                ? 'bg-github-bg-active text-github-text-primary'
-                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
-                }`}
-            >
-              <BookOpen className="mr-3 h-5 w-5" />
-              Introduction 200
-            </button>
-            <button
               onClick={() => setActiveTab('introduction300')}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'introduction300'
                 ? 'bg-github-bg-active text-github-text-primary'
@@ -114,7 +99,17 @@ const VisitorPage: React.FC = () => {
                 }`}
             >
               <BookOpen className="mr-3 h-5 w-5" />
-              Introduction 300
+              300 Introduction
+            </button>
+            <button
+              onClick={() => setActiveTab('introduction100')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'introduction100'
+                ? 'bg-github-bg-active text-github-text-primary'
+                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
+                }`}
+            >
+              <BookOpen className="mr-3 h-5 w-5" />
+              100 Introduction
             </button>
             <button
               onClick={() => setActiveTab('precautions101')}
@@ -155,6 +150,27 @@ const VisitorPage: React.FC = () => {
             >
               <BookOpen className="mr-3 h-5 w-5" />
               104 Basic CIWS System
+            </button>
+
+            <button
+              onClick={() => setActiveTab('introduction200')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'introduction200'
+                ? 'bg-github-bg-active text-github-text-primary'
+                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
+                }`}
+            >
+              <BookOpen className="mr-3 h-5 w-5" />
+              200 Introduction
+            </button>
+            <button
+              onClick={() => setActiveTab('radarWeapon201')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'radarWeapon201'
+                ? 'bg-github-bg-active text-github-text-primary'
+                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
+                }`}
+            >
+              <BookOpen className="mr-3 h-5 w-5" />
+              201 Radar Weapon
             </button>
           </nav>
         </div>

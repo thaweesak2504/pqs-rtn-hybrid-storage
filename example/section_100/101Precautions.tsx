@@ -175,7 +175,7 @@ const Precautions101: React.FC = () => {
       <div className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
         <div className="mb-4">
           <div className="flex mb-4">
-            <div className="font-bold text-lg min-w-[7ch]">๑๐๑.</div>
+            <div className="font-bold text-lg min-w-[7ch]">๑๐๑</div>
             <div className="flex-1">
               <h1 className="font-bold text-lg mb-2">ข้อควรระมัดระวังอันตรายพื้นฐาน</h1>
 
