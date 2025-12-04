@@ -1,10 +1,10 @@
-import { 
-  Home, 
-  History, 
-  Users, 
-  Star, 
-  Mail, 
-  LogIn, 
+import {
+  Home,
+  History,
+  Users,
+  Star,
+  Mail,
+  LogIn,
   LogOut,
   LayoutDashboard,
   Shield,
@@ -12,6 +12,7 @@ import {
   Crown,
   UserPlus,
   Archive,
+  BookOpen,
 } from 'lucide-react'
 
 // Route configuration for navigation
@@ -32,6 +33,7 @@ export const ROUTE_CONFIG = {
     signin: '/signin',
     registration: '/register',
     register: '/register',
+    pqs_example: '/visitor',
   }
 } as const
 
@@ -48,7 +50,8 @@ export const ROUTE_STATE_MAP = {
   '/contact': { activeItem: 'contact', expandedMenus: [] },
   '/signin': { activeItem: 'signin', expandedMenus: [] },
   '/register': { activeItem: 'register', expandedMenus: [] },
-  '/registration': { activeItem: 'register', expandedMenus: [] }
+  '/registration': { activeItem: 'register', expandedMenus: [] },
+  '/visitor': { activeItem: 'pqs_example', expandedMenus: [] }
 } as const
 
 // Menu item configuration
@@ -85,6 +88,11 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
       { id: 'highranks', label: 'High Ranks', icon: <Crown className="w-4 h-4" /> },
       { id: 'management', label: 'Database Management', icon: <Archive className="w-4 h-4" /> }
     ]
+  },
+  {
+    id: 'pqs_example',
+    label: 'Pqs Example',
+    icon: <BookOpen className="w-5 h-5" />
   },
   {
     id: 'contact',
@@ -124,15 +132,15 @@ export const getRouteForItem = (itemId: string, subItemId?: string): string | nu
   if (subItemId && ROUTE_CONFIG.welcome[subItemId as WelcomeRouteKey]) {
     return ROUTE_CONFIG.welcome[subItemId as WelcomeRouteKey]
   }
-  
+
   if (subItemId && ROUTE_CONFIG.admin[subItemId as AdminRouteKey]) {
     return ROUTE_CONFIG.admin[subItemId as AdminRouteKey]
   }
-  
+
   if (ROUTE_CONFIG.standalone[itemId as StandaloneRouteKey]) {
     return ROUTE_CONFIG.standalone[itemId as StandaloneRouteKey]
   }
-  
+
   return null
 }
 

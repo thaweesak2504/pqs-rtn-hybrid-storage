@@ -1,20 +1,20 @@
 import React, { useState } from 'react'
 import Container from '../ui/Container'
-import { useAuth } from '../../hooks/useAuth'
-import Introduction100 from '../../../example/section_100/Introduction100'
-import Introduction200 from '../../../example/section_200/Introduction200'
-import Introduction300 from '../../../example/section_300/Introduction300'
-import IntroductionPqs from '../../../example/section_001/IntroductionPqs'
-import Precautions101 from '../../../example/section_100/101Precautions'
-import OrdnanceSafety102 from '../../../example/section_100/102OrdnanceSafety'
-import Abbreviation103 from '../../../example/section_100/103Abbreviation'
-import CiwsBasic104 from '../../../example/section_100/104CiwsBasic'
-import RadarWeapon201 from '../../../example/section_200/201RadarWeapon'
+// import { useAuth } from '../../hooks/useAuth'
+import Introduction100 from '../../example/section_100/Introduction100'
+import Introduction200 from '../../example/section_200/Introduction200'
+import Introduction300 from '../../example/section_300/Introduction300'
+import IntroductionPqs from '../../example/section_001/IntroductionPqs'
+import Precautions101 from '../../example/section_100/101Precautions'
+import OrdnanceSafety102 from '../../example/section_100/102OrdnanceSafety'
+import Abbreviation103 from '../../example/section_100/103Abbreviation'
+import CiwsBasic104 from '../../example/section_100/104CiwsBasic'
+import RadarWeapon201 from '../../example/section_200/201RadarWeapon'
 
 import { BookOpen, Home } from 'lucide-react'
 
 const VisitorPage: React.FC = () => {
-  const { user } = useAuth()
+  // const { user } = useAuth() // Removed authentication check
   const [activeTab, setActiveTab] = useState<'home' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104' | 'radarWeapon201'>('home')
 
   const renderContent = () => {
@@ -50,9 +50,7 @@ const VisitorPage: React.FC = () => {
                   className="mx-auto h-24 w-auto"
                 />
               </div>
-              <h1 className="text-3xl font-bold text-github-text-primary">
-                Welcome Visitor {user?.username}
-              </h1>
+              Welcome Visitor
               <p className="mt-4 text-github-text-secondary">
                 This is your dedicated page. Select a topic from the menu to begin.
               </p>
