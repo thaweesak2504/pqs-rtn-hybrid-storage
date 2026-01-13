@@ -18,14 +18,13 @@ export const documentMeta: DocumentMeta = {
 };
 
 /**
- * Questions data with unique IDs for each node
+ * Questions and answers data with unique IDs for each node
  */
 export const radarQuestions: UINode[] = [
   {
     id: '201.1',
     type: NodeType.SECTION,
     q: 'หน้าที่',
-    isHeader: true,
     children: [
       {
         id: '201.1.1',
@@ -42,7 +41,6 @@ export const radarQuestions: UINode[] = [
     id: '201.2',
     type: NodeType.SECTION,
     q: 'ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ',
-    isHeader: true,
     description: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
     descriptionList: [
       'มีหน้าที่อะไร',
@@ -55,8 +53,8 @@ export const radarQuestions: UINode[] = [
         id: '201.2.1',
         type: NodeType.QUESTION,
         q: 'ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"',
-        checkboxes: [true, true, false, false],
         optionsHeader: true,
+        checkboxes: [true, true, false, false],
         answerCheckboxes: [
           { checked: true, label: 'ก.', text: 'ควบคุมตำแหน่งปืนทางหัน' },
           { checked: true, label: 'ข.', text: 'อยู่บนตู้ Barbette Assembly' }
@@ -339,7 +337,6 @@ export const radarQuestions: UINode[] = [
     id: '201.3',
     type: NodeType.SECTION,
     q: 'หลักการทำงาน',
-    isHeader: true,
     children: [
       {
         id: '201.3.1',
@@ -364,15 +361,14 @@ export const radarQuestions: UINode[] = [
   {
     id: '201.4',
     type: NodeType.SECTION,
-    q: 'ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน (ไม่ต้องอธิบาย)',
-    isHeader: true,
+    q: 'ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน',
+    description: '(ไม่ต้องอธิบาย)',
     children: []
   },
   {
     id: '201.5',
     type: NodeType.SECTION,
     q: 'การเชื่อมต่อระบบ',
-    isHeader: true,
     children: [
       {
         id: '201.5.1',
@@ -405,7 +401,6 @@ export const radarQuestions: UINode[] = [
     id: '201.6',
     type: NodeType.SECTION,
     q: 'ข้อระมัดระวังอันตราย',
-    isHeader: true,
     children: [
       {
         id: '201.6.1',

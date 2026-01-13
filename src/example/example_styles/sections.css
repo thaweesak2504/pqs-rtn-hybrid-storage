@@ -3,262 +3,262 @@
 
         /* Regular Weight (400) */
         @font-face {
-            font-family: 'TH Sarabun New';
-            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-regular.woff2') format('woff2');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-            unicode-range: U+0E00-0E7F, U+0020-007F;
+          font-family: 'TH Sarabun New';
+          src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-regular.woff2') format('woff2');
+          font-weight: 400;
+          font-style: normal;
+          font-display: swap;
+          unicode-range: U+0E00-0E7F, U+0020-007F;
         }
 
         /* Semibold Weight (600) */
         @font-face {
-            font-family: 'TH Sarabun New';
-            src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-semibold.woff2') format('woff2');
-            font-weight: 600;
-            font-style: normal;
-            font-display: swap;
-            unicode-range: U+0E00-0E7F, U+0020-007F;
+          font-family: 'TH Sarabun New';
+          src: url('../../../src/assets/fonts/th-sarabun/th-sarabun-semibold.woff2') format('woff2');
+          font-weight: 600;
+          font-style: normal;
+          font-display: swap;
+          unicode-range: U+0E00-0E7F, U+0020-007F;
         }
 
         /* Page setup for A4 printing */
         @page {
-            size: A4;
-            margin: 2.5cm 2.0cm 2.0cm 3.0cm;
-            /* top right bottom left */
+          size: A4;
+          margin: 2.5cm 2.0cm 2.0cm 3.0cm;
+          /* top right bottom left */
         }
 
         /* Body styling */
         body {
-            font-family: 'TH Sarabun New', Arial, sans-serif;
-            font-size: 16px;
-            line-height: 1.8;
-            margin: 0;
-            padding: 2.0cm 1.0cm 2.0cm 2.5cm;
-            /* Match @page margins */
-            background: rgb(255, 255, 255);
-            color: black;
-            box-sizing: border-box;
+          font-family: 'TH Sarabun New', Arial, sans-serif;
+          font-size: 16px;
+          line-height: 1.8;
+          margin: 0;
+          padding: 2.0cm 1.0cm 2.0cm 2.5cm;
+          /* Match @page margins */
+          background: rgb(255, 255, 255);
+          color: black;
+          box-sizing: border-box;
         }
 
         /* Container for content */
         .content {
-            max-width: 100%;
-            margin: 0 auto;
+          max-width: 100%;
+          margin: 0 auto;
         }
 
         /* Title styling */
         .title {
-            font-weight: bold;
-            font-size: 18px;
-            text-align: center;
-            /*margin-bottom: 2em;*/
+          font-weight: bold;
+          font-size: 18px;
+          text-align: center;
+          /*margin-bottom: 2em;*/
         }
 
         /* Section numbering */
         .section-number {
-            font-weight: bold;
-            margin-right: 2ch;
-            /* 2 เคาะห่างจากข้อความ */
+          font-weight: bold;
+          margin-right: 2ch;
+          /* 2 เคาะห่างจากข้อความ */
         }
 
         /* Section block */
         .section {
-            margin-top: 1em;
+          margin-top: 1em;
         }
 
         .section-title {
-            font-weight: bold;
-            text-align: left;
+          font-weight: bold;
+          text-align: left;
         }
 
         .section-number {
-            font-weight: bold;
-            margin-right: 2ch;
+          font-weight: bold;
+          margin-right: 2ch;
         }
 
         .section-content {
-            margin-left: 5ch;
-            text-indent: 4ch;
-            text-align: justify;
+          margin-left: 5ch;
+          text-indent: 4ch;
+          text-align: justify;
         }
 
         .pargraph-no-indent {
-            margin-left: 5ch;
-            text-align: justify;
+          margin-left: 5ch;
+          text-align: justify;
         }
 
         /* Print styles */
         @media print {
-            body {
-                margin: 0;
-                padding: 0;
-            }
+          body {
+            margin: 0;
+            padding: 0;
+          }
 
-            .content {
-                margin: 2.0cm 1.0cm 2.0cm 2.5cm;
-            }
+          .content {
+            margin: 2.0cm 1.0cm 2.0cm 2.5cm;
+          }
         }
 
         /* Screen styles for better readability */
         @media screen {
-            body {
-                max-width: 210mm;
-                /* A4 width */
-                min-height: 297mm;
-                /* A4 height */
-                margin: 1cm auto;
-                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            }
+          body {
+            max-width: 210mm;
+            /* A4 width */
+            min-height: 297mm;
+            /* A4 height */
+            margin: 1cm auto;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+          }
         }
 
         /*----------------------------------------------*/
         /* === Checkbox row for li (checkbox always on first line) === */
         .li-checkbox-row {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 1.5em;
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 1.5em;
         }
 
         .li-checkbox-row .li-checkbox-question {
-            flex: 1 1 0;
-            min-width: 0;
-            word-break: break-word;
-            white-space: normal;
+          flex: 1 1 0;
+          min-width: 0;
+          word-break: break-word;
+          white-space: normal;
         }
 
         .li-checkbox-row .checkbox-group {
-            display: flex;
-            gap: 0.5em;
-            flex-shrink: 0;
+          display: flex;
+          gap: 0.5em;
+          flex-shrink: 0;
         }
 
         .li-checkbox-row input[type="checkbox"] {
-            width: 1.1em;
-            height: 1.1em;
-            accent-color: #1976d2;
-            vertical-align: middle;
+          width: 1.1em;
+          height: 1.1em;
+          accent-color: #1976d2;
+          vertical-align: middle;
         }
 
         /* === Checkbox row for li === */
         .li-checkbox-row {
-            display: flex;
-            align-items: center;
-            gap: 1.5em;
-            /* ระยะห่างระหว่างข้อความกับ checkbox */
+          display: flex;
+          align-items: center;
+          gap: 1.5em;
+          /* ระยะห่างระหว่างข้อความกับ checkbox */
         }
 
         .li-checkbox-row .checkbox-group {
-            display: flex;
-            gap: 0.1em;
-            /* ระยะห่างระหว่าง checkbox แต่ละตัว */
+          display: flex;
+          gap: 0.1em;
+          /* ระยะห่างระหว่าง checkbox แต่ละตัว */
         }
 
         .li-checkbox-row input[type="checkbox"] {
-            width: 0.8em;
-            height: 0.8em;
-            accent-color: #ff0000;
-            vertical-align: middle;
+          width: 0.8em;
+          height: 0.8em;
+          accent-color: #ff0000;
+          vertical-align: middle;
         }
 
         /* เลขไทย (๑ ๒ ๓ ...) */
         .thai-numerals {
-            list-style-type: thai;
-            /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
+          list-style-type: thai;
+          /* เอา padding มาตรฐานของ ol ออกและให้ marker อยู่ภายในบรรทัด
               เพื่อให้การจัดแนวของหัวข้อ li เหมือนกับหัวข้อที่ใช้ div */
-            list-style-position: inside;
-            padding-left: 0;
-            margin-left: 0;
+          list-style-position: inside;
+          padding-left: 0;
+          margin-left: 0;
         }
 
         /* อักษรไทย (ก ข ค ...) */
         @counter-style thai-alphabetic-custom {
-            system: alphabetic;
-            symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ' 'กก' 'ขข' 'คค' 'งง' 'จจ' 'ฉฉ' 'ชช' 'ซซ' 'ฌฌ' 'ญญ';
+          system: alphabetic;
+          symbols: 'ก' 'ข' 'ค' 'ง' 'จ' 'ฉ' 'ช' 'ซ' 'ฌ' 'ญ' 'ฎ' 'ฏ' 'ฐ' 'ฑ' 'ฒ' 'ณ' 'ด' 'ต' 'ถ' 'ท' 'ธ' 'น' 'บ' 'ป' 'ผ' 'ฝ' 'พ' 'ฟ' 'ภ' 'ม' 'ย' 'ร' 'ล' 'ว' 'ศ' 'ษ' 'ส' 'ห' 'ฬ' 'อ' 'ฮ' 'กก' 'ขข' 'คค' 'งง' 'จจ' 'ฉฉ' 'ชช' 'ซซ' 'ฌฌ' 'ญญ';
         }
 
         .thai-alphabetic {
-            list-style-type: thai-alphabetic-custom;
+          list-style-type: thai-alphabetic-custom;
         }
 
         /* เลขไทย (๑ ๒ ๓ ...) */
         .thai-numerals {
-            list-style-type: thai;
+          list-style-type: thai;
         }
 
         /* ลบจุดหลัง marker สำหรับเลขไทย — แต่ไม่ใช้กับ ol ที่มี .li-marker-gap (เราใช้ ::before แทน) */
         ol.thai-numerals.no-dot:not(.li-marker-gap) li::marker {
-            content: counter(list-item, thai) " ";
+          content: counter(list-item, thai) " ";
         }
 
         /* เพิ่ม prefix ก่อน marker สำหรับเลขไทย (ตัวอย่าง: ๑๐๑.) — ไม่ใช้กับ ol.li-marker-gap */
         ol.thai-numerals.prefix-101:not(.li-marker-gap) li::marker {
-            content: '๑๐๑.' counter(list-item, thai) " ";
+          content: '๑๐๑.' counter(list-item, thai) " ";
         }
 
         /* ระยะห่างระหว่าง marker กับข้อความใน li (ใช้กับ .li-marker-gap)
            เราสร้าง marker แบบกำหนดเองด้วย ::before และใช้ CSS variables เพื่อให้
            ปรับแต่งได้ง่าย: gap, prefix, รูปแบบ (ไทย/อักษรไทย) และขนาดสีของ marker */
         ol.li-marker-gap {
-            list-style: none !important;
-            /* ปิด native marker */
-            padding-left: 0;
-            margin-left: 0;
-            /* default counter; script may override from start attr */
-            counter-reset: li;
-            /* marker customization variables */
-            --marker-gap: 0.3em;
-            --marker-prefix: "";
-            --marker-weight: 400;
-            /* default to normal weight */
-            --marker-color: inherit;
+          list-style: none !important;
+          /* ปิด native marker */
+          padding-left: 0;
+          margin-left: 0;
+          /* default counter; script may override from start attr */
+          counter-reset: li;
+          /* marker customization variables */
+          --marker-gap: 0.3em;
+          --marker-prefix: "";
+          --marker-weight: 400;
+          /* default to normal weight */
+          --marker-color: inherit;
         }
 
         /* utilities for gap sizes (useful across documents) */
         ol.li-marker-gap.gap-sm {
-            --marker-gap: 2ch;
+          --marker-gap: 2ch;
         }
 
         ol.li-marker-gap.gap-md {
-            --marker-gap: 3.5ch;
+          --marker-gap: 3.5ch;
         }
 
         ol.li-marker-gap.gap-lg {
-            --marker-gap: 5ch;
+          --marker-gap: 5ch;
         }
 
         ol.li-marker-gap.gap-xl {
-            --marker-gap: 6ch;
+          --marker-gap: 6ch;
         }
 
         /* option: use alphabetic thai counter */
         ol.li-marker-gap.alpha>li::before {
-            content: var(--marker-prefix) counter(li, thai-alphabetic-custom) " ";
+          content: var(--marker-prefix) counter(li, thai-alphabetic-custom) " ";
         }
 
         /* default li styling inside our custom list */
         /* Use a 2-column grid: marker column (auto width) + content column (flexible).
            This ensures wrapped lines align under the content column, not under the marker. */
         ol.li-marker-gap>li {
-            list-style: none !important;
-            counter-increment: li;
-            display: grid;
-            grid-template-columns: max-content 1fr;
-            gap: var(--marker-gap);
-            align-items: start;
-            padding-left: 0;
+          list-style: none !important;
+          counter-increment: li;
+          display: grid;
+          grid-template-columns: max-content 1fr;
+          gap: var(--marker-gap);
+          align-items: start;
+          padding-left: 0;
         }
 
         /* custom marker: we render a per-li attribute `data-marker` via JS and use it here */
         ol.li-marker-gap>li::before {
-            /* place marker into the first grid column */
-            grid-column: 1;
-            display: block;
-            font-weight: var(--marker-weight);
-            color: var(--marker-color);
-            white-space: nowrap;
-            content: attr(data-marker);
+          /* place marker into the first grid column */
+          grid-column: 1;
+          display: block;
+          font-weight: var(--marker-weight);
+          color: var(--marker-color);
+          white-space: nowrap;
+          content: attr(data-marker);
         }
 
         /* ------------------
@@ -267,69 +267,69 @@
            Keep these rules scoped to li.li-checkbox-row so other lists keep the grid.
         ------------------ */
         ol.li-marker-gap>li.li-checkbox-row {
-            display: flex !important;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: var(--marker-gap);
-            padding-left: 0;
+          display: flex !important;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: var(--marker-gap);
+          padding-left: 0;
         }
 
         /* make the marker inline and give a small gap to the question */
         ol.li-marker-gap>li.li-checkbox-row::before {
-            display: inline-block !important;
-            grid-column: auto !important;
-            font-weight: var(--marker-weight);
-            color: var(--marker-color);
-            white-space: nowrap;
+          display: inline-block !important;
+          grid-column: auto !important;
+          font-weight: var(--marker-weight);
+          color: var(--marker-color);
+          white-space: nowrap;
         }
 
         /* shorthand classes */
         ol.li-marker-gap.no-dot>li::before {
-            content: attr(data-marker) " ";
+          content: attr(data-marker) " ";
         }
 
         ol.li-marker-gap.prefix-101 {
-            --marker-prefix: '๑๐๑.';
+          --marker-prefix: '๑๐๑.';
         }
 
         ol.li-marker-gap.marker-small>li::before {
-            font-size: 0.9em;
+          font-size: 0.9em;
         }
 
         ol.li-marker-gap.marker-muted>li::before {
-            color: #666;
+          color: #666;
         }
 
         /* utility to force bold when needed */
         ol.li-marker-gap.marker-bold>li::before {
-            font-weight: 700;
+          font-weight: 700;
         }
 
         /* hide any native ::marker for safety in browsers that still render it */
         ol.li-marker-gap>li::marker {
-            content: "";
-            visibility: hidden;
-            width: 0;
-            height: 0;
+          content: "";
+          visibility: hidden;
+          width: 0;
+          height: 0;
         }
 
         /*----------------------------------------------*/
 
         /* Header that aligns with checkbox groups (ก. ข. ค. ง.) */
         .options-header {
-            display: flex;
-            justify-content: flex-end;
-            /* align to same right edge as checkbox groups */
-            gap: 0.4em;
-            /* same gap as checkbox-group */
-            margin: 0.0em 0 0.0em 0;
-            padding-right: 0;
-            /* keep alignment with list content */
-            font-weight: 400;
+          display: flex;
+          justify-content: flex-end;
+          /* align to same right edge as checkbox groups */
+          gap: 0.4em;
+          /* same gap as checkbox-group */
+          margin: 0.0em 0 0.0em 0;
+          padding-right: 0;
+          /* keep alignment with list content */
+          font-weight: 400;
         }
 
         .options-header span {
-            white-space: nowrap;
+          white-space: nowrap;
         }
 
         /*--------------------------------------------------
@@ -340,156 +340,157 @@
         /* support .cols-2 on any ol, and also keep the previous li-marker-gap variant */
         ol.cols-2,
         ol.li-marker-gap.cols-2 {
-            column-count: 2;
-            column-gap: 3ch;
-            -webkit-column-gap: 3ch;
-            column-fill: balance;
+          column-count: 2;
+          column-gap: 3ch;
+          -webkit-column-gap: 3ch;
+          column-fill: balance;
         }
 
         ol.cols-2>li,
         ol.li-marker-gap.cols-2>li {
-            /* avoid breaking a single li across columns */
-            break-inside: avoid;
-            -webkit-column-break-inside: avoid;
-            page-break-inside: avoid;
+          /* avoid breaking a single li across columns */
+          break-inside: avoid;
+          -webkit-column-break-inside: avoid;
+          page-break-inside: avoid;
         }
 
 
         /* Utility for lines with left and right aligned text */
 
         .line-left-right {
-            display: flex;
-            justify-content: space-between;
+          display: flex;
+          justify-content: space-between;
         }
 
         .line-left-right .left {
-            text-align: left;
+          text-align: left;
         }
 
         .line-left-right .right {
-            text-align: right;
+          text-align: right;
         }
 
         /* Style สำหรับ คำตอบ แบบ ซ่อน/แสดง (Show/Hide Answers) ทั้งหมด */
 
         .answer-wrapper {
-            display: none;
-            /* display: block; ยกเลิกการใช้ block เมื่อเสร็จแล้ว*/
-            margin-left: 5em;
-            margin-top: 5px;
-            /* max-width: 600px; */
+          display: none;
+          /* display: block; */
+          /* ยกเลิกการใช้ block เมื่อเสร็จแล้ว */
+          margin-left: 5em;
+          margin-top: 5px;
+          /* max-width: 600px; */
         }
 
         .answer-box {
-            font-family: 'TH Sarabun New';
-            border: 1px solid #333;
-            padding: 5px 5px;
-            margin: 5px;
-            font-size: 14px;
-            line-height: 1.6;
-            background-color: #f9f9f9;
-            box-sizing: border-box;
-            /* white-space: pre-wrap; */
-            word-wrap: break-word;
-            border-radius: 4px;
+          font-family: 'TH Sarabun New';
+          border: 1px solid #333;
+          padding: 5px 5px;
+          margin: 5px;
+          font-size: 14px;
+          line-height: 1.6;
+          background-color: #f9f9f9;
+          box-sizing: border-box;
+          /* white-space: pre-wrap; */
+          word-wrap: break-word;
+          border-radius: 4px;
         }
 
         .toggle-all-btn {
-            font-family: 'TH Sarabun New';
-            font-size: 14px;
-            padding: 4px 12px;
-            background-color: #f9f9f9;
-            border: 1px solid #333;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
+          font-family: 'TH Sarabun New';
+          font-size: 14px;
+          padding: 4px 12px;
+          background-color: #f9f9f9;
+          border: 1px solid #333;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
         }
 
         .toggle-all-btn:hover {
-            background-color: #e8e6e6;
+          background-color: #e8e6e6;
         }
 
         /* Small helper class for answer checkboxes used in answer boxes */
         .answer-checkbox {
-            accent-color: #008000;
-            width: 0.8em;
-            height: 0.8em;
-            vertical-align: middle;
-            margin-right: 0.2em;
-            /* Make it slightly easier to click on touch devices */
-            touch-action: manipulation;
+          accent-color: #008000;
+          width: 0.8em;
+          height: 0.8em;
+          vertical-align: middle;
+          margin-right: 0.2em;
+          /* Make it slightly easier to click on touch devices */
+          touch-action: manipulation;
         }
 
         /* Optional: align label text nicely when checkbox is inside label */
         .answer-box label {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35em;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35em;
         }
 
         /*--------------------------------------------------*/
 
         .span-after {
-            margin-left: 0.15em;
+          margin-left: 0.15em;
         }
 
         /* Modern table styling for this page only */
         .modern-table {
-            margin: 0 auto;
-            width: 70%;
-            max-width: 100%;
-            border-collapse: collapse;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-            border-radius: 8px;
-            overflow: hidden;
-            font-family: 'TH Sarabun New', system-ui, sans-serif;
+          margin: 0 auto;
+          width: 70%;
+          max-width: 100%;
+          border-collapse: collapse;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+          border-radius: 8px;
+          overflow: hidden;
+          font-family: 'TH Sarabun New', system-ui, sans-serif;
         }
 
         .modern-table thead th {
-            background: linear-gradient(180deg, #f5f7fa, #e9eef7);
-            color: #0b2545;
-            font-weight: 600;
-            padding: 12px 16px;
-            text-align: center;
-            border-bottom: 1px solid rgba(11, 37, 69, 0.08);
+          background: linear-gradient(180deg, #f5f7fa, #e9eef7);
+          color: #0b2545;
+          font-weight: 600;
+          padding: 12px 16px;
+          text-align: center;
+          border-bottom: 1px solid rgba(11, 37, 69, 0.08);
         }
 
         .modern-table tbody td {
-            padding: 10px 14px;
-            text-align: center;
-            color: #0b2545;
-            background: #fff;
+          padding: 10px 14px;
+          text-align: center;
+          color: #0b2545;
+          background: #fff;
         }
 
         .modern-table tbody tr:nth-child(even) td {
-            background: #fbfdff;
+          background: #fbfdff;
         }
 
         /* Small screens: make table full width */
         @media (max-width: 640px) {
-            .modern-table {
-                width: 100%;
-            }
+          .modern-table {
+            width: 100%;
+          }
 
-            .modern-table thead {
-                display: none;
-            }
+          .modern-table thead {
+            display: none;
+          }
 
-            .modern-table tbody td {
-                display: block;
-                text-align: right;
-                padding-left: 50%;
-                position: relative;
-            }
+          .modern-table tbody td {
+            display: block;
+            text-align: right;
+            padding-left: 50%;
+            position: relative;
+          }
 
-            .modern-table tbody td::before {
-                content: attr(data-label);
-                position: absolute;
-                left: 14px;
-                width: calc(50% - 28px);
-                text-align: left;
-                font-weight: 600;
-            }
+          .modern-table tbody td::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 14px;
+            width: calc(50% - 28px);
+            text-align: left;
+            font-weight: 600;
+          }
         }
 
         /* วิธีใช้:

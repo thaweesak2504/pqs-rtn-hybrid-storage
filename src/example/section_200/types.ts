@@ -10,12 +10,21 @@ export enum NodeType {
 }
 
 /**
+ * Data structure for a simple table
+ */
+export interface TableData {
+  headers: string[];
+  rows: string[][];
+}
+
+/**
  * Checkbox item structure for answers
  */
 export interface CheckboxItem {
   checked: boolean;
   label?: string;  // e.g., "ก.", "ข."
   text?: string;   // The answer text
+  table?: TableData; // Optional table to display below the text
 }
 
 /**

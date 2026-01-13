@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { UINode, CheckboxItem } from './types';
-import { documentMeta, radarQuestions } from './radarData';
+import { documentMeta, lcpQuestions } from './lcpData';
 
-const RadarWeapon201: React.FC = () => {
+const Lcp202: React.FC = () => {
   const [showAnswers, setShowAnswers] = useState(false);
-  const questions = radarQuestions;
+  const questions = lcpQuestions;
   const references = documentMeta.references;
 
   const toggleAllAnswers = () => {
@@ -33,6 +33,7 @@ const RadarWeapon201: React.FC = () => {
     </div>
   );
 
+  // ใช้ 8 options (ก-ซ) สำหรับ 202
   const renderOptionsHeader = () => (
     <div className="flex justify-end gap-1.5">
       <span>คำถาม:</span>
@@ -40,6 +41,10 @@ const RadarWeapon201: React.FC = () => {
       <span>ข.</span>
       <span>ค.</span>
       <span>ง.</span>
+      <span>จ.</span>
+      <span>ฉ.</span>
+      <span>ช.</span>
+      <span>ซ.</span>
     </div>
   );
 
@@ -49,12 +54,12 @@ const RadarWeapon201: React.FC = () => {
     let fullPath = "";
 
     if (level === 0) {
-      // Level 0: ๒๐๑.๑ (No dot at end)
+      // Level 0: ๒๐๒.๑ (No dot at end)
       currentNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
       displayNumber = currentNumber;
       fullPath = currentNumber;
     } else if (level === 1) {
-      // Level 1: ๒๐๑.๑.๑ (No dot at end)
+      // Level 1: ๒๐๒.๑.๑ (No dot at end)
       currentNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
       displayNumber = currentNumber;
       fullPath = currentNumber;
@@ -112,7 +117,7 @@ const RadarWeapon201: React.FC = () => {
           /* 
             Answer Box Alignment Logic:
             - Level 0 & 1: The list item is at 0px (or close to it). We need ml-[9ch] to push the box 
-              to the right so it aligns with the text (skipping the numbering "201.1").
+              to the right so it aligns with the text (skipping the numbering "202.1").
             - Level 2: The list item itself is already indented by 9ch (due to the parent <ol> margin). 
               So we use ml-0 to make the box start at that same 9ch indentation point, aligning it 
               with the Level 0/1 answer boxes.
@@ -122,15 +127,43 @@ const RadarWeapon201: React.FC = () => {
               <div className="mb-2 font-normal">{fullPath} : {item.q}</div>
 
               {item.answerCheckboxes && item.answerCheckboxes.map((ans: CheckboxItem, ansIdx: number) => (
-                <div key={ansIdx} className="flex items-start gap-2 mb-1">
-                  <input
-                    type="checkbox"
-                    checked={ans.checked}
-                    readOnly
-                    className="w-[0.7em] h-[0.7em] mt-2.5"
-                  />
-                  {ans.label && <span className="font-normal">{ans.label}</span>}
-                  <span>{ans.text}</span>
+                <div key={ansIdx} className="flex flex-col mb-1">
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={ans.checked}
+                      readOnly
+                      className="w-[0.7em] h-[0.7em] mt-2.5"
+                    />
+                    {ans.label && <span className="font-normal">{ans.label}</span>}
+                    <span>{ans.text}</span>
+                  </div>
+                  {ans.table && (
+                    <div className="ml-8 mt-2 overflow-x-auto">
+                      <table className="min-w-full text-sm text-left text-gray-700 bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                          <tr>
+                            {ans.table.headers.map((header, hIdx) => (
+                              <th key={hIdx} className="px-6 py-3 border-b text-center font-bold">
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ans.table.rows.map((row, rIdx) => (
+                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              {row.map((cell, cIdx) => (
+                                <td key={cIdx} className="px-6 py-3 border-b text-center">
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               ))}
 
@@ -192,11 +225,11 @@ const RadarWeapon201: React.FC = () => {
         </div>
 
         <ol className="list-none space-y-1">
-          {questions.map((item, index) => renderQuestion(item, index, 0, "๒๐๑"))}
+          {questions.map((item, index) => renderQuestion(item, index, 0, "๒๐๒"))}
         </ol>
       </div>
     </div>
   );
 };
 
-export default RadarWeapon201;
+export default Lcp202;
