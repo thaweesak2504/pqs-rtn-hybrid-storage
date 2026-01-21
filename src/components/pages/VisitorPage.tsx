@@ -12,12 +12,13 @@ import CiwsBasic104 from '../../example/section_100/104CiwsBasic'
 import RadarWeapon201 from '../../example/section_200/201RadarWeapon'
 import Lcp202 from '../../example/section_200/202Lcp'
 import Rcp203 from '../../example/section_200/203Rcp'
+import Elx204 from '../../example/section_200/204Elx'
 
 import { BookOpen, Home } from 'lucide-react'
 
 const VisitorPage: React.FC = () => {
   // const { user } = useAuth() // Removed authentication check
-  const [activeTab, setActiveTab] = useState<'home' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104' | 'radarWeapon201' | 'lcp202' | 'rcp203'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104' | 'radarWeapon201' | 'lcp202' | 'rcp203' | 'elx204'>('home')
 
   const renderContent = () => {
     switch (activeTab) {
@@ -43,6 +44,8 @@ const VisitorPage: React.FC = () => {
         return <Lcp202 />
       case 'rcp203':
         return <Rcp203 />
+      case 'elx204':
+        return <Elx204 />
 
       case 'home':
       default:
@@ -195,6 +198,16 @@ const VisitorPage: React.FC = () => {
             >
               <BookOpen className="mr-3 h-5 w-5" />
               203 Remote Control Panel
+            </button>
+            <button
+              onClick={() => setActiveTab('elx204')}
+              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'elx204'
+                ? 'bg-github-bg-active text-github-text-primary'
+                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
+                }`}
+            >
+              <BookOpen className="mr-3 h-5 w-5" />
+              204 Elx Enclosure System
             </button>
           </nav>
         </div>

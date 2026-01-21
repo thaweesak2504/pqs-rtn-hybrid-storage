@@ -24,7 +24,10 @@ export interface CheckboxItem {
   checked: boolean;
   label?: string;  // e.g., "ก.", "ข."
   text?: string;   // The answer text
+  subList?: string[]; // Nested list items
   table?: TableData; // Optional table to display below the text
+  image?: string;    // Optional image path/url
+  note?: string;     // Optional note or warning text
 }
 
 /**
