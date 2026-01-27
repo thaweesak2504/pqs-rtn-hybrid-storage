@@ -42,7 +42,7 @@ export const radarQuestions: UINode[] = [
     type: NodeType.SECTION,
     q: 'ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ',
     description: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
-    descriptionList: [
+    selectedSubQuestions: [
       'มีหน้าที่อะไร',
       'ตำแหน่งที่ติดตั้งอยู่ที่ไหน',
       'อุปกรณ์นี้ใช้ป้องกันในลักษณะใด',
@@ -54,6 +54,7 @@ export const radarQuestions: UINode[] = [
         type: NodeType.QUESTION,
         q: 'ส่วนประกอบขับเคลื่อนทางหัน "Train Drive Platform Assembly"',
         optionsHeader: true,
+        optionsCount: 4,
         checkboxes: [true, true, false, false],
         answerCheckboxes: [
           { checked: true, label: 'ก.', text: 'ควบคุมตำแหน่งปืนทางหัน' },
@@ -114,6 +115,7 @@ export const radarQuestions: UINode[] = [
         q: 'ส่วนประกอบขับเคลื่อนทางกระดก "Elevation Drive Assembly"',
         checkboxes: [true, true, false, false],
         optionsHeader: true,
+        optionsCount: 4,
         answerCheckboxes: [
           { checked: true, label: 'ก.', text: 'ควบคุมตำแหน่งปืนทางกระดก' },
           { checked: true, label: 'ข.', text: 'อยู่บน Train Platform Assembly' }
@@ -157,6 +159,7 @@ export const radarQuestions: UINode[] = [
         q: 'ปืน 20 mm.',
         checkboxes: [true, true, false, false],
         optionsHeader: true,
+        optionsCount: 4,
         answerCheckboxes: [
           { checked: true, label: 'ก.', text: 'ทำหน้าที่ยิงทำลายเป้า' },
           { checked: true, label: 'ข.', text: 'ติดตั้งอยู่บน Elevation Yoke Structure' }
@@ -191,6 +194,7 @@ export const radarQuestions: UINode[] = [
         q: 'ระบบลำเลียงและบรรจุ "Ammunition Handling/Conveyor System"',
         checkboxes: [true, true, false, false],
         optionsHeader: true,
+        optionsCount: 4,
         answerCheckboxes: [
           { checked: true, label: 'ก.', text: 'รับ - ส่ง ลูกปืนจาก DRUM ถึงตัวปืน และจากตัวปืนถึง DRUM' },
           { checked: true, label: 'ข.', text: 'ใต้ตัวปืน ๒๐ มม' }
@@ -294,6 +298,7 @@ export const radarQuestions: UINode[] = [
         q: 'ส่วนประกอบตัวบรรจุลูกปืน "Ammunition Loader Assembly"',
         checkboxes: [true, true, false, false],
         optionsHeader: true,
+        optionsCount: 4,
         answerCheckboxes: [
           { checked: true, label: 'ก.', text: 'มีหน้าที่ใช้งานสำหรับการ Upload และ Download ลูกปืนเท่านั้น' },
           { checked: true, label: 'ข.', text: 'ติดตั้งบน Exit Unit' }

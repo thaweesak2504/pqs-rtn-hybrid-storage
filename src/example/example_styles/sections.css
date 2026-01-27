@@ -374,7 +374,7 @@
 
         .answer-wrapper {
           display: none;
-          /* display: block; */
+          display: block;
           /* ยกเลิกการใช้ block เมื่อเสร็จแล้ว */
           margin-left: 5em;
           margin-top: 5px;

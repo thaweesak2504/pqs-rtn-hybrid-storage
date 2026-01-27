@@ -33,13 +33,11 @@ const RadarWeapon201: React.FC = () => {
     </div>
   );
 
-  const renderOptionsHeader = () => (
+  const renderOptionsHeader = (count: number = 8) => (
     <div className="flex justify-end gap-1.5">
-      <span>คำถาม:</span>
-      <span>ก.</span>
-      <span>ข.</span>
-      <span>ค.</span>
-      <span>ง.</span>
+      {thaiAlpha.slice(0, count).map((char, index) => (
+        <span key={index}>{char}.</span>
+      ))}
     </div>
   );
 
@@ -72,7 +70,7 @@ const RadarWeapon201: React.FC = () => {
 
     return (
       <li key={item.id} className="flex flex-col">
-        {item.optionsHeader && renderOptionsHeader()}
+        {item.optionsHeader && renderOptionsHeader(item.optionsCount)}
 
         <div className="flex items-baseline">
           {/* subquestion level 2 */}
@@ -93,10 +91,10 @@ const RadarWeapon201: React.FC = () => {
               </div>
             )}
 
-            {item.descriptionList && (
+            {item.selectedSubQuestions && (
               // เอา ml-[1ch] ออก
               <ol className="list-none mt-1">
-                {item.descriptionList.map((desc, descIdx) => (
+                {item.selectedSubQuestions.map((desc, descIdx) => (
                   // ใช้ gap-1
                   <li key={descIdx} className="flex gap-1">
                     <span className="min-w-[2ch]">{thaiAlpha[descIdx]}.</span>
@@ -118,7 +116,7 @@ const RadarWeapon201: React.FC = () => {
               with the Level 0/1 answer boxes.
           */
           <div className={`mt-2 ${level === 2 ? 'ml-0' : 'ml-[9ch]'}`}>
-            <div className="p-3 border border-gray-300 rounded bg-gray-50 mb-2">
+            <div className="p-3 border border-gray-300 dark:border-github-border-primary rounded bg-gray-50 dark:bg-github-bg-tertiary mb-2">
               <div className="mb-2 font-normal">{fullPath} : {item.q}</div>
 
               {item.answerCheckboxes && item.answerCheckboxes.map((ans: CheckboxItem, ansIdx: number) => (
@@ -127,7 +125,7 @@ const RadarWeapon201: React.FC = () => {
                     type="checkbox"
                     checked={ans.checked}
                     readOnly
-                    className="w-[0.7em] h-[0.7em] mt-2.5"
+                    className="w-[0.7em] h-[0.7em] mt-2.5 accent-green-600"
                   />
                   {ans.label && <span className="font-normal">{ans.label}</span>}
                   <span>{ans.text}</span>
@@ -160,8 +158,8 @@ const RadarWeapon201: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
-      <div className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
+    <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
+      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
         <div className="mb-4">
           <div className="flex mb-4">
             {/* ของหัวข้อใหญ่ ใช้ min-w-[8ch] ถึงจะตรง แทนที่จะเป็น min-w-[9ch] */}
@@ -173,7 +171,7 @@ const RadarWeapon201: React.FC = () => {
                 <div>เอกสารอ้างอิง :</div>
                 <button
                   onClick={toggleAllAnswers}
-                  className="px-3 py-1 border border-gray-400 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors whitespace-nowrap ml-4"
+                  className="px-3 py-1 border border-gray-400 dark:border-github-border-primary bg-gray-200 dark:bg-github-bg-muted hover:bg-gray-300 dark:hover:bg-github-bg-hover text-black dark:text-github-text-primary rounded text-sm transition-colors whitespace-nowrap ml-4"
                 >
                   {showAnswers ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
                 </button>

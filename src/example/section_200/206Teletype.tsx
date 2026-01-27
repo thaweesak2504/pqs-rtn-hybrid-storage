@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { UINode, CheckboxItem } from './types';
-import { documentMeta, rcpQuestions } from './rcpData';
+import { documentMeta, teletypeQuestions } from './teletypeData';
 
-const Rcp203: React.FC = () => {
+const Teletype206: React.FC = () => {
   const [showAnswers, setShowAnswers] = useState(false);
-  const questions = rcpQuestions;
+  const questions = teletypeQuestions;
   const references = documentMeta.references;
 
   const toggleAllAnswers = () => {
@@ -117,31 +117,77 @@ const Rcp203: React.FC = () => {
           */
           <div className={`mt-2 ${level === 2 ? 'ml-0' : 'ml-[9ch]'}`}>
             <div className="p-3 border border-gray-300 dark:border-github-border-primary rounded bg-gray-50 dark:bg-github-bg-tertiary mb-2">
-              <div className="mb-2 font-normal">{fullPath} : {item.q}</div>
+              <div className="font-normal">{fullPath} : {item.q}</div>
 
               {item.answerCheckboxes && item.answerCheckboxes.map((ans: CheckboxItem, ansIdx: number) => (
-                <div key={ansIdx} className="flex items-start gap-2 mb-1">
-                  <input
-                    type="checkbox"
-                    checked={ans.checked}
-                    readOnly
-                    className="w-[0.7em] h-[0.7em] mt-2.5 accent-green-600"
-                  />
-                  {ans.label && <span className="font-normal">{ans.label}</span>}
-                  <span>{ans.text}</span>
+                <div key={ansIdx} className="flex flex-col"> {/* เอา mb-3 ออก และ last:mb-0 ออก เพื่อลดระยะห่างระหว่างหัวข้อคำตอบ */}
+                  <div className="flex items-start gap-2">
+                    <input
+                      type="checkbox"
+                      checked={ans.checked}
+                      readOnly
+                      // ตั้งสีสีสันของ checkbox เป็นสีเขียวเข้ม
+                      className="w-[0.7em] h-[0.7em] mt-2.5 accent-green-600"
+                    />
+                    {ans.label && <span className="font-normal">{ans.label}</span>}
+                    <span>{ans.text}</span>
+                  </div>
+
+                  {/* 2. Image */}
+                  {ans.image && (
+                    <div className="ml-8 mt-2">
+                      <img src={ans.image} alt="Answer Illustration" className="max-w-full h-auto rounded border border-gray-200" />
+                    </div>
+                  )}
+
+                  {/* 3. Table */}
+                  {ans.table && (
+                    <div className="ml-8 mt-2 overflow-x-auto">
+                      <table className="min-w-full text-sm text-left text-gray-700 bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
+                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                          <tr>
+                            {ans.table.headers.map((header, hIdx) => (
+                              <th key={hIdx} className="px-6 py-3 border-b text-center font-bold">
+                                {header}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ans.table.rows.map((row, rIdx) => (
+                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              {row.map((cell, cIdx) => (
+                                <td key={cIdx} className="px-6 py-3 border-b text-center">
+                                  {cell}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* 4. SubList */}
+                  {ans.subList && (
+                    <ul className="list-none ml-10"> {/* เอา mt-1 ออก และ space-y-1 ออก เพื่อลดระยะห่างระหว่าง subList */}
+                      {ans.subList.map((sub, subIdx) => (
+                        <li key={subIdx} className="flex gap-2 items-baseline">
+                          <span className="min-w-[2ch] text-right">{toThaiNumber(subIdx + 1)}.</span>
+                          <span>{sub}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* 5. Note */}
+                  {ans.note && (
+                    <div className="ml-8 mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-yellow-800 text-sm">
+                      {ans.note}
+                    </div>
+                  )}
                 </div>
               ))}
-
-              {item.subList && (
-                <ul className="list-none ml-4 mt-2 space-y-1">
-                  {item.subList.map((sub, subIdx) => (
-                    <li key={subIdx} className="flex gap-2 items-baseline">
-                      <span className="min-w-[2ch] text-right">{toThaiNumber(subIdx + 1)}.</span>
-                      <span>{sub}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </div>
         )}
@@ -190,11 +236,11 @@ const Rcp203: React.FC = () => {
         </div>
 
         <ol className="list-none space-y-1">
-          {questions.map((item, index) => renderQuestion(item, index, 0, "๒๐๓"))}
+          {questions.map((item, index) => renderQuestion(item, index, 0, "๒๐๖"))}
         </ol>
       </div>
     </div>
   );
 };
 
-export default Rcp203;
+export default Teletype206;

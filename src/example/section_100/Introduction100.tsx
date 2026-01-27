@@ -43,26 +43,21 @@ const Introduction100: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
-      <div
-        // className="bg-white shadow-lg text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2cm_1cm_2cm_2.5cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8]">
-        className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
-        {/* ใช้ className แทนการกำหนด style widht '210mm', minHeight: '297mm', padding:'2.0cm 1.0cm 2.0cm 2.5cm', fontFamily:'TH Sarabun New', lineHeight:'1.8' */}
+    <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
+      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-github-text-primary box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
         <div className="mb-8">
-          <h1 className='font-bold text-center text-lg'> {/* ใช้ text-lg แทนการกำหนดขนาดฟอนต์ด้วย style ซึ่ง text-lg จะเท่ากับ 18px */}
+          <h1 className='font-bold text-center text-lg'>
             แนะนำความรู้พื้นฐาน (หัวข้อ ๑๐๐)
           </h1>
         </div>
 
         <ol className="list-none space-y-4">
           {sections.map((section, index) => (
-            <li key={index} className="flex items-baseline" style={{ gap: '2ch' }}>
+            <li key={index} className="flex items-baseline gap-[2ch]">
               <span className="font-bold min-w-fit">{toThaiNumber(index + 1)}.</span>
               <div className="flex-1">
                 <span className="font-bold">{section.title}</span>
-                <div
-                  className="text-justify indent-8 font-normal mt-1 whitespace-pre-line">
-                  {/* ใช้ text-justify และ indent-8 แทนการกำหนด style marginLeft:'0ch', textIndent:'4ch', textAlign:'justify' */}
+                <div className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
                   {section.content.replace(/\s+/g, ' ').trim()}
                 </div>
               </div>

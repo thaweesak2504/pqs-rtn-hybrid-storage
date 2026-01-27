@@ -1,80 +1,127 @@
 import React, { useState } from 'react';
+import { abbreviationData, documentMeta } from './abbreviationData';
+import { UINode, CheckboxItem } from '../section_200/types';
 
 const Abbreviation103: React.FC = () => {
   const [showAnswers, setShowAnswers] = useState(false);
+  const questions = abbreviationData;
+  const references = documentMeta.references;
 
   const toggleAllAnswers = () => {
     setShowAnswers(!showAnswers);
   };
 
+  const toThaiNumber = (num: number) => {
+    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+    return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
+  };
+
   const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'];
 
-  const references = [
-    "NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 (Phalanx) Vol.1 Pt.1",
-    "NAVSEA OP4154 Close In Weapon system Mk.15 Mode 1-6 (Phalanx) Vol.2",
-    "Teletype Corporation How to Operate Manual 367",
-    "SW221-JO-MMO-010 thru 110, Close In Weapon System Mk.15 Mods 11-14",
-    "NAVSEA O P4234, Peculiar Support Equipment for CIWS Mk.15 (Phalanx), Vol.4"
-  ];
+  const renderCheckboxes = (checkboxes: boolean[]) => (
+    <div className="flex gap-2 ml-4">
+      {checkboxes.map((isChecked, idx) => (
+        <label key={idx} className="flex items-center mt-3">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            readOnly
+            className="w-[0.7em] h-[0.7em] text-blue-600 rounded focus:ring-blue-500"
+          />
+        </label>
+      ))}
+    </div>
+  );
 
-  const abbreviations = [
-    { q: "AAW (ข., ง.)", a: "Anti Air Warfare" },
-    { q: "AIM CALIB (ข., ง.)", a: "Aim Calibrate" },
-    { q: "AUTO (ข., ง.)", a: "Automatic" },
-    { q: "AVAIL (ข., ง.)", a: "Available" },
-    { q: "BOT (ข., ง.)", a: "Beginning Of Tape" },
-    { q: "CAC (ข., ง.)", a: "Continuous Aim Correction" },
-    { q: "CB (ข., ง.)", a: "Circuit Breaker" },
-    { q: "CIC (ก., ง.)", a: "Combat Information Center" },
-    { q: "COORD (ข., ง.)", a: "Coordinate" },
-    { q: "CPS (ค., ง.)", a: "Characters Per Second" },
-    { q: "CQO (ข., ง.)", a: "Own Ship's Heading" },
-    { q: "DEG (ข., ง.)", a: "Degrees" },
-    { q: "DESIG (ข., ง.)", a: "Designation" },
-    { q: "DU (ข., ง.)", a: "Depleted Uranium" },
-    { q: "ECG (ก., ง.)", a: "Environmental Control Group" },
-    { q: "ELX (ก., ง.)", a: "Electronics" },
-    { q: "EM (ข., ง.)", a: "Electromechanical" },
-    { q: "ENVIR (ข., ง.)", a: "Environmental" },
-    { q: "FT (ข., ง.)", a: "Feet" },
-    { q: "HPRF (ง.)", a: "High Pulse Repetition Frequency" },
-    { q: "Hz (ข., ง.)", a: "Hertz" },
-    { q: "HF (ข., ง.)", a: "High Frequency" },
-    { q: "IND (ข., ง.)", a: "Induction" },
-    { q: "INTRPT (ข., ง)", a: "Interrupt" },
-    { q: "INTFC (ข., ง.)", a: "Interface" },
-    { q: "LPRF (ง.)", a: "Low Pulse Repetition Frequency" },
-    { q: "MHz (ข., ง.)", a: "Mega Hertz" },
-    { q: "MTR (ข., ง.)", a: "Meter" },
-    { q: "MWC (ข., ง.)", a: "Microwave" },
-    { q: "OLI (ข., ง.)", a: "Optical Lasing Intensity" },
-    { q: "OPR test (ข., ง.)", a: "Operator Test" },
-    { q: "PAC (ข., ง.)", a: "Power Amplification Circuit" },
-    { q: "PASS (ง., จ.)", a: "Pass" },
-    { q: "POT (ข., ง.)", a: "Potentiometer" },
-    { q: "PSCG (ก., ง.)", a: "Power Supply Control Group" },
-    { q: "PSE (ข., ง.)", a: "Power Supply Equipment" },
-    { q: "PSOT (ข., ง.)", a: "Power Supply Overload Test" },
-    { q: "RADHAZ (ข., ง.)", a: "Radioactive Hazard" },
-    { q: "RF (ข., ง.)", a: "Radio Frequency" },
-    { q: "STBY MAINT (ข., ง.)", a: "Standby Maintenance" },
-    { q: "SW (ข., ง.)", a: "Switch" }
-  ];
+  const renderQuestion = (item: UINode, index: number, level: number = 1, parentPath: string = "") => {
+    let currentPath = "";
+    let questionLabel = "";
+
+    if (level === 1) {
+      currentPath = `๑๐๓.${toThaiNumber(index + 1)}`;
+      questionLabel = currentPath;
+    } else {
+      // Level 2 (e.g. abbreviations) - usually just Thai alpha
+      currentPath = parentPath; // Just inherit for now or build up
+      questionLabel = `${thaiAlpha[index]}.`;
+    }
+
+    const fullPathForAnswer = level === 1 ? currentPath : `${parentPath} ${questionLabel}`;
+
+    const renderChildren = () => {
+      if (!item.children || item.children.length === 0) return null;
+
+      const isGrid = item.childLayout === 'grid';
+      const containerClass = isGrid
+        ? "grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 mt-4 ml-[8ch]"
+        : "list-none space-y-2 mt-2"; // Standard list behavior
+
+      return (
+        <div className={containerClass}>
+          {item.children.map((child, childIdx) => {
+            if (isGrid) {
+              // Custom rendering for grid items (abbreviations)
+              return (
+                <div key={childIdx} className="flex flex-col">
+                  <div className="flex items-baseline">
+                    <span className="min-w-[3ch]">{thaiAlpha[childIdx]}.</span>
+                    <span>{child.q}</span>
+                  </div>
+                  {showAnswers && child.answerCheckboxes && (
+                    <div className="mt-1 ml-[3ch] p-2 border border-gray-300 dark:border-github-border-primary rounded bg-gray-50 dark:bg-github-bg-tertiary">
+                      <span className="font-normal">{currentPath} {thaiAlpha[childIdx]}. : </span>
+                      {child.answerCheckboxes[0]?.text}
+                    </div>
+                  )}
+                </div>
+              );
+            } else {
+              // Recursive standard rendering
+              return renderQuestion(child, childIdx, level + 1, currentPath);
+            }
+          })}
+        </div>
+      );
+    };
+
+    return (
+      <li key={item.id || index} className="flex flex-col mb-4">
+        {/* Main Question Display */}
+        {level === 1 && (
+          <div className="flex items-baseline">
+            <span className={`${level === 1 ? "min-w-[8ch]" : "min-w-[4ch]"} ${level > 1 ? "ml-[4ch]" : ""}`}>{questionLabel}</span>
+            <span className="flex-1">{item.q}</span>
+          </div>
+        )}
+
+        {/* Answers for Level 1 (if any, though rare for abbreviation parent) */}
+        {showAnswers && level === 1 && item.answerCheckboxes && (
+          <div className={`mt-2 ${level === 1 ? 'ml-[8ch]' : 'ml-[8ch]'}`}>
+            {/* Similar answer rendering as other sections if needed */}
+          </div>
+        )}
+
+        {/* Children (The abbreviations) */}
+        {renderChildren()}
+
+      </li>
+    );
+  };
 
   return (
-    <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
-      <div className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
+    <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
+      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
         <div className="mb-4">
           <div className="flex mb-4">
             <div className="font-bold text-lg min-w-[7ch]">๑๐๓</div>
             <div className="flex-1">
-              <h1 className="font-bold text-lg mb-2">คําย่อของระบบอาวุธป้องกันตนเองระยะประชิด Phalanx Mk.15</h1>
+              <h1 className="font-bold text-lg mb-2">{documentMeta.title}</h1>
 
               <div className="flex justify-between items-center mb-2">
                 <div>เอกสารอ้างอิง :</div>
                 <button
                   onClick={toggleAllAnswers}
-                  className="px-3 py-1 border border-gray-400 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors whitespace-nowrap ml-4"
+                  className="px-3 py-1 border border-gray-400 dark:border-github-border-primary bg-gray-200 dark:bg-github-bg-muted hover:bg-gray-300 dark:hover:bg-github-bg-hover text-black dark:text-github-text-primary rounded text-sm transition-colors whitespace-nowrap ml-4"
                 >
                   {showAnswers ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
                 </button>
@@ -93,31 +140,7 @@ const Abbreviation103: React.FC = () => {
         </div>
 
         <ol className="list-none space-y-1">
-          <li className="flex flex-col">
-            <div className="flex items-baseline">
-              <span className="min-w-[8ch]">๑๐๓.๑</span>
-              <span>คําย่อต่อไปนี้ มีคําเต็มว่าอะไร</span>
-            </div>
-
-            <div className="mt-4 ml-[8ch]">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                {abbreviations.map((item, index) => (
-                  <div key={index} className="flex flex-col">
-                    <div className="flex items-baseline">
-                      <span className="min-w-[3ch]">{thaiAlpha[index]}.</span>
-                      <span>{item.q}</span>
-                    </div>
-                    {showAnswers && (
-                      <div className="mt-1 ml-[3ch] p-2 border border-gray-300 rounded bg-gray-50">
-                        <span>๑๐๓.๑ {thaiAlpha[index]}. : </span>
-                        {item.a}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </li>
+          {questions.map((item, index) => renderQuestion(item, index))}
         </ol>
       </div>
     </div>

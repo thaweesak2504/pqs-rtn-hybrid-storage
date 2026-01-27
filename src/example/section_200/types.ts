@@ -52,7 +52,7 @@ export interface UINode {
   type: NodeType;
   q: string;                          // Question text
   description?: string;               // Additional description text
-  descriptionList?: string[];         // List of sub-items in description
+  selectedSubQuestions?: string[];    // List of sub-questions selected for this section
   children: UINode[];                 // Nested sub-questions (recursive)
 
   // Checkbox-related fields
@@ -62,6 +62,10 @@ export interface UINode {
   // Display flags
   isHeader?: boolean;                 // Whether this is a section header
   optionsHeader?: boolean;            // Whether to show ก. ข. ค. ง. header
+  optionsCount?: number;              // [NEW] Number of option columns to display (default: 8)
+
+  // Layout control
+  childLayout?: 'list' | 'grid';      // How to render children (default: 'list')
 
   // Additional content
   subList?: string[];                 // Sub-list items (numbered list in answers)

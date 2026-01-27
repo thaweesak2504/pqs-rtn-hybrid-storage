@@ -33,18 +33,11 @@ const Lcp202: React.FC = () => {
     </div>
   );
 
-  // ใช้ 8 options (ก-ซ) สำหรับ 202
-  const renderOptionsHeader = () => (
+  const renderOptionsHeader = (count: number = 8) => (
     <div className="flex justify-end gap-1.5">
-      <span>คำถาม:</span>
-      <span>ก.</span>
-      <span>ข.</span>
-      <span>ค.</span>
-      <span>ง.</span>
-      <span>จ.</span>
-      <span>ฉ.</span>
-      <span>ช.</span>
-      <span>ซ.</span>
+      {thaiAlpha.slice(0, count).map((char, index) => (
+        <span key={index}>{char}.</span>
+      ))}
     </div>
   );
 
@@ -77,7 +70,7 @@ const Lcp202: React.FC = () => {
 
     return (
       <li key={item.id} className="flex flex-col">
-        {item.optionsHeader && renderOptionsHeader()}
+        {item.optionsHeader && renderOptionsHeader(item.optionsCount)}
 
         <div className="flex items-baseline">
           {/* subquestion level 2 */}
@@ -98,10 +91,10 @@ const Lcp202: React.FC = () => {
               </div>
             )}
 
-            {item.descriptionList && (
+            {item.selectedSubQuestions && (
               // เอา ml-[1ch] ออก
               <ol className="list-none mt-1">
-                {item.descriptionList.map((desc, descIdx) => (
+                {item.selectedSubQuestions.map((desc, descIdx) => (
                   // ใช้ gap-1
                   <li key={descIdx} className="flex gap-1">
                     <span className="min-w-[2ch]">{thaiAlpha[descIdx]}.</span>
@@ -123,7 +116,7 @@ const Lcp202: React.FC = () => {
               with the Level 0/1 answer boxes.
           */
           <div className={`mt-2 ${level === 2 ? 'ml-0' : 'ml-[9ch]'}`}>
-            <div className="p-3 border border-gray-300 rounded bg-gray-50 mb-2">
+            <div className="p-3 border border-gray-300 dark:border-github-border-primary rounded bg-gray-50 dark:bg-github-bg-tertiary mb-2">
               <div className="mb-2 font-normal">{fullPath} : {item.q}</div>
 
               {item.answerCheckboxes && item.answerCheckboxes.map((ans: CheckboxItem, ansIdx: number) => (
@@ -133,18 +126,18 @@ const Lcp202: React.FC = () => {
                       type="checkbox"
                       checked={ans.checked}
                       readOnly
-                      className="w-[0.7em] h-[0.7em] mt-2.5"
+                      className="w-[0.7em] h-[0.7em] mt-2.5 accent-green-600"
                     />
                     {ans.label && <span className="font-normal">{ans.label}</span>}
                     <span>{ans.text}</span>
                   </div>
                   {ans.table && (
                     <div className="ml-8 mt-2 overflow-x-auto">
-                      <table className="min-w-full text-sm text-left text-gray-700 bg-white rounded-lg overflow-hidden shadow-sm border border-gray-200">
-                        <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                      <table className="min-w-full text-sm text-left text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm border border-gray-200 dark:border-gray-600">
+                        <thead className="text-xs text-gray-700 dark:text-gray-200 uppercase bg-gray-100 dark:bg-gray-700">
                           <tr>
                             {ans.table.headers.map((header, hIdx) => (
-                              <th key={hIdx} className="px-6 py-3 border-b text-center font-bold">
+                              <th key={hIdx} className="px-6 py-3 border-b dark:border-gray-600 text-center font-bold">
                                 {header}
                               </th>
                             ))}
@@ -152,9 +145,9 @@ const Lcp202: React.FC = () => {
                         </thead>
                         <tbody>
                           {ans.table.rows.map((row, rIdx) => (
-                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <tr key={rIdx} className={rIdx % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700'}>
                               {row.map((cell, cIdx) => (
-                                <td key={cIdx} className="px-6 py-3 border-b text-center">
+                                <td key={cIdx} className="px-6 py-3 border-b dark:border-gray-600 text-center">
                                   {cell}
                                 </td>
                               ))}
@@ -193,8 +186,8 @@ const Lcp202: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
-      <div className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
+    <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
+      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
         <div className="mb-4">
           <div className="flex mb-4">
             {/* ของหัวข้อใหญ่ ใช้ min-w-[8ch] ถึงจะตรง แทนที่จะเป็น min-w-[9ch] */}
@@ -206,7 +199,7 @@ const Lcp202: React.FC = () => {
                 <div>เอกสารอ้างอิง :</div>
                 <button
                   onClick={toggleAllAnswers}
-                  className="px-3 py-1 border border-gray-400 bg-gray-200 hover:bg-gray-300 rounded text-sm transition-colors whitespace-nowrap ml-4"
+                  className="px-3 py-1 border border-gray-400 dark:border-github-border-primary bg-gray-200 dark:bg-github-bg-muted hover:bg-gray-300 dark:hover:bg-github-bg-hover text-black dark:text-github-text-primary rounded text-sm transition-colors whitespace-nowrap ml-4"
                 >
                   {showAnswers ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
                 </button>

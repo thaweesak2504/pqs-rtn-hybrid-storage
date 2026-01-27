@@ -59,10 +59,10 @@ const Introduction200: React.FC = () => {
   };
 
   return (
-    <div className="flex justify-center bg-gray-100 p-8 min-w-fit">
+    <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
       <div
         // className="bg-white shadow-lg text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2cm_1cm_2cm_2.5cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8]">
-        className="bg-white shadow-lg text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base">
+        className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[49.6rem] min-h-[70.15rem] p-[4.725rem_2.36rem_4.725rem_5.9rem] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
         <div className="mb-8">
           <h1 className='font-bold text-center text-lg'>
             แนะระบบ (หัวข้อ ๒๐๐)
