@@ -42,14 +42,14 @@ import GlobalRedirect from './components/GlobalRedirect';
 function App() {
   // Enable zoom shortcuts globally
   useZoomShortcuts();
-  
+
   // Prevent duplicate logging in Strict Mode
   const hasLoggedRef = useRef(false);
 
   useEffect(() => {
     // Database initialization is handled by Tauri setup
     // No need to call from frontend to prevent double initialization
-    
+
     // Test logger system (only once due to Strict Mode)
     if (import.meta.env.DEV && !hasLoggedRef.current) {
       hasLoggedRef.current = true;
@@ -58,7 +58,7 @@ function App() {
       logger.debug('Environment:', import.meta.env.MODE);
     }
   }, [])
-  
+
   return (
     <Router
       future={{
@@ -71,45 +71,44 @@ function App() {
           <InitializationProvider>
             <AuthProvider>
               <UserProfileProvider>
-              <BreadcrumbProvider>
-                <SlideBarProvider>
-                  <LayoutProvider>
-                    <GlobalRedirect />
-                    <div className="min-h-screen bg-github-bg-primary transition-colors duration-200 overflow-y-auto">
-                      <Routes>
-                        {/* All routes with UnifiedLayout */}
-                        <Route path="/" element={<UnifiedLayout />}>
-                          <Route index element={<Navigate to="/home" replace />} />
-                          <Route path="home" element={<HeroSection />} />
-                          <Route path="signin" element={<SignInPage />} />
-                          <Route path="registration" element={<RegistrationPage />} />
-                          <Route path="register" element={<RegistrationPage />} />
-                          <Route path="history" element={<HistoryPage />} />
-                          <Route path="team" element={<TeamPage />} />
-                          <Route path="contact" element={<ContactPage />} />
+                <BreadcrumbProvider>
+                  <SlideBarProvider>
+                    <LayoutProvider>
+                      <GlobalRedirect />
+                      <div className="min-h-screen bg-github-bg-primary transition-colors duration-200 overflow-y-auto">
+                        <Routes>
+                          {/* All routes with UnifiedLayout */}
+                          <Route path="/" element={<UnifiedLayout />}>
+                            <Route index element={<Navigate to="/home" replace />} />
+                            <Route path="home" element={<HeroSection />} />
+                            <Route path="signin" element={<SignInPage />} />
+                            <Route path="registration" element={<RegistrationPage />} />
+                            <Route path="register" element={<RegistrationPage />} />
+                            <Route path="history" element={<HistoryPage />} />
+                            <Route path="team" element={<TeamPage />} />
+                            <Route path="contact" element={<ContactPage />} />
 
-                          
-                          {/* Editor and Visitor routes */}
-                          <Route path="editor" element={<EditorPage />} />
-                          <Route path="visitor" element={<VisitorPage />} />
-                          
-                                 {/* Admin Dashboard routes */}
-                                 <Route path="dashboard" element={<DashboardPage />} />
-                                 <Route path="dashboard/database" element={<DatabaseViewerPage />} />
+                            {/* Editor and Visitor routes */}
+                            <Route path="editor" element={<EditorPage />} />
+                            <Route path="visitor" element={<VisitorPage />} />
 
-                                 <Route path="dashboard/highranks" element={<HighRanksPage />} />
-                                <Route path="dashboard/management" element={<DatabaseManagementPage />} />
-                          
-                          {/* Catch all - redirect to home */}
-                          <Route path="*" element={<DebugRoute />} />
-                        </Route>
-                      </Routes>
-                    </div>
-                  </LayoutProvider>
-                </SlideBarProvider>
-              </BreadcrumbProvider>
-            </UserProfileProvider>
-          </AuthProvider>
+                            {/* Admin Dashboard routes */}
+                            <Route path="dashboard" element={<DashboardPage />} />
+                            <Route path="dashboard/database" element={<DatabaseViewerPage />} />
+
+                            <Route path="dashboard/highranks" element={<HighRanksPage />} />
+                            <Route path="dashboard/management" element={<DatabaseManagementPage />} />
+
+                            {/* Catch all - redirect to home */}
+                            <Route path="*" element={<DebugRoute />} />
+                          </Route>
+                        </Routes>
+                      </div>
+                    </LayoutProvider>
+                  </SlideBarProvider>
+                </BreadcrumbProvider>
+              </UserProfileProvider>
+            </AuthProvider>
           </InitializationProvider>
         </ToastProvider>
       </DarkModeProvider>

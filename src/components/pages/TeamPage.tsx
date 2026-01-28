@@ -32,7 +32,7 @@ const TeamPage: React.FC = () => {
     const loadData = async () => {
       try {
         setLoading(true);
-        
+
         // Load officers
         const officersData = await invoke<HighRankingOfficer[]>('get_all_high_ranking_officers');
         setOfficers(officersData);
@@ -60,13 +60,13 @@ const TeamPage: React.FC = () => {
 
         const avatarResults = await Promise.all(avatarPromises);
         const avatarMap: Record<number, string> = {};
-        
+
         avatarResults.forEach((result) => {
           if (result) {
             avatarMap[result.officerId] = result.url as string;
           }
         });
-        
+
         setAvatars(avatarMap);
       } catch (error) {
         console.error('Failed to load officers:', error);
@@ -112,7 +112,7 @@ const TeamPage: React.FC = () => {
 
         {/* Single Column Layout */}
         <div className="space-y-16">
-          
+
           {/* Leadership Excellence Section */}
           <div className="space-y-6">
             <Title
@@ -122,14 +122,14 @@ const TeamPage: React.FC = () => {
               align="center"
               className="mb-8"
             />
-            
+
             {/* Leadership Cards - Dynamic from Database */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {loading ? (
                 // Loading state
                 <>
                   {[1, 2, 3].map((index) => (
-                    <Card 
+                    <Card
                       key={index}
                       title="กำลังโหลด..."
                       subtitle="Loading..."
@@ -149,14 +149,14 @@ const TeamPage: React.FC = () => {
               ) : (
                 // Dynamic cards from database
                 officers.map((officer) => (
-                  <Card 
+                  <Card
                     key={officer.id}
                     title={officer.thai_name}
                     subtitle={officer.position_thai}
                     icon={
                       <div className="flex justify-center mb-4">
-                        <img 
-                          src={getOfficerImage(officer.id)} 
+                        <img
+                          src={getOfficerImage(officer.id)}
                           alt={officer.thai_name}
                           className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover object-top border-2 border-github-accent-warning"
                         />
@@ -182,11 +182,11 @@ const TeamPage: React.FC = () => {
               align="center"
               className="mb-8"
             />
-            
+
             {/* Testimonial Cards - 1 Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
               {/* Card 1 */}
-              <Card 
+              <Card
                 title=""
                 subtitle=""
                 icon={
@@ -207,17 +207,17 @@ const TeamPage: React.FC = () => {
                       <p className="font-medium">น.อ.ทวีศักดิ์ ทองนาค</p>
                       <p className="text-sm text-github-text-secondary">นายทหารแผนงานไฟฟ้าอาวุธฯ</p>
                     </div>
-                                                                                  <img 
-                                                                                    src={twt} 
-                        alt="น.อ.ทวีศักดิ์ ทองนาค"
-                        className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4"
-                      />
+                    <img
+                      src={twt}
+                      alt="น.อ.ทวีศักดิ์ ทองนาค"
+                      className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4"
+                    />
                   </div>
                 </div>
               </Card>
 
               {/* Card 2 */}
-              <Card 
+              <Card
                 title=""
                 subtitle=""
                 icon={
@@ -238,17 +238,17 @@ const TeamPage: React.FC = () => {
                       <p className="font-medium">น.อ.บุญชนะ นิยมวัน</p>
                       <p className="text-sm text-github-text-secondary">นายช่างไฟฟ้าอาวุธฯ</p>
                     </div>
-                                                                                  <img 
-                                                                                    src={boonchana} 
-                        alt="น.อ.บุญชนะ นิยมวัน"
-                        className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4"
-                      />
+                    <img
+                      src={boonchana}
+                      alt="น.อ.บุญชนะ นิยมวัน"
+                      className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4"
+                    />
                   </div>
                 </div>
               </Card>
 
               {/* Card 3 */}
-              <Card 
+              <Card
                 title=""
                 subtitle=""
                 icon={
@@ -269,11 +269,11 @@ const TeamPage: React.FC = () => {
                       <p className="font-medium">น.ท.เกียรติศักดิ์ จอกนาค</p>
                       <p className="text-sm text-github-text-secondary">ครูวิชาการปืนฯ</p>
                     </div>
-                                                                                  <img 
-                                                                                    src={kittisak} 
-                        alt="น.ท.เกียรติศักดิ์ จอกนาค"
-                        className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4"
-                      />
+                    <img
+                      src={kittisak}
+                      alt="น.ท.เกียรติศักดิ์ จอกนาค"
+                      className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4"
+                    />
                   </div>
                 </div>
               </Card>
