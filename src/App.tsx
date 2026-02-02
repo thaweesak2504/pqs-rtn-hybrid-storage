@@ -15,10 +15,11 @@ import { logger } from './utils/logger';
 import SignInPage from './components/pages/SignInPage';
 import RegistrationPage from './components/pages/RegistrationPage';
 import EditorPage from './components/pages/EditorPage';
+import ExamplePage from './components/pages/ExamplePage';
 import HistoryPage from './components/pages/HistoryPage';
 import TeamPage from './components/pages/TeamPage';
 import ContactPage from './components/pages/ContactPage';
-import VisitorPage from './components/pages/VisitorPage';
+// import VisitorPage from './components/pages/VisitorPage'; // Retired
 
 import DatabaseViewerPage from './components/pages/DatabaseViewerPage';
 ;
@@ -90,7 +91,7 @@ function App() {
 
                             {/* Editor and Visitor routes */}
                             <Route path="editor" element={<EditorPage />} />
-                            <Route path="visitor" element={<VisitorPage />} />
+                            <Route path="example" element={<ExamplePage />} />
 
                             {/* Admin Dashboard routes */}
                             <Route path="dashboard" element={<DashboardPage />} />

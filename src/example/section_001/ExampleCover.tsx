@@ -40,7 +40,7 @@ const ExampleCover: React.FC = () => {
 
           {/* Book Type (Bottom) */}
           <div className="flex flex-col items-center text-[28px] font-medium mt-[100px] text-center">
-            เล่มคำถาม
+            คำถาม - คำตอบ
           </div>
 
         </div>
