@@ -15,7 +15,7 @@ mod hybrid_avatar;
 mod hybrid_high_rank_avatar;
 mod logger; // Logger system for conditional debug output
 mod hybrid_backup; // New hybrid backup system
-// mod database_logger; // DISABLED - logging removed
+mod content_database; // Separate content database
 
 // Re-export database structs
 pub use database::{User, Avatar, HighRankingOfficer};
@@ -598,6 +598,62 @@ fn initialize_database_if_needed() -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+fn initialize_content_database() -> Result<String, String> {
+    content_database::initialize_content_database()
+}
+
+#[tauri::command]
+fn seed_content_database(file_path: String) -> Result<String, String> {
+    content_database::seed_content_database_from_file(&file_path)
+}
+
+#[tauri::command]
+fn create_new_document(args: content_database::CreateDocumentArgs) -> Result<String, String> {
+    content_database::create_document(args)
+}
+
+#[tauri::command]
+fn generate_document_id_preview(unit_code: String, doc_type: String, user_level: String) -> Result<String, String> {
+    content_database::generate_document_id(&unit_code, &doc_type, &user_level)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_owner_units(parent_id: Option<String>) -> Result<Vec<content_database::OwnerUnit>, String> {
+    content_database::get_owner_units(parent_id)
+}
+
+#[tauri::command]
+fn search_documents(unit_id_prefix: Option<String>, doc_type: Option<String>, name_part: Option<String>) -> Result<Vec<content_database::Document>, String> {
+    content_database::search_documents(unit_id_prefix, doc_type, name_part)
+}
+
+#[tauri::command]
+fn delete_document(id: String) -> Result<String, String> {
+    content_database::delete_document(id)
+}
+
+#[tauri::command]
+fn update_document(args: content_database::UpdateDocumentArgs) -> Result<String, String> {
+    content_database::update_document(args)
+}
+
+#[tauri::command]
+fn get_document_questions(doc_id: String) -> Result<Vec<content_database::Question>, String> {
+    content_database::get_document_questions(doc_id)
+}
+
+#[tauri::command]
+fn get_document_with_hierarchy(id: String) -> Result<content_database::DocumentHierarchy, String> {
+    content_database::get_document_with_hierarchy(id)
+}
+
+#[tauri::command]
+fn create_question(args: content_database::CreateQuestionArgs) -> Result<String, String> {
+    content_database::create_question(args)
+}
+
 // DISABLED - Database logging functions removed
 // #[tauri::command]
 // fn get_database_logs() -> Result<String, String> {
@@ -701,10 +757,28 @@ fn main() {
             get_users_count,
             // Database initialization command
             initialize_database_if_needed,
+            initialize_content_database,
+            seed_content_database,
+            create_new_document,
+            generate_document_id_preview,
+            get_owner_units,
+            search_documents,
+            delete_document,
+            delete_document,
+            update_document,
+            get_document_questions,
+            create_question,
+            get_document_with_hierarchy,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
             
+            // Initialize content database (OwnerUnits, Documents, etc.)
+            match content_database::initialize_content_database() {
+                Ok(_) => logger::success("Content database initialized successfully"),
+                Err(e) => logger::error(&format!("Failed to initialize content database: {}", e)),
+            }
+
             // Skip automatic database initialization - let frontend handle it
             logger::info("Skipping automatic database initialization - frontend will handle based on system state");            // Initialize FileManager to ensure directories exist (singleton)
             match file_manager::FileManager::get_instance() {
