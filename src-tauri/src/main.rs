@@ -646,6 +646,11 @@ fn get_document_questions(doc_id: String) -> Result<Vec<content_database::Questi
 }
 
 #[tauri::command]
+fn get_document_questions_with_details(doc_id: String) -> Result<Vec<content_database::QuestionDetail>, String> {
+    content_database::get_document_questions_with_details(doc_id)
+}
+
+#[tauri::command]
 fn get_document_with_hierarchy(id: String) -> Result<content_database::DocumentHierarchy, String> {
     content_database::get_document_with_hierarchy(id)
 }
@@ -703,6 +708,92 @@ fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
 #[tauri::command]
 fn migrate_section_101() -> Result<usize, String> {
     migration_helper::migrate_create_section_101()
+}
+
+// ===== Reference Management Commands =====
+
+#[tauri::command]
+fn create_reference(request: content_database::CreateReferenceRequest) -> Result<content_database::DocumentReference, String> {
+    content_database::create_reference(request)
+}
+
+#[tauri::command]
+fn get_references(
+    search: Option<String>,
+    category: Option<String>,
+    common_only: bool,
+) -> Result<Vec<content_database::DocumentReference>, String> {
+    content_database::get_references(search, category, common_only)
+}
+
+#[tauri::command]
+fn delete_reference(id: i64) -> Result<(), String> {
+    content_database::delete_reference(id)
+}
+
+#[tauri::command]
+fn add_section_reference(
+    section_id: i64,
+    reference_id: i64,
+    display_order: Option<i32>,
+) -> Result<(), String> {
+    content_database::add_section_reference(section_id, reference_id, display_order)
+}
+
+#[tauri::command]
+fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
+    content_database::remove_section_reference(section_ref_id)
+}
+
+#[tauri::command]
+fn get_section_references(section_id: i64) -> Result<Vec<content_database::SectionReferenceDetail>, String> {
+    content_database::get_section_references(section_id)
+}
+
+#[tauri::command]
+fn seed_section_104_references(section_id: i64) -> Result<String, String> {
+    use rusqlite::params;
+    
+    let conn = content_database::get_content_connection()
+        .map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Sample references for Section 104 (CIWS Phalanx)
+    let references = vec![
+        ("NAVSEA_OP4154_V1P1", "NAVSEA OP4154 Vol.1 Pt.1 Operator's Manual for Gun System Close-In Weapon System Phalanx Mk.15", Some("Manual"), true),
+        ("NAVSEA_OP4154_V2", "NAVSEA OP4154 Vol.2 Maintenance Manual for Gun System Close-In Weapon System Phalanx Mk.15", Some("Manual"), true),
+        ("SW221_JO_MMO_010", "SW221-JO-MMO-010 Operation Procedure CIWS System", Some("Procedure"), true),
+        ("TM_MK15_BLOCK1B", "Technical Manual Phalanx CIWS Mk.15 Block 1B Baseline 2", Some("Technical Manual"), false),
+        ("NAVORD_OP4986", "NAVORD OP4986 Ammunition Handling and Storage Safety", Some("Safety Manual"), true),
+    ];
+    
+    let mut created_count = 0;
+    for (idx, (code, title, category, is_common)) in references.iter().enumerate() {
+        // Create or get reference
+        let ref_id: i64 = conn.query_row(
+            "SELECT id FROM DocumentReferences WHERE code = ?1",
+            params![code],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| {
+            conn.execute(
+                "INSERT INTO DocumentReferences (code, title, category, is_common) VALUES (?1, ?2, ?3, ?4)",
+                params![code, title, category, is_common],
+            ).ok();
+            conn.last_insert_rowid()
+        });
+        
+        // Link to section
+        let display_order = (idx + 1) as i32;
+        let result = conn.execute(
+            "INSERT OR IGNORE INTO SectionReferences (section_id, reference_id, display_order) VALUES (?1, ?2, ?3)",
+            params![section_id, ref_id, display_order],
+        );
+        
+        if result.is_ok() {
+            created_count += 1;
+        }
+    }
+    
+    Ok(format!("Added {} references to Section 104", created_count))
 }
 
 
@@ -791,10 +882,10 @@ fn main() {
             get_owner_units,
             search_documents,
             delete_document,
-            delete_document,
             update_document,
             get_document_questions,
-            create_question,
+            get_document_questions_with_details, // New command
+            create_question, // Restored
             get_document_with_hierarchy,
             // Section management
             create_section,
@@ -802,6 +893,14 @@ fn main() {
             delete_section,
             update_section_order,
             migrate_section_101,
+            // Reference management
+            create_reference,
+            get_references,
+            delete_reference,
+            add_section_reference,
+            remove_section_reference,
+            get_section_references,
+            seed_section_104_references,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

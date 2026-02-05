@@ -26,6 +26,9 @@ pub fn get_content_connection() -> SqlResult<Connection> {
     
     let conn = Connection::open(db_path)?;
     
+    // Set busy timeout to 5 seconds to handle concurrency
+    conn.busy_timeout(std::time::Duration::from_secs(5))?;
+
     // SQLite configuration for performance
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     conn.execute("PRAGMA synchronous = NORMAL", [])?;
@@ -408,11 +411,13 @@ pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {
 pub struct Question {
     pub id: String, // UUID-like string
     pub document_id: String,
+    pub section_id: Option<i64>,
     pub parent_id: Option<String>,
     pub sequence: i32,
     pub content: String,
     pub is_header: bool,
     pub description: Option<String>,
+    pub answer_type: Option<String>,
     pub metadata: Option<String>, // JSON string
 }
 
@@ -433,6 +438,26 @@ pub struct Reference {
     pub content: String,
     pub sequence: i32,
 }
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct QuestionReference {
+    pub id: i32,
+    pub question_id: String,
+    pub reference_id: i64,
+    pub location_text: Option<String>,
+    pub display_order: i32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct UserAnswer {
+    pub id: i32,
+    pub user_id: String,
+    pub question_id: String,
+    pub document_id: String,
+    pub answer_value: Option<String>,
+    pub is_verified: bool,
+    pub verified_by: Option<String>,
+    pub updated_at: String,
+}
 
 /// Generate a pseudo-unique ID (Time based)
 fn generate_uuid() -> String {
@@ -449,21 +474,28 @@ fn generate_uuid() -> String {
 // Use this to EXTEND existing initialization
 pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // Questions Table
+    // Updated to include section_id and answer_type
     conn.execute(
         "CREATE TABLE IF NOT EXISTS Questions (
             id TEXT PRIMARY KEY,
             document_id VARCHAR(11) NOT NULL,
+            section_id INTEGER,
             parent_id TEXT,
             sequence INT NOT NULL,
             content TEXT NOT NULL,
             is_header BOOLEAN DEFAULT 0,
             description TEXT,
+            answer_type VARCHAR(20) DEFAULT 'text',
             metadata TEXT,
             FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
             FOREIGN KEY(parent_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
         [],
     ).map_err(|e| format!("Failed to create Questions table: {}", e))?;
+
+    // Migration: Add new columns if missing (swallow errors if they exist)
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN section_id INTEGER", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN answer_type VARCHAR(20) DEFAULT 'text'", []);
 
     // QuestionChoices Table
     conn.execute(
@@ -479,17 +511,86 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create QuestionChoices table: {}", e))?;
 
-    // References Table
+    // QuestionReferences Table (Inline Citations) - NEW
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS References (
+        "CREATE TABLE IF NOT EXISTS QuestionReferences (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            document_id VARCHAR(11) NOT NULL,
-            content TEXT NOT NULL,
-            sequence INT NOT NULL,
-            FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE
+            question_id TEXT NOT NULL,
+            reference_id INTEGER NOT NULL,
+            location_text VARCHAR(50),
+            display_order INTEGER NOT NULL,
+            FOREIGN KEY (question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+            FOREIGN KEY (reference_id) REFERENCES DocumentReferences(id) ON DELETE RESTRICT
         )",
         [],
-    ).map_err(|e| format!("Failed to create References table: {}", e))?;
+    ).map_err(|e| format!("Failed to create QuestionReferences table: {}", e))?;
+
+    // UserAnswers Table (Data Storage) - NEW
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS UserAnswers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            question_id TEXT NOT NULL,
+            document_id VARCHAR(11) NOT NULL,
+            answer_value TEXT,
+            is_verified BOOLEAN DEFAULT 0,
+            verified_by TEXT,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, question_id, document_id),
+            FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create UserAnswers table: {}", e))?;
+
+    // References Table - Reusable reference documents
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS DocumentReferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            code VARCHAR(50) NOT NULL UNIQUE,
+            title TEXT NOT NULL,
+            short_name TEXT,
+            category VARCHAR(50),
+            is_common BOOLEAN DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create DocumentReferences table: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_doc_refs_code ON DocumentReferences(code)",
+        [],
+    ).map_err(|e| format!("Failed to create index on DocumentReferences.code: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_doc_refs_common ON DocumentReferences(is_common)",
+        [],
+    ).map_err(|e| format!("Failed to create index on DocumentReferences.is_common: {}", e))?;
+
+    // SectionReferences Table - Many-to-many link between Sections and DocumentReferences
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS SectionReferences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            section_id INTEGER NOT NULL,
+            reference_id INTEGER NOT NULL,
+            display_order INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(section_id, reference_id),
+            FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE,
+            FOREIGN KEY(reference_id) REFERENCES DocumentReferences(id) ON DELETE RESTRICT
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create SectionReferences table: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_section_refs_section ON SectionReferences(section_id)",
+        [],
+    ).map_err(|e| format!("Failed to create index on SectionReferences.section_id: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_section_refs_reference ON SectionReferences(reference_id)",
+        [],
+    ).map_err(|e| format!("Failed to create index on SectionReferences.reference_id: {}", e))?;
 
     Ok(())
 }
@@ -499,21 +600,21 @@ pub fn seed_document_template(conn: &Connection, doc_id: &str, unit_name: &str) 
     // 100 Introduction
     let q100_id = generate_uuid();
     conn.execute(
-        "INSERT INTO Questions (id, document_id, sequence, content, is_header) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 100, ?3, ?4, ?5, 'none')",
         params![q100_id, doc_id, 100, "100 Introduction", true]
     ).map_err(|e| format!("Failed to seed 100: {}", e))?;
 
     // 200 System Description (Using unit name as placeholder context)
     let q200_id = format!("{:x}2", SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
     conn.execute(
-        "INSERT INTO Questions (id, document_id, sequence, content, is_header) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 200, ?3, ?4, ?5, 'none')",
         params![q200_id, doc_id, 200, format!("200 System Description ({})", unit_name), true]
     ).map_err(|e| format!("Failed to seed 200: {}", e))?;
 
     // 300 Operations
     let q300_id = format!("{:x}3", SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
     conn.execute(
-        "INSERT INTO Questions (id, document_id, sequence, content, is_header) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 300, ?3, ?4, ?5, 'none')",
         params![q300_id, doc_id, 300, "300 Operations", true]
     ).map_err(|e| format!("Failed to seed 300: {}", e))?;
 
@@ -526,7 +627,7 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
     let mut stmt = conn.prepare(
-        "SELECT id, document_id, parent_id, sequence, content, is_header, description, metadata 
+        "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata 
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
@@ -534,12 +635,14 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
         Ok(Question {
             id: row.get(0)?,
             document_id: row.get(1)?,
-            parent_id: row.get(2)?,
-            sequence: row.get(3)?,
-            content: row.get(4)?,
-            is_header: row.get(5)?,
-            description: row.get(6)?,
-            metadata: row.get(7)?,
+            section_id: row.get(2)?,
+            parent_id: row.get(3)?,
+            sequence: row.get(4)?,
+            content: row.get(5)?,
+            is_header: row.get(6)?,
+            description: row.get(7)?,
+            answer_type: row.get(8)?,
+            metadata: row.get(9)?,
         })
     }).map_err(|e| format!("Query map failed: {}", e))?;
 
@@ -551,13 +654,124 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
     Ok(questions)
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct QuestionReferenceDetail {
+    pub id: i32,
+    pub question_id: String,
+    pub reference: DocumentReference,
+    pub location_text: Option<String>,
+    pub display_order: i32,
+    pub thai_letter: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug)]
+pub struct QuestionDetail {
+    #[serde(flatten)]
+    pub question: Question,
+    pub choices: Vec<QuestionChoice>,
+    pub references: Vec<QuestionReferenceDetail>,
+}
+
+pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<QuestionDetail>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // 1. Get Questions
+    let mut stmt = conn.prepare(
+        "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata 
+         FROM Questions WHERE document_id = ?1 ORDER BY sequence"
+    ).map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+    let questions_iter = stmt.query_map(params![doc_id], |row| {
+        Ok(Question {
+            id: row.get(0)?,
+            document_id: row.get(1)?,
+            section_id: row.get(2)?,
+            parent_id: row.get(3)?,
+            sequence: row.get(4)?,
+            content: row.get(5)?,
+            is_header: row.get(6)?,
+            description: row.get(7)?,
+            answer_type: row.get(8)?,
+            metadata: row.get(9)?,
+        })
+    }).map_err(|e| format!("Query map failed: {}", e))?;
+
+    let mut details = Vec::new();
+
+    for q_res in questions_iter {
+        let q = q_res.map_err(|e| e.to_string())?;
+        
+        // 2. Get Choices for this question
+        let mut choice_stmt = conn.prepare(
+            "SELECT id, question_id, label, content, is_correct, sequence 
+             FROM QuestionChoices WHERE question_id = ?1 ORDER BY sequence"
+        ).map_err(|e| e.to_string())?;
+        
+        let choices = choice_stmt.query_map(params![q.id], |row| {
+             Ok(QuestionChoice {
+                id: row.get(0)?,
+                question_id: row.get(1)?,
+                label: row.get(2)?,
+                content: row.get(3)?,
+                is_correct: row.get(4)?,
+                sequence: row.get(5)?,
+             })
+        }).map_err(|e| e.to_string())?
+          .collect::<Result<Vec<_>, _>>()
+          .map_err(|e| e.to_string())?;
+
+        // 3. Get References for this question
+        let mut ref_stmt = conn.prepare(
+            "SELECT qr.id, qr.question_id, qr.reference_id, qr.location_text, qr.display_order,
+                    dr.id, dr.code, dr.title, dr.short_name, dr.category, dr.is_common, dr.created_at, dr.updated_at
+             FROM QuestionReferences qr
+             JOIN DocumentReferences dr ON qr.reference_id = dr.id
+             WHERE qr.question_id = ?1
+             ORDER BY qr.display_order"
+        ).map_err(|e| e.to_string())?;
+
+        let references = ref_stmt.query_map(params![q.id], |row| {
+            let display_order: i32 = row.get(4)?;
+            Ok(QuestionReferenceDetail {
+                id: row.get(0)?,
+                question_id: row.get(1)?,
+                reference: DocumentReference {
+                    id: row.get(5)?,
+                    code: row.get(6)?,
+                    title: row.get(7)?,
+                    short_name: row.get(8)?,
+                    category: row.get(9)?,
+                    is_common: row.get(10)?,
+                    created_at: row.get(11)?,
+                    updated_at: row.get(12)?,
+                },
+                location_text: row.get(3)?,
+                display_order,
+                thai_letter: get_thai_letter(display_order),
+            })
+        }).map_err(|e| e.to_string())?
+          .collect::<Result<Vec<_>, _>>()
+          .map_err(|e| e.to_string())?;
+
+        details.push(QuestionDetail {
+            question: q,
+            choices,
+            references,
+        });
+    }
+
+    Ok(details)
+}
+
 #[derive(serde::Deserialize)]
 pub struct CreateQuestionArgs {
     pub document_id: String,
+    pub section_id: Option<i64>,
     pub parent_id: Option<String>,
     pub content: String,
     pub is_header: bool,
     pub sequence: Option<i32>,
+    pub answer_type: Option<String>,
 }
 
 pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
@@ -582,9 +796,18 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     };
 
     conn.execute(
-        "INSERT INTO Questions (id, document_id, parent_id, sequence, content, is_header) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, args.document_id, args.parent_id, sequence, args.content, args.is_header]
+        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        params![
+            id, 
+            args.document_id, 
+            args.section_id, 
+            args.parent_id, 
+            sequence, 
+            args.content, 
+            args.is_header, 
+            args.answer_type.unwrap_or("text".to_string())
+        ]
     ).map_err(|e| format!("Failed to insert question: {}", e))?;
 
     Ok(id)
@@ -700,9 +923,9 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
     
     // Validate section number range
     let valid_range = match request.section_group {
-        100 => (101..=199),
-        200 => (201..=299),
-        300 => (301..=399),
+        100 => 101..=199,
+        200 => 201..=299,
+        300 => 301..=399,
         _ => return Err("Invalid section group. Must be 100, 200, or 300".to_string()),
     };
     
@@ -740,9 +963,65 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
     .map_err(|e| e.to_string())?;
     
     let id = conn.last_insert_rowid();
+
+    // Auto-seed template for Section 200 series (201-299)
+    if request.section_group == 200 && request.section_number >= 200 && request.section_number <= 299 {
+       seed_section_200_template(&conn, &request.document_id, id, request.section_number)?;
+    }
     
     // Return created section
     get_section_by_id(&conn, id)
+}
+
+/// Helper to convert Arabic number to Thai digits
+fn to_thai_digit(n: i32) -> String {
+    let thai_digits = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
+    n.to_string().chars().map(|c| {
+        if let Some(d) = c.to_digit(10) {
+            thai_digits[d as usize].to_string()
+        } else {
+            c.to_string()
+        }
+    }).collect()
+}
+
+/// Seed Section 200 Template (2xx.1 - 2xx.6)
+fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, section_num: i32) -> Result<(), String> {
+    let p = to_thai_digit(section_num); // e.g. "๒๐๑"
+
+    // Helper closure to insert question
+    let insert_q = |parent: Option<String>, seq: i32, content: String, is_header: bool, ans_type: &str| -> Result<String, String> {
+        let q_id = generate_uuid();
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![q_id, doc_id, section_id, parent, seq, content, is_header, ans_type]
+        ).map_err(|e| e.to_string())?;
+        Ok(q_id)
+    };
+
+    // 1. Function
+    let q1 = insert_q(None, 1, format!("{}.๑ หน้าที่", p), true, "header")?;
+    insert_q(Some(q1), 1, format!("{}.๑.๑ ระบบนี้ทำหน้าที่อะไร", p), false, "text")?;
+
+    // 2. Components
+    let q2 = insert_q(None, 2, format!("{}.๒ ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ", p), true, "header")?;
+    insert_q(Some(q2), 1, "อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคําถามที่กําหนด".to_string(), false, "info")?;
+
+    // 3. Principles
+    let q3 = insert_q(None, 3, format!("{}.๓ หลักการทํางาน", p), true, "header")?;
+    insert_q(Some(q3), 1, format!("{}.๓.๑ ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร", p), false, "text")?;
+
+    // 4. Operating Parameters
+    insert_q(None, 4, format!("{}.๔ ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน", p), true, "text")?;
+
+    // 5. System Interfaces
+    insert_q(None, 5, format!("{}.๕ การเชื่อมต่อระบบ", p), true, "text")?;
+
+    // 6. Safety Precautions
+    insert_q(None, 6, format!("{}.๖ ข้อระมัดระวังอันตราย", p), true, "text")?;
+
+    Ok(())
 }
 
 /// Get sections by document ID
@@ -755,7 +1034,7 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
                     display_order, is_system_defined, created_at, updated_at
              FROM Sections
              WHERE document_id = ?1
-             ORDER BY section_group, display_order"
+             ORDER BY section_group, section_number"
         )
         .map_err(|e| e.to_string())?;
     
@@ -838,6 +1117,325 @@ fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
                 updated_at: row.get(9)?,
             })
         }
+    )
+    .map_err(|e| e.to_string())
+}
+
+// ===== Reference Management =====
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct DocumentReference {
+    pub id: i64,
+    pub code: String,
+    pub title: String,
+    pub short_name: Option<String>,
+    pub category: Option<String>,
+    pub is_common: bool,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct CreateReferenceRequest {
+    pub code: String,
+    pub title: String,
+    pub short_name: Option<String>,
+    pub category: Option<String>,
+    pub is_common: bool,
+    pub reference_type: Option<String>, // MANUAL, PROC, TM, SAFETY, LINK, OTHER
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SectionReference {
+    pub id: i64,
+    pub section_id: i64,
+    pub reference_id: i64,
+    pub display_order: i32,
+    pub created_at: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SectionReferenceDetail {
+    pub id: i64,
+    pub section_id: i64,
+    pub reference: DocumentReference,
+    pub display_order: i32,
+    pub thai_letter: String,
+}
+
+/// Helper to get Thai letter from display order (1=ก, 2=ข, etc.)
+fn get_thai_letter(order: i32) -> String {
+    let letters = ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ซ", "ฌ", "ญ"];
+    letters
+        .get((order - 1) as usize)
+        .unwrap_or(&"?")
+        .to_string()
+}
+/// Create a new reference document
+pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentReference, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Auto-generate type-based sequential code if empty
+    let final_code = if request.code.trim().is_empty() {
+        let prefix = request.reference_type
+            .as_ref()
+            .and_then(|t| match t.as_str() {
+                "MANUAL" => Some("MANUAL"),
+                "PROC" => Some("PROC"),
+                "TM" => Some("TM"),
+                "SAFETY" => Some("SAFETY"),
+                "LINK" => Some("LINK"),
+                "OTHER" => Some("OTHER"),
+                _ => None,
+            })
+            .unwrap_or("REF");
+        
+        let pattern = format!("{}_%", prefix);
+        let prefix_len = prefix.len() + 1; // prefix + underscore
+        
+        let max_num: i32 = conn
+            .query_row(
+                &format!(
+                    "SELECT COALESCE(MAX(CAST(SUBSTR(code, {}) AS INTEGER)), 0) 
+                     FROM DocumentReferences 
+                     WHERE code LIKE ? AND LENGTH(code) >= ?",
+                    prefix_len + 1
+                ),
+                params![pattern, prefix_len + 3],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        
+        format!("{}_{:03}", prefix, max_num + 1)
+    } else {
+        request.code.clone()
+    };
+    
+    // Check if code already exists
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE code = ?1)",
+            params![final_code],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    
+    if exists {
+        return Err(format!("Reference with code '{}' already exists", final_code));
+    }
+    
+    // Insert
+    conn.execute(
+        "INSERT INTO DocumentReferences (code, title, short_name, category, is_common)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![
+            final_code,
+            request.title,
+            request.short_name,
+            request.category,
+            request.is_common,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    let id = conn.last_insert_rowid();
+    
+    // Return created reference
+    get_reference_by_id(&conn, id)
+}
+
+/// Get all references (with optional filters)
+pub fn get_references(
+    search: Option<String>,
+    category: Option<String>,
+    common_only: bool,
+) -> Result<Vec<DocumentReference>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let mut sql = "SELECT id, code, title, short_name, category, is_common, created_at, updated_at
+                   FROM DocumentReferences WHERE 1=1".to_string();
+    let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+    
+    if let Some(s) = search {
+        sql.push_str(" AND (code LIKE ?1 OR title LIKE ?1)");
+        let search_pattern = format!("%{}%", s);
+        params_vec.push(Box::new(search_pattern));
+    }
+    
+    if let Some(cat) = category {
+        let param_idx = params_vec.len() + 1;
+        sql.push_str(&format!(" AND category = ?{}", param_idx));
+        params_vec.push(Box::new(cat));
+    }
+    
+    if common_only {
+        sql.push_str(" AND is_common = 1");
+    }
+    
+    sql.push_str(" ORDER BY is_common DESC, title ASC");
+    
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    
+    let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|b| b.as_ref()).collect();
+    
+    let refs = stmt
+        .query_map(&params_refs[..], |row| {
+            Ok(DocumentReference {
+                id: row.get(0)?,
+                code: row.get(1)?,
+                title: row.get(2)?,
+                short_name: row.get(3)?,
+                category: row.get(4)?,
+                is_common: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    
+    Ok(refs)
+}
+
+/// Delete a reference (cascades to remove from all sections)
+pub fn delete_reference(id: i64) -> Result<(), String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+
+    // 1. Remove from all sections first (Cascade logic)
+    tx.execute("DELETE FROM SectionReferences WHERE reference_id = ?1", params![id])
+        .map_err(|e| format!("Failed to remove reference links: {}", e))?;
+    
+    // 2. Delete the reference
+    tx.execute("DELETE FROM DocumentReferences WHERE id = ?1", params![id])
+        .map_err(|e| format!("Failed to delete reference: {}", e))?;
+    
+    tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
+    
+    Ok(())
+}
+
+/// Add reference to a section
+pub fn add_section_reference(
+    section_id: i64,
+    reference_id: i64,
+    display_order: Option<i32>,
+) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Check if already linked
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM SectionReferences WHERE section_id = ?1 AND reference_id = ?2)",
+            params![section_id, reference_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    
+    if exists {
+        return Err("This reference is already linked to this section".to_string());
+    }
+    
+    // Get next display_order if not provided
+    let order = if let Some(o) = display_order {
+        o
+    } else {
+        let max_order: i32 = conn
+            .query_row(
+                "SELECT COALESCE(MAX(display_order), 0) FROM SectionReferences WHERE section_id = ?1",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+        max_order + 1
+    };
+    
+    conn.execute(
+        "INSERT INTO SectionReferences (section_id, reference_id, display_order)
+         VALUES (?1, ?2, ?3)",
+        params![section_id, reference_id, order],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Remove reference from section
+pub fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    conn.execute(
+        "DELETE FROM SectionReferences WHERE id = ?1",
+        params![section_ref_id],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Get all references for a section (with Thai letters)
+pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDetail>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let mut stmt = conn
+        .prepare(
+            "SELECT sr.id, sr.section_id, sr.reference_id, sr.display_order,
+                    dr.id, dr.code, dr.title, dr.short_name, dr.category, dr.is_common, dr.created_at, dr.updated_at
+             FROM SectionReferences sr
+             JOIN DocumentReferences dr ON sr.reference_id = dr.id
+             WHERE sr.section_id = ?1
+             ORDER BY sr.display_order ASC"
+        )
+        .map_err(|e| e.to_string())?;
+    
+    let refs = stmt
+        .query_map(params![section_id], |row| {
+            let display_order: i32 = row.get(3)?;
+            
+            Ok(SectionReferenceDetail {
+                id: row.get(0)?,
+                section_id: row.get(1)?,
+                reference: DocumentReference {
+                    id: row.get(4)?,
+                    code: row.get(5)?,
+                    title: row.get(6)?,
+                    short_name: row.get(7)?,
+                    category: row.get(8)?,
+                    is_common: row.get(9)?,
+                    created_at: row.get(10)?,
+                    updated_at: row.get(11)?,
+                },
+                display_order,
+                thai_letter: get_thai_letter(display_order),
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    
+    Ok(refs)
+}
+
+/// Helper function to get reference by ID
+fn get_reference_by_id(conn: &Connection, id: i64) -> Result<DocumentReference, String> {
+    conn.query_row(
+        "SELECT id, code, title, short_name, category, is_common, created_at, updated_at
+         FROM DocumentReferences WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(DocumentReference {
+                id: row.get(0)?,
+                code: row.get(1)?,
+                title: row.get(2)?,
+                short_name: row.get(3)?,
+                category: row.get(4)?,
+                is_common: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        },
     )
     .map_err(|e| e.to_string())
 }

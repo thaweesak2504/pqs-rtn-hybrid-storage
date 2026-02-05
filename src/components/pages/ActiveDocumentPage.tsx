@@ -23,7 +23,8 @@ interface Section {
   document_id: string;
   section_group: number;
   section_number: number;
-  title_th: string;
+  title: string;
+  title_th?: string; // Optional if not always present
   menu_label: string;
   display_order: number;
   is_system_defined: boolean;
@@ -36,6 +37,8 @@ import IntroductionView from '../views/IntroductionView';
 import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
+import Section104View from '../views/Section104View';
+import SectionQuestionView from '../views/SectionQuestionView';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import AddSectionModal from '../modals/AddSectionModal';
 import { Edit2, Eye, Edit3 } from 'lucide-react';
@@ -152,7 +155,7 @@ const ActiveDocumentPage: React.FC = () => {
             {/* Dynamic Sections */}
             {sections
               .filter(s => s.section_group === 100)
-              .sort((a, b) => a.display_order - b.display_order)
+              .sort((a, b) => a.section_number - b.section_number)
               .map(section => (
                 <SectionItem
                   key={section.id}
@@ -175,7 +178,7 @@ const ActiveDocumentPage: React.FC = () => {
             {/* Dynamic Sections */}
             {sections
               .filter(s => s.section_group === 200)
-              .sort((a, b) => a.display_order - b.display_order)
+              .sort((a, b) => a.section_number - b.section_number)
               .map(section => (
                 <SectionItem
                   key={section.id}
@@ -198,7 +201,7 @@ const ActiveDocumentPage: React.FC = () => {
             {/* Dynamic Sections */}
             {sections
               .filter(s => s.section_group === 300)
-              .sort((a, b) => a.display_order - b.display_order)
+              .sort((a, b) => a.section_number - b.section_number)
               .map(section => (
                 <SectionItem
                   key={section.id}
@@ -321,7 +324,38 @@ const ActiveDocumentPage: React.FC = () => {
             <Section300View isPreviewMode={isPreviewMode} />
           )}
 
-          {activeSection !== 'cover' && activeSection !== 'intro' && activeSection !== '100' && activeSection !== '200' && activeSection !== '300' && (
+          {/* Dynamic Sections (201-299, 301-399) - Using Question Renderer */}
+          {activeSection !== '100' && activeSection !== '104' && activeSection !== '200' && activeSection !== '300' &&
+            parseInt(activeSection) >= 200 && parseInt(activeSection) < 400 && docId && (
+              <SectionQuestionView
+                isPreviewMode={isPreviewMode}
+                docId={docId}
+                sectionId={sections.find(s => s.section_number.toString() === activeSection)?.id || 0}
+                sectionNumber={parseInt(activeSection)}
+                title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
+                subTitle={(() => {
+                  const section = sections.find(s => s.section_number.toString() === activeSection);
+                  if (!section) return "";
+                  // Extract text after number from menu_label (e.g., "201 Radar Weapon" -> "Radar Weapon")
+                  const parts = section.menu_label.split(' ');
+                  return parts.length > 1 ? parts.slice(1).join(' ') : "";
+                })()}
+                headerColorClass={
+                  parseInt(activeSection) >= 300
+                    ? "from-purple-600 to-purple-700 dark:from-purple-700 dark:to-purple-800"
+                    : "from-orange-600 to-orange-700 dark:from-orange-700 dark:to-orange-800"
+                }
+              />
+            )}
+
+          {/* Section 104 - CIWS Basic */}
+          {activeSection === '104' && docId && (
+            <Section104View
+              sectionId={sections.find(s => s.section_number === 104)?.id || 0}
+            />
+          )}
+
+          {activeSection !== 'cover' && activeSection !== 'intro' && activeSection !== '100' && activeSection !== '200' && activeSection !== '300' && activeSection !== '104' && (
             <div className="max-w-[210mm] mx-auto bg-white dark:bg-github-bg-secondary shadow-lg min-h-[297mm] p-12 border border-gray-200 dark:border-github-border-primary relative">
               <div className="flex flex-col items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
                 <p>Implementing: {activeSection.toUpperCase()}</p>
@@ -350,9 +384,13 @@ const ActiveDocumentPage: React.FC = () => {
         documentId={docId!}
         sectionGroup={selectedSectionGroup}
         existingNumbers={sections.map(s => s.section_number)}
-        onSuccess={() => {
+        onSuccess={(newSectionNumber) => {
           fetchSections();
           setAddSectionModalOpen(false);
+          if (newSectionNumber) {
+            console.log("Navigating to new section:", newSectionNumber);
+            setActiveSection(newSectionNumber.toString());
+          }
         }}
       />
     </div>

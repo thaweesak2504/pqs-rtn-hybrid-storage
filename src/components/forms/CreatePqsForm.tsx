@@ -13,7 +13,6 @@ interface CreateDocumentArgs {
   doc_type: string
   user_level: string
 }
-import { useNavigate } from 'react-router-dom';
 
 interface CreatePqsFormProps {
   initialData?: any
@@ -22,7 +21,6 @@ interface CreatePqsFormProps {
 }
 
 const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, onCancel }) => {
-  const navigate = useNavigate();
   // Unit Selection State
   const [selectedUnit, setSelectedUnit] = useState<{ finalUnitId: string, unitCode: string }>({ finalUnitId: '', unitCode: '' })
 

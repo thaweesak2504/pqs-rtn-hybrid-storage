@@ -8,7 +8,7 @@ interface AddSectionModalProps {
   documentId: string;
   sectionGroup: 100 | 200 | 300;
   existingNumbers: number[];
-  onSuccess: () => void;
+  onSuccess: (newSectionNumber?: number) => void;
 }
 
 const AddSectionModal: React.FC<AddSectionModalProps> = ({
@@ -124,7 +124,7 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
         }
       });
 
-      onSuccess();
+      onSuccess(parseInt(sectionNumber));
       onClose();
     } catch (err: any) {
       setError(err.toString());

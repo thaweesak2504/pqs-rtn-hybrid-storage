@@ -243,7 +243,13 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
                           <button
                             className="text-github-fg-muted dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1"
                             title="Edit"
-                            onClick={() => navigate(`/pqs/${doc.id}`)}
+                            onClick={() => {
+                              if (onEdit) {
+                                onEdit(doc)
+                              } else {
+                                navigate(`/pqs/${doc.id}`)
+                              }
+                            }}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
