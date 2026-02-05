@@ -16,6 +16,7 @@ mod hybrid_high_rank_avatar;
 mod logger; // Logger system for conditional debug output
 mod hybrid_backup; // New hybrid backup system
 mod content_database; // Separate content database
+mod migration_helper; // Database migration utilities
 
 // Re-export database structs
 pub use database::{User, Avatar, HighRankingOfficer};
@@ -677,6 +678,32 @@ fn create_question(args: content_database::CreateQuestionArgs) -> Result<String,
 //     }
 // }
 
+// ===== Section Management Commands =====
+
+#[tauri::command]
+fn create_section(request: content_database::CreateSectionRequest) -> Result<content_database::Section, String> {
+    content_database::create_section(request)
+}
+
+#[tauri::command]
+fn get_sections_by_document(document_id: String) -> Result<Vec<content_database::Section>, String> {
+    content_database::get_sections_by_document(document_id)
+}
+
+#[tauri::command]
+fn delete_section(id: i64) -> Result<(), String> {
+    content_database::delete_section(id)
+}
+
+#[tauri::command]
+fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
+    content_database::update_section_order(id, new_order)
+}
+
+#[tauri::command]
+fn migrate_section_101() -> Result<usize, String> {
+    migration_helper::migrate_create_section_101()
+}
 
 
 fn main() {
@@ -769,6 +796,12 @@ fn main() {
             get_document_questions,
             create_question,
             get_document_with_hierarchy,
+            // Section management
+            create_section,
+            get_sections_by_document,
+            delete_section,
+            update_section_order,
+            migrate_section_101,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

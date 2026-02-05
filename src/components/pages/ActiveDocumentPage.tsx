@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
-import { ArrowLeft, Menu, ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeft, Menu, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/tauri';
 
 interface Document {
   id: string;
   name: string;
+  applied_to: string;
   updated_at: string | null;
   created_at: string | null;
 }
@@ -17,23 +18,92 @@ interface DocumentHierarchy {
   hierarchy: string[];
 }
 
+interface Section {
+  id: number;
+  document_id: string;
+  section_group: number;
+  section_number: number;
+  title_th: string;
+  menu_label: string;
+  display_order: number;
+  is_system_defined: boolean;
+  created_at: string;
+  updated_at: string | null;
+}
+
 import CoverPageView from '../views/CoverPageView';
+import IntroductionView from '../views/IntroductionView';
+import Section100View from '../views/Section100View';
+import Section200View from '../views/Section200View';
+import Section300View from '../views/Section300View';
+import EditMetadataModal from '../modals/EditMetadataModal';
+import AddSectionModal from '../modals/AddSectionModal';
+import { Edit2, Eye, Edit3 } from 'lucide-react';
 
 const ActiveDocumentPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [docData, setDocData] = useState<DocumentHierarchy | null>(null);
-  const [activeSection, setActiveSection] = useState<string>('cover'); // 'cover', 'intro', '100', '200', '300'
+  const [activeSection, setActiveSection] = useState<string>('cover'); // 'cover', 'intro', '100', '200', '300', or section numbers
+  const [isEditModalOpen, setEditModalOpen] = useState(false);
+  const [isPreviewMode, setPreviewMode] = useState(false);
+
+  // Section Management States
+  const [sections, setSections] = useState<Section[]>([]);
+  const [isAddSectionModalOpen, setAddSectionModalOpen] = useState(false);
+  const [selectedSectionGroup, setSelectedSectionGroup] = useState<100 | 200 | 300>(100);
+
+  const fetchDocData = () => {
+    if (docId) {
+      invoke<DocumentHierarchy>('get_document_with_hierarchy', { id: docId })
+        .then(data => setDocData(data))
+        .catch(err => console.error("Failed to fetch doc:", err));
+    }
+  };
+
+  const fetchSections = () => {
+    if (docId) {
+      invoke<Section[]>('get_sections_by_document', { documentId: docId })
+        .then(data => setSections(data))
+        .catch(err => console.error("Failed to fetch sections:", err));
+    }
+  };
+
+  const handleAddSection = (sectionGroup: 100 | 200 | 300) => {
+    setSelectedSectionGroup(sectionGroup);
+    setAddSectionModalOpen(true);
+  };
+
+  const handleDeleteSection = async (sectionId: number) => {
+    if (window.confirm('Are you sure you want to delete this section?')) {
+      try {
+        await invoke('delete_section', { id: sectionId });
+        fetchSections();
+      } catch (err) {
+        console.error("Failed to delete section:", err);
+        alert(`Error: ${err}`);
+      }
+    }
+  };
 
   useEffect(() => {
     if (docId) {
       // Save to localStorage for quick resume
       localStorage.setItem('lastActiveDocId', docId);
 
-      invoke<DocumentHierarchy>('get_document_with_hierarchy', { id: docId })
-        .then(data => setDocData(data))
-        .catch(err => console.error("Failed to fetch doc:", err));
+      // Run migration to ensure Section 101 exists for all documents
+      invoke('migrate_section_101')
+        .then(() => {
+          fetchDocData();
+          fetchSections();
+        })
+        .catch(err => {
+          console.error("Migration failed (non-critical):", err);
+          // Continue anyway
+          fetchDocData();
+          fetchSections();
+        });
     }
   }, [docId]);
 
@@ -75,22 +145,73 @@ const ActiveDocumentPage: React.FC = () => {
             Introduction
           </button>
 
-          {/* 100 Section */}
-          <SectionGroup title="100 Section">
+          {/* 100 Fundamental Sections */}
+          <SectionGroup title="100 Fundamental Sections">
             <SectionItem title="100 Introduction" onClick={() => setActiveSection('100')} isActive={activeSection === '100'} />
-            <AddSubSectionBtn />
+
+            {/* Dynamic Sections */}
+            {sections
+              .filter(s => s.section_group === 100)
+              .sort((a, b) => a.display_order - b.display_order)
+              .map(section => (
+                <SectionItem
+                  key={section.id}
+                  title={section.menu_label}
+                  onClick={() => setActiveSection(`${section.section_number}`)}
+                  isActive={activeSection === `${section.section_number}`}
+                  isSystemDefined={section.is_system_defined}
+                  onDelete={section.is_system_defined ? undefined : () => handleDeleteSection(section.id)}
+                />
+              ))
+            }
+
+            <AddSubSectionBtn onClick={() => handleAddSection(100)} />
           </SectionGroup>
 
-          {/* 200 Section */}
-          <SectionGroup title="200 Section">
+          {/* 200 System Sections */}
+          <SectionGroup title="200 System Sections">
             <SectionItem title="200 Introduction" onClick={() => setActiveSection('200')} isActive={activeSection === '200'} />
-            <AddSubSectionBtn />
+
+            {/* Dynamic Sections */}
+            {sections
+              .filter(s => s.section_group === 200)
+              .sort((a, b) => a.display_order - b.display_order)
+              .map(section => (
+                <SectionItem
+                  key={section.id}
+                  title={section.menu_label}
+                  onClick={() => setActiveSection(`${section.section_number}`)}
+                  isActive={activeSection === `${section.section_number}`}
+                  isSystemDefined={section.is_system_defined}
+                  onDelete={() => handleDeleteSection(section.id)}
+                />
+              ))
+            }
+
+            <AddSubSectionBtn onClick={() => handleAddSection(200)} />
           </SectionGroup>
 
-          {/* 300 Section */}
-          <SectionGroup title="300 Section">
+          {/* 300 Watch Station Sections */}
+          <SectionGroup title="300 Watch Station Sections">
             <SectionItem title="300 Introduction" onClick={() => setActiveSection('300')} isActive={activeSection === '300'} />
-            <AddSubSectionBtn />
+
+            {/* Dynamic Sections */}
+            {sections
+              .filter(s => s.section_group === 300)
+              .sort((a, b) => a.display_order - b.display_order)
+              .map(section => (
+                <SectionItem
+                  key={section.id}
+                  title={section.menu_label}
+                  onClick={() => setActiveSection(`${section.section_number}`)}
+                  isActive={activeSection === `${section.section_number}`}
+                  isSystemDefined={section.is_system_defined}
+                  onDelete={() => handleDeleteSection(section.id)}
+                />
+              ))
+            }
+
+            <AddSubSectionBtn onClick={() => handleAddSection(300)} />
           </SectionGroup>
 
         </nav>
@@ -110,9 +231,47 @@ const ActiveDocumentPage: React.FC = () => {
 
             <div className="flex-1">
               {/* Line 1: มาตรฐานกำลังพล + ID + Title */}
-              <h1 className="text-base font-semibold text-github-text-primary leading-tight">
-                มาตรฐานกำลังพล : {docId} {docData?.document.name || '...'}
-              </h1>
+              <div className="flex items-center justify-between">
+                <h1 className="text-base font-semibold text-github-text-primary leading-tight">
+                  มาตรฐานกำลังพล : {docId} {docData?.document.name || '...'}
+                </h1>
+                <div className="flex items-center space-x-2">
+                  {/* Preview Mode Toggle */}
+                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => setPreviewMode(false)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${!isPreviewMode
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                    <button
+                      onClick={() => setPreviewMode(true)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${isPreviewMode
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </button>
+                  </div>
+
+                  {/* Edit Metadata Button */}
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    onClick={() => setEditModalOpen(true)}
+                    icon={<Edit2 className="w-4 h-4" />}
+                    className="text-github-text-secondary hover:text-blue-600"
+                  >
+                    Edit Metadata
+                  </Button>
+                </div>
+              </div>
 
               {/* Line 2: Hierarchy & Last Update */}
               <div className="flex justify-between items-end mt-2 text-sm text-github-text-secondary font-medium">
@@ -139,10 +298,30 @@ const ActiveDocumentPage: React.FC = () => {
               id={docData.document.id}
               name={docData.document.name}
               hierarchy={docData.hierarchy}
+              isPreviewMode={isPreviewMode}
             />
           )}
 
-          {activeSection !== 'cover' && (
+          {activeSection === 'intro' && docData && (
+            <IntroductionView
+              appliedTo={docData.document.applied_to}
+              isPreviewMode={isPreviewMode}
+            />
+          )}
+
+          {activeSection === '100' && (
+            <Section100View isPreviewMode={isPreviewMode} />
+          )}
+
+          {activeSection === '200' && (
+            <Section200View isPreviewMode={isPreviewMode} />
+          )}
+
+          {activeSection === '300' && (
+            <Section300View isPreviewMode={isPreviewMode} />
+          )}
+
+          {activeSection !== 'cover' && activeSection !== 'intro' && activeSection !== '100' && activeSection !== '200' && activeSection !== '300' && (
             <div className="max-w-[210mm] mx-auto bg-white dark:bg-github-bg-secondary shadow-lg min-h-[297mm] p-12 border border-gray-200 dark:border-github-border-primary relative">
               <div className="flex flex-col items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
                 <p>Implementing: {activeSection.toUpperCase()}</p>
@@ -151,6 +330,31 @@ const ActiveDocumentPage: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* Edit Metadata Modal */}
+      {docData && (
+        <EditMetadataModal
+          isOpen={isEditModalOpen}
+          onClose={() => setEditModalOpen(false)}
+          docId={docData.document.id}
+          initialName={docData.document.name}
+          initialAppliedTo={docData.document.applied_to}
+          onSuccess={fetchDocData}
+        />
+      )}
+
+      {/* Add Section Modal */}
+      <AddSectionModal
+        isOpen={isAddSectionModalOpen}
+        onClose={() => setAddSectionModalOpen(false)}
+        documentId={docId!}
+        sectionGroup={selectedSectionGroup}
+        existingNumbers={sections.map(s => s.section_number)}
+        onSuccess={() => {
+          fetchSections();
+          setAddSectionModalOpen(false);
+        }}
+      />
     </div>
   );
 };
@@ -177,22 +381,43 @@ const SectionGroup: React.FC<{ title: string, children: React.ReactNode }> = ({ 
   );
 };
 
-const SectionItem: React.FC<{ title: string, onClick?: () => void, isActive?: boolean }> = ({ title, onClick, isActive }) => (
-  <button
-    onClick={onClick}
-    className={`w-full text-left px-2 py-1.5 text-sm rounded transition-colors truncate ${isActive
-      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-800'
-      }`}
-  >
-    {title}
-  </button>
+const SectionItem: React.FC<{
+  title: string;
+  onClick?: () => void;
+  isActive?: boolean;
+  isSystemDefined?: boolean;
+  onDelete?: () => void;
+}> = ({ title, onClick, isActive, isSystemDefined, onDelete }) => (
+  <div className="flex items-center group">
+    <button
+      onClick={onClick}
+      className={`flex-1 text-left px-2 py-1.5 text-sm rounded transition-colors truncate ${isActive
+        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+        : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-800'
+        }`}
+    >
+      {title}
+      {isSystemDefined && <span className="ml-2 text-xs text-gray-400">🔒</span>}
+    </button>
+    {onDelete && (
+      <button
+        onClick={onDelete}
+        className="ml-1 opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition-opacity"
+        title="Delete section"
+      >
+        <X className="w-3 h-3" />
+      </button>
+    )}
+  </div>
 );
 
-const AddSubSectionBtn: React.FC = () => (
-  <button className="w-full flex items-center text-left px-2 py-1.5 text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-900 rounded transition-colors group">
+const AddSubSectionBtn: React.FC<{ onClick?: () => void }> = ({ onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full flex items-center text-left px-2 py-1.5 text-xs text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-900 rounded transition-colors group"
+  >
     <Plus className="w-3 h-3 mr-1" />
-    <span>Add Sub section</span>
+    <span>Add Sub Section</span>
   </button>
 );
 

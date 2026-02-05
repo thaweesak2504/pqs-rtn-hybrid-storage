@@ -71,6 +71,41 @@ pub fn initialize_content_database() -> Result<String, String> {
         [],
     ).map_err(|e| format!("Failed to create Documents table: {}", e))?;
 
+    // Create Sections table
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS Sections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            document_id VARCHAR(11) NOT NULL,
+            section_group INTEGER NOT NULL,
+            section_number INTEGER NOT NULL,
+            title_th TEXT NOT NULL,
+            menu_label TEXT NOT NULL,
+            display_order INTEGER,
+            is_system_defined BOOLEAN DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(document_id, section_number),
+            FOREIGN KEY (document_id) REFERENCES Documents(id) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create Sections table: {}", e))?;
+
+    // Create indexes for Sections
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sections_document ON Sections(document_id)",
+        [],
+    ).map_err(|e| format!("Failed to create sections document index: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sections_number ON Sections(document_id, section_number)",
+        [],
+    ).map_err(|e| format!("Failed to create sections number index: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sections_group ON Sections(document_id, section_group)",
+        [],
+    ).map_err(|e| format!("Failed to create sections group index: {}", e))?;
+
     // Initialize Questions, Choices, References tables
     initialize_question_tables(&conn)?;
 
@@ -149,6 +184,13 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
 
     seed_document_template(&conn, &new_id, &unit_name)
         .map_err(|e| format!("Failed to seed template: {}", e))?;
+
+    // Auto-create Section 101 (System-defined: Precautions)
+    conn.execute(
+        "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
+         VALUES (?1, 100, 101, 'ข้อควรระมัดระวังอันตรายพื้นฐาน', '101 Precautions', 1, 1)",
+        params![new_id],
+    ).map_err(|e| format!("Failed to create Section 101: {}", e))?;
 
     Ok(new_id)
 }
@@ -612,4 +654,190 @@ pub fn get_document_with_hierarchy(id: String) -> Result<DocumentHierarchy, Stri
         document: doc,
         hierarchy: hierarchy_names
     })
+}
+
+// ===== Section Management =====
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct Section {
+    pub id: i64,
+    pub document_id: String,
+    pub section_group: i32,
+    pub section_number: i32,
+    pub title_th: String,
+    pub menu_label: String,
+    pub display_order: i32,
+    pub is_system_defined: bool,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct CreateSectionRequest {
+    pub document_id: String,
+    pub section_group: i32,
+    pub section_number: i32,
+    pub title_th: String,
+    pub menu_label: String,
+}
+
+/// Create a new section
+pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Validation: Check if number already exists
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM Sections WHERE document_id = ?1 AND section_number = ?2)",
+            params![request.document_id, request.section_number],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    
+    if exists {
+        return Err(format!("Section {} already exists for this document", request.section_number));
+    }
+    
+    // Validate section number range
+    let valid_range = match request.section_group {
+        100 => (101..=199),
+        200 => (201..=299),
+        300 => (301..=399),
+        _ => return Err("Invalid section group. Must be 100, 200, or 300".to_string()),
+    };
+    
+    if !valid_range.contains(&request.section_number) {
+        return Err(format!("Section number must be in range {:?} for section group {}", valid_range, request.section_group));
+    }
+    
+    // Block Section 101 from manual creation (it's auto-created)
+    if request.section_number == 101 {
+        return Err("Section 101 is system-defined and auto-created. Cannot create manually.".to_string());
+    }
+    
+    // Get next display_order
+    let max_order: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(display_order), 0) FROM Sections WHERE document_id = ?1 AND section_group = ?2",
+            params![request.document_id, request.section_group],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    
+    // Insert
+    conn.execute(
+        "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)",
+        params![
+            request.document_id,
+            request.section_group,
+            request.section_number,
+            request.title_th,
+            request.menu_label,
+            max_order + 1,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    let id = conn.last_insert_rowid();
+    
+    // Return created section
+    get_section_by_id(&conn, id)
+}
+
+/// Get sections by document ID
+pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, document_id, section_group, section_number, title_th, menu_label, 
+                    display_order, is_system_defined, created_at, updated_at
+             FROM Sections
+             WHERE document_id = ?1
+             ORDER BY section_group, display_order"
+        )
+        .map_err(|e| e.to_string())?;
+    
+    let sections = stmt
+        .query_map(params![document_id], |row| {
+            Ok(Section {
+                id: row.get(0)?,
+                document_id: row.get(1)?,
+                section_group: row.get(2)?,
+                section_number: row.get(3)?,
+                title_th: row.get(4)?,
+                menu_label: row.get(5)?,
+                display_order: row.get(6)?,
+                is_system_defined: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    
+    Ok(sections)
+}
+
+/// Delete a section
+pub fn delete_section(id: i64) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Check if system-defined
+    let is_system: bool = conn
+        .query_row(
+            "SELECT is_system_defined FROM Sections WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    
+    if is_system {
+        return Err("Cannot delete system-defined section (e.g., Section 101)".to_string());
+    }
+    
+    conn.execute("DELETE FROM Sections WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Update section (for display_order reordering, etc.)
+pub fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    conn.execute(
+        "UPDATE Sections SET display_order = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![new_order, id],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Helper function to get section by ID
+fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
+    conn.query_row(
+        "SELECT id, document_id, section_group, section_number, title_th, menu_label, 
+                display_order, is_system_defined, created_at, updated_at
+         FROM Sections WHERE id = ?1",
+        params![id],
+        |row| {
+            Ok(Section {
+                id: row.get(0)?,
+                document_id: row.get(1)?,
+                section_group: row.get(2)?,
+                section_number: row.get(3)?,
+                title_th: row.get(4)?,
+                menu_label: row.get(5)?,
+                display_order: row.get(6)?,
+                is_system_defined: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        }
+    )
+    .map_err(|e| e.to_string())
 }
