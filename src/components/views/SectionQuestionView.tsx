@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Plus } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { QuestionDetail } from '../../types/content';
 import QuestionRenderer from '../questions/QuestionRenderer';
 import ReferenceManager from '../sections/ReferenceManager';
+import AddQuestionModal from '../modals/AddQuestionModal';
+import ConfirmModal from '../modals/ConfirmModal';
 
 interface SectionQuestionViewProps {
   isPreviewMode?: boolean;
@@ -26,6 +28,11 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<QuestionDetail | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<QuestionDetail | null>(null);
+  const [parentQuestion, setParentQuestion] = useState<QuestionDetail | null>(null);
+  const [activeParentPrefix, setActiveParentPrefix] = useState<string>('');
 
   const toThaiNumber = (num: number) => {
     const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
@@ -61,6 +68,47 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
     // TODO: Implement save logic
   };
 
+  const handleEdit = (question: QuestionDetail) => {
+    setEditingQuestion(question);
+    setIsAddModalOpen(true);
+  };
+
+  const handleAddSubQuestion = (parent: QuestionDetail, prefix: string) => {
+    setParentQuestion(parent);
+    setActiveParentPrefix(prefix);
+    setEditingQuestion(null); // Ensure we are not in edit mode
+    setIsAddModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsAddModalOpen(false);
+    setEditingQuestion(null);
+    setParentQuestion(null);
+    setActiveParentPrefix('');
+  };
+
+  const handleSuccess = () => {
+    fetchQuestions(); // Refresh list
+    handleModalClose();
+  };
+
+  const handleDeleteCallback = (question: QuestionDetail) => {
+    setQuestionToDelete(question);
+  };
+
+  const confirmDelete = async () => {
+    if (!questionToDelete) return;
+
+    try {
+      await invoke('delete_question', { id: questionToDelete.id });
+      setQuestionToDelete(null);
+      fetchQuestions(); // Refresh
+    } catch (error) {
+      console.error('Failed to delete question:', error);
+      alert('Failed to delete question');
+    }
+  };
+
   // Build Hierarchy Tree
   const questionTree = useMemo(() => {
     const tree: QuestionDetail[] = [];
@@ -93,6 +141,26 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
     sortNodes(tree);
 
     return tree;
+  }, [questions]);
+
+
+  // Calculate Usage Counts (Memoized out of render loop)
+  const usageCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    questions.forEach(q => {
+      // Use the hydrated 'references' from the database Join (Single Source of Truth)
+      if (q.references && Array.isArray(q.references)) {
+        q.references.forEach(ref => {
+          // ref is QuestionReferenceDetail, we need reference.id
+          // Actually, ref.reference.id is the DocumentReference ID
+          // Let's verify type.
+          if (ref.reference && ref.reference.id) {
+            counts.set(ref.reference.id, (counts.get(ref.reference.id) || 0) + 1);
+          }
+        });
+      }
+    });
+    return counts;
   }, [questions]);
 
   if (loading) {
@@ -145,7 +213,22 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
 
       {/* Reference Manager - Now immediately after Header */}
       <div className="bg-white dark:bg-github-bg-secondary p-4 rounded-lg shadow-sm border border-github-border-primary">
-        <ReferenceManager sectionId={sectionId} readOnly={false} />
+        <ReferenceManager
+          sectionId={sectionId}
+          readOnly={false}
+          usageCounts={usageCounts}
+        />
+      </div>
+
+      {/* Toolbar */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setIsAddModalOpen(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md shadow-sm flex items-center gap-2 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          เพิ่มคำถามหลัก (Add L1 Question)
+        </button>
       </div>
 
       {/* Questions List */}
@@ -153,6 +236,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
         {questionTree.length === 0 ? (
           <div className="text-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg border border-dashed border-gray-300 dark:border-gray-700">
             <p className="text-gray-500 dark:text-gray-400">ยังไม่มีข้อมูลคำถามในส่วนนี้</p>
+            <p className="text-sm text-gray-400 mt-2">คลิก "เพิ่มคำถามหลัก" เพื่อเริ่มต้น</p>
           </div>
         ) : (
           questionTree.map((question) => (
@@ -164,12 +248,46 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
                 question={question}
                 level={0}
                 onAnswerChange={handleAnswerChange}
+                onEdit={handleEdit}
+                onDelete={handleDeleteCallback}
+                onAddSubQuestion={handleAddSubQuestion}
                 readOnly={false}
+                parentPrefix={toThaiNumber(sectionNumber)}
+                // Dynamic Max Depth: 
+                // Section 100 (Fundamentals): Limit to L2 (Root + 1 level) -> depth 1
+                // Section 200/300: Standard depth (usually 3 levels) -> depth 2 or undefined
+                visibleMaxDepth={sectionNumber < 200 ? 1 : undefined}
               />
             </div>
           ))
         )}
       </div>
+
+      {/* Add Question Modal */}
+      <AddQuestionModal
+        isOpen={isAddModalOpen}
+        onClose={handleModalClose}
+        sectionId={sectionId}
+        docId={docId}
+        onSuccess={handleSuccess}
+        nextSeq={parentQuestion && parentQuestion.children
+          ? parentQuestion.children.length + 1
+          : questions.filter(q => !q.parent_id).length + 1}
+        sectionNumber={sectionNumber}
+        initialData={editingQuestion}
+        parentId={parentQuestion?.id}
+        parentPrefix={activeParentPrefix}
+      />
+
+      <ConfirmModal
+        isOpen={!!questionToDelete}
+        onClose={() => setQuestionToDelete(null)}
+        onConfirm={confirmDelete}
+        title="ยืนยันการลบคำถาม"
+        message={`คุณต้องการลบคำถามนี้ใช่หรือไม่?\n\n"${questionToDelete?.content}"\n\nคำเตือน: การลบนี้จะลบคำตอบและข้อมูลที่เกี่ยวข้องทั้งหมด`}
+        confirmText="ลบคำถาม"
+        cancelText="ยกเลิก"
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { X, Search, Plus, BookOpen } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 interface DocumentReference {
   id: number;
@@ -41,8 +42,13 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
   const [newReferenceType, setNewReferenceType] = useState('MANUAL'); // Default to MANUAL
   const [newIsCommon, setNewIsCommon] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [refToDelete, setRefToDelete] = useState<DocumentReference | null>(null);
 
   const [error, setError] = useState('');
+
+  // ... (unchanged code) ...
+
+  // ... (unchanged code) ...
 
   // Preview code based on selected type
   const previewCode = newCode.trim() || `${newReferenceType}_XXX`;
@@ -180,12 +186,17 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
     }
   };
 
-  const handleDeleteReference = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this reference? It will be removed from ALL documents.')) return;
+  const handleDeleteClick = (ref: DocumentReference) => {
+    setRefToDelete(ref);
+  };
+
+  const confirmDeleteReference = async () => {
+    if (!refToDelete) return;
     try {
-      await invoke('delete_reference', { id });
+      await invoke('delete_reference', { id: refToDelete.id });
       loadAllReferences();
       loadCommonReferences();
+      setRefToDelete(null);
     } catch (err: any) {
       alert('Failed to delete: ' + err);
     }
@@ -209,7 +220,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white dark:bg-github-bg-secondary rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-github-bg-secondary rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-github-border-primary">
           <h2 className="text-xl font-semibold text-github-text-primary flex items-center gap-2">
@@ -327,7 +338,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                         key={`common-${ref.id}`}
                         reference={ref}
                         onSelect={handleSelectReference}
-                        onDelete={handleDeleteReference}
+                        onDelete={handleDeleteClick}
                       />
                     ))}
                   </div>
@@ -354,7 +365,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                         key={ref.id}
                         reference={ref}
                         onSelect={handleSelectReference}
-                        onDelete={handleDeleteReference}
+                        onDelete={handleDeleteClick}
                       />
                     ))}
                   </div>
@@ -472,6 +483,16 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={!!refToDelete}
+        onClose={() => setRefToDelete(null)}
+        onConfirm={confirmDeleteReference}
+        title="ลบเอกสารจากฐานข้อมูล"
+        message={`คุณแน่ใจหรือไม่ที่จะลบเอกสารอ้างอิงนี้ออกจาก "ฐานข้อมูลกลาง"?\n\n"${refToDelete?.code} - ${refToDelete?.title}"\n\nคำเตือน: การกระทำนี้จะลบการอ้างอิงออกจากเอกสาร PQS ทุกฉบับที่ใช้งานอยู่`}
+        confirmText="ลบถาวร"
+        variant="danger"
+      />
     </div>
   );
 };
@@ -480,7 +501,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 const ReferenceItem: React.FC<{
   reference: DocumentReference;
   onSelect: (id: number) => void;
-  onDelete?: (id: number) => void;
+  onDelete?: (ref: DocumentReference) => void;
 }> = ({ reference, onSelect, onDelete }) => {
   return (
     <div className="flex items-center gap-2 group">
@@ -488,26 +509,33 @@ const ReferenceItem: React.FC<{
         onClick={() => onSelect(reference.id)}
         className="flex-1 text-left p-3 border border-gray-200 dark:border-github-border-primary rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700 transition-colors group"
       >
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <p className="font-medium text-github-text-primary group-hover:text-blue-600 dark:group-hover:text-blue-400">
-              {reference.title}
-            </p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">
-                {reference.code}
-              </span>
-              {reference.category && (
-                <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">
-                  {reference.category}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex-1 flex items-center gap-3 overflow-hidden">
+            {/* Title & Badges - LEFT */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-github-text-primary group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
+                  {reference.title}
                 </span>
-              )}
-              {reference.is_common && (
-                <span className="text-xs text-green-600 dark:text-green-400">★ Common</span>
-              )}
+
+                {reference.category && (
+                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded whitespace-nowrap">
+                    {reference.category}
+                  </span>
+                )}
+                {reference.is_common && (
+                  <span className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded whitespace-nowrap">★ Common</span>
+                )}
+              </div>
             </div>
+
+            {/* Code - RIGHT */}
+            <span className="text-xs font-mono text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 min-w-[80px] text-center whitespace-nowrap">
+              {reference.code}
+            </span>
           </div>
-          <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+
+          <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0" />
         </div>
       </button>
 
@@ -515,7 +543,7 @@ const ReferenceItem: React.FC<{
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(reference.id);
+            onDelete(reference);
           }}
           className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 border border-transparent hover:border-red-200 rounded-md transition-colors"
           title="Delete from database"

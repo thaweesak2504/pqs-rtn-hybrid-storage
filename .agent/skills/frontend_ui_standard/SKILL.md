@@ -70,7 +70,21 @@ import { FormInput, FormGroup } from '../ui/Form'
 - `hover:text-blue-600 dark:hover:text-blue-400` (สำหรับ Link/Action)
 
 ## 4. Checklist ก่อนส่งงาน UI
-- [ ] ทดสอบเปลี่ยนเป็น **Dark Mode** แล้วรายละเอียด (Border, Text) ยังเห็นชัดหรือไม่?
-- [ ] ปุ่มกดต่างๆ (Button) ใช้ Component กลาง หรือไม่?
-- [ ] Input Form ต่างๆ ใช้ `FormInput` / `FormSelect` หรือไม่?
 - [ ] เมื่อ Hover แล้วสีเปลี่ยนชัดเจนหรือไม่?
+
+## 5. Dialogs & Modals
+- **ห้ามใช้ `window.confirm()` หรือ `alert()` โดยเด็ดขาด**: เนื่องจากไม่สามารถปรับแต่ง Design ได้ และมีปัญหากับบาง Browser (กด Cancel ไม่ได้)
+- **ให้ใช้ `ConfirmModal`**: สำหรับการยืนยันที่สำคัญ (เช่น การลบข้อมูล)
+  ```tsx
+  import ConfirmModal from '../modals/ConfirmModal';
+  
+  // Usage
+  <ConfirmModal
+    isOpen={isOpen}
+    onClose={() => setIsOpen(false)}
+    onConfirm={handleConfirm}
+    title="ยืนยันการทำรายการ"
+    message="คุณต้องการลบข้อมูลนี้ไช่หรือไม่?"
+    variant="danger"
+  />
+  ```

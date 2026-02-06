@@ -41,6 +41,7 @@ import Section104View from '../views/Section104View';
 import SectionQuestionView from '../views/SectionQuestionView';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import AddSectionModal from '../modals/AddSectionModal';
+import ConfirmModal from '../modals/ConfirmModal';
 import { Edit2, Eye, Edit3 } from 'lucide-react';
 
 const ActiveDocumentPage: React.FC = () => {
@@ -56,6 +57,7 @@ const ActiveDocumentPage: React.FC = () => {
   const [sections, setSections] = useState<Section[]>([]);
   const [isAddSectionModalOpen, setAddSectionModalOpen] = useState(false);
   const [selectedSectionGroup, setSelectedSectionGroup] = useState<100 | 200 | 300>(100);
+  const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
 
   const fetchDocData = () => {
     if (docId) {
@@ -78,15 +80,20 @@ const ActiveDocumentPage: React.FC = () => {
     setAddSectionModalOpen(true);
   };
 
-  const handleDeleteSection = async (sectionId: number) => {
-    if (window.confirm('Are you sure you want to delete this section?')) {
-      try {
-        await invoke('delete_section', { id: sectionId });
-        fetchSections();
-      } catch (err) {
-        console.error("Failed to delete section:", err);
-        alert(`Error: ${err}`);
-      }
+  const handleDeleteClick = (section: Section) => {
+    setSectionToDelete(section);
+  };
+
+  const confirmDeleteSection = async () => {
+    if (!sectionToDelete) return;
+
+    try {
+      await invoke('delete_section', { id: sectionToDelete.id });
+      fetchSections();
+      setSectionToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete section:", err);
+      alert(`Error: ${err}`);
     }
   };
 
@@ -163,7 +170,7 @@ const ActiveDocumentPage: React.FC = () => {
                   onClick={() => setActiveSection(`${section.section_number}`)}
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
-                  onDelete={section.is_system_defined ? undefined : () => handleDeleteSection(section.id)}
+                  onDelete={() => handleDeleteClick(section)}
                 />
               ))
             }
@@ -186,7 +193,7 @@ const ActiveDocumentPage: React.FC = () => {
                   onClick={() => setActiveSection(`${section.section_number}`)}
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
-                  onDelete={() => handleDeleteSection(section.id)}
+                  onDelete={() => handleDeleteClick(section)}
                 />
               ))
             }
@@ -209,7 +216,7 @@ const ActiveDocumentPage: React.FC = () => {
                   onClick={() => setActiveSection(`${section.section_number}`)}
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
-                  onDelete={() => handleDeleteSection(section.id)}
+                  onDelete={() => handleDeleteClick(section)}
                 />
               ))
             }
@@ -324,9 +331,9 @@ const ActiveDocumentPage: React.FC = () => {
             <Section300View isPreviewMode={isPreviewMode} />
           )}
 
-          {/* Dynamic Sections (201-299, 301-399) - Using Question Renderer */}
+          {/* Dynamic Sections (101-199, 201-299, 301-399) - Using Question Renderer */}
           {activeSection !== '100' && activeSection !== '104' && activeSection !== '200' && activeSection !== '300' &&
-            parseInt(activeSection) >= 200 && parseInt(activeSection) < 400 && docId && (
+            parseInt(activeSection) >= 100 && parseInt(activeSection) < 400 && docId && (
               <SectionQuestionView
                 isPreviewMode={isPreviewMode}
                 docId={docId}
@@ -355,13 +362,7 @@ const ActiveDocumentPage: React.FC = () => {
             />
           )}
 
-          {activeSection !== 'cover' && activeSection !== 'intro' && activeSection !== '100' && activeSection !== '200' && activeSection !== '300' && activeSection !== '104' && (
-            <div className="max-w-[210mm] mx-auto bg-white dark:bg-github-bg-secondary shadow-lg min-h-[297mm] p-12 border border-gray-200 dark:border-github-border-primary relative">
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg">
-                <p>Implementing: {activeSection.toUpperCase()}</p>
-              </div>
-            </div>
-          )}
+
         </div>
       </main>
 
@@ -392,6 +393,16 @@ const ActiveDocumentPage: React.FC = () => {
             setActiveSection(newSectionNumber.toString());
           }
         }}
+      />
+
+      <ConfirmModal
+        isOpen={!!sectionToDelete}
+        onClose={() => setSectionToDelete(null)}
+        onConfirm={confirmDeleteSection}
+        title="ยืนยันการลบส่วน (Section)"
+        message={`คุณต้องการลบส่วน "${sectionToDelete?.title || sectionToDelete?.menu_label}" ใช่หรือไม่?\n\nการลบส่วนจะลบเนื้อหาและคำถามทั้งหมดที่อยู่ภายใน`}
+        confirmText="ลบส่วนนี้"
+        variant="danger"
       />
     </div>
   );

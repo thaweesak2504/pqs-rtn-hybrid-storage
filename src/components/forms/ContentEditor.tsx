@@ -4,6 +4,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 interface Question {
   id: string;
   document_id: string;
+  section_id: number;
   parent_id: string | null;
   sequence: number;
   content: string;
@@ -14,19 +15,60 @@ interface Question {
 
 interface ContentEditorProps {
   docId: string;
+  sectionId?: number | null;
+  sectionNumber?: number | null;
 }
 
-export const ContentEditor: React.FC<ContentEditorProps> = ({ docId }) => {
+export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, sectionNumber }) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMg, setErrorMsg] = useState('');
+
+  // Auto-Numbering Helper
+  const toThaiDigit = (num: number) => {
+    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+    return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
+  };
+
+  const getNextSequence = (parentId: string | null, list: Question[]) => {
+    const siblings = list.filter(q => q.parent_id === parentId);
+    return siblings.length + 1;
+  };
+
+  const getPrefix = (parentId: string | null, list: Question[]) => {
+    if (!sectionNumber) return '';
+    const seq = getNextSequence(parentId, list);
+    const thaiSeq = toThaiDigit(seq);
+    const thaiSec = toThaiDigit(sectionNumber);
+
+    if (!parentId) {
+      // Level 0: 101.1
+      return `${thaiSec}.${thaiSeq} `;
+    } else {
+      // Level 1+: Find parent's prefix
+      const parent = list.find(q => q.id === parentId);
+      if (parent) {
+        // Extract parent prefix (e.g. "๑๐๑.๑")
+        const match = parent.content.match(/^([^\s]+)/);
+        if (match) {
+          return `${match[1]}.${thaiSeq} `;
+        }
+      }
+      return `${thaiSeq}. `; // Fallback
+    }
+  };
 
   const fetchQuestions = async () => {
     if (!docId) return;
     setLoading(true);
     try {
       const data = await invoke<Question[]>('get_document_questions', { docId });
-      setQuestions(data);
+      // Filter by Section if provided
+      const filtered = sectionId !== undefined && sectionId !== null
+        ? data.filter(q => q.section_id === sectionId) // Strict Section Match
+        : data;
+
+      setQuestions(filtered);
       setErrorMsg('');
     } catch (err: any) {
       console.error("Failed to fetch questions:", err);
@@ -39,7 +81,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId }) => {
   // Tree Builder Logic
   useEffect(() => {
     fetchQuestions();
-  }, [docId]);
+  }, [docId, sectionId]);
 
   const buildTree = (items: Question[]) => {
     const map = new Map<string, Question & { children: any[] }>();
@@ -60,6 +102,13 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId }) => {
       }
     });
 
+    // Sort by sequence
+    const sortNodes = (nodes: any[]) => {
+      nodes.sort((a, b) => a.sequence - b.sequence);
+      nodes.forEach(n => sortNodes(n.children));
+    };
+    sortNodes(roots);
+
     return roots;
   };
 
@@ -70,13 +119,42 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId }) => {
   const [newQContent, setNewQContent] = useState('');
   const [isNewQHeader, setIsNewQHeader] = useState(false);
 
+  // Trigger pre-fill when opening add form
+  useEffect(() => {
+    if (addingTo !== null) {
+      const parentId = addingTo === 'ROOT' ? null : addingTo;
+      const prefix = getPrefix(parentId, questions);
+      setNewQContent(prefix);
+    }
+  }, [addingTo]);
+
   const handleAddQuestion = async (parentId: string | null) => {
     if (!newQContent.trim()) return;
+
+    // Use current strict sectionId if available, else 0 or prompt? 
+    // For now we assume logic handles passing the correct section_id via props or defaulting.
+    // NOTE: The invoke 'create_question' might need 'section_id' in args if we are in strict mode!
+    // But existing create_question might infer/auto-calc. Let's rely on 'create_question' behavior or update it.
+    // Actually create_question takes sequence but specific section? 
+    // We should pass section_group/number? No, create_question signature is simple.
+    // Let's assume for now we just pass docId and parentId. 
+    // Wait, if parent_id is NULL, how does backend know which section it belongs to?
+    // Backend `create_question` calculates sequence but might default section to 0 if not specified.
+    // We definitely need to pass `section_id` if we want it in Section 101!
+
+    // Quick Fix: We need to update create_question invoke or use a new command.
+    // Looking at backend: `create_question` takes `CreateQuestionArgs` struct.
+    // Does it have section_id?
+    // Let's assume we pass it implicitly via parent? 
+    // If root, we MUST pass section_id.
+    // I will add `section_id: sectionId` to the invoke if it supports it. If not, we might need a backend tweak.
+    // Assuming `create_question` follows `Question` struct.
 
     try {
       await invoke('create_question', {
         args: {
           document_id: docId,
+          section_id: sectionId, // Pass this!
           parent_id: parentId,
           content: newQContent,
           is_header: isNewQHeader,

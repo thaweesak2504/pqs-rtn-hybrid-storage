@@ -660,6 +660,16 @@ fn create_question(args: content_database::CreateQuestionArgs) -> Result<String,
     content_database::create_question(args)
 }
 
+#[tauri::command]
+fn update_question(args: content_database::UpdateQuestionArgs) -> Result<(), String> {
+    content_database::update_question(args)
+}
+
+#[tauri::command]
+fn delete_question(id: String) -> Result<(), String> {
+    content_database::delete_question(id)
+}
+
 // DISABLED - Database logging functions removed
 // #[tauri::command]
 // fn get_database_logs() -> Result<String, String> {
@@ -886,6 +896,8 @@ fn main() {
             get_document_questions,
             get_document_questions_with_details, // New command
             create_question, // Restored
+            update_question, // New command
+            delete_question, // New command
             get_document_with_hierarchy,
             // Section management
             create_section,

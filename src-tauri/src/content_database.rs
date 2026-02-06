@@ -721,17 +721,34 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
           .map_err(|e| e.to_string())?;
 
         // 3. Get References for this question
+        // Optimized to Sort by Section Reference Order (Standard Order)
+        // We JOIN SectionReferences (sr) on qr.reference_id AND the question's section_id.
+        // NOTE: If section_id is NULL (unlikely for Section 100+), this might fail sorting.
+        // Assuming all questions here have a valid section_id context or we use the linked one.
+        
+        // Let's use a subquery or join.
+        // Filter by section_id from the question itself: q.section_id.
         let mut ref_stmt = conn.prepare(
-            "SELECT qr.id, qr.question_id, qr.reference_id, qr.location_text, qr.display_order,
+            "SELECT qr.id, qr.question_id, qr.reference_id, qr.location_text, sr.display_order,
                     dr.id, dr.code, dr.title, dr.short_name, dr.category, dr.is_common, dr.created_at, dr.updated_at
              FROM QuestionReferences qr
              JOIN DocumentReferences dr ON qr.reference_id = dr.id
+             LEFT JOIN SectionReferences sr ON sr.reference_id = qr.reference_id AND sr.section_id = ?2
              WHERE qr.question_id = ?1
-             ORDER BY qr.display_order"
+             ORDER BY sr.display_order"
         ).map_err(|e| e.to_string())?;
 
-        let references = ref_stmt.query_map(params![q.id], |row| {
-            let display_order: i32 = row.get(4)?;
+        let references = ref_stmt.query_map(params![q.id, q.section_id], |row| {
+             // If sr.display_order is NULL (e.g. ad-hoc reference not in section list?), fallback to 0 or something.
+             // But usually it should be there.
+             let section_display_order: Option<i32> = row.get(4).unwrap_or(None);
+             
+             // Calculate Thai Letter based on Section Order, NOT Question Insertion Order
+             let thai_letter = match section_display_order {
+                 Some(order) => get_thai_letter(order),
+                 None => "?".to_string() 
+             };
+
             Ok(QuestionReferenceDetail {
                 id: row.get(0)?,
                 question_id: row.get(1)?,
@@ -746,8 +763,8 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
                     updated_at: row.get(12)?,
                 },
                 location_text: row.get(3)?,
-                display_order,
-                thai_letter: get_thai_letter(display_order),
+                display_order: section_display_order.unwrap_or(0),
+                thai_letter,
             })
         }).map_err(|e| e.to_string())?
           .collect::<Result<Vec<_>, _>>()
@@ -772,6 +789,36 @@ pub struct CreateQuestionArgs {
     pub is_header: bool,
     pub sequence: Option<i32>,
     pub answer_type: Option<String>,
+    pub metadata: Option<String>,
+}
+
+fn sync_question_references(conn: &Connection, question_id: &str, metadata_json: Option<&str>) -> Result<(), String> {
+    // 1. Always clear existing references first (simplest strategy for both create and update)
+    conn.execute("DELETE FROM QuestionReferences WHERE question_id = ?1", params![question_id])
+        .map_err(|e| e.to_string())?;
+
+    // 2. Insert new references if metadata exists
+    if let Some(json_str) = metadata_json {
+        // Access serde_json directly. If not imported, we use full path.
+        // Assuming serde_json crate is available.
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(refs) = v.get("references").and_then(|r| r.as_array()) {
+                for (idx, r) in refs.iter().enumerate() {
+                    // Extract fields. Be robust against missing/wrong types.
+                    if let Some(ref_id) = r.get("id").and_then(|i| i.as_i64()) {
+                        let page = r.get("page").and_then(|s| s.as_str()).unwrap_or("-");
+                        
+                        conn.execute(
+                            "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
+                             VALUES (?1, ?2, ?3, ?4)",
+                            params![question_id, ref_id, page, idx + 1]
+                        ).map_err(|e| e.to_string())?;
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
@@ -796,8 +843,8 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     };
 
     conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             id, 
             args.document_id, 
@@ -806,12 +853,94 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
             sequence, 
             args.content, 
             args.is_header, 
-            args.answer_type.unwrap_or("text".to_string())
+            args.answer_type.unwrap_or("text".to_string()),
+            args.metadata
         ]
-    ).map_err(|e| format!("Failed to insert question: {}", e))?;
+    )
+    .map_err(|e| e.to_string())?;
+
+    // SYNC References from Metadata
+    sync_question_references(&conn, &id, args.metadata.as_deref())?;
 
     Ok(id)
 }
+
+#[derive(serde::Deserialize)]
+pub struct UpdateQuestionArgs {
+    pub id: String,
+    pub content: String,
+    pub metadata: Option<String>,
+}
+
+pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE Questions 
+         SET content = ?2, metadata = ?3 
+         WHERE id = ?1",
+        params![
+            args.id, 
+            args.content, 
+            args.metadata
+        ]
+    )
+    .map_err(|e| e.to_string())?;
+
+    // SYNC References from Metadata to Table
+    sync_question_references(&conn, &args.id, args.metadata.as_deref())?;
+
+    Ok(())
+}
+
+pub fn delete_question(id: String) -> Result<(), String> {
+    let mut conn = get_content_connection().map_err(|e| e.to_string())?;
+    
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    // 1. Get info before delete to handle re-indexing (context for siblings)
+    // We need to know who are the siblings.
+    // Siblings share same parent_id (if not null) OR (document_id + section_id + parent_id is null)
+    let (document_id, section_id, parent_id, sequence): (String, Option<i64>, Option<String>, i32) = tx.query_row(
+        "SELECT document_id, section_id, parent_id, sequence FROM Questions WHERE id = ?1",
+        params![id],
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+    ).map_err(|e| format!("Question not found: {}", e))?;
+
+    // 2. Delete the question (Cascade will remove children, choices, answers, refs)
+    tx.execute(
+        "DELETE FROM Questions WHERE id = ?1",
+        params![id],
+    ).map_err(|e| e.to_string())?;
+
+    // 3. Re-index siblings (Shift Left)
+    // Logic depends on whether parent_id exists
+    match parent_id {
+        Some(pid) => {
+            // Sibling check by parent_id
+             tx.execute(
+                "UPDATE Questions 
+                 SET sequence = sequence - 1 
+                 WHERE parent_id = ?1 AND sequence > ?2",
+                params![pid, sequence],
+            ).map_err(|e| e.to_string())?;
+        },
+        None => {
+            // Sibling check by document_id + section_id (for L1 roots)
+             tx.execute(
+                "UPDATE Questions 
+                 SET sequence = sequence - 1 
+                 WHERE document_id = ?1 AND section_id IS ?2 AND parent_id IS NULL AND sequence > ?3",
+                params![document_id, section_id, sequence],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+    
+    tx.commit().map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
 
 #[derive(serde::Serialize)]
 pub struct DocumentHierarchy {
@@ -967,6 +1096,10 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
     // Auto-seed template for Section 200 series (201-299)
     if request.section_group == 200 && request.section_number >= 200 && request.section_number <= 299 {
        seed_section_200_template(&conn, &request.document_id, id, request.section_number)?;
+    } else if request.section_group == 100 && request.section_number == 102 {
+       seed_section_102_template(&conn, &request.document_id, id, request.section_number)?;
+    // } else if request.section_group == 100 && request.section_number == 101 {
+    //    seed_section_101_template(&conn, &request.document_id, id, request.section_number)?;
     }
     
     // Return created section
@@ -1020,6 +1153,63 @@ fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, s
 
     // 6. Safety Precautions
     insert_q(None, 6, format!("{}.๖ ข้อระมัดระวังอันตราย", p), true, "text")?;
+
+    Ok(())
+}
+
+/// Seed Section 102 Template (Prototype with Checkboxes)
+fn seed_section_102_template(conn: &Connection, doc_id: &str, section_id: i64, section_num: i32) -> Result<(), String> {
+    let p = to_thai_digit(section_num); // e.g. "๑๐๒"
+
+    // Helper closure to insert question
+    let insert_q = |parent: Option<String>, seq: i32, content: String, is_header: bool, ans_type: &str, metadata: Option<String>| -> Result<String, String> {
+        let q_id = generate_uuid();
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![q_id, doc_id, section_id, parent, seq, content, is_header, ans_type, metadata]
+        ).map_err(|e| e.to_string())?;
+        Ok(q_id)
+    };
+
+    // 102.1 Level 1 Question
+    let q1 = insert_q(None, 1, format!("{}.๑ คำถามทดสอบ Level 1", p), false, "checkbox", Some(r#"{"answerCheckboxes": [{"checked": true, "text": "ตัวเลือกทดสอบ ก."}, {"checked": false, "text": "ตัวเลือกทดสอบ ข."}]}"#.to_string()))?;
+
+    // 102.1.1 Level 3 Sub-Question (Recursive)
+    insert_q(Some(q1), 1, format!("{}.๑.๑ คำถามทดสอบ Level 3 (Sub-Question)", p), false, "checkbox", Some(r#"{"answerCheckboxes": [{"checked": true, "text": "นี่คือ Sub Question"}]}"#.to_string()))?;
+
+    Ok(())
+}
+
+/// Seed Section 101 (Precautions) with Real Data - Full Implementation
+fn seed_section_101_template(conn: &Connection, doc_id: &str, section_id: i64, section_num: i32) -> Result<(), String> {
+    let p = to_thai_digit(section_num); // e.g. "๑๐๑"
+
+    let insert_q = |parent: Option<String>, seq: i32, content: String, is_header: bool, ans_type: &str, metadata: Option<String>| -> Result<String, String> {
+        let q_id = generate_uuid();
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![q_id, doc_id, section_id, parent, seq, content, is_header, ans_type, metadata]
+        ).map_err(|e| e.to_string())?;
+        Ok(q_id)
+    };
+
+    // 101.1
+    insert_q(None, 1, format!("{}.๑ จุดประสงค์ของโปรแกรมการสั่งการในด้านความปลอดภัย (Command Safety Program) (ก.)", p), false, "checkbox", 
+        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "เป็นโปรแกรมที่เพิ่มประสิทธิภาพการวัดผลในการทํางานซึ่งเป็นการลดความถี่ในการปฏิบัติ และให้คําแนะนําอันตรายที่จะเกิดแก่บุคคลรวมทั้งลดค่าใช้จ่ายในการใช้อุปกรณ์และทรัพยสิน อันเกิดจากความเสียหายที่จะเกิดขึ้น"}]}"#.to_string()))?;
+
+    // 101.2
+    insert_q(None, 2, format!("{}.๒ หน่วยงานใดเป็นผู้ประเมินผลกระทบที่มีต่อโปรแกรมการสั่งการด้านความปลอดภัย (ก.)", p), false, "checkbox", 
+        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "องค์กรความปลอดภัย (The Safety Organization) ซึ่งก็คือ สภาและคณะกรรมการว่าด้วยความปลอดภัย(The Safety Council And Safety Committee)"}]}"#.to_string()))?;
+
+    // 101.3
+    insert_q(None, 3, format!("{}.๓ ใครคือผู้รับผิดชอบต่อการจัดการโปรแกรมในด้านความปลอดภัย (Command Safety Program) (ก.)", p), false, "checkbox", 
+        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "นายทหารความปลอดภัย (The Safety Officer) เป็นผู้ให้คําแนะนํากับนายทหารที่ทําหน้าที่เป็นผู้สั่งการ (Commanding Officer) ทุกคนในทุกเรื่องเกี่ยวกับความปลอดภัยนอกจากนั้นยังประสานงานการปฏิบัติงานเพื่อเพิ่มประสิทธิภาพและประเมินผลข้อสรุปที่มีผลกระทบต่อโปรแกรมความปลอดภัยรวมถึงพยายามกระตุ้นการทำงานของสภาและคณะกรรมการว่าด้วยความปลอดภัย"}]}"#.to_string()))?;
+
+    // 101.9 (Complex with SubList)
+    insert_q(None, 9, format!("{}.๙ อธิบายจุดประสงค์และการทํางานของ Circuit Breakers: CB (ข., ซ.)", p), false, "checkbox", 
+        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "จุดประสงค์ของ Circuit Breaker คือ เพื่อที่จะแยกไฟที่จะจ่ายไปให้แต่ละอุปกรณ์ กฎการปฏิบัติกับ Circuit Breakers มีดังต่อไปนี้", "subList": ["ขณะปฏิบัติงานกับ Circuit Breaker ให้ใช้มือข้างเดียว (One Hand) เท่านั้น", "พยายามอย่าให้มือข้างใดข้างหนึ่งไปสัมผัสส่วนอื่นของ Circuit Breaker ยกเว้นที่จับ (Operating Handles)", "สัมผัสหรือจับด้านเดียวเท่านั้นของมือจับ", "ปิดวงจรเบรกเกอร์ก่อนและหลังจากนั้นค่อยปิดวงจรสวิตช์", "อย่าทำให้ Circuit Breakers ไม่ทำงาน (Disable)"]}]}"#.to_string()))?;
 
     Ok(())
 }
@@ -1363,14 +1553,34 @@ pub fn add_section_reference(
 }
 
 /// Remove reference from section
+/// Remove reference from section and re-index
 pub fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
-    conn.execute(
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    // 1. Get info before delete to handle re-indexing
+    let (section_id, deleted_order): (i64, i32) = tx.query_row(
+        "SELECT section_id, display_order FROM SectionReferences WHERE id = ?1",
+        params![section_ref_id],
+        |row| Ok((row.get(0)?, row.get(1)?))
+    ).map_err(|e| format!("Reference not found: {}", e))?;
+
+    // 2. Delete
+    tx.execute(
         "DELETE FROM SectionReferences WHERE id = ?1",
         params![section_ref_id],
-    )
-    .map_err(|e| e.to_string())?;
+    ).map_err(|e| e.to_string())?;
+
+    // 3. Re-index adjacent items (Shift Left)
+    tx.execute(
+        "UPDATE SectionReferences 
+         SET display_order = display_order - 1 
+         WHERE section_id = ?1 AND display_order > ?2",
+        params![section_id, deleted_order],
+    ).map_err(|e| e.to_string())?;
+    
+    tx.commit().map_err(|e| e.to_string())?;
     
     Ok(())
 }
@@ -1379,6 +1589,7 @@ pub fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
 pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDetail>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
+    // Sort by Title Length (ASC) then Title (ASC) for aesthetics
     let mut stmt = conn
         .prepare(
             "SELECT sr.id, sr.section_id, sr.reference_id, sr.display_order,
@@ -1414,6 +1625,12 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
+
+    // No need to re-assign if we trust DB display_order matches the visual intent.
+    // However, if DB has gaps or 0, it might look weird. 
+    // But consistency is key.
+    // If we want aesthetic sort, we must update DB display_order to match it.
+    // For now, let's fix consistency by respecting DB order.
     
     Ok(refs)
 }
