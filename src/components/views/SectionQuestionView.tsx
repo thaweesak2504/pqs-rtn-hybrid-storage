@@ -68,8 +68,9 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
     // TODO: Implement save logic
   };
 
-  const handleEdit = (question: QuestionDetail) => {
+  const handleEdit = (question: QuestionDetail, parentPrefix: string) => {
     setEditingQuestion(question);
+    setActiveParentPrefix(parentPrefix);
     setIsAddModalOpen(true);
   };
 

@@ -1,12 +1,14 @@
 import React from 'react';
 import { QuestionDetail } from '../../types/content';
 import { Plus } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface QuestionRendererProps {
   question: QuestionDetail;
   level: number;
   onAnswerChange?: (questionId: string, value: string) => void;
-  onEdit?: (question: QuestionDetail) => void;
+  onEdit?: (question: QuestionDetail, parentPrefix: string) => void;
   onDelete?: (question: QuestionDetail) => void;
   onAddSubQuestion?: (question: QuestionDetail, parentPrefix: string) => void;
   readOnly?: boolean;
@@ -64,27 +66,42 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
 
     // Display: "101.1 Clean Content"
     // Use non-breaking space or span for prefix?
-    const displayText = (
-      <span>
-        <span className="font-bold mr-2">{!isHeader ? currentPrefix : ''}</span>
-        {cleanContent}
-      </span>
-    );
-
-    if (citations.length === 0) return displayText;
 
     // Formatting citations: (ก. 12, ข. 34)
-    const citationText = citations
-      .map(ref => `${ref.thai_letter}. ${ref.location_text || ''}`)
-      .join(', ');
+    const citationText = citations.length > 0
+      ? citations.map(ref => `${ref.thai_letter}. ${ref.location_text || ''}`).join(', ')
+      : null;
 
     return (
-      <span>
-        {displayText}
-        <span className="text-gray-500 text-sm ml-2 font-semibold">
-          ({citationText})
-        </span>
-      </span>
+      <div className="flex items-start gap-2">
+        {/* Prefix */}
+        <span className="font-bold whitespace-nowrap pt-0.5 min-w-fit">{!isHeader ? currentPrefix : ''}</span>
+
+        {/* Content Wrapper */}
+        <div className="text-github-text-primary">
+          {/* Markdown Content (Inline Style) */}
+          <span className="prose prose-sm dark:prose-invert max-w-none inline prose-p:inline prose-p:my-0">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                // Force paragraphs to render as spans for inline flow
+                p: ({ node, ...props }) => <span {...props} />,
+                // Adjust padding for other elements if they appear (unlikely in pure title text)
+                div: ({ node, ...props }) => <span {...props} />
+              }}
+            >
+              {cleanContent}
+            </ReactMarkdown>
+          </span>
+
+          {/* Citation (Inline) */}
+          {citationText && (
+            <span className="text-gray-500 text-sm ml-2 font-semibold whitespace-nowrap">
+              ({citationText})
+            </span>
+          )}
+        </div>
+      </div>
     );
   };
 
@@ -101,7 +118,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
           <div className="flex items-center ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
             {onEdit && (
               <button
-                onClick={(e) => { e.stopPropagation(); onEdit(question); }}
+                onClick={(e) => { e.stopPropagation(); onEdit(question, parentPrefix); }}
                 className="p-1 text-gray-400 hover:text-blue-500"
                 title="Edit Question"
               >
@@ -186,7 +203,23 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                   {answerKey && !readOnly && (
                     <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
                       <span className="text-xs font-bold text-green-700 dark:text-green-400 block mb-1">เฉลย (Answer Key):</span>
-                      <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{answerKey}</p>
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-gray-800 dark:text-gray-200">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            ol: ({ node, ...props }) => <ol className="list-thai pl-6 space-y-1" {...props} />,
+                            table: ({ node, ...props }) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 border border-gray-300 dark:border-gray-700" {...props} /></div>,
+                            thead: ({ node, ...props }) => <thead className="bg-gray-50 dark:bg-gray-800" {...props} />,
+                            tbody: ({ node, ...props }) => <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900" {...props} />,
+                            tr: ({ node, ...props }) => <tr {...props} />,
+                            th: ({ node, ...props }) => <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100" {...props} />,
+                            td: ({ node, ...props }) => <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300" {...props} />
+                          }}
+                        >
+                          {/* Ensure newline before content for safe parsing */}
+                          {`\n\n${answerKey}`}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { X, BookOpen, Save, AlertCircle } from 'lucide-react';
+import { X, BookOpen, Save, AlertCircle, Table, HelpCircle } from 'lucide-react'; // Added HelpCircle icon
 import { QuestionDetail } from '../../types/content'; // Ensure this import exists
 
 interface DocumentReference {
@@ -42,11 +42,14 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
 }) => {
   const [content, setContent] = useState('');
   const [answerKey, setAnswerKey] = useState('');
+  const contentRef = React.useRef<HTMLTextAreaElement>(null);
+  const answerKeyRef = React.useRef<HTMLTextAreaElement>(null);
   // State for references with pages: Map<ReferenceID, PageString>
   const [selectedRefs, setSelectedRefs] = useState<Map<number, string>>(new Map());
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   // Helper to convert to Thai numerals
   const toThaiNumber = (num: string | number) => {
@@ -55,6 +58,14 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
       const parsed = parseInt(d);
       return !isNaN(parsed) && parsed >= 0 && parsed <= 9 ? thaiDigits[parsed] : d;
     }).join('');
+  };
+
+  // Auto-resize logic
+  const adjustHeight = (el: HTMLTextAreaElement | null) => {
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
   };
 
   // Convert sequence to Thai for preview (e.g. 101.1 -> ๑๐๑.๑)
@@ -91,12 +102,6 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
         const thaiSeqInit = toThaiNumber(initialData.sequence);
         const prefix = `${thaiNum}.${thaiSeqInit} `;
 
-        // Debug logging
-        console.log('Edit Mode - Initial Data:', initialData);
-        if (initialData.references) {
-          console.log('Initial References:', initialData.references);
-        }
-
         let loadedContent = initialData.content;
         if (loadedContent.startsWith(prefix)) {
           loadedContent = loadedContent.slice(prefix.length);
@@ -115,24 +120,18 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
         const newMap = new Map<number, string>();
         if (initialData.references) {
           initialData.references.forEach(ref => {
-            // ref is SectionReferenceDetail, but we need DocumentReference ID for the map key?
-            // Wait, initialData.references type in QuestionDetail might be different?
-            // Let's check type. QuestionDetail references is SectionReferenceDetail[] usually.
-            // In QuestionDetail interface: references?: SectionReferenceDetail[];
-            // SectionReferenceDetail has { id, reference: { id, ... }, ... }
-            // The Map key is document_reference id (reference.id).
-            // Debug ref item
-            console.log('Processing Ref:', ref);
             if (ref.reference && ref.reference.id) {
-              console.log('Adding to map:', ref.reference.id, ref.location_text);
               newMap.set(ref.reference.id, ref.location_text || '-');
-            } else {
-              console.warn('Ref missing reference or id:', ref);
             }
           });
         }
-        console.log('Final Selected Refs Map:', newMap);
         setSelectedRefs(newMap);
+
+        // Force resize for existing content
+        setTimeout(() => {
+          adjustHeight(contentRef.current);
+          adjustHeight(answerKeyRef.current);
+        }, 100);
 
       } else {
         // Create Mode
@@ -175,6 +174,19 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
       }
       return newMap;
     });
+  };
+
+  const insertTableTemplate = () => {
+    // Standard Markdown requires a blank line before a table if it follows text.
+    // We add \n\n to ensure separation.
+    const template = `
+
+| หัวข้อ (Header) | รายละเอียด (Detail) |
+|----------------|-------------------|
+| ข้อมูล 1        | รายละเอียด 1       |
+| ข้อมูล 2        | รายละเอียด 2       |
+`;
+    setAnswerKey(prev => prev + template);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -259,10 +271,58 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
               }
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className={`p-2 rounded-full transition-colors ${showHelp ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500'}`}
+              title="คู่มือการใช้งาน (Help)"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
         </div>
+
+        {/* Markdown Guide Panel */}
+        {showHelp && (
+          <div className="bg-blue-50 dark:bg-blue-900/20 px-6 py-4 border-b border-blue-100 dark:border-blue-900 flex flex-col gap-3 transition-all">
+            <h3 className="text-sm font-bold text-blue-800 dark:text-blue-300 flex items-center gap-2">
+              <BookOpen className="w-4 h-4" /> แนะนำการจัดรูปแบบ (Markdown Guide)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-github-text-primary">
+              <div className="space-y-2">
+                <div className="bg-white dark:bg-github-bg-primary p-2 rounded border border-blue-200 dark:border-blue-800">
+                  <span className="font-semibold block text-blue-600 dark:text-blue-400">1. เลขข้อแบบไทย (Ordered List)</span>
+                  <code className="block bg-gray-100 dark:bg-gray-800 p-1 rounded mt-1 font-mono">
+                    1. รายการที่ 1<br />
+                    2. รายการที่ 2
+                  </code>
+                  <span className="text-gray-500 mt-1 block">แสดงผลเป็น: ๑. รายการที่ 1, ๒. รายการที่ 2</span>
+                </div>
+                <div className="bg-white dark:bg-github-bg-primary p-2 rounded border border-blue-200 dark:border-blue-800">
+                  <span className="font-semibold block text-blue-600 dark:text-blue-400">2. ตัวหนา/ตัวเอียง (Bold/Italic)</span>
+                  <code className="block bg-gray-100 dark:bg-gray-800 p-1 rounded mt-1 font-mono">
+                    **ตัวหนา**  _ตัวเอียง_
+                  </code>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="bg-white dark:bg-github-bg-primary p-2 rounded border border-blue-200 dark:border-blue-800">
+                  <span className="font-semibold block text-blue-600 dark:text-blue-400">3. ตาราง (Table)</span>
+                  <span className="text-gray-500 block mb-1">ใช้ปุ่ม "แทรกตาราง" หรือพิมพ์เอง:</span>
+                  <code className="block bg-gray-100 dark:bg-gray-800 p-1 rounded font-mono whitespace-pre text-[10px]">
+                    | หัวข้อ 1 | หัวข้อ 2 |<br />
+                    |----------|----------|<br />
+                    | ข้อมูล 1 | ข้อมูล 2 |
+                  </code>
+                  <span className="text-red-500 mt-1 block font-bold">*ต้องมีบรรทัดว่างก่อนตารางเสมอ*</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -277,27 +337,41 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
                 {previewNumber}
               </div>
               <textarea
+                ref={contentRef}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
+                onInput={() => adjustHeight(contentRef.current)} // Force resize on input
                 placeholder="พิมพ์รายละเอียดคำถามที่นี่..."
-                rows={4}
-                className="flex-1 px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-github-bg-tertiary text-github-text-primary resize-none"
+                rows={1}
+                className="flex-1 px-4 py-2 border border-blue-200 dark:border-blue-900 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-github-bg-tertiary text-github-text-primary resize-none overflow-hidden"
                 autoFocus
+                style={{ minHeight: '100px' }}
               />
             </div>
           </div>
 
           {/* Answer Key Input */}
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-github-text-primary">
-              เฉลยคำตอบ (Answer Key) <span className="text-gray-400 text-xs font-normal">(สำหรับผู้ตรวจ)</span>
+            <label className="text-sm font-medium text-github-text-primary flex justify-between items-center">
+              <span>เฉลยคำตอบ (Answer Key) <span className="text-gray-400 text-xs font-normal">(สำหรับผู้ตรวจ)</span></span>
+              <button
+                type="button"
+                onClick={insertTableTemplate}
+                className="text-xs flex items-center gap-1 text-blue-500 hover:text-blue-600 font-normal transition-colors"
+              >
+                <Table className="w-3 h-3" />
+                แทรกตาราง (Insert Table)
+              </button>
             </label>
             <textarea
+              ref={answerKeyRef}
               value={answerKey}
               onChange={(e) => setAnswerKey(e.target.value)}
+              onInput={() => adjustHeight(answerKeyRef.current)} // Force resize on input
               placeholder="พิมพ์คำตอบที่ถูกต้องที่นี่..."
-              rows={3}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-github-bg-tertiary text-github-text-primary resize-none"
+              rows={1}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-github-bg-tertiary text-github-text-primary resize-none overflow-hidden"
+              style={{ minHeight: '80px' }}
             />
           </div>
 
