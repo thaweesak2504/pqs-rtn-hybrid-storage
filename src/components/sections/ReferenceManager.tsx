@@ -7,9 +7,9 @@ interface DocumentReference {
   id: number;
   code: string;
   title: string;
-  short_name: string | null;
+  classification: string | null;
   category: string | null;
-  is_common: boolean;
+  file_path: string | null;
   created_at: string;
   updated_at: string | null;
 }

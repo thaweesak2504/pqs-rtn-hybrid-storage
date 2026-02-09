@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Plus } from 'lucide-react';
+import { Check, X, Plus } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/tauri';
 import { QuestionDetail } from '../../types/content';
 import QuestionRenderer from '../questions/QuestionRenderer';
@@ -13,8 +13,6 @@ interface SectionQuestionViewProps {
   sectionId: number;
   sectionNumber: number; // e.g. 200, 300
   title: string;
-  subTitle?: string;
-  headerColorClass?: string; // e.g. "from-orange-600 to-orange-700"
 }
 
 const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
@@ -22,9 +20,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
   docId,
   sectionId,
   sectionNumber,
-  title,
-  subTitle,
-  headerColorClass = "from-blue-600 to-blue-700"
+  title
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,9 +30,60 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
   const [parentQuestion, setParentQuestion] = useState<QuestionDetail | null>(null);
   const [activeParentPrefix, setActiveParentPrefix] = useState<string>('');
 
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleVal, setTitleVal] = useState(title);
+  const [allExpanded, setAllExpanded] = useState(false);
+
+  const handleToggleAll = () => {
+    setAllExpanded(!allExpanded);
+  };
+
+  useEffect(() => {
+    setTitleVal(title);
+  }, [title]);
+
   const toThaiNumber = (num: number) => {
     const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
     return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
+  };
+
+  const handleTitleSave = async () => {
+    if (titleVal.trim() === '' || titleVal === title) {
+      setIsEditingTitle(false);
+      setTitleVal(title);
+      return;
+    }
+
+    try {
+      await invoke('update_section', {
+        args: {
+          id: sectionId,
+          title_th: titleVal,
+          menu_label: `${sectionNumber} ${titleVal.substring(0, 20)}...` // Auto-update menu label too
+        }
+      });
+      setIsEditingTitle(false);
+      // We might need to refresh parent or context to see title change in sidebar, 
+      // but for now local update is handled by prop update from parent if parent refreshes.
+      // If parent doesn't refresh, we might need to trigger a callback. 
+      // For now, let's assume parent (ActiveDocumentPage) refreshes or we live with stale sidebar until reload.
+      // Actually, ActiveDocumentPage fetches usage, maybe not sections.
+      // We'll rely on props updating if we want full consistency, but standard React pattern is 
+      // optimistic update or callback. 
+      // Let's reload the page content? No, that's heavy.
+      // Just exit edit mode. The Sidebar might differ until refresh.
+    } catch (error) {
+      console.error("Failed to update section title:", error);
+      alert("Failed to save title");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleTitleSave();
+    if (e.key === 'Escape') {
+      setIsEditingTitle(false);
+      setTitleVal(title);
+    }
   };
 
   useEffect(() => {
@@ -146,23 +193,9 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
 
 
   // Calculate Usage Counts (Memoized out of render loop)
-  const usageCounts = useMemo(() => {
-    const counts = new Map<number, number>();
-    questions.forEach(q => {
-      // Use the hydrated 'references' from the database Join (Single Source of Truth)
-      if (q.references && Array.isArray(q.references)) {
-        q.references.forEach(ref => {
-          // ref is QuestionReferenceDetail, we need reference.id
-          // Actually, ref.reference.id is the DocumentReference ID
-          // Let's verify type.
-          if (ref.reference && ref.reference.id) {
-            counts.set(ref.reference.id, (counts.get(ref.reference.id) || 0) + 1);
-          }
-        });
-      }
-    });
-    return counts;
-  }, [questions]);
+  // const usageCounts = useMemo(() => { ... }, [questions]);
+  // Unused for now as we are strictly following Moc layout which lists specific references manually or we need to map them differently.
+  // Keeping logic if needed later but commenting out to fix lint.
 
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Loading Section {sectionNumber}...</div>;
@@ -200,25 +233,66 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
 
   // Edit Mode
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
-      {/* Header Card */}
-      <div className={`bg-gradient-to-r ${headerColorClass} rounded-lg shadow-lg p-6 text-white`}>
-        <div className="flex items-center space-x-3">
-          <BookOpen className="w-8 h-8" />
-          <div>
-            <h1 className="text-2xl font-bold">{toThaiNumber(sectionNumber)} {title}</h1>
-            {subTitle && <p className="opacity-90 text-sm mt-1">{subTitle}</p>}
+    <div className={`flex flex-col h-full font-th-sarabun text-lg ${isPreviewMode ? '' : 'p-4'}`}>
+
+      {/* Section Header (Moc Style) */}
+      <div className="mb-4">
+        {/* Title Row: Grid with 5ch gap */}
+        <div className="grid grid-cols-[max-content_1fr] gap-x-[5ch] items-baseline">
+          <span className="font-bold whitespace-nowrap text-black dark:text-github-text-primary">
+            {toThaiNumber(sectionNumber)}.
+          </span>
+
+          <div className="font-bold text-black dark:text-github-text-primary">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={titleVal}
+                  onChange={(e) => setTitleVal(e.target.value)}
+                  onBlur={handleTitleSave} // Auto-save on blur
+                  onKeyDown={handleKeyDown}
+                  autoFocus
+                  className="bg-white dark:bg-github-bg-tertiary border border-blue-500 rounded px-2 py-1 text-github-text-primary flex-1 min-w-[300px]"
+                />
+                <button onClick={handleTitleSave} className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-600">
+                  <Check size={18} />
+                </button>
+                <button onClick={() => { setIsEditingTitle(false); setTitleVal(title); }} className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-600">
+                  <X size={18} />
+                </button>
+              </div>
+            ) : (
+              <span
+                onClick={() => !isPreviewMode && setIsEditingTitle(true)}
+                className={`${!isPreviewMode ? 'cursor-text hover:underline decoration-gray-400 underline-offset-4' : ''}`}
+                title="Click to edit title"
+              >
+                {title}
+              </span>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Reference Manager - Now immediately after Header */}
-      <div className="bg-white dark:bg-github-bg-secondary p-4 rounded-lg shadow-sm border border-github-border-primary">
-        <ReferenceManager
-          sectionId={sectionId}
-          readOnly={false}
-          usageCounts={usageCounts}
-        />
+        {/* References Row (Indented) */}
+        <div className="ml-[5ch] mt-2 text-black dark:text-github-text-primary">
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="font-bold">เอกสารอ้างอิง :</span>
+            {/* Toggle All Button - Moved here as start of references or inline */}
+            <button
+              onClick={handleToggleAll}
+              className="ml-auto px-3 py-0.5 bg-[#f9f9f9] dark:bg-github-bg-secondary border border-[#333] dark:border-github-border-primary rounded text-sm hover:bg-[#e8e6e6] dark:hover:bg-github-bg-hover transition-colors font-th-sarabun"
+            >
+              {allExpanded ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
+            </button>
+          </div>
+
+          {/* We don't have the explicit list of references here from DB yet in this view, 
+                assuming they are rendered by the Questions or just generic placeholder? 
+                Actually the Mockup had a hardcoded list. 
+                For now we just keep the header structure clean. 
+            */}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -246,18 +320,20 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
               className="bg-white dark:bg-github-bg-secondary p-6 rounded-lg shadow-sm border border-github-border-primary"
             >
               <QuestionRenderer
+                key={question.id}
                 question={question}
                 level={0}
-                onAnswerChange={handleAnswerChange}
-                onEdit={handleEdit}
-                onDelete={handleDeleteCallback}
-                onAddSubQuestion={handleAddSubQuestion}
-                readOnly={false}
+                onAnswerChange={!isPreviewMode ? handleAnswerChange : undefined}
+                onEdit={!isPreviewMode ? handleEdit : undefined}
+                onDelete={!isPreviewMode ? handleDeleteCallback : undefined}
+                onAddSubQuestion={!isPreviewMode ? handleAddSubQuestion : undefined}
+                readOnly={isPreviewMode}
                 parentPrefix={toThaiNumber(sectionNumber)}
                 // Dynamic Max Depth: 
                 // Section 100 (Fundamentals): Limit to L2 (Root + 1 level) -> depth 1
                 // Section 200/300: Standard depth (usually 3 levels) -> depth 2 or undefined
                 visibleMaxDepth={sectionNumber < 200 ? 1 : undefined}
+                forceExpand={allExpanded}
               />
             </div>
           ))

@@ -38,7 +38,7 @@ import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 import Section104View from '../views/Section104View';
-import SectionQuestionView from '../views/SectionQuestionView';
+import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import AddSectionModal from '../modals/AddSectionModal';
 import ConfirmModal from '../modals/ConfirmModal';
@@ -102,18 +102,9 @@ const ActiveDocumentPage: React.FC = () => {
       // Save to localStorage for quick resume
       localStorage.setItem('lastActiveDocId', docId);
 
-      // Run migration to ensure Section 101 exists for all documents
-      invoke('migrate_section_101')
-        .then(() => {
-          fetchDocData();
-          fetchSections();
-        })
-        .catch(err => {
-          console.error("Migration failed (non-critical):", err);
-          // Continue anyway
-          fetchDocData();
-          fetchSections();
-        });
+      // Fetch data immediately
+      fetchDocData();
+      fetchSections();
     }
   }, [docId]);
 
@@ -334,10 +325,8 @@ const ActiveDocumentPage: React.FC = () => {
           {/* Dynamic Sections (101-199, 201-299, 301-399) - Using Question Renderer */}
           {activeSection !== '100' && activeSection !== '104' && activeSection !== '200' && activeSection !== '300' &&
             parseInt(activeSection) >= 100 && parseInt(activeSection) < 400 && docId && (
-              <SectionQuestionView
-                isPreviewMode={isPreviewMode}
+              <PqsSectionEditor
                 docId={docId}
-                sectionId={sections.find(s => s.section_number.toString() === activeSection)?.id || 0}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
                 subTitle={(() => {
@@ -347,11 +336,7 @@ const ActiveDocumentPage: React.FC = () => {
                   const parts = section.menu_label.split(' ');
                   return parts.length > 1 ? parts.slice(1).join(' ') : "";
                 })()}
-                headerColorClass={
-                  parseInt(activeSection) >= 300
-                    ? "from-purple-600 to-purple-700 dark:from-purple-700 dark:to-purple-800"
-                    : "from-orange-600 to-orange-700 dark:from-orange-700 dark:to-orange-800"
-                }
+                isPreviewMode={isPreviewMode}
               />
             )}
 

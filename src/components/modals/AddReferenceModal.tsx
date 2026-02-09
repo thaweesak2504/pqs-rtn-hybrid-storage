@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { X, Search, Plus, BookOpen } from 'lucide-react';
+import { Search, Plus, BookOpen, X, Edit, FileText, Lock, Shield } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 interface DocumentReference {
   id: number;
   code: string;
   title: string;
-  short_name: string | null;
+  classification: string | null;
   category: string | null;
-  is_common: boolean;
+  file_path: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -39,19 +39,31 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
   // Create tab state
   const [newCode, setNewCode] = useState('');
   const [newTitle, setNewTitle] = useState('');
-  const [newReferenceType, setNewReferenceType] = useState('MANUAL'); // Default to MANUAL
-  const [newIsCommon, setNewIsCommon] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
+  const [newClassification, setNewClassification] = useState('Unclassified');
+  const [newFilePath, setNewFilePath] = useState('');
   const [creating, setCreating] = useState(false);
   const [refToDelete, setRefToDelete] = useState<DocumentReference | null>(null);
 
   const [error, setError] = useState('');
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // ... (unchanged code) ...
 
   // ... (unchanged code) ...
 
-  // Preview code based on selected type
-  const previewCode = newCode.trim() || `${newReferenceType}_XXX`;
+  // Preview code logic
+  const previewCode = useMemo(() => {
+    if (newCode.trim()) return null;
+    if (!newCategory) return 'REF-0XXX';
+
+    const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT' };
+    const classMap: Record<string, string> = { 'Unclassified': '0', 'Restricted': '1', 'Confidential': '2' };
+
+    const prefix = catMap[newCategory] || 'OT';
+    const digit = classMap[newClassification] || '0';
+    return `${prefix} -${digit} XXX`;
+  }, [newCode, newCategory, newClassification]);
 
   useEffect(() => {
     if (isOpen && activeTab === 'search') {
@@ -65,7 +77,6 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       const refs = await invoke<DocumentReference[]>('get_references', {
         search: null,
         category: null,
-        commonOnly: false,
       });
       setAllRefs(refs);
     } catch (err) {
@@ -78,7 +89,6 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       const refs = await invoke<DocumentReference[]>('get_references', {
         search: null,
         category: null,
-        commonOnly: true,
       });
       setCommonRefs(refs);
     } catch (err) {
@@ -162,10 +172,10 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
         request: {
           code: finalCode,
           title: newTitle.trim(),
-          short_name: null,
-          category: null, // Removed field - type is used instead
-          is_common: newIsCommon,
-          reference_type: newReferenceType || null,
+          category: newCategory || null,
+          classification: newClassification,
+          file_path: newFilePath || null,
+          reference_type: null,
         },
       });
 
@@ -206,8 +216,9 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
     setSearchQuery('');
     setNewCode('');
     setNewTitle('');
-    setNewReferenceType('MANUAL');
-    setNewIsCommon(false);
+    setNewCategory('');
+    setNewClassification('Unclassified');
+    setNewFilePath('');
     setError('');
   };
 
@@ -239,20 +250,20 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
         <div className="flex border-b border-gray-200 dark:border-github-border-primary">
           <button
             onClick={() => setActiveTab('search')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'search'
+            className={`flex - 1 px - 4 py - 3 text - sm font - medium transition - colors ${activeTab === 'search'
               ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              } `}
           >
             <Search className="w-4 h-4 inline mr-2" />
             Search Existing
           </button>
           <button
             onClick={() => setActiveTab('create')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'create'
+            className={`flex - 1 px - 4 py - 3 text - sm font - medium transition - colors ${activeTab === 'create'
               ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+              } `}
           >
             <Plus className="w-4 h-4 inline mr-2" />
             Create New
@@ -335,7 +346,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                   <div className="space-y-2">
                     {commonRefs.map((ref) => (
                       <ReferenceItem
-                        key={`common-${ref.id}`}
+                        key={`common - ${ref.id} `}
                         reference={ref}
                         onSelect={handleSelectReference}
                         onDelete={handleDeleteClick}
@@ -349,8 +360,8 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
               <div>
                 <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   {searchQuery || typeFilter !== 'ALL' || codeFilter !== 'ALL'
-                    ? `Search Results (${searchResults.length})`
-                    : `All References (${searchResults.length})`}
+                    ? `Search Results(${searchResults.length})`
+                    : `All References(${searchResults.length})`}
                 </h3>
                 {searchResults.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
@@ -387,96 +398,196 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
           {/* Create Tab */}
           {activeTab === 'create' && (
             <form onSubmit={handleCreateReference} className="space-y-4">
-              {/* Reference Type - First */}
-              <div>
-                <label className="block text-sm font-medium text-github-text-primary mb-2">
-                  Reference Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={newReferenceType}
-                  onChange={(e) => setNewReferenceType(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-tertiary text-github-text-primary focus:ring-2 focus:ring-blue-500"
-                  required
-                >
-                  <option value="MANUAL">📘 Manual (คู่มือ)</option>
-                  <option value="PROC">📋 Procedure (ขั้นตอน)</option>
-                  <option value="TM">🔧 Technical Manual (คู่มือเทคนิค)</option>
-                  <option value="SAFETY">⚠️ Safety Document (เอกสารความปลอดภัย)</option>
-                  <option value="LINK">🔗 Web Link (ลิงก์)</option>
-                  <option value="OTHER">📄 Other (อื่นๆ)</option>
-                </select>
-                <p className="mt-1 text-xs text-gray-500">
-                  Code will be: <span className="font-mono font-semibold">{newReferenceType}_XXX</span>
-                </p>
-              </div>
 
-              {/* Title */}
-              <div>
-                <label className="block text-sm font-medium text-github-text-primary mb-2">
-                  Title <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. NAVSEA OP4154 Vol.1 Pt.1 Operator's Manual for CIWS Phalanx"
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-tertiary text-github-text-primary focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                <p className="mt-1 text-xs text-gray-500">Full title of the reference document</p>
-              </div>
+              {/* Row 1: Metadata (Category, Classification, Code, File) */}
+              <div className="flex flex-col md:flex-row gap-3 items-start">
 
-              {/* Code - Optional with Auto-Gen */}
-              <div>
-                <label className="block text-sm font-medium text-github-text-primary mb-2">
-                  Reference Code <span className="text-xs text-gray-500 font-normal">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCode}
-                  onChange={(e) => setNewCode(e.target.value)}
-                  placeholder="Leave empty to auto-generate"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-tertiary text-github-text-primary focus:ring-2 focus:ring-blue-500"
-                />
-                {previewCode && (
-                  <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      💡 Code will be: <span className="font-mono font-semibold">{previewCode}</span>
-                    </p>
+                {/* 1. Category (Width: ~20%) */}
+                <div className="w-full md:w-3/12">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      ประเภท (Category) <span className="text-red-500">*</span>
+                    </label>
                   </div>
-                )}
-                <p className="mt-1 text-xs text-gray-500">
-                  {newCode.trim() ? 'Custom code (must be unique)' : `Sequential: ${newReferenceType}_001, ${newReferenceType}_002...`}
-                </p>
+                  <div className="relative group">
+                    <select
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      onFocus={() => setFocusedField('category')}
+                      onBlur={() => setFocusedField(null)}
+                      className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg bg-white dark:bg-github-bg-tertiary text-github-text-primary focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none transition-all"
+                      required
+                    >
+                      <option value="" disabled>-- เลือก (Select) --</option>
+                      <option value="MANUAL">📘 MANUAL</option>
+                      <option value="PROC">📋 PROCEDURE (ระเบียบ)</option>
+                      <option value="TM">🔧 TECHNICAL MANUAL (คู่มือเทคนิค)</option>
+                      <option value="SAFETY">⚠️ SAFETY INSTRUCTION (ความปลอดภัย)</option>
+                      <option value="DIAGRAM">📐 DIAGRAM (แบบแปลน)</option>
+                      <option value="OTHER">📄 OTHER (อื่นๆ)</option>
+                    </select>
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    {/* Helper Tooltip */}
+                    {focusedField === 'category' && (
+                      <div className="absolute left-0 -top-8 bg-blue-600 text-white text-xs py-1 px-2 rounded shadow-lg whitespace-nowrap z-10 animate-in fade-in slide-in-from-bottom-1">
+                        เลือกประเภทเพื่อสร้างรหัสอ้างอิง
+                        <div className="absolute bottom-0 left-4 translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Classification (Width: ~20%) */}
+                <div className="w-full md:w-3/12">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      ชั้นความลับ (Class)
+                    </label>
+                  </div>
+                  <div className="relative group">
+                    <select
+                      value={newClassification}
+                      onChange={(e) => {
+                        setNewClassification(e.target.value);
+                        if (e.target.value === 'Confidential' || e.target.value === 'Secret') setNewFilePath('');
+                      }}
+                      onFocus={() => setFocusedField('classification')}
+                      onBlur={() => setFocusedField(null)}
+                      className={`w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none transition-all ${newClassification === 'Confidential' || newClassification === 'Secret' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-white dark:bg-github-bg-tertiary text-github-text-primary'
+                        }`}
+                    >
+                      <option value="Unclassified">1. ไม่กำหนด (Unclassified)</option>
+                      <option value="Restricted">2. ปกปิด (Restricted)</option>
+                      <option value="Confidential">3. ลับ (Confidential)</option>
+                      <option value="Secret">4. ลับมาก (Secret)</option>
+                    </select>
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      {newClassification === 'Confidential' || newClassification === 'Secret' ? (
+                        <Lock className="w-4 h-4 text-red-500" />
+                      ) : newClassification === 'Restricted' ? (
+                        <Shield className="w-4 h-4 text-blue-500" />
+                      ) : (
+                        <BookOpen className="w-4 h-4" />
+                      )}
+                    </div>
+                    {/* Helper Tooltip */}
+                    {focusedField === 'classification' && (
+                      <div className="absolute left-0 -top-8 bg-blue-600 text-white text-xs py-1 px-2 rounded shadow-lg whitespace-nowrap z-10 animate-in fade-in slide-in-from-bottom-1">
+                        ระดับความลับของเอกสาร
+                        <div className="absolute bottom-0 left-4 translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Ref Code Preview (Width: ~15%) - Visual Badge */}
+                <div className="w-full md:w-2/12">
+                  <div className="mb-1">
+                    <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      รหัส (Ref Code)
+                    </label>
+                  </div>
+                  <div className="h-[38px] flex items-center justify-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
+                    <span className={`font-mono font-bold text-sm tracking-wide ${newCategory ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'} `}>
+                      {previewCode || '---'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* 4. File Path (Width: ~45%) */}
+                <div className="w-full md:w-4/12">
+                  <div className="flex justify-between items-baseline mb-1">
+                    <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      ไฟล์แนบ (File Path)
+                    </label>
+                  </div>
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      value={newFilePath}
+                      onChange={(e) => setNewFilePath(e.target.value)}
+                      onFocus={() => setFocusedField('filePath')}
+                      onBlur={() => setFocusedField(null)}
+                      disabled={newClassification === 'Confidential'}
+                      placeholder={newClassification === 'Confidential' ? 'ปิดกั้น (Confidential)' : "C:\\Path\\To\\File.pdf"}
+                      className={`w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg text-github-text-primary focus:ring-2 focus:ring-blue-500 shadow-sm transition-all ${newClassification === 'Confidential'
+                        ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                        : 'bg-white dark:bg-github-bg-tertiary'
+                        } `}
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                      {newClassification === 'Confidential' ? <Lock className="w-4 h-4 text-red-400" /> : <FileText className="w-4 h-4" />}
+                    </div>
+
+                    {/* Helper Tooltip */}
+                    {focusedField === 'filePath' && (
+                      <div className="absolute right-0 -top-8 bg-blue-600 text-white text-xs py-1 px-2 rounded shadow-lg whitespace-nowrap z-10 animate-in fade-in slide-in-from-bottom-1">
+                        {newClassification === 'Confidential' ? 'ไม่สามารถระบุได้สำหรับเอกสารลับ' : 'ระบุที่เก็บไฟล์เพื่อดาวน์โหลด'}
+                        <div className="absolute bottom-0 right-4 translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600"></div>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="isCommon"
-                  checked={newIsCommon}
-                  onChange={(e) => setNewIsCommon(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <label htmlFor="isCommon" className="ml-2 text-sm text-github-text-primary">
-                  Mark as common reference (suggest in future searches)
-                </label>
+              {/* Row 2: Title (Full Width) */}
+              <div>
+                <div className="flex justify-between items-baseline mb-1">
+                  <label className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    ชื่อเรื่อง (Title) <span className="text-red-500">*</span>
+                  </label>
+                </div>
+                <div className="relative group">
+                  <div className="absolute left-3 top-3 pointer-events-none text-gray-400">
+                    <Edit className="w-4 h-4" />
+                  </div>
+                  <textarea
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onFocus={() => setFocusedField('title')}
+                    onBlur={() => setFocusedField(null)}
+                    placeholder="เช่น คู่มือการใช้งานระบบ Phalanx (ระบุชื่อเอกสารให้ชัดเจน)..."
+                    rows={1}
+                    className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg bg-white dark:bg-github-bg-tertiary text-github-text-primary focus:ring-2 focus:ring-blue-500 shadow-sm min-h-[42px] resize-none overflow-hidden transition-all focus:min-h-[80px]"
+                    required
+                  />
+                  {/* Helper Tooltip */}
+                  {focusedField === 'title' && (
+                    <div className="absolute left-0 -top-8 bg-blue-600 text-white text-xs py-1 px-2 rounded shadow-lg whitespace-nowrap z-10 animate-in fade-in slide-in-from-bottom-1">
+                      ระบุชื่อเอกสารให้กระชับและชัดเจน
+                      <div className="absolute bottom-0 left-4 translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600"></div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t border-gray-200 dark:border-github-border-primary">
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-github-border-primary">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                  className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  Cancel
+                  ยกเลิก (Cancel)
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                  {creating ? 'Creating...' : 'Create & Add'}
+                  {creating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      สร้างเอกสาร (Create)
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -489,7 +600,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
         onClose={() => setRefToDelete(null)}
         onConfirm={confirmDeleteReference}
         title="ลบเอกสารจากฐานข้อมูล"
-        message={`คุณแน่ใจหรือไม่ที่จะลบเอกสารอ้างอิงนี้ออกจาก "ฐานข้อมูลกลาง"?\n\n"${refToDelete?.code} - ${refToDelete?.title}"\n\nคำเตือน: การกระทำนี้จะลบการอ้างอิงออกจากเอกสาร PQS ทุกฉบับที่ใช้งานอยู่`}
+        message={`คุณแน่ใจหรือไม่ที่จะลบเอกสารอ้างอิงนี้ออกจาก "ฐานข้อมูลกลาง" ?\n\n"${refToDelete?.code} - ${refToDelete?.title}"\n\nคำเตือน: การกระทำนี้จะลบการอ้างอิงออกจากเอกสาร PQS ทุกฉบับที่ใช้งานอยู่`}
         confirmText="ลบถาวร"
         variant="danger"
       />
@@ -523,8 +634,14 @@ const ReferenceItem: React.FC<{
                     {reference.category}
                   </span>
                 )}
-                {reference.is_common && (
-                  <span className="text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded whitespace-nowrap">★ Common</span>
+                {/* Classification Badge - NEW */}
+                {reference.classification && reference.classification !== 'Unclassified' && (
+                  <span className={`px - 2 py - 0.5 text - [10px] font - bold uppercase rounded border ${reference.classification === 'Secret' ? 'bg-red-100 text-red-700 border-red-200' :
+                    reference.classification === 'Top Secret' ? 'bg-red-600 text-white border-red-700' :
+                      'bg-slate-100 text-slate-600 border-slate-200'
+                    } `}>
+                    {reference.classification}
+                  </span>
                 )}
               </div>
             </div>

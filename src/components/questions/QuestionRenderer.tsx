@@ -2,6 +2,7 @@ import React from 'react';
 import { QuestionDetail } from '../../types/content';
 import { Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { invoke } from '@tauri-apps/api/tauri';
 import remarkGfm from 'remark-gfm';
 
 interface QuestionRendererProps {
@@ -14,6 +15,7 @@ interface QuestionRendererProps {
   readOnly?: boolean;
   parentPrefix?: string; // e.g. "101" or "101.1"
   visibleMaxDepth?: number; // Maximum nesting level to show "Add Sub-Question" button
+  forceExpand?: boolean; // Control for Toggle All
 }
 
 const QuestionRenderer: React.FC<QuestionRendererProps> = ({
@@ -25,7 +27,8 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   onAddSubQuestion,
   readOnly = false,
   parentPrefix = '',
-  visibleMaxDepth
+  visibleMaxDepth,
+  forceExpand
 }) => {
   const toThaiNumber = (num: string | number) => {
     const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
@@ -37,13 +40,73 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
 
   const isHeader = question.is_header;
 
-  // Calculate current prefix
-  // If parentPrefix is empty, we assume it's implicit or not needed?
-  // Actually, for L1 (Level 0), parentPrefix should be valid (e.g. "101")
   // Format: parentPrefix.sequence (e.g. 101.1)
   const currentPrefix = parentPrefix
     ? `${parentPrefix}.${toThaiNumber(question.sequence)}`
     : `${toThaiNumber(question.sequence)}`; // Fallback
+
+  // State for expanded answer (if collapsible)
+  // Logic: Text answers are always shown? Checkboxes might be hidden? 
+  // In Moc, "Show Answer" toggles the answer box.
+  // We'll trust forceExpand or local state.
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
+  React.useEffect(() => {
+    if (forceExpand !== undefined) {
+      setIsExpanded(forceExpand);
+    }
+  }, [forceExpand]);
+
+  const [isEditingContent, setIsEditingContent] = React.useState(false);
+  // Initial value should be cleaned content
+  const prefixRegex = /^[\d\.]+\s+/;
+  const initialCleanContent = question.content.replace(prefixRegex, '');
+  const [contentVal, setContentVal] = React.useState(initialCleanContent);
+
+  React.useEffect(() => {
+    setContentVal(question.content.replace(prefixRegex, ''));
+  }, [question.content]);
+
+  const handleContentSave = async () => {
+    if (contentVal.trim() === '' || contentVal === initialCleanContent) {
+      setIsEditingContent(false);
+      setContentVal(initialCleanContent);
+      return; // No change
+    }
+
+    try {
+      // Save WITHOUT prefix (new standard) or maybe with prefix if legacy?
+      // User says "Inline Edit", we should follow the pattern of "Store Raw".
+      // But verify if we need to preserve metadata?
+      // We pass existing metadata.
+      await invoke('update_question', {
+        args: {
+          id: question.id,
+          content: contentVal.trim(), // Save pure content
+          metadata: question.metadata // Preserve existing metadata
+        }
+      });
+      setIsEditingContent(false);
+      // Parent should refresh? 
+      // We rely on parent fetching. But for immediate feedback we might need local state update?
+      // Since props update when parent refetches, we just wait.
+    } catch (error) {
+      console.error("Failed to update question:", error);
+      alert("Failed to save.");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setIsEditingContent(false);
+      setContentVal(initialCleanContent);
+    }
+    // Don't save on Enter for textarea, allow newlines.
+    // Maybe Ctrl+Enter to save?
+    if (e.key === 'Enter' && e.ctrlKey) {
+      handleContentSave();
+    }
+  };
 
   // Calculate indentation based on level (tailwind classes)
   // Level 0: Main (1. System Description)
@@ -73,32 +136,59 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
       : null;
 
     return (
-      <div className="flex items-start gap-2">
-        {/* Prefix */}
-        <span className="font-bold whitespace-nowrap pt-0.5 min-w-fit">{!isHeader ? currentPrefix : ''}</span>
+      <div className="grid grid-cols-[max-content_1fr] gap-x-[3.5ch] items-start w-full">
+        {/* Prefix Column */}
+        <span className="font-bold whitespace-nowrap pt-0.5 min-w-fit text-black dark:text-github-text-primary">
+          {!isHeader ? currentPrefix : ''}
+        </span>
 
-        {/* Content Wrapper */}
-        <div className="text-github-text-primary">
-          {/* Markdown Content (Inline Style) */}
-          <span className="prose prose-sm dark:prose-invert max-w-none inline prose-p:inline prose-p:my-0">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              components={{
-                // Force paragraphs to render as spans for inline flow
-                p: ({ node, ...props }) => <span {...props} />,
-                // Adjust padding for other elements if they appear (unlikely in pure title text)
-                div: ({ node, ...props }) => <span {...props} />
+        {/* Content Column */}
+        <div className="text-black dark:text-github-text-primary flex-1 min-w-0">
+          {isEditingContent && !readOnly ? (
+            <div className="flex flex-col gap-2">
+              <textarea
+                autoFocus
+                value={contentVal}
+                onChange={(e) => setContentVal(e.target.value)}
+                onBlur={handleContentSave}
+                onKeyDown={handleKeyDown}
+                className="w-full p-2 border border-blue-500 rounded bg-white dark:bg-github-bg-tertiary text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[60px]"
+              />
+              <div className="flex gap-2 text-xs text-gray-400">
+                <span>Press Ctrl+Enter to save, Esc to cancel</span>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={(e) => {
+                if (!readOnly) {
+                  e.stopPropagation();
+                  setIsEditingContent(true);
+                }
               }}
+              className={`group/content relative rounded -ml-1 pl-1 ${!readOnly ? 'cursor-text hover:bg-gray-50 dark:hover:bg-gray-800/50' : ''}`}
+              title={!readOnly ? "Click to edit" : ""}
             >
-              {cleanContent}
-            </ReactMarkdown>
-          </span>
+              {/* Markdown Content (Inline Style) */}
+              <span className="prose prose-sm dark:prose-invert max-w-none inline prose-p:inline prose-p:my-0 font-th-sarabun text-lg text-black dark:text-github-text-primary">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    p: ({ node, ...props }) => <span {...props} />,
+                    div: ({ node, ...props }) => <span {...props} />
+                  }}
+                >
+                  {cleanContent}
+                </ReactMarkdown>
+              </span>
 
-          {/* Citation (Inline) */}
-          {citationText && (
-            <span className="text-gray-500 text-sm ml-2 font-semibold whitespace-nowrap">
-              ({citationText})
-            </span>
+              {/* Citation (Inline) */}
+              {citationText && (
+                <span className="text-gray-500 text-sm ml-2 font-semibold whitespace-nowrap">
+                  ({citationText})
+                </span>
+              )}
+            </div>
           )}
         </div>
       </div>
@@ -172,16 +262,24 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
               }
             } catch (e) { /* ignore json error */ }
 
-            // 2. Render Checkboxes if present
+            // 2. Render Checkboxes (Moc Answer Box Style)
             if (checkboxes) {
               return (
-                <div className="space-y-2">
-                  {checkboxes.map((cb: any, idx: number) => (
-                    <div key={idx} className="flex items-start gap-2 p-3 bg-gray-50 dark:bg-github-bg-tertiary border border-gray-200 dark:border-gray-700 rounded-md">
-                      <input type="checkbox" checked={cb.checked} readOnly className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
-                      <span className="text-github-text-primary text-sm">{cb.text}</span>
+                <div className={`mt-2 ml-[3.5ch] transition-all duration-300 ${isExpanded ? 'block' : 'hidden'}`}>
+                  <div className="border border-[#333] dark:border-github-border-primary rounded-[4px] bg-[#f9f9f9] dark:bg-github-bg-secondary p-[5px] leading-[1.6] font-th-sarabun text-lg">
+                    <div className="space-y-1">
+                      {checkboxes.map((cb: any, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2">
+                          {/* Only show checkbox if specifically needed? Moc had hidden checkbox inside, mostly text. 
+                                    But database has checkbox. Let's keep it minimal. */}
+                          {/* <input type="checkbox" checked={cb.checked} readOnly className="mt-1.5 w-3 h-3 accent-green-600" /> */}
+                          <span className={`text-black dark:text-github-text-primary ${cb.checked ? 'font-bold' : ''}`}>
+                            {cb.text}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
                 </div>
               );
             }

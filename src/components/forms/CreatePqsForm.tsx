@@ -120,7 +120,9 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
           args: {
             id: initialData.id,
             name: docName,
-            applied_to: appliedTo
+            applied_to: appliedTo,
+            doc_type: docType,
+            user_level: userLevel
           }
         })
         setSuccessMsg(`Document updated successfully!`)
@@ -168,9 +170,9 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
             {isEditing ? 'Update document details.' : 'Define the new document structure and generate its official ID.'}
           </p>
         </div>
-        {isEditing && onCancel && (
+        {onCancel && (
           <Button variant="ghost" size="small" onClick={onCancel}>
-            Cancel Edit
+            Cancel
           </Button>
         )}
       </div>
@@ -186,8 +188,8 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                 </label>
                 <div className="text-sm font-medium text-github-text-primary">
                   Unit Code: {initialData?.unit_code || 'N/A'}
-                  <div className="text-xs text-github-text-secondary mt-1">
-                    Cannot change unit during edit.
+                  <div className="text-xs text-orange-600 dark:text-orange-400 mt-2 font-semibold">
+                    Note: Document ID is permanent.
                   </div>
                 </div>
               </div>
@@ -229,7 +231,6 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                   label="ประเภทเอกสาร (Type)"
                   value={docType}
                   onChange={(e) => setDocType(e.target.value)}
-                  disabled={isEditing} // Changing type changes ID
                   options={[
                     { value: '10', label: '10 - General (ทั่วไป)' },
                     { value: '20', label: '20 - Specific (เฉพาะ)' }
@@ -240,11 +241,11 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                   label="ระดับชั้นผู้ใช้ (User Level)"
                   value={userLevel}
                   onChange={(e) => setUserLevel(e.target.value)}
-                  disabled={isEditing} // Changing level changes ID
                   options={[
                     { value: '0', label: '0 - Commissioned (สัญญาบัตร)' },
                     { value: '1', label: '1 - Non-commissioned (ประทวน)' },
-                    { value: '2', label: '2 - Undefined (ไม่ระบุ)' }
+                    { value: '2', label: '2 - Undefined (ไม่ระบุ)' },
+                    { value: '3', label: '3 - Both (ประทวน และ สัญญาบัตร)' }
                   ]}
                 />
               </FormRow>
@@ -282,7 +283,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
           )}
 
           <div className="flex justify-end space-x-3">
-            {isEditing && onCancel && (
+            {onCancel && (
               <Button variant="ghost" onClick={onCancel} type="button">Cancel</Button>
             )}
             <Button

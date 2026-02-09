@@ -626,8 +626,8 @@ fn get_owner_units(parent_id: Option<String>) -> Result<Vec<content_database::Ow
 }
 
 #[tauri::command]
-fn search_documents(unit_id_prefix: Option<String>, doc_type: Option<String>, name_part: Option<String>) -> Result<Vec<content_database::Document>, String> {
-    content_database::search_documents(unit_id_prefix, doc_type, name_part)
+fn search_documents(unit_id_prefix: Option<String>, doc_type: Option<String>, name_part: Option<String>, status: Option<String>) -> Result<Vec<content_database::Document>, String> {
+    content_database::search_documents(unit_id_prefix, doc_type, name_part, status)
 }
 
 #[tauri::command]
@@ -711,6 +711,11 @@ fn delete_section(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn update_section(args: content_database::UpdateSectionArgs) -> Result<(), String> {
+    content_database::update_section(args)
+}
+
+#[tauri::command]
 fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
     content_database::update_section_order(id, new_order)
 }
@@ -731,9 +736,13 @@ fn create_reference(request: content_database::CreateReferenceRequest) -> Result
 fn get_references(
     search: Option<String>,
     category: Option<String>,
-    common_only: bool,
 ) -> Result<Vec<content_database::DocumentReference>, String> {
-    content_database::get_references(search, category, common_only)
+    content_database::get_references(search, category)
+}
+
+#[tauri::command]
+fn update_reference(args: content_database::UpdateReferenceArgs) -> Result<(), String> {
+    content_database::update_reference(args)
 }
 
 #[tauri::command]
@@ -806,6 +815,10 @@ fn seed_section_104_references(section_id: i64) -> Result<String, String> {
     Ok(format!("Added {} references to Section 104", created_count))
 }
 
+#[tauri::command]
+fn get_document_stats() -> Result<content_database::DocumentStats, String> {
+    content_database::get_document_stats()
+}
 
 fn main() {
 
@@ -904,15 +917,18 @@ fn main() {
             get_sections_by_document,
             delete_section,
             update_section_order,
+            update_section,
             migrate_section_101,
             // Reference management
             create_reference,
             get_references,
+            update_reference,
             delete_reference,
             add_section_reference,
             remove_section_reference,
             get_section_references,
             seed_section_104_references,
+            get_document_stats,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

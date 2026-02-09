@@ -1,0 +1,178 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Edit2, Check, X } from 'lucide-react';
+
+type SectionTheme = 'blue' | 'orange' | 'purple';
+
+interface PqsHeaderProps {
+  section: string;
+  title: string;
+  subTitle?: string;
+  onTitleChange?: (newTitle: string) => void;
+  metadata?: {
+    id: string;
+    unit_code: string;
+    updated_at?: string;
+  };
+  className?: string;
+}
+
+const PqsHeader: React.FC<PqsHeaderProps> = ({
+  section,
+  title,
+  subTitle,
+  onTitleChange,
+  metadata,
+  className = ''
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempTitle, setTempTitle] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTempTitle(title);
+  }, [title]);
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isEditing]);
+
+  const getTheme = (sec: string): SectionTheme => {
+    if (sec.startsWith('2')) return 'orange';
+    if (sec.startsWith('3')) return 'purple';
+    return 'blue';
+  };
+
+  const toThaiNumerals = (num: string | number): string => {
+    const thaiMap = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+    return num.toString().replace(/[0-9]/g, (match) => thaiMap[parseInt(match)]);
+  };
+
+  const theme = getTheme(section);
+
+  const themeStyles = {
+    blue: {
+      gradient: 'from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-900',
+      text: 'text-blue-50',
+      badge: 'bg-blue-500/30 text-blue-100',
+      hover: 'hover:bg-blue-500/20'
+    },
+    orange: {
+      gradient: 'from-orange-600 to-orange-700 dark:from-orange-700 dark:to-orange-900',
+      text: 'text-orange-50',
+      badge: 'bg-orange-500/30 text-orange-100',
+      hover: 'hover:bg-orange-500/20'
+    },
+    purple: {
+      gradient: 'from-purple-600 to-purple-700 dark:from-purple-700 dark:to-purple-900',
+      text: 'text-purple-50',
+      badge: 'bg-purple-500/30 text-purple-100',
+      hover: 'hover:bg-purple-500/20'
+    }
+  };
+
+  const currentStyle = themeStyles[theme];
+
+  const handleSave = () => {
+    if (tempTitle.trim()) {
+      onTitleChange?.(tempTitle);
+      setIsEditing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setTempTitle(title);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSave();
+    if (e.key === 'Escape') handleCancel();
+  };
+
+  return (
+    <div className={`relative overflow-hidden rounded-xl shadow-md transition-all duration-500 group select-none ${className}`}>
+      {/* Slim Dynamic Gradient Background */}
+      <div className={`absolute inset-0 bg-gradient-to-r ${currentStyle.gradient} opacity-95`}></div>
+
+      {/* Subtle Texture Overlay */}
+      <div className="absolute inset-0 bg-white/5 backdrop-blur-[1px]"></div>
+
+      <div className="relative z-10 px-4 py-3 flex items-center justify-between gap-4 text-white">
+
+        {/* Left: Combined L0 Number & Title Group */}
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <div className="flex flex-col min-w-0 gap-1 mt-0.5 w-full">
+            {/* ID Badge Row */}
+            {metadata && (
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-mono font-bold opacity-80 uppercase tracking-wider bg-black/20 px-1.5 py-0.5 rounded">
+                  {metadata.unit_code || "DRAFT"} • {metadata.id}
+                </span>
+              </div>
+            )}
+
+            {/* Combined Title Row: [Number] [Title] */}
+            <div className="group/title relative flex items-baseline gap-2">
+              {/* Static L0 Number */}
+              <span className="text-lg md:text-xl font-bold font-sarabun text-white drop-shadow-md leading-tight shrink-0 select-none">
+                {toThaiNumerals(section)}
+              </span>
+
+              {/* Editable Title Part */}
+              {isEditing ? (
+                <div className="flex-1 animate-in fade-in zoom-in-95 duration-200 flex items-center gap-2">
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={tempTitle}
+                    onChange={(e) => setTempTitle(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="w-full text-lg md:text-xl font-bold font-sarabun bg-white/10 text-white border-b border-white/40 focus:border-white outline-none px-1 rounded leading-tight"
+                    placeholder="Enter title..."
+                  />
+                  <button onClick={handleSave} className="p-1 bg-green-500 hover:bg-green-400 rounded text-white shadow-sm shrink-0">
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={handleCancel} className="p-1 bg-white/10 hover:bg-white/20 rounded text-white backdrop-blur-sm shrink-0">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className="cursor-pointer flex items-baseline gap-2 hover:bg-white/5 px-1 -ml-1 rounded transition-colors flex-1 min-w-0"
+                  onClick={() => setIsEditing(true)}
+                >
+                  <h1 className="text-lg md:text-xl font-bold font-sarabun tracking-tight leading-tight truncate text-white drop-shadow-md">
+                    {title || "Untitled Document"}
+                  </h1>
+                  <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-70 transition-opacity text-white/80 shrink-0 self-center" />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Subtitle & Status (Hidden on small screens if needed, or kept compact) */}
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          {/* SubTitle as Badge or Small Text */}
+          {subTitle && (
+            <span className="text-xs md:text-sm font-light text-white/90 border-l border-white/20 pl-3">
+              {subTitle}
+            </span>
+          )}
+
+          {metadata?.updated_at && (
+            <span className="text-[10px] text-white/60 font-mono">
+              Updated: {new Date(metadata.updated_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default PqsHeader;

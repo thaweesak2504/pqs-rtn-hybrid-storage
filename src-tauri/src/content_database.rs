@@ -112,7 +112,28 @@ pub fn initialize_content_database() -> Result<String, String> {
     // Initialize Questions, Choices, References tables
     initialize_question_tables(&conn)?;
 
+    // Seed OwnerUnits if empty
+    seed_owner_units(&conn)?;
+
     Ok("Content database initialized successfully".to_string())
+}
+
+/// Seed OwnerUnits from SQL file if table is empty
+fn seed_owner_units(conn: &Connection) -> Result<(), String> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM OwnerUnits",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    if count == 0 {
+        logger::info("Seeding OwnerUnits from embedded SQL...");
+        let sql = include_str!("../../src/example/full_example/OwnerUnits.sql");
+        conn.execute_batch(sql)
+            .map_err(|e| format!("Failed to seed OwnerUnits: {}", e))?;
+    }
+
+    Ok(())
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -194,6 +215,16 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
          VALUES (?1, 100, 101, 'ข้อควรระมัดระวังอันตรายพื้นฐาน', '101 Precautions', 1, 1)",
         params![new_id],
     ).map_err(|e| format!("Failed to create Section 101: {}", e))?;
+
+    // Seed Section 101 Data (Mock Up)
+    let section_101_id: i64 = conn.query_row(
+        "SELECT id FROM Sections WHERE document_id = ?1 AND section_number = 101",
+        params![new_id],
+        |row| row.get(0)
+    ).map_err(|e| format!("Failed to retrieve Section 101 ID: {}", e))?;
+
+    seed_section_101_template(&conn, &new_id, section_101_id, 101)
+        .map_err(|e| format!("Failed to seed Section 101 content: {}", e))?;
 
     Ok(new_id)
 }
@@ -282,7 +313,8 @@ pub struct Document {
 pub fn search_documents(
     unit_id_prefix: Option<String>,
     doc_type: Option<String>,
-    name_part: Option<String>
+    name_part: Option<String>,
+    status: Option<String>
 ) -> Result<Vec<Document>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
@@ -316,8 +348,16 @@ pub fn search_documents(
             params.push(Box::new(format!("%{}%", name)));
         }
     }
+
+    // Filter by Status
+    if let Some(st) = status {
+        if !st.is_empty() {
+            query.push_str(" AND status = ?");
+            params.push(Box::new(st));
+        }
+    }
     
-    query.push_str(" ORDER BY created_at DESC LIMIT 100"); // Sort by newest first, limit results
+    query.push_str(" ORDER BY updated_at DESC, created_at DESC LIMIT 100"); // Sort by newest first, limit results
 
     let mut stmt = conn.prepare(&query).map_err(|e| format!("Failed to prepare query: {}", e))?;
     
@@ -377,6 +417,8 @@ pub struct UpdateDocumentArgs {
     pub id: String,
     pub name: String,
     pub applied_to: String,
+    pub doc_type: String,
+    pub user_level: String,
 }
 
 /// Update an existing document
@@ -396,11 +438,39 @@ pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {
     
     // Perform update
     conn.execute(
-        "UPDATE Documents SET name = ?1, applied_to = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
-        params![args.name, args.applied_to, args.id]
+        "UPDATE Documents SET name = ?1, applied_to = ?2, doc_type = ?3, user_level = ?4, updated_at = CURRENT_TIMESTAMP WHERE id = ?5",
+        params![args.name, args.applied_to, args.doc_type, args.user_level, args.id]
     ).map_err(|e| format!("Failed to update document: {}", e))?;
     
     Ok(format!("Document {} updated successfully", args.id))
+}
+
+#[derive(serde::Serialize)]
+pub struct DocumentStats {
+    pub total_count: i64,
+    pub draft_count: i64,
+}
+
+/// Get statistics for the dashboard
+pub fn get_document_stats() -> Result<DocumentStats, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let total_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM Documents",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(0);
+    
+    let draft_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM Documents WHERE status = 'draft'",
+        [],
+        |row| row.get(0)
+    ).unwrap_or(0);
+    
+    Ok(DocumentStats {
+        total_count,
+        draft_count,
+    })
 }
 
 // ==========================================
@@ -543,29 +613,30 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     ).map_err(|e| format!("Failed to create UserAnswers table: {}", e))?;
 
     // References Table - Reusable reference documents
+    // Updated Schema 2026-02-09: Added classification, file_path. Removed usage of is_common/short_name
     conn.execute(
         "CREATE TABLE IF NOT EXISTS DocumentReferences (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             code VARCHAR(50) NOT NULL UNIQUE,
             title TEXT NOT NULL,
-            short_name TEXT,
             category VARCHAR(50),
-            is_common BOOLEAN DEFAULT 0,
+            classification VARCHAR(20) DEFAULT 'Unclassified',
+            file_path TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
     ).map_err(|e| format!("Failed to create DocumentReferences table: {}", e))?;
 
+    // Migration: Add new columns if missing
+    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN classification VARCHAR(20) DEFAULT 'Unclassified'", []);
+    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN file_path TEXT", []);
+    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN category VARCHAR(50)", []); // In case it was missing
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_doc_refs_code ON DocumentReferences(code)",
         [],
     ).map_err(|e| format!("Failed to create index on DocumentReferences.code: {}", e))?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_doc_refs_common ON DocumentReferences(is_common)",
-        [],
-    ).map_err(|e| format!("Failed to create index on DocumentReferences.is_common: {}", e))?;
 
     // SectionReferences Table - Many-to-many link between Sections and DocumentReferences
     conn.execute(
@@ -730,7 +801,7 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
         // Filter by section_id from the question itself: q.section_id.
         let mut ref_stmt = conn.prepare(
             "SELECT qr.id, qr.question_id, qr.reference_id, qr.location_text, sr.display_order,
-                    dr.id, dr.code, dr.title, dr.short_name, dr.category, dr.is_common, dr.created_at, dr.updated_at
+                    dr.id, dr.code, dr.title, dr.classification, dr.category, dr.file_path, dr.created_at, dr.updated_at
              FROM QuestionReferences qr
              JOIN DocumentReferences dr ON qr.reference_id = dr.id
              LEFT JOIN SectionReferences sr ON sr.reference_id = qr.reference_id AND sr.section_id = ?2
@@ -756,9 +827,9 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
                     id: row.get(5)?,
                     code: row.get(6)?,
                     title: row.get(7)?,
-                    short_name: row.get(8)?,
+                    classification: row.get(8)?,
                     category: row.get(9)?,
-                    is_common: row.get(10)?,
+                    file_path: row.get(10)?,
                     created_at: row.get(11)?,
                     updated_at: row.get(12)?,
                 },
@@ -1214,6 +1285,30 @@ fn seed_section_101_template(conn: &Connection, doc_id: &str, section_id: i64, s
     Ok(())
 }
 
+#[derive(serde::Deserialize)]
+pub struct UpdateSectionArgs {
+    pub id: i64,
+    pub title_th: String,
+    pub menu_label: String,
+}
+
+/// Update a section (Title, Menu Label)
+pub fn update_section(args: UpdateSectionArgs) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Check if system defined (still allow title edit? verify requirement. Usually system defined structure is fixed, but maybe title is editable?)
+    // User wants to edit "101 Precautions" title. 101 IS system defined.
+    // So we should ALLOW editing title but maybe NOT deletion or number change.
+    
+    conn.execute(
+        "UPDATE Sections SET title_th = ?1, menu_label = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
+        params![args.title_th, args.menu_label, args.id],
+    )
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 /// Get sections by document ID
 pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -1318,9 +1413,9 @@ pub struct DocumentReference {
     pub id: i64,
     pub code: String,
     pub title: String,
-    pub short_name: Option<String>,
     pub category: Option<String>,
-    pub is_common: bool,
+    pub classification: Option<String>,
+    pub file_path: Option<String>,
     pub created_at: String,
     pub updated_at: Option<String>,
 }
@@ -1329,10 +1424,10 @@ pub struct DocumentReference {
 pub struct CreateReferenceRequest {
     pub code: String,
     pub title: String,
-    pub short_name: Option<String>,
     pub category: Option<String>,
-    pub is_common: bool,
-    pub reference_type: Option<String>, // MANUAL, PROC, TM, SAFETY, LINK, OTHER
+    pub classification: Option<String>,
+    pub file_path: Option<String>,
+    pub reference_type: Option<String>, // Keep for compatibility or type logic
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -1367,36 +1462,54 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
     
     // Auto-generate type-based sequential code if empty
     let final_code = if request.code.trim().is_empty() {
-        let prefix = request.reference_type
-            .as_ref()
-            .and_then(|t| match t.as_str() {
-                "MANUAL" => Some("MANUAL"),
-                "PROC" => Some("PROC"),
-                "TM" => Some("TM"),
-                "SAFETY" => Some("SAFETY"),
-                "LINK" => Some("LINK"),
-                "OTHER" => Some("OTHER"),
-                _ => None,
-            })
-            .unwrap_or("REF");
-        
-        let pattern = format!("{}_%", prefix);
-        let prefix_len = prefix.len() + 1; // prefix + underscore
-        
+        // 1. Determine Category Prefix
+        let cat_prefix = match request.category.as_deref().unwrap_or("OTHER") {
+            "MANUAL" => "MN",
+            "PROC" => "PR",
+            "TM" => "TM",
+            "SAFETY" => "SF",
+            "DIAGRAM" => "DG",
+            _ => "OT",
+        };
+
+        // 2. Determine Classification Digit
+        // User: 1. Unclassified(0), 2. Restricted(1), 3. Confidential(2)
+        // Mapping based on standard or user request?
+        // User said: "TM-1003 > Technical Manaul Confidential".
+        // If 1=Confidential, 2=Secret?
+        // Let's stick to a safe standard mapping for now, or the one derived:
+        // Unclassified -> 0
+        // Restricted -> 1
+        // Confidential -> 2
+        // Secret -> 3
+        // Top Secret -> 4
+        let class_digit = match request.classification.as_deref().unwrap_or("Unclassified") {
+            "Restricted" => "1",
+            "Confidential" => "2",
+            "Secret" => "3",
+            "Top Secret" => "4",
+            _ => "0", // Unclassified
+        };
+
+        // 3. Find next running number for this Pattern: {cat_prefix}-{class_digit}%
+        let pattern = format!("{}-{}%", cat_prefix, class_digit); // e.g. TM-1%
+        let prefix_len = cat_prefix.len() + 1 + 1; // cat + hyphen + digit = 2+1+1 = 4 chars usually
+
         let max_num: i32 = conn
             .query_row(
                 &format!(
                     "SELECT COALESCE(MAX(CAST(SUBSTR(code, {}) AS INTEGER)), 0) 
                      FROM DocumentReferences 
                      WHERE code LIKE ? AND LENGTH(code) >= ?",
-                    prefix_len + 1
+                    prefix_len + 1 // Start after the prefix+digit
                 ),
-                params![pattern, prefix_len + 3],
+                params![pattern, prefix_len + 3], // Must have at least 3 digits
                 |row| row.get(0),
             )
             .unwrap_or(0);
         
-        format!("{}_{:03}", prefix, max_num + 1)
+        // Format: TM-1003
+        format!("{}-{}{:03}", cat_prefix, class_digit, max_num + 1)
     } else {
         request.code.clone()
     };
@@ -1416,14 +1529,14 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
     
     // Insert
     conn.execute(
-        "INSERT INTO DocumentReferences (code, title, short_name, category, is_common)
+        "INSERT INTO DocumentReferences (code, title, category, classification, file_path)
          VALUES (?1, ?2, ?3, ?4, ?5)",
         params![
             final_code,
             request.title,
-            request.short_name,
             request.category,
-            request.is_common,
+            request.classification.unwrap_or("Unclassified".to_string()),
+            request.file_path,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -1435,14 +1548,14 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
 }
 
 /// Get all references (with optional filters)
+// Removed common_only logic as is_common is deprecated
 pub fn get_references(
     search: Option<String>,
     category: Option<String>,
-    common_only: bool,
 ) -> Result<Vec<DocumentReference>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
-    let mut sql = "SELECT id, code, title, short_name, category, is_common, created_at, updated_at
+    let mut sql = "SELECT id, code, title, category, classification, file_path, created_at, updated_at
                    FROM DocumentReferences WHERE 1=1".to_string();
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
@@ -1453,16 +1566,14 @@ pub fn get_references(
     }
     
     if let Some(cat) = category {
+        // Safe param index calculation (simplified for 2 possible params)
+        // If s is present, len is 1, next is ?2. If not, len is 0, next is ?1.
         let param_idx = params_vec.len() + 1;
         sql.push_str(&format!(" AND category = ?{}", param_idx));
         params_vec.push(Box::new(cat));
     }
     
-    if common_only {
-        sql.push_str(" AND is_common = 1");
-    }
-    
-    sql.push_str(" ORDER BY is_common DESC, title ASC");
+    sql.push_str(" ORDER BY LENGTH(title) ASC, title ASC");
     
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     
@@ -1474,9 +1585,9 @@ pub fn get_references(
                 id: row.get(0)?,
                 code: row.get(1)?,
                 title: row.get(2)?,
-                short_name: row.get(3)?,
-                category: row.get(4)?,
-                is_common: row.get(5)?,
+                category: row.get(3)?,
+                classification: row.get(4)?,
+                file_path: row.get(5)?,
                 created_at: row.get(6)?,
                 updated_at: row.get(7)?,
             })
@@ -1593,7 +1704,7 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
     let mut stmt = conn
         .prepare(
             "SELECT sr.id, sr.section_id, sr.reference_id, sr.display_order,
-                    dr.id, dr.code, dr.title, dr.short_name, dr.category, dr.is_common, dr.created_at, dr.updated_at
+                    dr.id, dr.code, dr.title, dr.category, dr.classification, dr.file_path, dr.created_at, dr.updated_at
              FROM SectionReferences sr
              JOIN DocumentReferences dr ON sr.reference_id = dr.id
              WHERE sr.section_id = ?1
@@ -1612,9 +1723,9 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
                     id: row.get(4)?,
                     code: row.get(5)?,
                     title: row.get(6)?,
-                    short_name: row.get(7)?,
-                    category: row.get(8)?,
-                    is_common: row.get(9)?,
+                    category: row.get(7)?,
+                    classification: row.get(8)?,
+                    file_path: row.get(9)?,
                     created_at: row.get(10)?,
                     updated_at: row.get(11)?,
                 },
@@ -1626,19 +1737,13 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
 
-    // No need to re-assign if we trust DB display_order matches the visual intent.
-    // However, if DB has gaps or 0, it might look weird. 
-    // But consistency is key.
-    // If we want aesthetic sort, we must update DB display_order to match it.
-    // For now, let's fix consistency by respecting DB order.
-    
     Ok(refs)
 }
 
 /// Helper function to get reference by ID
 fn get_reference_by_id(conn: &Connection, id: i64) -> Result<DocumentReference, String> {
     conn.query_row(
-        "SELECT id, code, title, short_name, category, is_common, created_at, updated_at
+        "SELECT id, code, title, category, classification, file_path, created_at, updated_at
          FROM DocumentReferences WHERE id = ?1",
         params![id],
         |row| {
@@ -1646,13 +1751,67 @@ fn get_reference_by_id(conn: &Connection, id: i64) -> Result<DocumentReference, 
                 id: row.get(0)?,
                 code: row.get(1)?,
                 title: row.get(2)?,
-                short_name: row.get(3)?,
-                category: row.get(4)?,
-                is_common: row.get(5)?,
+                category: row.get(3)?,
+                classification: row.get(4)?,
+                file_path: row.get(5)?,
                 created_at: row.get(6)?,
                 updated_at: row.get(7)?,
             })
         },
     )
     .map_err(|e| e.to_string())
+}
+
+#[derive(serde::Deserialize)]
+pub struct UpdateReferenceArgs {
+    pub id: i64,
+    pub code: String,
+    pub title: String,
+    pub category: Option<String>,
+    pub classification: Option<String>,
+    pub file_path: Option<String>,
+}
+
+/// Update an existing reference
+pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Check if reference exists
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE id = ?1)",
+        params![args.id],
+        |row| row.get(0)
+    ).unwrap_or(false);
+    
+    if !exists {
+        return Err(format!("Reference with ID {} not found", args.id));
+    }
+    
+    // Check if new code conflicts with another reference
+    let code_conflict: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE code = ?1 AND id != ?2)",
+        params![args.code, args.id],
+        |row| row.get(0)
+    ).unwrap_or(false);
+    
+    if code_conflict {
+        return Err(format!("Reference code '{}' already exists", args.code));
+    }
+    
+    // Perform update
+    conn.execute(
+        "UPDATE DocumentReferences 
+         SET code = ?1, title = ?2, category = ?3, classification = ?4, file_path = ?5, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ?6",
+        params![
+            args.code, 
+            args.title, 
+            args.category.unwrap_or_default(), 
+            args.classification.unwrap_or("Unclassified".to_string()), 
+            args.file_path.unwrap_or_default(), 
+            args.id
+        ]
+    ).map_err(|e| format!("Failed to update reference: {}", e))?;
+    
+    Ok(())
 }

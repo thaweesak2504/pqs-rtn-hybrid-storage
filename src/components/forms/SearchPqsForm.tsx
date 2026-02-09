@@ -67,7 +67,8 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
       const docs = await invoke<Document[]>('search_documents', {
         unitIdPrefix: searchPrefix || null,
         docType: docType || null,
-        namePart: searchName || null
+        namePart: searchName || null,
+        status: null
       })
       setResults(docs)
     } catch (err) {
@@ -239,24 +240,25 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
                       <td className="px-6 py-4 text-github-text-secondary font-mono text-xs">{doc.unit_code}</td>
                       <td className="px-6 py-4 text-github-text-secondary whitespace-nowrap">{formatDate(doc.updated_at || doc.created_at)}</td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end space-x-1">
                           <button
-                            className="text-github-fg-muted dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-1"
-                            title="Edit"
-                            onClick={() => {
-                              if (onEdit) {
-                                onEdit(doc)
-                              } else {
-                                navigate(`/pqs/${doc.id}`)
-                              }
-                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
+                            title="แก้ไขเนื้อหาเอกสาร (Edit Content)"
+                            onClick={() => navigate(`/pqs/${doc.id}`)}
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="p-1.5 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+                            title="แก้ไขข้อมูลหลัก (Edit Metadata)"
+                            onClick={() => onEdit && onEdit(doc)}
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
-                            className="text-github-fg-muted dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-1"
-                            title="Delete"
+                            className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
+                            title="ลบเอกสาร (Delete)"
                             onClick={(e) => handleDelete(e, doc.id, doc.name)}
                           >
                             <Trash2 className="w-4 h-4" />
