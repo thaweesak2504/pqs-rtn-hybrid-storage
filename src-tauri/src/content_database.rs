@@ -1490,7 +1490,7 @@ fn get_thai_letter(order: i32) -> String {
         .to_string()
 }
 /// Helper to bundle a file into the portable data directory
-fn bundle_reference_file(_code: &str, category: &str, source_path: &str, pqs_id: Option<&str>) -> Result<String, String> {
+fn bundle_reference_file(code: &str, category: &str, source_path: &str, pqs_id: Option<&str>) -> Result<String, String> {
     if source_path.trim().is_empty() || source_path.starts_with("http") {
         return Ok(source_path.to_string());
     }
@@ -1514,20 +1514,21 @@ fn bundle_reference_file(_code: &str, category: &str, source_path: &str, pqs_id:
     // Use PQS ID as subfolder if provided, otherwise use 'COMMON' or just root
     let root_folder = pqs_id.unwrap_or("COMMON");
     
-    // Flattened structure: data/{ID}/references/{CATEGORY}/{filename}
-    // Removed intermediate {CODE} folder to reduce nesting
+    // Flattened structure: data/{ID}/references/{CATEGORY}/{code}_{filename}
     let dest_dir = data_dir.join(root_folder).join("references").join(category);
     std::fs::create_dir_all(&dest_dir).map_err(|e| format!("Failed to create dest dir: {}", e))?;
 
-    let dest_path = dest_dir.join(file_name);
+    // NEW: Prefix with code for better organization
+    let new_file_name = format!("{}_{}", code, file_name);
+    let dest_path = dest_dir.join(&new_file_name);
     
     // Only copy if source and dest are different
     if source != dest_path {
         std::fs::copy(source, &dest_path).map_err(|e| format!("Failed to copy file from {} to {}: {}", source_path, dest_path.display(), e))?;
     }
 
-    // Return relative path including the root folder (e.g., "data/100/references/CATEGORY/filename")
-    Ok(format!("data/{}/references/{}/{}", root_folder, category, file_name))
+    // Return relative path including the root folder (e.g., "data/100/references/CATEGORY/CODE_filename")
+    Ok(format!("data/{}/references/{}/{}", root_folder, category, new_file_name))
 }
 
 /// Create a new reference document
@@ -1965,6 +1966,13 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
     if code_conflict {
         return Err(format!("Reference code '{}' already exists", args.code));
     }
+
+    // 1. Get existing file_path BEFORE update
+    let old_file_path: Option<String> = conn.query_row(
+        "SELECT file_path FROM DocumentReferences WHERE id = ?1",
+        params![args.id],
+        |row| row.get(0)
+    ).unwrap_or(None);
     
     // Auto-Bundling on update
     let final_file_path = if let Some(path) = &args.file_path {
@@ -1994,5 +2002,41 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
         ]
     ).map_err(|e| format!("Failed to update reference: {}", e))?;
     
+    // 2. Cleanup old file if path changed
+    if let Some(old_path) = old_file_path {
+        // If we have a new path, and it's different from the old one
+        // OR if we set file_path to None (removal)
+        let should_delete = match &final_file_path {
+            Some(new_path) => new_path != &old_path,
+            None => true, // If new is None, we deleted the file association
+        };
+
+        if should_delete && old_path.starts_with("data/") {
+            if let Ok(data_dir) = get_portable_data_dir() {
+                // Strip "data/" prefix to get relative path
+                let relative_path = if old_path.starts_with("data/") {
+                     old_path.strip_prefix("data/").unwrap_or(&old_path)
+                } else {
+                     old_path.strip_prefix("data\\").unwrap_or(&old_path)
+                };
+                
+                let full_path = data_dir.join(relative_path);
+                
+                if full_path.exists() {
+                     let _ = std::fs::remove_file(&full_path).map_err(|e| 
+                        println!("Warning: Failed to delete old physical file {}: {}", full_path.display(), e)
+                     );
+                     
+                     // Optional: Try to remove parent directory if empty
+                     if let Some(parent) = full_path.parent() {
+                         let _ = std::fs::remove_dir(parent); 
+                     }
+                }
+            }
+        }
+    }
+
     Ok(())
 }
+
+

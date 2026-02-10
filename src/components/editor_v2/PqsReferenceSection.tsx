@@ -36,7 +36,6 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   onDelete,
   readOnly = false,
   sectionId,
-  docId,
   onRefresh
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
