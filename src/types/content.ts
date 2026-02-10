@@ -41,7 +41,10 @@ export interface QuestionReferenceDetail extends QuestionReference {
     id: number;
     code: string;
     title: string;
-    short_name: string | null;
+    category: string | null;
+    classification: string | null;
+    resource_type: string | null;
+    file_path: string | null;
   };
   thai_letter: string; // Calculated field for display (ก., ข.)
 }

@@ -17,23 +17,31 @@ pub fn get_content_database_path() -> Result<PathBuf, String> {
     Ok(db_dir.join("content.db"))
 }
 
-/// Get path to the portable data directory (relative to project root/exe)
 pub fn get_portable_data_dir() -> Result<std::path::PathBuf, String> {
-    // In dev mode, current_dir is usually project root
-    // In release, exe_dir is the base.
-    let base_dir = if cfg!(debug_assertions) {
-        std::env::current_dir().map_err(|e| e.to_string())?
+    // Strategy:
+    // Dev Mode: Use AppData/pqs-rtn-hybrid-storage/storage to AVOID triggering watchers in src-tauri
+    // Release Mode: Use exe_dir/data to keep it PORTABLE on USB
+    
+    if cfg!(debug_assertions) {
+         let app_data = app_data_dir(&Config::default())
+            .ok_or("Failed to get app data directory")?;
+        
+        let dev_storage = app_data.join("pqs-rtn-hybrid-storage").join("data");
+        
+        if !dev_storage.exists() {
+            std::fs::create_dir_all(&dev_storage).map_err(|e| e.to_string())?;
+        }
+        Ok(dev_storage)
     } else {
         let mut p = std::env::current_exe().map_err(|e| e.to_string())?;
         p.pop();
-        p
-    };
-    
-    let data_dir = base_dir.join("data");
-    if !data_dir.exists() {
-        std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+        let data_dir = p.join("data");
+        
+        if !data_dir.exists() {
+            std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+        }
+        Ok(data_dir)
     }
-    Ok(data_dir)
 }
 
 /// Get connection to content database
@@ -516,6 +524,10 @@ pub struct QuestionChoice {
     pub question_id: String,
     pub label: Option<String>, // ก. ข.
     pub content: String,
+    pub is_correct: bool,
+    pub sequence: i32,
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Reference {
     pub id: i32,
@@ -830,7 +842,7 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
         // Filter by section_id from the question itself: q.section_id.
         let mut ref_stmt = conn.prepare(
             "SELECT qr.id, qr.question_id, qr.reference_id, qr.location_text, sr.display_order,
-                    dr.id, dr.code, dr.title, dr.classification, dr.category, dr.file_path, dr.created_at, dr.updated_at
+                    dr.id, dr.code, dr.title, dr.classification, dr.category, dr.resource_type, dr.file_path, dr.created_at, dr.updated_at
              FROM QuestionReferences qr
              JOIN DocumentReferences dr ON qr.reference_id = dr.id
              LEFT JOIN SectionReferences sr ON sr.reference_id = qr.reference_id AND sr.section_id = ?2
@@ -858,9 +870,10 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
                     title: row.get(7)?,
                     classification: row.get(8)?,
                     category: row.get(9)?,
-                    file_path: row.get(10)?,
-                    created_at: row.get(11)?,
-                    updated_at: row.get(12)?,
+                    resource_type: row.get(10)?,
+                    file_path: row.get(11)?,
+                    created_at: row.get(12)?,
+                    updated_at: row.get(13)?,
                 },
                 location_text: row.get(3)?,
                 display_order: section_display_order.unwrap_or(0),
@@ -1437,17 +1450,7 @@ fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
 
 // ===== Reference Management =====
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
-pub struct DocumentReference {
-    pub id: i64,
-    pub code: String,
-    pub title: String,
-    pub category: Option<String>,
-    pub classification: Option<String>,
-    pub file_path: Option<String>,
-    pub created_at: String,
-    pub updated_at: Option<String>,
-}
+// Duplicate struct removed as it is defined above.
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CreateReferenceRequest {
@@ -1457,6 +1460,7 @@ pub struct CreateReferenceRequest {
     pub classification: Option<String>,
     pub resource_type: Option<String>, // DOCUMENT, WEBLINK, VIDEO, IMAGE, AUDIO, TEMPLATE
     pub file_path: Option<String>,
+    pub pqs_id: Option<String>, // Optional: PQS Document ID for folder organization
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -1486,7 +1490,7 @@ fn get_thai_letter(order: i32) -> String {
         .to_string()
 }
 /// Helper to bundle a file into the portable data directory
-fn bundle_reference_file(code: &str, category: &str, source_path: &str) -> Result<String, String> {
+fn bundle_reference_file(_code: &str, category: &str, source_path: &str, pqs_id: Option<&str>) -> Result<String, String> {
     if source_path.trim().is_empty() || source_path.starts_with("http") {
         return Ok(source_path.to_string());
     }
@@ -1506,7 +1510,13 @@ fn bundle_reference_file(code: &str, category: &str, source_path: &str) -> Resul
         .ok_or_else(|| "Invalid file name encoding".to_string())?;
 
     let data_dir = get_portable_data_dir()?;
-    let dest_dir = data_dir.join("references").join(category).join(code);
+    
+    // Use PQS ID as subfolder if provided, otherwise use 'COMMON' or just root
+    let root_folder = pqs_id.unwrap_or("COMMON");
+    
+    // Flattened structure: data/{ID}/references/{CATEGORY}/{filename}
+    // Removed intermediate {CODE} folder to reduce nesting
+    let dest_dir = data_dir.join(root_folder).join("references").join(category);
     std::fs::create_dir_all(&dest_dir).map_err(|e| format!("Failed to create dest dir: {}", e))?;
 
     let dest_path = dest_dir.join(file_name);
@@ -1516,7 +1526,8 @@ fn bundle_reference_file(code: &str, category: &str, source_path: &str) -> Resul
         std::fs::copy(source, &dest_path).map_err(|e| format!("Failed to copy file from {} to {}: {}", source_path, dest_path.display(), e))?;
     }
 
-    Ok(format!("data/references/{}/{}/{}", category, code, file_name))
+    // Return relative path including the root folder (e.g., "data/100/references/CATEGORY/filename")
+    Ok(format!("data/{}/references/{}/{}", root_folder, category, file_name))
 }
 
 /// Create a new reference document
@@ -1578,7 +1589,12 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
 
     // Auto-Bundling: Copy file to data/ directory
     let final_file_path = if let Some(path) = &request.file_path {
-        Some(bundle_reference_file(&final_code, request.category.as_deref().unwrap_or("OTHER"), path)?)
+        Some(bundle_reference_file(
+            &final_code, 
+            request.category.as_deref().unwrap_or("OTHER"), 
+            path,
+            request.pqs_id.as_deref()
+        )?)
     } else {
         None
     };
@@ -1655,22 +1671,79 @@ pub fn get_references(
     Ok(refs)
 }
 
-/// Delete a reference (cascades to remove from all sections)
+/// Delete a reference (cascades to remove from all sections and questions)
 pub fn delete_reference(id: i64) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
+    // 0. Get file path before deleting record
+    let file_path: Option<String> = conn.query_row(
+        "SELECT file_path FROM DocumentReferences WHERE id = ?1",
+        params![id],
+        |row| row.get(0)
+    ).unwrap_or(None);
+
     let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
 
     // 1. Remove from all sections first (Cascade logic)
     tx.execute("DELETE FROM SectionReferences WHERE reference_id = ?1", params![id])
-        .map_err(|e| format!("Failed to remove reference links: {}", e))?;
+        .map_err(|e| format!("Failed to remove section links: {}", e))?;
     
+    // 2. Remove from all questions
+    tx.execute("DELETE FROM QuestionReferences WHERE reference_id = ?1", params![id])
+        .map_err(|e| format!("Failed to remove question links: {}", e))?;
+
+    // 3. Delete master reference
+    tx.execute("DELETE FROM DocumentReferences WHERE id = ?1", params![id])
+        .map_err(|e| format!("Failed to remove master record: {}", e))?;
+    
+    tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
+    
+    // 4. Delete physical file if it exists and is managed (starts with data/)
+    if let Some(path) = file_path {
+        if path.starts_with("data/") {
+            if let Ok(data_dir) = get_portable_data_dir() {
+                // Strip "data/" prefix to get relative path
+                let relative_path = if path.starts_with("data/") {
+                     path.strip_prefix("data/").unwrap_or(&path)
+                } else {
+                     path.strip_prefix("data\\").unwrap_or(&path)
+                };
+                
+                let full_path = data_dir.join(relative_path);
+                
+                if full_path.exists() {
+                     let _ = std::fs::remove_file(&full_path).map_err(|e| 
+                        println!("Warning: Failed to delete physical file {}: {}", full_path.display(), e)
+                     );
+                     
+                     // Optional: Try to remove parent directory if empty (cleanup)
+                     if let Some(parent) = full_path.parent() {
+                         let _ = std::fs::remove_dir(parent); 
+                     }
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
 /// Delete all references from the master list (and all sections)
 pub fn delete_all_references() -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // 0. Get all file paths before deleting records
+    let file_paths: Vec<String> = {
+        let mut stmt = conn.prepare("SELECT file_path FROM DocumentReferences WHERE file_path IS NOT NULL")
+            .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+        
+        let paths = stmt.query_map([], |row| row.get(0))
+            .map_err(|e| format!("Failed to fetch file paths: {}", e))?
+            .collect::<Result<Vec<String>, _>>()
+            .map_err(|e| format!("Failed to collect file paths: {}", e))?;
+        paths
+    };
+
     let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
 
     // 1. Remove all links in sections
@@ -1686,6 +1759,25 @@ pub fn delete_all_references() -> Result<(), String> {
         .map_err(|e| format!("Failed to clear master references: {}", e))?;
     
     tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
+    
+    // 4. Delete all physical files
+    if let Ok(data_dir) = get_portable_data_dir() {
+        for path in file_paths {
+            if path.starts_with("data/") {
+                 let relative_path = if path.starts_with("data/") {
+                      path.strip_prefix("data/").unwrap_or(&path)
+                 } else {
+                      path.strip_prefix("data\\").unwrap_or(&path)
+                 };
+                
+                 let full_path = data_dir.join(relative_path);
+                 if full_path.exists() {
+                     let _ = std::fs::remove_file(&full_path);
+                 }
+            }
+        }
+        // Optional: Clean up empty directories could be complex here, skipping for now
+    }
     
     Ok(())
 }
@@ -1845,6 +1937,7 @@ pub struct UpdateReferenceArgs {
     pub classification: Option<String>,
     pub resource_type: Option<String>,
     pub file_path: Option<String>,
+    pub pqs_id: Option<String>,
 }
 
 /// Update an existing reference
@@ -1875,7 +1968,12 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
     
     // Auto-Bundling on update
     let final_file_path = if let Some(path) = &args.file_path {
-        Some(bundle_reference_file(&args.code, args.category.as_deref().unwrap_or("OTHER"), path)?)
+        Some(bundle_reference_file(
+            &args.code, 
+            args.category.as_deref().unwrap_or("OTHER"), 
+            path,
+            args.pqs_id.as_deref()
+        )?)
     } else {
         None
     };

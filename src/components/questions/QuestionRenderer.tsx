@@ -3,6 +3,7 @@ import { QuestionDetail } from '../../types/content';
 import { Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { invoke } from '@tauri-apps/api/tauri';
+import { open } from '@tauri-apps/api/shell';
 import remarkGfm from 'remark-gfm';
 
 interface QuestionRendererProps {
@@ -114,26 +115,14 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   // Level 2: Sub-sub (1.1.1)
   const indentClass = level > 0 ? `ml-${Math.min(level * 4, 12)}` : '';
 
-  // Render content with citations AND dynamic prefix
   const renderContentWithCitations = () => {
     let content = question.content;
 
     // STRIP existing hardcoded prefix (e.g. "101.1 Content" -> "Content")
-    // Regex: Start with digits/dots/space
-    // Be careful not to strip "100. " if it's the only text?
-    // Matches: "101.1 ", "1. ", "101.1.1 "
     const prefixRegex = /^[\d\.]+\s+/;
     const cleanContent = content.replace(prefixRegex, '');
 
     const citations = question.references || [];
-
-    // Display: "101.1 Clean Content"
-    // Use non-breaking space or span for prefix?
-
-    // Formatting citations: (ก. 12, ข. 34)
-    const citationText = citations.length > 0
-      ? citations.map(ref => `${ref.thai_letter}. ${ref.location_text || ''}`).join(', ')
-      : null;
 
     return (
       <div className="grid grid-cols-[max-content_1fr] gap-x-[3.5ch] items-start w-full">
@@ -183,9 +172,31 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
               </span>
 
               {/* Citation (Inline) */}
-              {citationText && (
+              {citations.length > 0 && (
                 <span className="text-gray-500 text-sm ml-2 font-semibold whitespace-nowrap">
-                  ({citationText})
+                  (
+                  {citations.map((ref, idx) => (
+                    <React.Fragment key={ref.id}>
+                      <span
+                        className="hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                        title={ref.reference.title + (ref.reference.file_path ? `\nOpen: ${ref.reference.file_path}` : '')}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (ref.reference.file_path) {
+                            try {
+                              await open(ref.reference.file_path);
+                            } catch (err) {
+                              console.error("Failed to open citation:", err);
+                            }
+                          }
+                        }}
+                      >
+                        {ref.thai_letter}. {ref.location_text || ''}
+                      </span>
+                      {idx < citations.length - 1 ? ', ' : ''}
+                    </React.Fragment>
+                  ))}
+                  )
                 </span>
               )}
             </div>

@@ -33,8 +33,9 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         title: r.reference.title,
         category: r.reference.category || 'MANUAL',
         classification: r.reference.classification || 'Unclassified',
+        resource_type: r.reference.resource_type || 'DOCUMENT',
         file_path: r.reference.file_path || '',
-        description: r.reference.short_name || ''
+        description: r.reference.title // Use title as description if short_name is gone
       })));
     } catch (error) {
       console.error("Failed to fetch references:", error);
@@ -94,11 +95,11 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           request: {
             code: ref.code,
             title: ref.title,
-            short_name: ref.description,
             category: ref.category,
             classification: ref.classification,
-            is_common: false,
-            reference_type: ref.category
+            resource_type: ref.resource_type,
+            file_path: ref.file_path,
+            pqs_id: docId // Pass PQS ID for folder organization
           }
         });
         refId = newRef.id;
@@ -150,7 +151,9 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           title: updatedRef.title,
           category: updatedRef.category,
           classification: updatedRef.classification,
-          file_path: updatedRef.file_path
+          resource_type: updatedRef.resource_type,
+          file_path: updatedRef.file_path,
+          pqs_id: docId // Pass PQS ID
         }
       });
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Book, Plus, Trash2, Edit, Save, X, FileText, Lock, Shield, Search, CheckCircle, Globe, Video, Image, Mic, FileDigit } from 'lucide-react';
+import { Book, Plus, Trash2, Edit, Save, X, FileText, Lock, Shield, Search, CheckCircle, Globe, Video, Image, Mic, FileDigit, FolderOpen } from 'lucide-react';
 import Button from '../ui/Button';
 import { invoke } from '@tauri-apps/api/tauri';
+import { open as openDialog } from '@tauri-apps/api/dialog';
 import ConfirmModal from '../modals/ConfirmModal';
 
 // Types
@@ -24,6 +25,7 @@ interface PqsReferenceSectionProps {
   onDelete: (id: string) => void;
   readOnly?: boolean;
   sectionId?: number;
+  docId?: string; // NEW: Pass Document ID for folder organization (e.g., "100")
   onRefresh?: () => void;
 }
 
@@ -34,6 +36,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   onDelete,
   readOnly = false,
   sectionId,
+  docId,
   onRefresh
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -479,6 +482,33 @@ const ReferenceFormCard: React.FC<{
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleBrowse = async () => {
+    try {
+      // Define extensions based on resource type
+      let extensions: string[] = [];
+      if (formData.resource_type === 'DOCUMENT' || formData.resource_type === 'TEMPLATE') {
+        extensions = ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'txt', 'html'];
+      } else if (formData.resource_type === 'VIDEO') {
+        extensions = ['mp4', 'mov', 'avi', 'mkv'];
+      } else if (formData.resource_type === 'IMAGE') {
+        extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
+      } else if (formData.resource_type === 'AUDIO') {
+        extensions = ['mp3', 'wav', 'ogg', 'm4a'];
+      }
+
+      const selected = await openDialog({
+        multiple: false,
+        filters: extensions.length > 0 ? [{ name: formData.resource_type, extensions }] : undefined
+      });
+
+      if (selected && typeof selected === 'string') {
+        handleChange('file_path', selected);
+      }
+    } catch (err) {
+      console.error("Failed to open file dialog:", err);
+    }
+  };
+
   const handleSave = () => {
     if (!formData.title.trim()) return;
     onSave(formData);
@@ -649,7 +679,7 @@ const ReferenceFormCard: React.FC<{
             </label>
             <div className="relative">
               <input
-                className={`w-full pl-7 pr-2 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded focus:ring-2 focus:ring-blue-500 outline-none ${formData.classification === 'Confidential'
+                className={`w-full pl-7 pr-10 py-1.5 text-xs border border-slate-300 dark:border-slate-700 rounded focus:ring-2 focus:ring-blue-500 outline-none ${formData.classification === 'Confidential'
                   ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 cursor-not-allowed'
                   : 'bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100'
                   }`}
@@ -661,6 +691,18 @@ const ReferenceFormCard: React.FC<{
                 onBlur={() => setFocusedField(null)}
               />
               <FileText className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+
+              {/* Browse Button */}
+              {formData.resource_type !== 'WEBLINK' && formData.classification !== 'Confidential' && (
+                <button
+                  type="button"
+                  onClick={handleBrowse}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                  title="เลือกไฟล์จากเครื่อง (Browse)"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             {focusedField === 'file_path' && (
               <div className="absolute right-0 -top-6 bg-blue-600 text-white text-[10px] py-0.5 px-2 rounded shadow whitespace-nowrap z-20 animate-in fade-in">
@@ -725,6 +767,17 @@ const ReferenceDisplayCard: React.FC<{
     return `${i + 1}.`; // Fallback for very long lists
   };
 
+  const handleOpenResource = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!data.file_path) return;
+    try {
+      await invoke('open_path', { path: data.file_path });
+    } catch (err) {
+      console.error("Failed to open resource:", err);
+      alert("ไม่สามารถเปิดลิงก์หรือไฟล์ได้: " + err);
+    }
+  };
+
   return (
     <div className="group relative flex items-center justify-between gap-3 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 px-3 py-2 transition-colors">
 
@@ -761,7 +814,11 @@ const ReferenceDisplayCard: React.FC<{
         </span>
 
         {/* 5. Resource Icon */}
-        <div className="flex items-center" title={data.resource_type || 'DOCUMENT'}>
+        <div
+          className="flex items-center cursor-pointer hover:scale-110 transition-transform"
+          title={data.resource_type === 'WEBLINK' ? `Open: ${data.file_path}` : (data.resource_type || 'DOCUMENT')}
+          onClick={handleOpenResource}
+        >
           {data.resource_type === 'WEBLINK' ? (
             <Globe className="w-4 h-4 text-emerald-500" />
           ) : data.resource_type === 'VIDEO' ? (
@@ -785,13 +842,6 @@ const ReferenceDisplayCard: React.FC<{
             <Shield className="w-4 h-4 text-blue-500" />
           ) : null}
         </div>
-
-        {/* 6. File Icon (if exists) */}
-        {data.file_path && (
-          <div className="text-slate-400" title={data.file_path}>
-            <FileText className="w-4 h-4 hover:text-blue-500 cursor-pointer" />
-          </div>
-        )}
 
         {/* 7. Actions */}
         {!readOnly && (
