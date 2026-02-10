@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Book, Plus, Trash2, Edit, Save, X, FileText, Lock, Shield } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Book, Plus, Trash2, Edit, Save, X, FileText, Lock, Shield, Search, CheckCircle, Globe, Video, Image, Mic, FileDigit } from 'lucide-react';
 import Button from '../ui/Button';
+import { invoke } from '@tauri-apps/api/tauri';
+import ConfirmModal from '../modals/ConfirmModal';
 
 // Types
 export interface ReferenceDoc {
@@ -9,7 +11,8 @@ export interface ReferenceDoc {
   code: string;
   title: string;
   category: string;
-  classification: string; // Unclassified, Restricted, Confidential, Secret
+  classification: string;
+  resource_type: string; // DOCUMENT, WEBLINK, VIDEO, IMAGE, AUDIO, TEMPLATE
   file_path: string;
   description?: string;
 }
@@ -20,6 +23,8 @@ interface PqsReferenceSectionProps {
   onEdit: (ref: ReferenceDoc) => void;
   onDelete: (id: string) => void;
   readOnly?: boolean;
+  sectionId?: number;
+  onRefresh?: () => void;
 }
 
 const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
@@ -27,20 +32,41 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   onAdd,
   onEdit,
   onDelete,
-  readOnly = false
+  readOnly = false,
+  sectionId,
+  onRefresh
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
+  const [activeMode, setActiveMode] = useState<'idle' | 'create' | 'search'>('idle');
 
   // Helper to close all forms
   const resetForms = () => {
     setEditingId(null);
-    setIsCreating(false);
+    setActiveMode('idle');
   };
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    variant: 'danger'
+  });
 
   const handleStartCreate = () => {
     resetForms();
-    setIsCreating(true);
+    setActiveMode('create');
+  };
+
+  const handleStartSearch = () => {
+    resetForms();
+    setActiveMode('search');
   };
 
   const handleStartEdit = (id: string) => {
@@ -49,10 +75,16 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to remove this reference?')) {
-      onDelete(id);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการนำออก',
+      message: 'คุณต้องการนำเอกสารอ้างอิงนี้ออกจากการเชื่อมโยงใช่หรือไม่?\n\n(เอกสารจะถูกนำออกจากรายการของหัวข้อนี้เท่านั้น แต่ยังคงอยู่ในระบบหลัก)',
+      onConfirm: () => onDelete(id),
+      variant: 'warning'
+    });
   };
+
+
 
   return (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
@@ -66,22 +98,62 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
             <p className="text-sm text-slate-500 dark:text-slate-400">Reference Documents</p>
           </div>
         </div>
-        {!readOnly && !isCreating && (
-          <Button variant="primary" size="small" icon={<Plus className="w-4 h-4" />} onClick={handleStartCreate}>
-            Add Reference
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {!readOnly && activeMode === 'idle' && !editingId && (
+            <Button
+              variant="primary"
+              size="small"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={handleStartSearch}
+            >
+              เพิ่มเอกสาร
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col gap-4">
+        {/* Toggle Switch inside form area if active - Right Aligned */}
+        {activeMode !== 'idle' && (
+          <div className="flex justify-end mb-2 animate-in fade-in slide-in-from-right-2 duration-300">
+            <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full max-w-[320px]">
+              <button
+                onClick={handleStartSearch}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-bold rounded-md transition-all ${activeMode === 'search' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'}`}
+              >
+                <Search className="w-3.5 h-3.5" /> ค้นหาเอกสารที่มีอยู่
+              </button>
+              <button
+                onClick={handleStartCreate}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-bold rounded-md transition-all ${activeMode === 'create' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'}`}
+              >
+                <Plus className="w-3.5 h-3.5" /> สร้างเอกสารใหม่
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Search Card */}
+        {activeMode === 'search' && sectionId && (
+          <ReferenceSearchCard
+            sectionId={sectionId}
+            existingReferenceIds={references.map(r => r.reference_id).filter((id): id is number => !!id)}
+            onSuccess={() => {
+              onRefresh?.();
+              resetForms();
+            }}
+            onCancel={resetForms}
+          />
+        )}
+
         {/* Creation Form Card */}
-        {isCreating && (
+        {activeMode === 'create' && (
           <ReferenceFormCard
             onSave={(data) => {
               onAdd(data);
-              setIsCreating(false);
+              setActiveMode('idle');
             }}
-            onCancel={() => setIsCreating(false)}
+            onCancel={() => setActiveMode('idle')}
           />
         )}
 
@@ -112,17 +184,275 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
         </div>
 
         {/* Empty State */}
-        {!isCreating && references.length === 0 && (
-          <div className="col-span-full py-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={!readOnly ? handleStartCreate : undefined}>
+        {activeMode === 'idle' && references.length === 0 && (
+          <div className="col-span-full py-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={!readOnly ? handleStartSearch : undefined}>
             <Book className="w-8 h-8 text-slate-300 mx-auto mb-2" />
             <p className="text-sm text-slate-500 font-medium">No references added yet.</p>
-            {!readOnly && <p className="text-xs text-blue-500 mt-1">Click to add</p>}
+            {!readOnly && <p className="text-xs text-blue-500 mt-1">Click to search or add</p>}
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+      />
     </div>
   );
 };
+
+/**
+ * Inline Search Card
+ * Adheres to inline editing principle, providing a searchable list within the content area.
+ */
+const ReferenceSearchCard: React.FC<{
+  sectionId: number;
+  existingReferenceIds: number[];
+  onSuccess: () => void;
+  onCancel: () => void;
+}> = ({ sectionId, existingReferenceIds, onSuccess, onCancel }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('ALL');
+  const [allRefs, setAllRefs] = useState<DocumentReference[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+
+  // Load all references from DB
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const refs = await invoke<DocumentReference[]>('get_references', { search: null, category: null });
+        setAllRefs(refs);
+      } catch (err) {
+        console.error("Failed to load refs:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  // Filter out existing references and apply search query + type filter
+  const filteredResults = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return allRefs.filter(ref => {
+      // 1. MUST NOT be already linked
+      if (existingReferenceIds.includes(ref.id)) return false;
+
+      // 2. Category filter
+      if (typeFilter !== 'ALL' && ref.category !== typeFilter) return false;
+
+      // 3. MUST match search query if provided (title or code)
+      if (query.length > 0) {
+        return ref.title.toLowerCase().includes(query) || ref.code.toLowerCase().includes(query);
+      }
+
+      return true; // Show all if no query
+    });
+  }, [allRefs, existingReferenceIds, searchQuery, typeFilter]);
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    variant: 'danger'
+  });
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteMaster = (e: React.MouseEvent, id: number, code: string) => {
+    e.stopPropagation(); // Don't toggle selection
+    setConfirmModal({
+      isOpen: true,
+      title: 'ลบเอกสารหลักถาวร',
+      message: `⚠️ คุณต้องการลบเอกสารรหัส "${code}" ออกจากระบบถาวรใช่หรือไม่?\n\n(การกระทำนี้จะทำให้เอกสารนี้หายไปจากทุกหมวดหมู่ที่เคยเชื่อมโยงไว้ และไม่สามารถกู้คืนได้)`,
+      onConfirm: async () => {
+        try {
+          await invoke('delete_reference', { id });
+          // Refresh local list
+          const refs = await invoke<DocumentReference[]>('get_references', { search: null, category: null });
+          setAllRefs(refs);
+          // Clear from selection if it was selected
+          setSelectedIds(prev => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        } catch (err) {
+          console.error("Failed to delete master ref:", err);
+          alert("ไม่สามารถลบเอกสารหลักได้: " + err);
+        }
+      },
+      variant: 'danger'
+    });
+  };
+
+  const handleAddSelected = async () => {
+    if (selectedIds.size === 0) return;
+    setAdding(true);
+    try {
+      for (const refId of Array.from(selectedIds)) {
+        await invoke('add_section_reference', {
+          sectionId,
+          referenceId: refId,
+          displayOrder: null
+        });
+      }
+      onSuccess();
+    } catch (err) {
+      console.error("Failed to batch add references:", err);
+      alert("Error adding references: " + err);
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-800 border-2 border-blue-400 dark:border-blue-600 rounded-xl p-4 shadow-lg animate-in zoom-in-95 duration-200">
+      <div className="space-y-4">
+        {/* Search & Filter Area */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              className="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100"
+              placeholder="ค้นหาตามรหัส หรือ ชื่อเอกสาร..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="sm:w-1/3">
+            <select
+              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 appearance-none"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="ALL">ทุกหมวดหมู่ (ALL)</option>
+              <option value="MANUAL">📘 MANUAL</option>
+              <option value="PROC">📋 PROCEDURE</option>
+              <option value="TM">🔧 TECH MANUAL</option>
+              <option value="SAFETY">⚠️ SAFETY</option>
+              <option value="DIAGRAM">📐 DIAGRAM</option>
+              <option value="OTHER">📄 OTHER</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Results Area */}
+        <div className="max-h-[250px] overflow-y-auto pr-2 custom-scrollbar border border-slate-100 dark:border-slate-700/50 rounded-lg p-1">
+          {loading ? (
+            <div className="py-8 text-center text-slate-400 text-sm">กำลังโหลดข้อมูล...</div>
+          ) : filteredResults.length === 0 ? (
+            <div className="py-8 text-center text-slate-400 text-sm italic">
+              {searchQuery ? 'ไม่พบเอกสารตามที่ค้นหา' : 'ไม่มีเอกสารใหม่ให้เลือก (เอกสารทั้งหมดถูกเพิ่มแล้ว)'}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filteredResults.map(ref => (
+                <button
+                  key={ref.id}
+                  onClick={() => toggleSelect(ref.id)}
+                  className={`w-full flex items-center gap-3 p-2 rounded-md transition-all text-left ${selectedIds.has(ref.id) ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'}`}
+                >
+                  <div className={`shrink-0 w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${selectedIds.has(ref.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
+                    {selectedIds.has(ref.id) ? <CheckCircle className="w-3.5 h-3.5" /> :
+                      ref.resource_type === 'WEBLINK' ? <Globe className="w-3.5 h-3.5 text-emerald-500" /> :
+                        ref.resource_type === 'VIDEO' ? <Video className="w-3.5 h-3.5 text-purple-500" /> :
+                          ref.resource_type === 'IMAGE' ? <Image className="w-3.5 h-3.5 text-blue-500" /> :
+                            ref.resource_type === 'AUDIO' ? <Mic className="w-3.5 h-3.5 text-orange-500" /> :
+                              ref.resource_type === 'TEMPLATE' ? <FileDigit className="w-3.5 h-3.5 text-slate-500" /> :
+                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
+                          {ref.code}
+                        </span>
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate" title={ref.title}>{ref.title}</span>
+                      </div>
+
+                      {/* Trash Icon for Global Delete */}
+                      <button
+                        onClick={(e) => handleDeleteMaster(e, ref.id, ref.code)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                        title="ลบออกจากระบบถาวร"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer Actions */}
+        <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-slate-700/50">
+          <div className="text-xs text-slate-500">
+            {selectedIds.size > 0 && <span>เลือกแล้ว <span className="font-bold text-blue-600">{selectedIds.size}</span> เล่ม</span>}
+          </div>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="small" onClick={onCancel}>ยกเลิก</Button>
+            <Button
+              variant="primary"
+              size="small"
+              disabled={selectedIds.size === 0 || adding}
+              onClick={handleAddSelected}
+              icon={adding ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            >
+              {adding ? 'กำลังบันทึก...' : `เพิ่มที่เลือก (${selectedIds.size})`}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+      />
+    </div>
+  );
+};
+
+interface DocumentReference {
+  id: number;
+  code: string;
+  title: string;
+  classification: string | null;
+  category: string | null;
+  resource_type: string | null;
+  file_path: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
 
 // --- Sub-Components ---
 
@@ -139,6 +469,7 @@ const ReferenceFormCard: React.FC<{
     title: initialData?.title || '',
     category: initialData?.category || '',
     classification: initialData?.classification || 'Unclassified',
+    resource_type: initialData?.resource_type || 'DOCUMENT',
     file_path: initialData?.file_path || ''
   });
 
@@ -153,38 +484,56 @@ const ReferenceFormCard: React.FC<{
     onSave(formData);
   };
 
-  // Auto-Update Code on Category/Class Change
+  // Auto-Update Code on Category/Class Change (Smart Sequence)
   useEffect(() => {
     if (!formData.category) return;
 
-    const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT' };
-    const classMap: Record<string, string> = { 'Unclassified': '0', 'Restricted': '1', 'Confidential': '2', 'Secret': '3' };
-
-    const newPrefix = catMap[formData.category] || 'OT';
-    const newDigit = classMap[formData.classification] || '0';
-
-    // Regex to parse existing code: Prefix-Digit-Suffix
-    // e.g. "MN-0001", "OT-1ABC"
-    // Group 1: Prefix (Letters)
-    // Group 2: Digit (Number)
-    // Group 3: Suffix (Any)
-    // We look for pattern: ^([A-Z]+)-(\d)(.*)$
-    const match = formData.code.match(/^([A-Z]+)-(\d)(.*)$/);
-
-    if (match) {
-      // If code matches pattern, preserve suffix but update Prefix and Digit
-      const currentSuffix = match[3];
-      const newCode = `${newPrefix}-${newDigit}${currentSuffix}`;
-      if (newCode !== formData.code) {
-        handleChange('code', newCode);
-      }
-    } else {
-      // If code doesn't match standard pattern (or is empty), just force new prefix/digit if it's empty or "REF-0XXX" placeholder
-      if (!formData.code || formData.code === 'REF-0XXX' || formData.code.includes('XXX')) {
-        handleChange('code', `${newPrefix}-${newDigit}XXX`);
-      }
-      // If it's a custom code like "my-doc-1", we leave it alone unless user manually edits it.
+    // If editing: Only auto-update if Category or Classification actually changed from initial
+    if (initialData &&
+      initialData.category === formData.category &&
+      initialData.classification === formData.classification) {
+      return;
     }
+
+    const updateSeq = async () => {
+      const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT' };
+      const classMap: Record<string, string> = { 'Unclassified': '0', 'Restricted': '1', 'Confidential': '2', 'Secret': '3' };
+
+      const newPrefix = catMap[formData.category] || 'OT';
+      const newDigit = classMap[formData.classification] || '0';
+      const prefixPattern = `${newPrefix}-${newDigit}`;
+
+      try {
+        // Fetch all refs matching this prefix to find max sequence
+        const existingRefs = await invoke<DocumentReference[]>('get_references', {
+          search: prefixPattern,
+          category: formData.category
+        });
+
+        let maxSeq = 0;
+        existingRefs.forEach(ref => {
+          // Match digits after the prefix-digit part (supports 3 or 4 digits for transition)
+          const m = ref.code.match(/-(\d)(\d+)$/);
+          if (m && m[1] === newDigit) {
+            const seq = parseInt(m[2], 10);
+            if (seq > maxSeq) maxSeq = seq;
+          }
+        });
+
+        const nextSeq = (maxSeq + 1).toString().padStart(3, '0');
+        const newCode = `${newPrefix}-${newDigit}${nextSeq}`;
+
+        if (newCode !== formData.code) {
+          handleChange('code', newCode);
+        }
+      } catch (err) {
+        console.error("Failed to fetch sequence:", err);
+        // Fallback to placeholder if error
+        handleChange('code', `${newPrefix}-${newDigit}XXXX`);
+      }
+    };
+
+    updateSeq();
   }, [formData.category, formData.classification]);
 
   return (
@@ -264,10 +613,39 @@ const ReferenceFormCard: React.FC<{
             </div>
           </div>
 
-          {/* 4. File Path */}
-          <div className="relative w-full sm:w-4/12 group">
+          {/* 4. Resource Type */}
+          <div className="relative w-full sm:w-2/12 group">
             <label className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-0.5 block">
-              ไฟล์แนบ (File Path)
+              รูปแบบ (Resource)
+            </label>
+            <div className="relative">
+              <select
+                className="w-full pl-7 pr-2 py-1.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 dark:text-slate-100 appearance-none"
+                value={formData.resource_type}
+                onChange={e => handleChange('resource_type', e.target.value)}
+              >
+                <option value="DOCUMENT">📄 DOC</option>
+                <option value="WEBLINK">🌐 WEB</option>
+                <option value="VIDEO">🎬 VIDEO</option>
+                <option value="IMAGE">🖼️ IMAGE</option>
+                <option value="AUDIO">🎵 AUDIO</option>
+                <option value="TEMPLATE">🧪 TEMP</option>
+              </select>
+              <div className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                {formData.resource_type === 'WEBLINK' ? <Globe className="w-3.5 h-3.5" /> :
+                  formData.resource_type === 'VIDEO' ? <Video className="w-3.5 h-3.5" /> :
+                    formData.resource_type === 'IMAGE' ? <Image className="w-3.5 h-3.5" /> :
+                      formData.resource_type === 'AUDIO' ? <Mic className="w-3.5 h-3.5" /> :
+                        formData.resource_type === 'TEMPLATE' ? <FileDigit className="w-3.5 h-3.5" /> :
+                          <Book className="w-3.5 h-3.5" />}
+              </div>
+            </div>
+          </div>
+
+          {/* 5. File Path */}
+          <div className="relative w-full sm:w-3/12 group">
+            <label className="text-[9px] uppercase font-bold text-slate-400 dark:text-slate-500 mb-0.5 block">
+              ไฟล์/ลิงก์ (Path/URL)
             </label>
             <div className="relative">
               <input
@@ -275,7 +653,7 @@ const ReferenceFormCard: React.FC<{
                   ? 'bg-gray-100 dark:bg-slate-800 text-gray-400 cursor-not-allowed'
                   : 'bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100'
                   }`}
-                placeholder={formData.classification === 'Confidential' ? 'ปิดกั้น (LOCKED)' : "C:\\Path\\To\\File.pdf"}
+                placeholder={formData.resource_type === 'WEBLINK' ? 'https://...' : formData.classification === 'Confidential' ? 'ปิดกั้น (LOCKED)' : "ลากไฟล์มาวาง หรือ ระบุที่อยู่..."}
                 value={formData.file_path}
                 onChange={e => handleChange('file_path', e.target.value)}
                 disabled={formData.classification === 'Confidential'}
@@ -286,7 +664,7 @@ const ReferenceFormCard: React.FC<{
             </div>
             {focusedField === 'file_path' && (
               <div className="absolute right-0 -top-6 bg-blue-600 text-white text-[10px] py-0.5 px-2 rounded shadow whitespace-nowrap z-20 animate-in fade-in">
-                {formData.classification === 'Confidential' ? 'ไม่สามารถแนบไฟล์ได้' : 'ระบุที่เก็บไฟล์'}
+                {formData.classification === 'Confidential' ? 'ไม่สามารถแนบไฟล์ได้' : formData.resource_type === 'WEBLINK' ? 'ระบุ URL เว็บไซต์' : 'ระบุที่เก็บไฟล์หรือเลือกไฟล์'}
               </div>
             )}
           </div>
@@ -318,10 +696,10 @@ const ReferenceFormCard: React.FC<{
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-700/50 mt-1">
           <Button variant="ghost" size="small" onClick={onCancel} icon={<X className="w-3.5 h-3.5" />}>
-            Cancel
+            ยกเลิก
           </Button>
           <Button variant="primary" size="small" onClick={handleSave} disabled={!formData.title} icon={<Save className="w-3.5 h-3.5" />}>
-            Save Reference
+            บันทึกข้อมูล
           </Button>
         </div>
       </div>
@@ -382,15 +760,30 @@ const ReferenceDisplayCard: React.FC<{
           {data.code}
         </span>
 
-        {/* 5. Classification Icon */}
-        <div className="flex items-center" title={data.classification || 'Unclassified'}>
-          {!data.classification || data.classification === 'Unclassified' ? (
-            <Book className="w-4 h-4 text-slate-400" />
-          ) : data.classification === 'Confidential' || data.classification === 'Secret' ? (
-            <Lock className="w-4 h-4 text-red-500" />
+        {/* 5. Resource Icon */}
+        <div className="flex items-center" title={data.resource_type || 'DOCUMENT'}>
+          {data.resource_type === 'WEBLINK' ? (
+            <Globe className="w-4 h-4 text-emerald-500" />
+          ) : data.resource_type === 'VIDEO' ? (
+            <Video className="w-4 h-4 text-purple-500" />
+          ) : data.resource_type === 'IMAGE' ? (
+            <Image className="w-4 h-4 text-blue-500" />
+          ) : data.resource_type === 'AUDIO' ? (
+            <Mic className="w-4 h-4 text-orange-500" />
+          ) : data.resource_type === 'TEMPLATE' ? (
+            <FileDigit className="w-4 h-4 text-slate-600 dark:text-slate-400" />
           ) : (
-            <Shield className="w-4 h-4 text-blue-500" />
+            <FileText className="w-4 h-4 text-slate-400" />
           )}
+        </div>
+
+        {/* 6. Classification Icon */}
+        <div className="flex items-center" title={data.classification || 'Unclassified'}>
+          {data.classification === 'Confidential' || data.classification === 'Secret' ? (
+            <Lock className="w-4 h-4 text-red-500" />
+          ) : data.classification === 'Restricted' ? (
+            <Shield className="w-4 h-4 text-blue-500" />
+          ) : null}
         </div>
 
         {/* 6. File Icon (if exists) */}

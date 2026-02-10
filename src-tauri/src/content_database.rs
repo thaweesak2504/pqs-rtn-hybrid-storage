@@ -17,6 +17,25 @@ pub fn get_content_database_path() -> Result<PathBuf, String> {
     Ok(db_dir.join("content.db"))
 }
 
+/// Get path to the portable data directory (relative to project root/exe)
+pub fn get_portable_data_dir() -> Result<std::path::PathBuf, String> {
+    // In dev mode, current_dir is usually project root
+    // In release, exe_dir is the base.
+    let base_dir = if cfg!(debug_assertions) {
+        std::env::current_dir().map_err(|e| e.to_string())?
+    } else {
+        let mut p = std::env::current_exe().map_err(|e| e.to_string())?;
+        p.pop();
+        p
+    };
+    
+    let data_dir = base_dir.join("data");
+    if !data_dir.exists() {
+        std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
+    }
+    Ok(data_dir)
+}
+
 /// Get connection to content database
 pub fn get_content_connection() -> SqlResult<Connection> {
     let db_path = get_content_database_path().map_err(|e| rusqlite::Error::SqliteFailure(
@@ -497,16 +516,25 @@ pub struct QuestionChoice {
     pub question_id: String,
     pub label: Option<String>, // ก. ข.
     pub content: String,
-    pub is_correct: bool,
-    pub sequence: i32,
-}
-
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Reference {
     pub id: i32,
     pub document_id: String,
     pub content: String,
     pub sequence: i32,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct DocumentReference {
+    pub id: i64,
+    pub code: String,
+    pub title: String,
+    pub category: Option<String>,
+    pub classification: Option<String>,
+    pub resource_type: Option<String>, // New: DOCUMENT, WEBLINK, VIDEO, IMAGE, AUDIO, TEMPLATE
+    pub file_path: Option<String>,
+    pub created_at: String,
+    pub updated_at: Option<String>,
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct QuestionReference {
@@ -631,7 +659,8 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // Migration: Add new columns if missing
     let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN classification VARCHAR(20) DEFAULT 'Unclassified'", []);
     let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN file_path TEXT", []);
-    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN category VARCHAR(50)", []); // In case it was missing
+    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN category VARCHAR(50)", []);
+    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN resource_type VARCHAR(20) DEFAULT 'DOCUMENT'", []);
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_doc_refs_code ON DocumentReferences(code)",
@@ -1426,8 +1455,8 @@ pub struct CreateReferenceRequest {
     pub title: String,
     pub category: Option<String>,
     pub classification: Option<String>,
+    pub resource_type: Option<String>, // DOCUMENT, WEBLINK, VIDEO, IMAGE, AUDIO, TEMPLATE
     pub file_path: Option<String>,
-    pub reference_type: Option<String>, // Keep for compatibility or type logic
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
@@ -1456,13 +1485,46 @@ fn get_thai_letter(order: i32) -> String {
         .unwrap_or(&"?")
         .to_string()
 }
+/// Helper to bundle a file into the portable data directory
+fn bundle_reference_file(code: &str, category: &str, source_path: &str) -> Result<String, String> {
+    if source_path.trim().is_empty() || source_path.starts_with("http") {
+        return Ok(source_path.to_string());
+    }
+
+    let source = std::path::Path::new(source_path);
+    if !source.exists() {
+        // If it starts with 'data/', it's already portable
+        if source_path.starts_with("data/") {
+            return Ok(source_path.to_string());
+        }
+        return Ok(source_path.to_string()); // Fallback
+    }
+
+    let file_name = source.file_name()
+        .ok_or_else(|| "Invalid file name".to_string())?
+        .to_str()
+        .ok_or_else(|| "Invalid file name encoding".to_string())?;
+
+    let data_dir = get_portable_data_dir()?;
+    let dest_dir = data_dir.join("references").join(category).join(code);
+    std::fs::create_dir_all(&dest_dir).map_err(|e| format!("Failed to create dest dir: {}", e))?;
+
+    let dest_path = dest_dir.join(file_name);
+    
+    // Only copy if source and dest are different
+    if source != dest_path {
+        std::fs::copy(source, &dest_path).map_err(|e| format!("Failed to copy file from {} to {}: {}", source_path, dest_path.display(), e))?;
+    }
+
+    Ok(format!("data/references/{}/{}/{}", category, code, file_name))
+}
+
 /// Create a new reference document
 pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentReference, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
     // Auto-generate type-based sequential code if empty
     let final_code = if request.code.trim().is_empty() {
-        // 1. Determine Category Prefix
         let cat_prefix = match request.category.as_deref().unwrap_or("OTHER") {
             "MANUAL" => "MN",
             "PROC" => "PR",
@@ -1472,28 +1534,16 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
             _ => "OT",
         };
 
-        // 2. Determine Classification Digit
-        // User: 1. Unclassified(0), 2. Restricted(1), 3. Confidential(2)
-        // Mapping based on standard or user request?
-        // User said: "TM-1003 > Technical Manaul Confidential".
-        // If 1=Confidential, 2=Secret?
-        // Let's stick to a safe standard mapping for now, or the one derived:
-        // Unclassified -> 0
-        // Restricted -> 1
-        // Confidential -> 2
-        // Secret -> 3
-        // Top Secret -> 4
         let class_digit = match request.classification.as_deref().unwrap_or("Unclassified") {
             "Restricted" => "1",
             "Confidential" => "2",
             "Secret" => "3",
             "Top Secret" => "4",
-            _ => "0", // Unclassified
+            _ => "0", 
         };
 
-        // 3. Find next running number for this Pattern: {cat_prefix}-{class_digit}%
-        let pattern = format!("{}-{}%", cat_prefix, class_digit); // e.g. TM-1%
-        let prefix_len = cat_prefix.len() + 1 + 1; // cat + hyphen + digit = 2+1+1 = 4 chars usually
+        let pattern = format!("{}-{}%", cat_prefix, class_digit); 
+        let prefix_len = cat_prefix.len() + 1 + 1; 
 
         let max_num: i32 = conn
             .query_row(
@@ -1501,14 +1551,13 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
                     "SELECT COALESCE(MAX(CAST(SUBSTR(code, {}) AS INTEGER)), 0) 
                      FROM DocumentReferences 
                      WHERE code LIKE ? AND LENGTH(code) >= ?",
-                    prefix_len + 1 // Start after the prefix+digit
+                    prefix_len + 1 
                 ),
-                params![pattern, prefix_len + 3], // Must have at least 3 digits
+                params![pattern, prefix_len + 3], 
                 |row| row.get(0),
             )
             .unwrap_or(0);
         
-        // Format: TM-1003
         format!("{}-{}{:03}", cat_prefix, class_digit, max_num + 1)
     } else {
         request.code.clone()
@@ -1526,17 +1575,25 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
     if exists {
         return Err(format!("Reference with code '{}' already exists", final_code));
     }
+
+    // Auto-Bundling: Copy file to data/ directory
+    let final_file_path = if let Some(path) = &request.file_path {
+        Some(bundle_reference_file(&final_code, request.category.as_deref().unwrap_or("OTHER"), path)?)
+    } else {
+        None
+    };
     
     // Insert
     conn.execute(
-        "INSERT INTO DocumentReferences (code, title, category, classification, file_path)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO DocumentReferences (code, title, category, classification, resource_type, file_path)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![
             final_code,
             request.title,
             request.category,
             request.classification.unwrap_or("Unclassified".to_string()),
-            request.file_path,
+            request.resource_type.unwrap_or("DOCUMENT".to_string()),
+            final_file_path,
         ],
     )
     .map_err(|e| e.to_string())?;
@@ -1555,7 +1612,7 @@ pub fn get_references(
 ) -> Result<Vec<DocumentReference>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
-    let mut sql = "SELECT id, code, title, category, classification, file_path, created_at, updated_at
+    let mut sql = "SELECT id, code, title, category, classification, resource_type, file_path, created_at, updated_at
                    FROM DocumentReferences WHERE 1=1".to_string();
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
     
@@ -1566,8 +1623,6 @@ pub fn get_references(
     }
     
     if let Some(cat) = category {
-        // Safe param index calculation (simplified for 2 possible params)
-        // If s is present, len is 1, next is ?2. If not, len is 0, next is ?1.
         let param_idx = params_vec.len() + 1;
         sql.push_str(&format!(" AND category = ?{}", param_idx));
         params_vec.push(Box::new(cat));
@@ -1587,9 +1642,10 @@ pub fn get_references(
                 title: row.get(2)?,
                 category: row.get(3)?,
                 classification: row.get(4)?,
-                file_path: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
+                resource_type: row.get(5)?,
+                file_path: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1609,9 +1665,25 @@ pub fn delete_reference(id: i64) -> Result<(), String> {
     tx.execute("DELETE FROM SectionReferences WHERE reference_id = ?1", params![id])
         .map_err(|e| format!("Failed to remove reference links: {}", e))?;
     
-    // 2. Delete the reference
-    tx.execute("DELETE FROM DocumentReferences WHERE id = ?1", params![id])
-        .map_err(|e| format!("Failed to delete reference: {}", e))?;
+    Ok(())
+}
+
+/// Delete all references from the master list (and all sections)
+pub fn delete_all_references() -> Result<(), String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+
+    // 1. Remove all links in sections
+    tx.execute("DELETE FROM SectionReferences", [])
+        .map_err(|e| format!("Failed to clear section links: {}", e))?;
+    
+    // 2. Remove all inline question references
+    tx.execute("DELETE FROM QuestionReferences", [])
+        .map_err(|e| format!("Failed to clear question references: {}", e))?;
+
+    // 3. Delete all master references
+    tx.execute("DELETE FROM DocumentReferences", [])
+        .map_err(|e| format!("Failed to clear master references: {}", e))?;
     
     tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
     
@@ -1704,7 +1776,7 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
     let mut stmt = conn
         .prepare(
             "SELECT sr.id, sr.section_id, sr.reference_id, sr.display_order,
-                    dr.id, dr.code, dr.title, dr.category, dr.classification, dr.file_path, dr.created_at, dr.updated_at
+                    dr.id, dr.code, dr.title, dr.category, dr.classification, dr.resource_type, dr.file_path, dr.created_at, dr.updated_at
              FROM SectionReferences sr
              JOIN DocumentReferences dr ON sr.reference_id = dr.id
              WHERE sr.section_id = ?1
@@ -1725,9 +1797,10 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
                     title: row.get(6)?,
                     category: row.get(7)?,
                     classification: row.get(8)?,
-                    file_path: row.get(9)?,
-                    created_at: row.get(10)?,
-                    updated_at: row.get(11)?,
+                    resource_type: row.get(9)?,
+                    file_path: row.get(10)?,
+                    created_at: row.get(11)?,
+                    updated_at: row.get(12)?,
                 },
                 display_order,
                 thai_letter: get_thai_letter(display_order),
@@ -1743,7 +1816,7 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
 /// Helper function to get reference by ID
 fn get_reference_by_id(conn: &Connection, id: i64) -> Result<DocumentReference, String> {
     conn.query_row(
-        "SELECT id, code, title, category, classification, file_path, created_at, updated_at
+        "SELECT id, code, title, category, classification, resource_type, file_path, created_at, updated_at
          FROM DocumentReferences WHERE id = ?1",
         params![id],
         |row| {
@@ -1753,9 +1826,10 @@ fn get_reference_by_id(conn: &Connection, id: i64) -> Result<DocumentReference, 
                 title: row.get(2)?,
                 category: row.get(3)?,
                 classification: row.get(4)?,
-                file_path: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
+                resource_type: row.get(5)?,
+                file_path: row.get(6)?,
+                created_at: row.get(7)?,
+                updated_at: row.get(8)?,
             })
         },
     )
@@ -1769,6 +1843,7 @@ pub struct UpdateReferenceArgs {
     pub title: String,
     pub category: Option<String>,
     pub classification: Option<String>,
+    pub resource_type: Option<String>,
     pub file_path: Option<String>,
 }
 
@@ -1798,17 +1873,25 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
         return Err(format!("Reference code '{}' already exists", args.code));
     }
     
+    // Auto-Bundling on update
+    let final_file_path = if let Some(path) = &args.file_path {
+        Some(bundle_reference_file(&args.code, args.category.as_deref().unwrap_or("OTHER"), path)?)
+    } else {
+        None
+    };
+    
     // Perform update
     conn.execute(
         "UPDATE DocumentReferences 
-         SET code = ?1, title = ?2, category = ?3, classification = ?4, file_path = ?5, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = ?6",
+         SET code = ?1, title = ?2, category = ?3, classification = ?4, resource_type = ?5, file_path = ?6, updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ?7",
         params![
             args.code, 
             args.title, 
-            args.category.unwrap_or_default(), 
+            args.category, 
             args.classification.unwrap_or("Unclassified".to_string()), 
-            args.file_path.unwrap_or_default(), 
+            args.resource_type.unwrap_or("DOCUMENT".to_string()),
+            final_file_path, 
             args.id
         ]
     ).map_err(|e| format!("Failed to update reference: {}", e))?;

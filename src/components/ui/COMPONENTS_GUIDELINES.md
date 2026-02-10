@@ -29,6 +29,11 @@
 - **Features**: Responsive columns, Gap options, Mobile-first
 - **Columns**: 1-6 columns with responsive breakpoints
 
+#### **6. ConfirmModal Component**
+- **Purpose**: สำหรับสร้าง Popup ยืนยันการกระทำ (Confirmation Dialog) ที่สวยงามและสม่ำเสมอ
+- **Features**: Custom Title/Message, Animated entry, Backdrop blur, Multiple variants (Danger, Warning, Info)
+- **Variants**: Danger (Red), Warning (Yellow), Info (Blue)
+
 ## 🎯 **Usage Examples**
 
 ### **Title Component**
@@ -144,6 +149,24 @@ import { Grid } from '../ui'
   <Card title="Card 3">Content 3</Card>
   <Card title="Card 4">Content 4</Card>
 </Grid>
+
+### **ConfirmModal Component**
+```tsx
+import ConfirmModal from '../modals/ConfirmModal'
+
+const [isModalOpen, setIsModalOpen] = useState(false);
+
+<ConfirmModal
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+  onConfirm={() => handleDelete()}
+  title="ยืนยันการลบ"
+  message="คุณต้องการลบข้อมูลนี้ใช่หรือไม่? การกระทำนี้ไม่สามารถกู้คืนได้"
+  variant="danger"
+  confirmText="ลบข้อมูล"
+  cancelText="ยกเลิก"
+/>
+```
 ```
 
 ## 🎨 **Design System Integration**
@@ -247,6 +270,20 @@ interface GridProps {
   gap?: 'small' | 'medium' | 'large'
   className?: string              // Additional CSS classes
 }
+
+### **ConfirmModal Props**
+```tsx
+interface ConfirmModalProps {
+  isOpen: boolean;                // Required: แสดง/ซ่อน Modal
+  onClose: () => void;            // Required: ฟังก์ชันตอนปิด/ยกเลิก
+  onConfirm: () => void;          // Required: ฟังก์ชันตอนกดยืนยัน
+  title: string;                  // Required: หัวข้อ Modal
+  message: string;                // Required: รายละเอียด (รองรับ \n)
+  confirmText?: string;           // Optional: ข้อความปุ่มยืนยัน (Default: 'ยืนยัน')
+  cancelText?: string;            // Optional: ข้อความปุ่มยกเลิก (Default: 'ยกเลิก')
+  variant?: 'danger' | 'warning' | 'info'; // รูปแบบสีและไอคอน
+}
+```
 ```
 
 ## 📱 **Responsive Behavior**

@@ -47,6 +47,9 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [existingRefs, setExistingRefs] = useState<number[]>([]);
+  const [addingMany, setAddingMany] = useState(false);
 
   // ... (unchanged code) ...
 
@@ -57,20 +60,31 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
     if (newCode.trim()) return null;
     if (!newCategory) return 'REF-0XXX';
 
-    const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT' };
-    const classMap: Record<string, string> = { 'Unclassified': '0', 'Restricted': '1', 'Confidential': '2' };
+    const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT', 'LINK': 'LN' };
+    const classMap: Record<string, string> = { 'Unclassified': '0', 'Restricted': '1', 'Confidential': '2', 'Secret': '3' };
 
     const prefix = catMap[newCategory] || 'OT';
     const digit = classMap[newClassification] || '0';
-    return `${prefix} -${digit} XXX`;
+    return `${prefix}-${digit}XXX`;
   }, [newCode, newCategory, newClassification]);
 
   useEffect(() => {
     if (isOpen && activeTab === 'search') {
       loadAllReferences();
       loadCommonReferences();
+      loadSectionReferences();
+      setSelectedIds(new Set());
     }
   }, [isOpen, activeTab]);
+
+  const loadSectionReferences = async () => {
+    try {
+      const refs = await invoke<any[]>('get_section_references', { sectionId });
+      setExistingRefs(refs.map(r => r.reference.id));
+    } catch (err) {
+      console.error('Failed to load section references:', err);
+    }
+  };
 
   const loadAllReferences = async () => {
     try {
@@ -102,8 +116,10 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
     // 1. Type filter
     if (typeFilter !== 'ALL') {
+      const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT', 'LINK': 'LN' };
+      const prefix = catMap[typeFilter] || typeFilter;
       filtered = filtered.filter(ref =>
-        ref.code.startsWith(typeFilter + '_')
+        ref.code.startsWith(prefix + '-')
       );
     }
 
@@ -132,26 +148,63 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
     return Array.from(
       new Set(
         allRefs
-          .filter(r => r.code.startsWith(typeFilter + '_'))
+          .filter(r => {
+            const catMap: Record<string, string> = { 'MANUAL': 'MN', 'PROC': 'PR', 'TM': 'TM', 'SAFETY': 'SF', 'DIAGRAM': 'DG', 'OTHER': 'OT', 'LINK': 'LN' };
+            const prefix = catMap[typeFilter] || typeFilter;
+            return r.code.startsWith(prefix + '-');
+          })
           .map(r => r.code)
       )
     ).sort();
   };
 
-  const handleSelectReference = async (refId: number) => {
+  const handleToggleReference = (refId: number) => {
+    if (existingRefs.includes(refId)) return;
+
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(refId)) {
+        next.delete(refId);
+      } else {
+        next.add(refId);
+      }
+      return next;
+    });
+  };
+
+  const handleAddSelected = async () => {
+    if (selectedIds.size === 0) return;
+
     try {
-      await invoke('add_section_reference', {
-        sectionId,
-        referenceId: refId,
-        displayOrder: null, // Auto-assign
-      });
+      setAddingMany(true);
+      setError('');
+
+      // Batch add
+      for (const refId of Array.from(selectedIds)) {
+        try {
+          await invoke('add_section_reference', {
+            sectionId,
+            referenceId: refId,
+            displayOrder: null,
+          });
+        } catch (err) {
+          console.warn(`Failed to add reference ${refId}:`, err);
+          // If one fails, we continue with others? Or stop? 
+          // Backend checks for existence, so if it's already there it might error.
+        }
+      }
+
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Failed to add reference:', err);
+      console.error('Failed to add selected references:', err);
       setError(err.toString());
+    } finally {
+      setAddingMany(false);
     }
   };
+
+
 
   const handleCreateReference = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,20 +303,20 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
         <div className="flex border-b border-gray-200 dark:border-github-border-primary">
           <button
             onClick={() => setActiveTab('search')}
-            className={`flex - 1 px - 4 py - 3 text - sm font - medium transition - colors ${activeTab === 'search'
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'search'
               ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              } `}
+              }`}
           >
             <Search className="w-4 h-4 inline mr-2" />
             Search Existing
           </button>
           <button
             onClick={() => setActiveTab('create')}
-            className={`flex - 1 px - 4 py - 3 text - sm font - medium transition - colors ${activeTab === 'create'
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${activeTab === 'create'
               ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              } `}
+              }`}
           >
             <Plus className="w-4 h-4 inline mr-2" />
             Create New
@@ -301,7 +354,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                     <option value="PROC">📋 Procedure</option>
                     <option value="TM">🔧 Technical Manual</option>
                     <option value="SAFETY">⚠️ Safety</option>
-                    <option value="LINK">🔗 Link</option>
+                    <option value="DIAGRAM">📐 Diagram</option>
                     <option value="OTHER">📄 Other</option>
                   </select>
                 </div>
@@ -346,10 +399,12 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                   <div className="space-y-2">
                     {commonRefs.map((ref) => (
                       <ReferenceItem
-                        key={`common - ${ref.id} `}
+                        key={`common-${ref.id}`}
                         reference={ref}
-                        onSelect={handleSelectReference}
+                        onSelect={handleToggleReference}
                         onDelete={handleDeleteClick}
+                        isSelected={selectedIds.has(ref.id)}
+                        isAlreadyLinked={existingRefs.includes(ref.id)}
                       />
                     ))}
                   </div>
@@ -375,22 +430,46 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                       <ReferenceItem
                         key={ref.id}
                         reference={ref}
-                        onSelect={handleSelectReference}
+                        onSelect={handleToggleReference}
                         onDelete={handleDeleteClick}
+                        isSelected={selectedIds.has(ref.id)}
+                        isAlreadyLinked={existingRefs.includes(ref.id)}
                       />
                     ))}
                   </div>
                 )}
               </div>
               {/* Cancel Button */}
-              <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-github-bg-tertiary border border-gray-300 dark:border-github-border-primary rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  Cancel
-                </button>
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="text-sm text-gray-500">
+                  {selectedIds.size > 0 && (
+                    <span>Selected: <span className="font-bold text-blue-600 dark:text-blue-400">{selectedIds.size}</span> items</span>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-github-bg-tertiary border border-gray-300 dark:border-github-border-primary rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Cancel
+                  </button>
+                  {selectedIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleAddSelected}
+                      disabled={addingMany}
+                      className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-md transition-all flex items-center gap-2"
+                    >
+                      {addingMany ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4" />
+                      )}
+                      Add Selected ({selectedIds.size})
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -455,8 +534,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                       }}
                       onFocus={() => setFocusedField('classification')}
                       onBlur={() => setFocusedField(null)}
-                      className={`w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none transition-all ${newClassification === 'Confidential' || newClassification === 'Secret' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-white dark:bg-github-bg-tertiary text-github-text-primary'
-                        }`}
+                      className={`w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg focus:ring-2 focus:ring-blue-500 shadow-sm appearance-none transition-all ${newClassification === 'Confidential' || newClassification === 'Secret' ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' : 'bg-white dark:bg-github-bg-tertiary text-github-text-primary'}`}
                     >
                       <option value="Unclassified">1. ไม่กำหนด (Unclassified)</option>
                       <option value="Restricted">2. ปกปิด (Restricted)</option>
@@ -490,7 +568,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                     </label>
                   </div>
                   <div className="h-[38px] flex items-center justify-center bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg">
-                    <span className={`font-mono font-bold text-sm tracking-wide ${newCategory ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'} `}>
+                    <span className={`font-mono font-bold text-sm tracking-wide ${newCategory ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>
                       {previewCode || '---'}
                     </span>
                   </div>
@@ -515,7 +593,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
                       className={`w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-github-border-primary rounded-lg text-github-text-primary focus:ring-2 focus:ring-blue-500 shadow-sm transition-all ${newClassification === 'Confidential'
                         ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
                         : 'bg-white dark:bg-github-bg-tertiary'
-                        } `}
+                        }`}
                     />
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                       {newClassification === 'Confidential' ? <Lock className="w-4 h-4 text-red-400" /> : <FileText className="w-4 h-4" />}
@@ -613,46 +691,68 @@ const ReferenceItem: React.FC<{
   reference: DocumentReference;
   onSelect: (id: number) => void;
   onDelete?: (ref: DocumentReference) => void;
-}> = ({ reference, onSelect, onDelete }) => {
+  isSelected?: boolean;
+  isAlreadyLinked?: boolean;
+}> = ({ reference, onSelect, onDelete, isSelected, isAlreadyLinked }) => {
   return (
     <div className="flex items-center gap-2 group">
       <button
-        onClick={() => onSelect(reference.id)}
-        className="flex-1 text-left p-3 border border-gray-200 dark:border-github-border-primary rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700 transition-colors group"
+        onClick={() => !isAlreadyLinked && onSelect(reference.id)}
+        disabled={isAlreadyLinked}
+        className={`flex-1 text-left p-3 border rounded-md transition-colors group flex items-center gap-3 ${isAlreadyLinked
+          ? 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-github-border-primary opacity-60 cursor-not-allowed'
+          : isSelected
+            ? 'bg-blue-50 dark:bg-blue-900/40 border-blue-400 dark:border-blue-600'
+            : 'border-gray-200 dark:border-github-border-primary hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-blue-300 dark:hover:border-blue-700'
+          }`}
       >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 flex items-center gap-3 overflow-hidden">
-            {/* Title & Badges - LEFT */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-github-text-primary group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
-                  {reference.title}
-                </span>
-
-                {reference.category && (
-                  <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded whitespace-nowrap">
-                    {reference.category}
-                  </span>
-                )}
-                {/* Classification Badge - NEW */}
-                {reference.classification && reference.classification !== 'Unclassified' && (
-                  <span className={`px - 2 py - 0.5 text - [10px] font - bold uppercase rounded border ${reference.classification === 'Secret' ? 'bg-red-100 text-red-700 border-red-200' :
-                    reference.classification === 'Top Secret' ? 'bg-red-600 text-white border-red-700' :
-                      'bg-slate-100 text-slate-600 border-slate-200'
-                    } `}>
-                    {reference.classification}
-                  </span>
-                )}
-              </div>
+        <div className="flex-shrink-0">
+          {isAlreadyLinked ? (
+            <div className="w-5 h-5 flex items-center justify-center text-green-500 bg-green-50 dark:bg-green-900/20 rounded">
+              <Shield className="w-3 h-3" />
             </div>
+          ) : (
+            <div className={`w-5 h-5 border-2 rounded transition-colors flex items-center justify-center ${isSelected
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'border-gray-300 dark:border-gray-600 group-hover:border-blue-400'
+              }`}>
+              {isSelected && <Plus className="w-3.5 h-3.5" />}
+            </div>
+          )}
+        </div>
 
-            {/* Code - RIGHT */}
-            <span className="text-xs font-mono text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 min-w-[80px] text-center whitespace-nowrap">
-              {reference.code}
-            </span>
+        <div className="flex-1 flex items-center justify-between gap-4 overflow-hidden">
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`font-medium truncate ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-github-text-primary'
+                }`}>
+                {reference.title}
+              </span>
+
+              {reference.category && (
+                <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded whitespace-nowrap">
+                  {reference.category}
+                </span>
+              )}
+              {reference.classification && reference.classification !== 'Unclassified' && (
+                <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${reference.classification === 'Secret' ? 'bg-red-100 text-red-700 border-red-200' :
+                  reference.classification === 'Top Secret' ? 'bg-red-600 text-white border-red-700' :
+                    'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                  {reference.classification}
+                </span>
+              )}
+              {isAlreadyLinked && (
+                <span className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase tracking-tighter">
+                  Already Added
+                </span>
+              )}
+            </div>
           </div>
 
-          <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0" />
+          <span className="text-xs font-mono text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded border border-gray-200 dark:border-gray-700 min-w-[80px] text-center whitespace-nowrap">
+            {reference.code}
+          </span>
         </div>
       </button>
 

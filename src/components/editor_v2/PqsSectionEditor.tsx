@@ -23,33 +23,35 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   const [currentTitle, setCurrentTitle] = useState(title);
   const [sectionId, setSectionId] = useState<number>(0);
 
+  const fetchReferences = async (sId: number) => {
+    try {
+      const refs = await invoke<any[]>('get_section_references', { sectionId: sId });
+      setReferences(refs.map(r => ({
+        id: r.id.toString(),
+        reference_id: r.reference.id,
+        code: r.reference.code,
+        title: r.reference.title,
+        category: r.reference.category || 'MANUAL',
+        classification: r.reference.classification || 'Unclassified',
+        file_path: r.reference.file_path || '',
+        description: r.reference.short_name || ''
+      })));
+    } catch (error) {
+      console.error("Failed to fetch references:", error);
+    }
+  };
+
   // Fetch Section ID and References on mount or when sectionNumber changes
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 1. Get Section Details (to get ID)
         const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
         const currentSection = sections.find(s => s.section_number === sectionNumber);
 
         if (currentSection) {
           setSectionId(currentSection.id);
-          setCurrentTitle(currentSection.title_th); // Sync title from backend
-
-          // 2. Get References
-          const refs = await invoke<any[]>('get_section_references', { sectionId: currentSection.id });
-          // Map backend SectionReferenceDetail to frontend ReferenceDoc
-          // Note: unique ID for list key should be the link ID (sr.id), but ReferenceDoc expects just 'id'
-          // We'll use the link ID as 'id' for deletion purposes
-          setReferences(refs.map(r => ({
-            id: r.id.toString(), // This is SectionReference ID (for unlinking)
-            reference_id: r.reference.id,
-            code: r.reference.code,
-            title: r.reference.title,
-            category: r.reference.category || 'MANUAL',
-            classification: r.reference.classification || 'Unclassified',
-            file_path: r.reference.file_path || '',
-            description: r.reference.short_name || ''
-          })));
+          setCurrentTitle(currentSection.title_th);
+          await fetchReferences(currentSection.id);
         }
       } catch (error) {
         console.error("Failed to fetch section data:", error);
@@ -93,33 +95,40 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
             code: ref.code,
             title: ref.title,
             short_name: ref.description,
-            category: "MANUAL", // Default
+            category: ref.category,
+            classification: ref.classification,
             is_common: false,
-            reference_type: "MANUAL"
+            reference_type: ref.category
           }
         });
         refId = newRef.id;
       }
 
-      // 2. Link to Section
-      await invoke('add_section_reference', {
-        sectionId: sectionId,
-        referenceId: refId,
-        displayOrder: null // Auto append
-      });
+      // 2. Check if already linked to THIS section locally to avoid backend error
+      if (references.some(r => r.reference_id === refId)) {
+        alert("เอกสารนี้ถูกเชื่อมโยงอยู่ในรายการแล้วครับ");
+        return;
+      }
 
-      // 3. Refresh List
-      const updatedRefs = await invoke<any[]>('get_section_references', { sectionId: sectionId });
-      setReferences(updatedRefs.map(r => ({
-        id: r.id.toString(),
-        reference_id: r.reference.id,
-        code: r.reference.code,
-        title: r.reference.title,
-        category: r.reference.category || 'MANUAL',
-        classification: r.reference.classification || 'Unclassified',
-        file_path: r.reference.file_path || '',
-        description: r.reference.short_name || ''
-      })));
+      // 3. Link to Section
+      try {
+        await invoke('add_section_reference', {
+          sectionId: sectionId,
+          referenceId: refId,
+          displayOrder: null // Auto append
+        });
+      } catch (linkErr: any) {
+        // If it's already linked in DB (even if UI was out of sync)
+        const errMsg = linkErr.toString().toLowerCase();
+        if (errMsg.includes('unique') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
+          alert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ");
+        } else {
+          throw linkErr;
+        }
+      }
+
+      // 4. Refresh List
+      await fetchReferences(sectionId);
 
     } catch (error) {
       console.error("Failed to add reference:", error);
@@ -192,6 +201,8 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           onEdit={handleEditRef}
           onDelete={handleDeleteRef}
           readOnly={isPreviewMode}
+          sectionId={sectionId}
+          onRefresh={() => fetchReferences(sectionId)}
         />
       </div>
 

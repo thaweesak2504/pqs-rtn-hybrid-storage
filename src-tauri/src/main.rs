@@ -751,6 +751,11 @@ fn delete_reference(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn delete_all_references() -> Result<(), String> {
+    content_database::delete_all_references()
+}
+
+#[tauri::command]
 fn add_section_reference(
     section_id: i64,
     reference_id: i64,
@@ -924,6 +929,7 @@ fn main() {
             get_references,
             update_reference,
             delete_reference,
+            delete_all_references,
             add_section_reference,
             remove_section_reference,
             get_section_references,
