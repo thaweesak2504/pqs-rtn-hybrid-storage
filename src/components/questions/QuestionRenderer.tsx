@@ -178,7 +178,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                   {citations.map((ref, idx) => (
                     <React.Fragment key={ref.id}>
                       <span
-                        className="hover:text-blue-600 hover:underline cursor-pointer transition-colors"
+                        className={`${ref.reference.file_path ? 'hover:text-blue-600 hover:underline cursor-pointer' : 'cursor-default opacity-40'} transition-colors`}
                         title={ref.reference.title + (ref.reference.file_path ? `\nOpen: ${ref.reference.file_path}` : '')}
                         onClick={async (e) => {
                           e.stopPropagation();

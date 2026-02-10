@@ -813,10 +813,11 @@ const ReferenceDisplayCard: React.FC<{
         </span>
 
         {/* 5. Resource Icon */}
+        {/* 5. Resource Icon */}
         <div
-          className="flex items-center cursor-pointer hover:scale-110 transition-transform"
-          title={data.resource_type === 'WEBLINK' ? `Open: ${data.file_path}` : (data.resource_type || 'DOCUMENT')}
-          onClick={handleOpenResource}
+          className={`flex items-center transition-transform ${data.file_path ? 'cursor-pointer hover:scale-110' : 'cursor-default opacity-40'}`}
+          title={data.file_path ? (data.resource_type === 'WEBLINK' ? `Open: ${data.file_path}` : 'Open File') : 'No file linked'}
+          onClick={data.file_path ? handleOpenResource : undefined}
         >
           {data.resource_type === 'WEBLINK' ? (
             <Globe className="w-4 h-4 text-emerald-500" />
@@ -839,7 +840,9 @@ const ReferenceDisplayCard: React.FC<{
             <Lock className="w-4 h-4 text-red-500" />
           ) : data.classification === 'Restricted' ? (
             <Shield className="w-4 h-4 text-blue-500" />
-          ) : null}
+          ) : (
+            <CheckCircle className="w-4 h-4 text-green-500" /> /* Unclassified = CheckCircle (Green) */
+          )}
         </div>
 
         {/* 7. Actions */}
