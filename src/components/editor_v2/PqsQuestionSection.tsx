@@ -34,6 +34,29 @@ interface PqsQuestionSectionProps {
   readOnly?: boolean;
 }
 
+interface QuestionTreeNodeProps {
+  question: QuestionDetail;
+  level: number;
+  sectionNumber: number;
+  readOnly: boolean;
+  editingId: string | null;
+  isCreating: boolean;
+  creatingAtParent: string | null;
+  insertingAfterId: string | null;            // New: Context for "Insert After"
+  onStartEdit: (id: string) => void;
+  onUpdate: (id: string, content: string) => void;
+  onDelete: (question: QuestionDetail) => void;
+  onStartCreate: (parentId: string) => void;     // New Sub-question (append to children)
+  onStartInsertAfter: (id: string) => void;      // New: Start "Insert After" logic
+  onCreate: (content: string, parentId: string | null, insertAfterId?: string) => void; // New: optional insertAfterId
+  onCancel: () => void;
+  onMoveUp: (questionId: string, siblings: QuestionDetail[]) => void;
+  onMoveDown: (questionId: string, siblings: QuestionDetail[]) => void;
+  siblings: QuestionDetail[];
+  isFirst: boolean;
+  isLast: boolean;
+}
+
 // ============ Main Component ============
 
 const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
@@ -44,7 +67,9 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [creatingAtParent, setCreatingAtParent] = useState<string | null>(null);
+  const [insertingAfterId, setInsertingAfterId] = useState<string | null>(null); // New state
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -103,6 +128,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const resetForms = () => {
     setIsCreating(false);
     setCreatingAtParent(null);
+    setInsertingAfterId(null);
     setEditingId(null);
   };
 
@@ -112,18 +138,46 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     setIsCreating(true);
   };
 
-  const handleCreate = async (content: string, parentId: string | null) => {
+  const handleStartInsertAfter = (targetId: string) => {
+    resetForms();
+    setInsertingAfterId(targetId);
+    setIsCreating(true);
+  };
+
+  const handleCreate = async (content: string, parentId: string | null, insertAfterId?: string) => {
     try {
+      // 1. Create Question (it will be appended to end)
       const siblingCount = parentId
         ? questions.filter(q => q.parent_id === parentId).length
         : questions.filter(q => !q.parent_id).length;
-      await invoke('create_question', {
+
+      const newId = await invoke<string>('create_question', {
         args: {
           document_id: docId, section_id: sectionId, parent_id: parentId,
           content: content.trim(), is_header: false, sequence: siblingCount + 1,
           answer_type: 'text', metadata: null,
         }
       });
+
+      // 2. If insertAfterId provided, reorder siblings immediately
+      if (insertAfterId) {
+        // Find siblings
+        const allSiblings = parentId
+          ? questions.filter(q => q.parent_id === parentId).sort((a, b) => a.sequence - b.sequence)
+          : questions.filter(q => !q.parent_id).sort((a, b) => a.sequence - b.sequence);
+
+        // Construct new order: [...before, insertAfterId, NEW_ID, ...after]
+        const insertionIndex = allSiblings.findIndex(q => q.id === insertAfterId);
+        if (insertionIndex !== -1) {
+          const newOrderIds = [
+            ...allSiblings.slice(0, insertionIndex + 1).map(q => q.id),
+            newId,
+            ...allSiblings.slice(insertionIndex + 1).map(q => q.id)
+          ];
+          await invoke('reorder_questions', { questionIds: newOrderIds });
+        }
+      }
+
       resetForms();
       await fetchQuestions();
     } catch (err) {
@@ -215,7 +269,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
         {!readOnly && !isCreating && !editingId && (
           <Button variant="primary" size="small" icon={<Plus className="w-4 h-4" />} onClick={() => handleStartCreate(null)}>
-            เพิ่มคำถาม
+            เพิ่มคำถาม (ท้ายสุด)
           </Button>
         )}
       </div>
@@ -223,8 +277,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       {/* ── Content ── */}
       <div className="space-y-1">
 
-        {/* Create Form (Top-Level) */}
-        {isCreating && creatingAtParent === null && (
+        {/* Create Form (Top-Level - Append) */}
+        {isCreating && creatingAtParent === null && insertingAfterId === null && (
           <QuestionFormCard
             prefix={buildPrefix(0, questionTree.length + 1, sectionNumber)}
             onSave={(content) => handleCreate(content, null)}
@@ -245,10 +299,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 editingId={editingId}
                 isCreating={isCreating}
                 creatingAtParent={creatingAtParent}
+                insertingAfterId={insertingAfterId}
                 onStartEdit={(id) => { resetForms(); setEditingId(id); }}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
                 onStartCreate={handleStartCreate}
+                onStartInsertAfter={handleStartInsertAfter}
                 onCreate={handleCreate}
                 onCancel={resetForms}
                 onMoveUp={handleMoveUp}
@@ -301,31 +357,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
 // ============ QuestionTreeNode ============
 
-interface QuestionTreeNodeProps {
-  question: QuestionDetail;
-  level: number;
-  sectionNumber: number;
-  readOnly: boolean;
-  editingId: string | null;
-  isCreating: boolean;
-  creatingAtParent: string | null;
-  onStartEdit: (id: string) => void;
-  onUpdate: (id: string, content: string) => void;
-  onDelete: (question: QuestionDetail) => void;
-  onStartCreate: (parentId: string) => void;
-  onCreate: (content: string, parentId: string | null) => void;
-  onCancel: () => void;
-  onMoveUp: (questionId: string, siblings: QuestionDetail[]) => void;
-  onMoveDown: (questionId: string, siblings: QuestionDetail[]) => void;
-  siblings: QuestionDetail[];
-  isFirst: boolean;
-  isLast: boolean;
-}
-
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question, level, sectionNumber, readOnly, editingId,
-  isCreating, creatingAtParent, onStartEdit, onUpdate,
-  onDelete, onStartCreate, onCreate, onCancel,
+  isCreating, creatingAtParent, insertingAfterId,
+  onStartEdit, onUpdate, onDelete, onStartCreate, onStartInsertAfter, onCreate, onCancel,
   onMoveUp, onMoveDown, siblings, isFirst, isLast,
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
@@ -362,9 +397,21 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onEdit={() => onStartEdit(question.id)}
         onDelete={() => onDelete(question)}
         onAddSub={() => onStartCreate(question.id)}
+        onInsertAfter={() => onStartInsertAfter(question.id)}
         onMoveUp={() => onMoveUp(question.id, siblings)}
         onMoveDown={() => onMoveDown(question.id, siblings)}
       />
+
+      {/* Insert After Form */}
+      {isCreating && insertingAfterId === question.id && (
+        <div className={level > 0 ? 'ml-6' : ''}>
+          <QuestionFormCard
+            prefix={buildPrefix(level, question.sequence + 1, sectionNumber)} // Optimistic next number
+            onSave={(content) => onCreate(content, question.parent_id || null, question.id)}
+            onCancel={onCancel}
+          />
+        </div>
+      )}
 
       {isExpanded && hasChildren && (
         <div className="relative">
@@ -379,10 +426,12 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
               editingId={editingId}
               isCreating={isCreating}
               creatingAtParent={creatingAtParent}
+              insertingAfterId={insertingAfterId}
               onStartEdit={onStartEdit}
               onUpdate={onUpdate}
               onDelete={onDelete}
               onStartCreate={onStartCreate}
+              onStartInsertAfter={onStartInsertAfter}
               onCreate={onCreate}
               onCancel={onCancel}
               onMoveUp={onMoveUp}
@@ -395,6 +444,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         </div>
       )}
 
+      {/* Add Sub Form (Append) */}
       {isCreating && creatingAtParent === question.id && (
         <div className="ml-6 mt-1 mb-1">
           <QuestionFormCard
@@ -485,6 +535,7 @@ interface QuestionDisplayCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onAddSub: () => void;
+  onInsertAfter: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
 }
@@ -492,7 +543,7 @@ interface QuestionDisplayCardProps {
 const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   question, prefix, level, readOnly, isExpanded,
   hasChildren, canAddSub, isFirst, isLast,
-  onToggle, onEdit, onDelete, onAddSub, onMoveUp, onMoveDown,
+  onToggle, onEdit, onDelete, onAddSub, onInsertAfter, onMoveUp, onMoveDown,
 }) => {
   const isL1 = level === 0;
 
@@ -561,6 +612,19 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       {/* Actions */}
       {!readOnly && (
         <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+
+          {/* Insert After (New) */}
+          <button
+            onClick={onInsertAfter}
+            className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors"
+            title="แทรกคำถามต่อท้าย"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Separator */}
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+
           {/* Move Up/Down */}
           <button
             onClick={onMoveUp}
