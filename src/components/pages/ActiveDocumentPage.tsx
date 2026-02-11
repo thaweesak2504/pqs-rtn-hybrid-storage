@@ -37,7 +37,7 @@ import IntroductionView from '../views/IntroductionView';
 import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
-import Section104View from '../views/Section104View';
+
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import AddSectionModal from '../modals/AddSectionModal';
@@ -323,7 +323,7 @@ const ActiveDocumentPage: React.FC = () => {
           )}
 
           {/* Dynamic Sections (101-199, 201-299, 301-399) - Using Question Renderer */}
-          {activeSection !== '100' && activeSection !== '104' && activeSection !== '200' && activeSection !== '300' &&
+          {activeSection !== '100' && activeSection !== '200' && activeSection !== '300' &&
             parseInt(activeSection) >= 100 && parseInt(activeSection) < 400 && docId && (
               <PqsSectionEditor
                 docId={docId}
@@ -339,13 +339,6 @@ const ActiveDocumentPage: React.FC = () => {
                 isPreviewMode={isPreviewMode}
               />
             )}
-
-          {/* Section 104 - CIWS Basic */}
-          {activeSection === '104' && docId && (
-            <Section104View
-              sectionId={sections.find(s => s.section_number === 104)?.id || 0}
-            />
-          )}
 
 
         </div>

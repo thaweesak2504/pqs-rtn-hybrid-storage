@@ -91,6 +91,8 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
     if (e.key === 'Escape') handleCancel();
   };
 
+
+
   return (
     <div className={`relative overflow-hidden rounded-xl shadow-md transition-all duration-500 group select-none ${className}`}>
       {/* Slim Dynamic Gradient Background */}
@@ -156,6 +158,9 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
 
         {/* Right: Subtitle & Status (Hidden on small screens if needed, or kept compact) */}
         <div className="flex flex-col items-end gap-1 shrink-0">
+
+
+
           {/* SubTitle as Badge or Small Text */}
           {subTitle && (
             <span className="text-xs md:text-sm font-light text-white/90 border-l border-white/20 pl-3">

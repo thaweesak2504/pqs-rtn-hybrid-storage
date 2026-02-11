@@ -813,7 +813,6 @@ const ReferenceDisplayCard: React.FC<{
         </span>
 
         {/* 5. Resource Icon */}
-        {/* 5. Resource Icon */}
         <div
           className={`flex items-center transition-transform ${data.file_path ? 'cursor-pointer hover:scale-110' : 'cursor-default opacity-40'}`}
           title={data.file_path ? (data.resource_type === 'WEBLINK' ? `Open: ${data.file_path}` : 'Open File') : 'No file linked'}
@@ -841,7 +840,7 @@ const ReferenceDisplayCard: React.FC<{
           ) : data.classification === 'Restricted' ? (
             <Shield className="w-4 h-4 text-blue-500" />
           ) : (
-            <CheckCircle className="w-4 h-4 text-green-500" /> /* Unclassified = CheckCircle (Green) */
+            <CheckCircle className="w-4 h-4 text-green-500" />
           )}
         </div>
 

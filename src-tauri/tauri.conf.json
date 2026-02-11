@@ -47,32 +47,7 @@
         "save": true
       },
       "window": {
-        "all": false,
-        "close": true,
-        "hide": true,
-        "show": true,
-        "maximize": true,
-        "unmaximize": true,
-        "minimize": true,
-        "unminimize": true,
-        "startDragging": true,
-        "setDecorations": true,
-        "setAlwaysOnTop": true,
-        "setResizable": true,
-        "setSize": true,
-        "setMinSize": true,
-        "setMaxSize": true,
-        "setPosition": true,
-        "setFullscreen": true,
-        "setFocus": true,
-        "setIcon": true,
-        "setSkipTaskbar": true,
-        "setCursorGrab": true,
-        "setCursorVisible": true,
-        "setCursorIcon": true,
-        "setCursorPosition": true,
-        "setIgnoreCursorEvents": true,
-        "print": true
+        "all": true
       }
     },
     "bundle": {
