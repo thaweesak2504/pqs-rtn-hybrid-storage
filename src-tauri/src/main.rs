@@ -670,6 +670,11 @@ fn delete_question(id: String) -> Result<(), String> {
     content_database::delete_question(id)
 }
 
+#[tauri::command]
+fn reorder_questions(question_ids: Vec<String>) -> Result<(), String> {
+    content_database::reorder_questions(question_ids)
+}
+
 // DISABLED - Database logging functions removed
 // #[tauri::command]
 // fn get_database_logs() -> Result<String, String> {
@@ -987,6 +992,7 @@ fn main() {
             create_question, // Restored
             update_question, // New command
             delete_question, // New command
+            reorder_questions, // Reorder command
             get_document_with_hierarchy,
             // Section management
             create_section,

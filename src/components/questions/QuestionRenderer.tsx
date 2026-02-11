@@ -41,10 +41,20 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
 
   const isHeader = question.is_header;
 
-  // Format: parentPrefix.sequence (e.g. 101.1)
-  const currentPrefix = parentPrefix
-    ? `${parentPrefix}.${toThaiNumber(question.sequence)}`
-    : `${toThaiNumber(question.sequence)}`; // Fallback
+  // Thai alphabet for L2 numbering (ก. ข. ค. ...)
+  const toThaiAlphabet = (n: number) => {
+    const alpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'];
+    return alpha[n - 1] || `${n}`;
+  };
+
+  // Format prefix based on level:
+  // L0/L1: parentPrefix.sequence (e.g. ๑๐๑.๑)
+  // L2+: Thai alphabet (e.g. ก. ข. ค.)
+  const currentPrefix = level >= 2
+    ? `${toThaiAlphabet(question.sequence)}.`   // L2: ก. ข. ค.
+    : parentPrefix
+      ? `${parentPrefix}.${toThaiNumber(question.sequence)}`  // L1: ๑๐๑.๑
+      : `${toThaiNumber(question.sequence)}`;                 // Fallback
 
   // State for expanded answer (if collapsible)
   // Logic: Text answers are always shown? Checkboxes might be hidden? 

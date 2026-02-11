@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
+import PqsQuestionSection from './PqsQuestionSection';
 import { invoke } from '@tauri-apps/api/tauri';
 
 interface PqsSectionEditorProps {
@@ -209,12 +210,14 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         />
       </div>
 
-      {/* 3. Question Area (Placeholder for phase 4) */}
-      <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8 min-h-[300px] flex items-center justify-center text-slate-400">
-        <div className="text-center">
-          <p className="text-lg font-medium">Question Engine V2 Loading...</p>
-          <p className="text-sm">Recursive Question Renderer will be implemented here.</p>
-        </div>
+      {/* 3. Question Area */}
+      <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
+        <PqsQuestionSection
+          docId={docId}
+          sectionId={sectionId}
+          sectionNumber={sectionNumber}
+          readOnly={isPreviewMode}
+        />
       </div>
 
     </PqsEditorLayout>

@@ -13,6 +13,7 @@ interface SectionQuestionViewProps {
   sectionId: number;
   sectionNumber: number; // e.g. 200, 300
   title: string;
+  hideHeader?: boolean; // Hide section header + references (when parent already shows them)
 }
 
 const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
@@ -20,7 +21,8 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
   docId,
   sectionId,
   sectionNumber,
-  title
+  title,
+  hideHeader = false
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -235,65 +237,61 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
   return (
     <div className={`flex flex-col h-full font-th-sarabun text-lg ${isPreviewMode ? '' : 'p-4'}`}>
 
-      {/* Section Header (Moc Style) */}
-      <div className="mb-4">
-        {/* Title Row: Grid with 5ch gap */}
-        <div className="grid grid-cols-[max-content_1fr] gap-x-[5ch] items-baseline">
-          <span className="font-bold whitespace-nowrap text-black dark:text-github-text-primary">
-            {toThaiNumber(sectionNumber)}.
-          </span>
+      {/* Section Header (Moc Style) — hidden when parent already shows header */}
+      {!hideHeader && (
+        <div className="mb-4">
+          {/* Title Row: Grid with 5ch gap */}
+          <div className="grid grid-cols-[max-content_1fr] gap-x-[5ch] items-baseline">
+            <span className="font-bold whitespace-nowrap text-black dark:text-github-text-primary">
+              {toThaiNumber(sectionNumber)}
+            </span>
 
-          <div className="font-bold text-black dark:text-github-text-primary">
-            {isEditingTitle ? (
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={titleVal}
-                  onChange={(e) => setTitleVal(e.target.value)}
-                  onBlur={handleTitleSave} // Auto-save on blur
-                  onKeyDown={handleKeyDown}
-                  autoFocus
-                  className="bg-white dark:bg-github-bg-tertiary border border-blue-500 rounded px-2 py-1 text-github-text-primary flex-1 min-w-[300px]"
-                />
-                <button onClick={handleTitleSave} className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-600">
-                  <Check size={18} />
-                </button>
-                <button onClick={() => { setIsEditingTitle(false); setTitleVal(title); }} className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-600">
-                  <X size={18} />
-                </button>
-              </div>
-            ) : (
-              <span
-                onClick={() => !isPreviewMode && setIsEditingTitle(true)}
-                className={`${!isPreviewMode ? 'cursor-text hover:underline decoration-gray-400 underline-offset-4' : ''}`}
-                title="Click to edit title"
+            <div className="font-bold text-black dark:text-github-text-primary">
+              {isEditingTitle ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={titleVal}
+                    onChange={(e) => setTitleVal(e.target.value)}
+                    onBlur={handleTitleSave} // Auto-save on blur
+                    onKeyDown={handleKeyDown}
+                    autoFocus
+                    className="bg-white dark:bg-github-bg-tertiary border border-blue-500 rounded px-2 py-1 text-github-text-primary flex-1 min-w-[300px]"
+                  />
+                  <button onClick={handleTitleSave} className="p-1 hover:bg-green-100 dark:hover:bg-green-900 rounded text-green-600">
+                    <Check size={18} />
+                  </button>
+                  <button onClick={() => { setIsEditingTitle(false); setTitleVal(title); }} className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded text-red-600">
+                    <X size={18} />
+                  </button>
+                </div>
+              ) : (
+                <span
+                  onClick={() => !isPreviewMode && setIsEditingTitle(true)}
+                  className={`${!isPreviewMode ? 'cursor-text hover:underline decoration-gray-400 underline-offset-4' : ''}`}
+                  title="Click to edit title"
+                >
+                  {title}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* References Row (Indented) */}
+          <div className="ml-[5ch] mt-2 text-black dark:text-github-text-primary">
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="font-bold">เอกสารอ้างอิง :</span>
+              {/* Toggle All Button - Moved here as start of references or inline */}
+              <button
+                onClick={handleToggleAll}
+                className="ml-auto px-3 py-0.5 bg-[#f9f9f9] dark:bg-github-bg-secondary border border-[#333] dark:border-github-border-primary rounded text-sm hover:bg-[#e8e6e6] dark:hover:bg-github-bg-hover transition-colors font-th-sarabun"
               >
-                {title}
-              </span>
-            )}
+                {allExpanded ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* References Row (Indented) */}
-        <div className="ml-[5ch] mt-2 text-black dark:text-github-text-primary">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <span className="font-bold">เอกสารอ้างอิง :</span>
-            {/* Toggle All Button - Moved here as start of references or inline */}
-            <button
-              onClick={handleToggleAll}
-              className="ml-auto px-3 py-0.5 bg-[#f9f9f9] dark:bg-github-bg-secondary border border-[#333] dark:border-github-border-primary rounded text-sm hover:bg-[#e8e6e6] dark:hover:bg-github-bg-hover transition-colors font-th-sarabun"
-            >
-              {allExpanded ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
-            </button>
-          </div>
-
-          {/* We don't have the explicit list of references here from DB yet in this view, 
-                assuming they are rendered by the Questions or just generic placeholder? 
-                Actually the Mockup had a hardcoded list. 
-                For now we just keep the header structure clean. 
-            */}
-        </div>
-      </div>
+      )}
 
       {/* Toolbar */}
       <div className="flex justify-end">

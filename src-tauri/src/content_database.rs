@@ -1055,6 +1055,25 @@ pub fn delete_question(id: String) -> Result<(), String> {
 }
 
 
+/// Reorder questions by receiving an ordered list of question IDs.
+/// Reassigns sequence = 1, 2, 3, ... in the given order.
+pub fn reorder_questions(question_ids: Vec<String>) -> Result<(), String> {
+    let mut conn = get_content_connection().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+
+    for (index, id) in question_ids.iter().enumerate() {
+        let new_seq = (index + 1) as i32;
+        tx.execute(
+            "UPDATE Questions SET sequence = ?1 WHERE id = ?2",
+            params![new_seq, id],
+        ).map_err(|e| format!("Failed to update sequence for {}: {}", id, e))?;
+    }
+
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+
 #[derive(serde::Serialize)]
 pub struct DocumentHierarchy {
     pub document: Document,
