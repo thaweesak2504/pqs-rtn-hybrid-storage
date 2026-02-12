@@ -1,7 +1,7 @@
 # Project Goals: PQS RTN Hybrid Storage System
 
 ## 1. Project Vision (วิสัยทัศน์โครงการ)
-พัฒนา Desktop Application เพื่อเป็นเครื่องมือสำหรับ "ผู้สร้าง (Creator)" ในการจัดทำชุดเอกสารมาตรฐานคุณวุฒิ (PQS) ของกองทัพเรือ โดยเน้นความง่ายในการใช้งาน (User-Friendly), ความยืดหยุ่นของข้อมูล (Data Portability), และรองรับกระบวนการสอบทั้งรูปแบบ Offline และ Online
+พัฒนา Desktop Application เพื่อเป็นเครื่องมือสำหรับ "ผู้สร้าง (Creator)" ในการจัดทำชุดเอกสารมาตรฐานกำลังพล (PQS) ของกองทัพเรือ โดยเน้นความง่ายในการใช้งาน (User-Friendly), ความยืดหยุ่นของข้อมูล (Data Portability), และรองรับกระบวนการสอบทั้งรูปแบบ Offline และ Online
 
 ## 2. Core Objectives (เป้าหมายหลัก)
 
