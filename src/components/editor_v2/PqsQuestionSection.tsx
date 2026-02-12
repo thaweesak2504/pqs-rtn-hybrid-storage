@@ -836,7 +836,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
       {/* L2 connector dot */}
       {!isL1 && (
-        <div className="absolute left-[6px] top-1/2 -translate-y-1/2 flex items-center">
+        <div className="absolute left-[6px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[18px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
         </div>
@@ -845,7 +845,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       {/* Toggle */}
       <button
         onClick={onToggle}
-        className={`w-5 h-5 flex items-center justify-center rounded transition-all shrink-0
+        className={`w-5 h-5 mt-1 flex items-center justify-center rounded transition-all shrink-0
           ${hasChildren
             ? 'text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30'
             : 'invisible'
@@ -859,10 +859,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
       {/* Prefix Badge */}
       <span className={`
-        shrink-0 inline-flex items-center justify-center rounded-md text-xs font-bold min-w-[36px] px-1.5 py-0.5
+        shrink-0 inline-flex items-center justify-center
         ${isL1
-          ? 'bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
-          : 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800'
+          ? 'rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
+          : 'min-w-[24px] text-sm font-normal text-blue-600 dark:text-blue-400' // L2: No box, just text
         }
       `}>
         {prefix}
@@ -871,13 +871,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       {/* Content */}
       <span className={`flex-1 truncate select-text
         ${isL1
-          ? 'text-sm font-medium text-slate-800 dark:text-slate-100'
-          : 'text-slate-600 dark:text-slate-300'
+          ? 'text-sm font-semibold text-slate-900 dark:text-slate-100' // L1: Stronger emphasis
+          : 'text-sm font-normal text-slate-700 dark:text-slate-300' // L2: Normal weight as requested
         }
       `} title={question.content}>
         {question.content}
         {isL1 && question.description && (
-          <div className="mt-1 text-base font-normal text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{question.description}</div>
+          <div className="mt-1 text-sm font-normal text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{question.description}</div> // Description: Match L2 style
         )}
         {isL1 && question.metadata && (
           <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
