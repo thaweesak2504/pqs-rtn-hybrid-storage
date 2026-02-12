@@ -38,11 +38,7 @@ const buildPrefix = (level: number, sequence: number, sectionNumber: number) => 
   return `${toThaiAlphabet(sequence)}.`;
 };
 
-const buildArabicPrefix = (level: number, sequence: number, sectionNumber: number) => {
-  // Use Arabic numerals for file naming (e.g. 101.1)
-  if (level === 0) return `${sectionNumber}.${sequence}`;
-  return `${sequence}`; // Or whatever makes sense for sub-levels, but usually only L1 images matter
-};
+
 
 // ============ Types ============
 
