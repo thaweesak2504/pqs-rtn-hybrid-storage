@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use base64::{Engine as _, engine::general_purpose};
 use rusqlite::{Connection, Result as SqlResult, params};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
@@ -895,11 +896,13 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
 
 #[derive(serde::Deserialize)]
 pub struct CreateQuestionArgs {
+    pub id: Option<String>, // Allow manual ID (generated in frontend for image upload linking)
     pub document_id: String,
     pub section_id: Option<i64>,
     pub parent_id: Option<String>,
     pub content: String,
     pub is_header: bool,
+    pub description: Option<String>,
     pub sequence: Option<i32>,
     pub answer_type: Option<String>,
     pub metadata: Option<String>,
@@ -937,7 +940,9 @@ fn sync_question_references(conn: &Connection, question_id: &str, metadata_json:
 pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
-    let id = generate_uuid();
+    // Use provided ID or generate new one
+    let id = args.id.unwrap_or_else(generate_uuid);
+
     // Default sequence: Max + 1
     let sequence = if let Some(seq) = args.sequence {
         seq
@@ -956,8 +961,8 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     };
 
     conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             id, 
             args.document_id, 
@@ -966,6 +971,7 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
             sequence, 
             args.content, 
             args.is_header, 
+            args.description,
             args.answer_type.unwrap_or("text".to_string()),
             args.metadata
         ]
@@ -982,6 +988,7 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
 pub struct UpdateQuestionArgs {
     pub id: String,
     pub content: String,
+    pub description: Option<String>,
     pub metadata: Option<String>,
 }
 
@@ -990,11 +997,12 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
 
     conn.execute(
         "UPDATE Questions 
-         SET content = ?2, metadata = ?3 
+         SET content = ?2, description = ?3, metadata = ?4 
          WHERE id = ?1",
         params![
             args.id, 
             args.content, 
+            args.description,
             args.metadata
         ]
     )
@@ -2057,5 +2065,124 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
 
     Ok(())
 }
+
+/// Upload an image for a question (copies to data/{doc_id}/question-images/{prefix}_{filename})
+pub fn upload_question_image(source_path: String, document_id: String, question_id: String, friendly_prefix: Option<String>) -> Result<String, String> {
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    
+    // Target: data/{document_id}/question-images/
+    let target_dir = data_dir.join(&document_id).join("question-images");
+    
+    if !target_dir.exists() {
+        std::fs::create_dir_all(&target_dir).map_err(|e| format!("Failed to create images directory: {}", e))?;
+    }
+
+    let path = std::path::Path::new(&source_path);
+    let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("jpg");
+    // Get original filename stem (without extension)
+    let original_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("image");
+
+    // Construct filename:
+    // If friendly_prefix ("101-1") is provided: "101-1_originalName.ext"
+    // Else: "{question_id}_{uuid}.ext"
+    let filename = if let Some(prefix) = friendly_prefix {
+        // Sanitize prefix to be safe for filenames
+        // Sanitize prefix to be safe for filenames (Allow . for 101.1 style)
+        let safe_prefix = prefix.replace("/", "-").replace("\\", "-");
+        let safe_stem = original_stem.replace(" ", "_"); // Basic sanitization
+        format!("{}_{}.{}", safe_prefix, safe_stem, extension)
+    } else {
+        format!("{}_{}.{}", question_id, generate_uuid().chars().take(8).collect::<String>(), extension)
+    };
+    
+    // Check collision, if exists, append short UUID
+    let mut target_path = target_dir.join(&filename);
+    if target_path.exists() {
+        let new_filename = format!("{}_{}.{}", 
+            filename.trim_end_matches(&format!(".{}", extension)), 
+            generate_uuid().chars().take(4).collect::<String>(),
+            extension
+        );
+        target_path = target_dir.join(&new_filename);
+    }
+
+    println!("DEBUG: Uploading image to {:?}", target_path);
+
+    std::fs::copy(&source_path, &target_path).map_err(|e| format!("Failed to copy image: {}", e))?;
+
+    // Return relative path: data/{document_id}/question-images/{filename}
+    // Note: We return the relative path from "data" root or just the portable path string?
+    // Frontend expects "data/..." string.
+    let relative_filename = target_path.file_name().unwrap().to_string_lossy();
+    Ok(format!("data/{}/question-images/{}", document_id, relative_filename))
+}
+
+pub fn delete_question_image(relative_path: String) -> Result<(), String> {
+    if !relative_path.starts_with("data/") {
+        return Ok(()); // Not a managed file, ignore
+    }
+
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    // relative_path is "data/..."
+    // strip "data/"
+    let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+    let target_path = data_dir.join(suffix);
+    
+    if target_path.exists() {
+        std::fs::remove_file(target_path).map_err(|e| format!("Failed to delete image file: {}", e))?;
+    }
+    Ok(())
+}
+
+/// Resolve relative image path (data/images/...) to absolute system path
+pub fn resolve_image_path(relative_path: String) -> Result<String, String> {
+    if !relative_path.starts_with("data/") {
+        return Ok(relative_path); // Return as is if not our format
+    }
+
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    
+    // relative_path is "data/images/xyz.jpg"
+    // we want to join data_dir (which ends in "data") with "images/xyz.jpg"
+    // OR if data_dir is the parent? 
+    // get_portable_data_dir returns ".../data".
+    // So if we strip "data/" from relative path, we get "images/xyz.jpg".
+    
+    let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+    let abs_path = data_dir.join(suffix);
+    
+    Ok(abs_path.to_string_lossy().to_string())
+}
+
+/// Get image as Base64 string for reliable frontend display
+pub fn get_question_image_base64(relative_path: String) -> Result<String, String> {
+    let abs_path_str = resolve_image_path(relative_path)?;
+    let path = std::path::Path::new(&abs_path_str);
+    
+    if !path.exists() {
+        return Err(format!("Image file not found: {}", abs_path_str));
+    }
+
+    let data = std::fs::read(path).map_err(|e| format!("Failed to read image file: {}", e))?;
+    
+    // Simple mime type detection
+    let extension = path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("jpg")
+        .to_lowercase();
+        
+    let mime_type = match extension.as_str() {
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "svg" => "image/svg+xml",
+        _ => "image/jpeg",
+    };
+
+    let base64_data = general_purpose::STANDARD.encode(&data);
+    
+    Ok(format!("data:{};base64,{}", mime_type, base64_data))
+}
+
 
 

@@ -901,6 +901,26 @@ fn show_in_folder(path: String) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+fn upload_question_image(path: String, document_id: String, question_id: String, friendly_prefix: Option<String>) -> Result<String, String> {
+    content_database::upload_question_image(path, document_id, question_id, friendly_prefix)
+}
+
+#[tauri::command]
+fn delete_question_image(path: String) -> Result<(), String> {
+    content_database::delete_question_image(path)
+}
+
+#[tauri::command]
+fn resolve_image_path(path: String) -> Result<String, String> {
+    content_database::resolve_image_path(path)
+}
+
+#[tauri::command]
+fn get_question_image_base64(path: String) -> Result<String, String> {
+    content_database::get_question_image_base64(path)
+}
+
 fn main() {
 
     tauri::Builder::default()
@@ -992,7 +1012,11 @@ fn main() {
             create_question, // Restored
             update_question, // New command
             delete_question, // New command
-            reorder_questions, // Reorder command
+            upload_question_image, // New image upload command
+             delete_question_image, // New image delete command
+             resolve_image_path, // New path resolver command
+             get_question_image_base64, // New base64 image command
+             reorder_questions, // Reorder command
             get_document_with_hierarchy,
             // Section management
             create_section,

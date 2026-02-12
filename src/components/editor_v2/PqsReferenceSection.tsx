@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Book, Plus, Trash2, Edit, Save, X, FileText, Lock, Shield, Search, CheckCircle, Globe, Video, Image, Mic, FileDigit, FolderOpen } from 'lucide-react';
 import Button from '../ui/Button';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke, convertFileSrc } from '@tauri-apps/api/tauri';
 import { open as openDialog } from '@tauri-apps/api/dialog';
+import { join } from '@tauri-apps/api/path';
 import ConfirmModal from '../modals/ConfirmModal';
+import ImagePreviewModal from '../modals/ImagePreviewModal';
+
 
 // Types
 export interface ReferenceDoc {
@@ -65,6 +68,9 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
     resetForms();
     setActiveMode('create');
   };
+
+  const [selectedRefImage, setSelectedRefImage] = useState<string | null>(null);
+  const [isRefImageModalOpen, setIsRefImageModalOpen] = useState(false);
 
   const handleStartSearch = () => {
     resetForms();
@@ -180,6 +186,10 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
                 readOnly={readOnly}
                 onEdit={() => handleStartEdit(ref.id)}
                 onDelete={() => handleDelete(ref.id)}
+                onImageClick={(src) => {
+                  setSelectedRefImage(src);
+                  setIsRefImageModalOpen(true);
+                }}
               />
             )
           ))}
@@ -202,6 +212,12 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.variant}
+      />
+
+      <ImagePreviewModal
+        isOpen={isRefImageModalOpen}
+        onClose={() => setIsRefImageModalOpen(false)}
+        imageSrc={selectedRefImage || ''}
       />
     </div>
   );
@@ -440,6 +456,8 @@ const ReferenceSearchCard: React.FC<{
         message={confirmModal.message}
         variant={confirmModal.variant}
       />
+
+
     </div>
   );
 };
@@ -757,7 +775,8 @@ const ReferenceDisplayCard: React.FC<{
   readOnly?: boolean;
   onEdit: () => void;
   onDelete: () => void;
-}> = ({ data, index, readOnly, onEdit, onDelete }) => {
+  onImageClick?: (src: string) => void;
+}> = ({ data, index, readOnly, onEdit, onDelete, onImageClick }) => {
 
   // Convert index to Thai Alphabet (ก., ข., ค., ...)
   const getThaiLetter = (i: number) => {
@@ -769,14 +788,44 @@ const ReferenceDisplayCard: React.FC<{
   const handleOpenResource = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!data.file_path) return;
-    try {
-      await invoke('open_path', { path: data.file_path });
-    } catch (err) {
-      console.error("Failed to open resource:", err);
-      alert("ไม่สามารถเปิดลิงก์หรือไฟล์ได้: " + err);
+
+    // Check if it is an image or explicitly set as IMAGE resource type
+    const isImage = data.resource_type === 'IMAGE' ||
+      ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].some(ext => data.file_path?.toLowerCase().endsWith(ext));
+
+    if (isImage && onImageClick) {
+      // Resolve absolute path if relative
+      let fullPath = data.file_path || '';
+      // Check if path is relative (not http, not absolute win/nix)
+      const isRelative = fullPath && !fullPath.startsWith('http') && !fullPath.match(/^[a-zA-Z]:/) && !fullPath.startsWith('/');
+
+      if (isRelative) {
+        try {
+          // Get authoritative media path from Rust (e.g., .../pqs-rtn-hybrid-storage/media)
+          // This avoids guessing bundle IDs or AppData paths which can vary
+          const mediaPath = await invoke<string>('get_media_directory_path');
+
+          // We need to go up one level from 'media' to get the root 'pqs-rtn-hybrid-storage'
+          const rootPath = await join(mediaPath, '..');
+
+          fullPath = await join(rootPath, data.file_path || '');
+        } catch (err) {
+          console.error("Failed to resolve path:", err);
+        }
+      }
+
+      // Use convertFileSrc to generate a valid src for the <img> tag in the modal
+      const assetSrc = convertFileSrc(fullPath);
+      onImageClick(assetSrc);
+    } else {
+      try {
+        await invoke('open_path', { path: data.file_path });
+      } catch (err) {
+        console.error("Failed to open resource:", err);
+        alert("ไม่สามารถเปิดลิงก์หรือไฟล์ได้: " + err);
+      }
     }
   };
-
   return (
     <div className="group relative flex items-center justify-between gap-3 bg-white dark:bg-slate-800 border-b border-gray-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/30 px-3 py-2 transition-colors">
 

@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Edit, Save, X, ChevronRight, ChevronDown, MessageSquarePlus, FileQuestion, Layers, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, ChevronRight, ChevronDown, MessageSquarePlus, FileQuestion, Layers, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
 import Button from '../ui/Button';
 import { invoke } from '@tauri-apps/api/tauri';
+import { open as openDialog } from '@tauri-apps/api/dialog';
+import { convertFileSrc } from '@tauri-apps/api/tauri';
+
 import ConfirmModal from '../modals/ConfirmModal';
+import ImagePreviewModal from '../modals/ImagePreviewModal';
 import { QuestionDetail } from '../../types/content';
 
 // ============ Helpers ============
@@ -20,9 +24,24 @@ const toThaiAlphabet = (n: number) => {
   return alpha[n - 1] || `${n}`;
 };
 
+const convertThaiToArabic = (thaiStr: string) => {
+  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
+  let result = thaiStr;
+  thaiDigits.forEach((td, i) => {
+    result = result.split(td).join(i.toString());
+  });
+  return result;
+};
+
 const buildPrefix = (level: number, sequence: number, sectionNumber: number) => {
   if (level === 0) return `${toThaiNumber(sectionNumber)}.${toThaiNumber(sequence)}`;
   return `${toThaiAlphabet(sequence)}.`;
+};
+
+const buildArabicPrefix = (level: number, sequence: number, sectionNumber: number) => {
+  // Use Arabic numerals for file naming (e.g. 101.1)
+  if (level === 0) return `${sectionNumber}.${sequence}`;
+  return `${sequence}`; // Or whatever makes sense for sub-levels, but usually only L1 images matter
 };
 
 // ============ Types ============
@@ -34,28 +53,7 @@ interface PqsQuestionSectionProps {
   readOnly?: boolean;
 }
 
-interface QuestionTreeNodeProps {
-  question: QuestionDetail;
-  level: number;
-  sectionNumber: number;
-  readOnly: boolean;
-  editingId: string | null;
-  isCreating: boolean;
-  creatingAtParent: string | null;
-  insertingAfterId: string | null;            // New: Context for "Insert After"
-  onStartEdit: (id: string) => void;
-  onUpdate: (id: string, content: string) => void;
-  onDelete: (question: QuestionDetail) => void;
-  onStartCreate: (parentId: string) => void;     // New Sub-question (append to children)
-  onStartInsertAfter: (id: string) => void;      // New: Start "Insert After" logic
-  onCreate: (content: string, parentId: string | null, insertAfterId?: string) => void; // New: optional insertAfterId
-  onCancel: () => void;
-  onMoveUp: (questionId: string, siblings: QuestionDetail[]) => void;
-  onMoveDown: (questionId: string, siblings: QuestionDetail[]) => void;
-  siblings: QuestionDetail[];
-  isFirst: boolean;
-  isLast: boolean;
-}
+
 
 // ============ Main Component ============
 
@@ -72,6 +70,9 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const [insertingAfterId, setInsertingAfterId] = useState<string | null>(null); // New state
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -144,18 +145,26 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     setIsCreating(true);
   };
 
-  const handleCreate = async (content: string, parentId: string | null, insertAfterId?: string) => {
+  const handleCreate = async (
+    data: { content: string, description?: string, image?: string, id?: string },
+    parentId: string | null,
+    insertAfterId?: string | null
+  ) => {
     try {
-      // 1. Create Question (it will be appended to end)
-      const siblingCount = parentId
-        ? questions.filter(q => q.parent_id === parentId).length
-        : questions.filter(q => !q.parent_id).length;
+      const metadata = data.image ? JSON.stringify({ image: data.image }) : null;
 
       const newId = await invoke<string>('create_question', {
         args: {
-          document_id: docId, section_id: sectionId, parent_id: parentId,
-          content: content.trim(), is_header: false, sequence: siblingCount + 1,
-          answer_type: 'text', metadata: null,
+          id: data.id || null, // Pass custom ID if provided
+          document_id: docId,
+          section_id: sectionId,
+          parent_id: parentId,
+          content: data.content.trim(),
+          description: data.description || null,
+          is_header: false,
+          sequence: null, // Let backend assign sequence
+          answer_type: 'text',
+          metadata: metadata,
         }
       });
 
@@ -185,10 +194,36 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     }
   };
 
-  const handleUpdate = async (id: string, content: string) => {
+  const handleUpdate = async (id: string, content: string, description?: string | null, metadata?: string | null) => {
     try {
-      const q = questions.find(q => q.id === id);
-      await invoke('update_question', { args: { id, content: content.trim(), metadata: q?.metadata || null } });
+      // Note: We might want to preserve existing metadata if not passed, but QuestionTreeNode passes the *updated* metadata logic.
+      // So we just trust what is passed. If metadata is undefined, we might want to keep existing? 
+      // But for now, we assume caller handles it (which QuestionTreeNode does).
+      // However, if called from simple edit where metadata isn't touched, we need to be careful.
+      // QuestionTreeNode's onSave logic constructs full metadata.
+
+      // Fallback: if metadata is undefined (not passed), keep existing.
+      let finalMeta = metadata;
+      if (metadata === undefined) {
+        const q = questions.find(q => q.id === id);
+        finalMeta = q?.metadata || null;
+      }
+
+      // Fallback for description?
+      let finalDesc = description;
+      if (description === undefined) {
+        const q = questions.find(q => q.id === id);
+        finalDesc = q?.description || null;
+      }
+
+      await invoke('update_question', {
+        args: {
+          id,
+          content: content.trim(),
+          description: finalDesc,
+          metadata: finalMeta
+        }
+      });
       resetForms();
       await fetchQuestions();
     } catch (err) {
@@ -281,8 +316,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         {isCreating && creatingAtParent === null && insertingAfterId === null && (
           <QuestionFormCard
             prefix={buildPrefix(0, questionTree.length + 1, sectionNumber)}
-            onSave={(content) => handleCreate(content, null)}
+            level={0}
+            onSave={(data) => handleCreate(data, null)}
             onCancel={resetForms}
+            documentId={docId} // Pass documentId
           />
         )}
 
@@ -312,6 +349,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 siblings={questionTree}
                 isFirst={idx === 0}
                 isLast={idx === questionTree.length - 1}
+                documentId={docId} // Pass documentId
+                onImageClick={(src) => { setSelectedImage(src); setIsImageModalOpen(true); }}
               />
             ))}
           </div>
@@ -351,31 +390,81 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         message={confirmModal.message}
         variant={confirmModal.variant}
       />
+
+      <ImagePreviewModal // Added ImagePreviewModal
+        isOpen={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        imageSrc={selectedImage || ''}
+      />
     </div>
   );
 };
 
 // ============ QuestionTreeNode ============
 
+interface QuestionTreeNodeProps {
+  question: QuestionDetail;
+  level: number;
+  sectionNumber: number;
+  readOnly: boolean;
+  editingId: string | null;
+  isCreating: boolean;
+  creatingAtParent: string | null;
+  insertingAfterId: string | null;
+  onStartEdit: (id: string) => void;
+  onUpdate: (id: string, content: string, description?: string | null, metadata?: string | null) => void;
+  onDelete: (question: QuestionDetail) => void;
+  onStartCreate: (parentId: string | null) => void;
+  onStartInsertAfter: (afterId: string) => void;
+  onCreate: (data: { content: string, description?: string, image?: string, id?: string }, parentId: string | null, afterId?: string | null) => void;
+  onCancel: () => void;
+  onMoveUp: (questionId: string, siblings: QuestionDetail[]) => void;
+  onMoveDown: (questionId: string, siblings: QuestionDetail[]) => void;
+  siblings: QuestionDetail[];
+  isFirst: boolean;
+  isLast: boolean;
+  documentId: string;
+  onImageClick: (src: string) => void;
+}
+
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question, level, sectionNumber, readOnly, editingId,
   isCreating, creatingAtParent, insertingAfterId,
   onStartEdit, onUpdate, onDelete, onStartCreate, onStartInsertAfter, onCreate, onCancel,
-  onMoveUp, onMoveDown, siblings, isFirst, isLast,
+  onMoveUp, onMoveDown, siblings, isFirst, isLast, documentId,
+  onImageClick
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const prefix = buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
   const canAddSub = level < 1 && !readOnly;
 
+  // Extract initial image from metadata
+  const initialImage = useMemo(() => {
+    if (!question.metadata) return undefined;
+    try {
+      const meta = JSON.parse(question.metadata);
+      return meta.image || undefined;
+    } catch { return undefined; }
+  }, [question.metadata]);
+
   if (editingId === question.id) {
     return (
       <div className={level > 0 ? 'ml-6' : ''}>
         <QuestionFormCard
           prefix={prefix}
+          level={level}
           initialContent={question.content}
-          onSave={(content) => onUpdate(question.id, content)}
+          initialDescription={question.description || undefined}
+          initialImage={initialImage}
+          onSave={(data) => {
+            // Construct metadata from image
+            const metadata = data.image ? JSON.stringify({ image: data.image }) : null;
+            onUpdate(question.id, data.content, data.description || null, metadata);
+          }}
           onCancel={onCancel}
+          documentId={documentId} // Pass documentId
+          existingId={question.id} // Pass existing ID for edit mode
         />
       </div>
     );
@@ -400,6 +489,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onInsertAfter={() => onStartInsertAfter(question.id)}
         onMoveUp={() => onMoveUp(question.id, siblings)}
         onMoveDown={() => onMoveDown(question.id, siblings)}
+        onImageClick={onImageClick}
       />
 
       {/* Insert After Form */}
@@ -407,8 +497,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <div className={level > 0 ? 'ml-6' : ''}>
           <QuestionFormCard
             prefix={buildPrefix(level, question.sequence + 1, sectionNumber)} // Optimistic next number
-            onSave={(content) => onCreate(content, question.parent_id || null, question.id)}
+            level={level} // Insert sibling has same level
+            onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
             onCancel={onCancel}
+            documentId={documentId} // Pass documentId
           />
         </div>
       )}
@@ -439,6 +531,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
               siblings={question.children!}
               isFirst={idx === 0}
               isLast={idx === question.children!.length - 1}
+              documentId={documentId} // Pass documentId
+              onImageClick={onImageClick}
             />
           ))}
         </div>
@@ -449,8 +543,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <div className="ml-6 mt-1 mb-1">
           <QuestionFormCard
             prefix={buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
-            onSave={(content) => onCreate(content, question.id)}
+            level={level + 1}
+            onSave={(data) => onCreate(data, question.id)}
             onCancel={onCancel}
+            documentId={documentId} // Pass documentId
           />
         </div>
       )}
@@ -462,18 +558,90 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
 interface QuestionFormCardProps {
   prefix: string;
+  level: number; // New prop to determine if L1
   initialContent?: string;
-  onSave: (content: string) => void;
+  initialDescription?: string;
+  initialImage?: string;
+  onSave: (data: { content: string, description?: string, image?: string, id?: string }) => void; // Added id
   onCancel: () => void;
+  documentId: string; // Added documentId
+  existingId?: string; // Edit mode ID
 }
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
-  prefix, initialContent = '', onSave, onCancel,
+  prefix, level, initialContent = '', initialDescription = '', initialImage = '', onSave, onCancel, documentId, existingId
 }) => {
   const [content, setContent] = useState(initialContent);
-  const isEdit = !!initialContent;
+  const [description, setDescription] = useState(initialDescription);
+  const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
+  // Store a generated ID for new questions that have images uploaded BEFORE save
+  const [generatedId, setGeneratedId] = useState<string | null>(null);
 
-  const handleSave = () => { if (!content.trim()) return; onSave(content); };
+  const isEdit = !!initialContent;
+  const isL1 = level === 0;
+
+  useEffect(() => {
+    // Logic for preview moved to AsyncImagePreview
+  }, [imagePath]);
+
+  const handleImageUpload = async () => {
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
+      });
+
+      if (selected && typeof selected === 'string') {
+        // Determine Question ID
+        let targetId = existingId;
+        if (!targetId) {
+          if (generatedId) {
+            targetId = generatedId;
+          } else {
+            targetId = crypto.randomUUID();
+            setGeneratedId(targetId);
+          }
+        }
+
+        // Sanitize prefix for filename (use Arabic helper)
+        // Sanitize prefix for filename (use Arabic helper)
+        const friendlyPrefix = convertThaiToArabic(prefix);
+
+        const newPath = await invoke<string>('upload_question_image', {
+          path: selected,
+          documentId: documentId,
+          questionId: targetId,
+          friendlyPrefix: friendlyPrefix // Pass the prefix
+        });
+        setImagePath(newPath);
+      }
+    } catch (err) {
+      console.error("Failed to upload image:", err);
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    if (imagePath) {
+      try {
+        // Delete physical file
+        await invoke('delete_question_image', { path: imagePath });
+      } catch (err) {
+        console.error("Failed to delete image file:", err);
+      }
+    }
+    setImagePath(null);
+  };
+
+  const handleSave = () => {
+    if (!content.trim()) return;
+    onSave({
+      content,
+      description: isL1 ? description : undefined,
+      image: isL1 ? (imagePath || undefined) : undefined,
+      id: !isEdit ? (generatedId || undefined) : undefined // Pass generated ID if creating
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') onCancel();
     if (e.key === 'Enter' && e.ctrlKey) handleSave();
@@ -482,6 +650,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   return (
     <div className="m-2 rounded-xl border-2 border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-4 shadow-xl shadow-blue-500/10 backdrop-blur-sm animate-in zoom-in-95 duration-200">
       <div className="space-y-3">
+        {/* Header */}
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
             {prefix}
@@ -491,6 +660,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </span>
         </div>
 
+        {/* Content (Main Question) */}
         <textarea
           autoFocus
           value={content}
@@ -501,7 +671,54 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           rows={2}
         />
 
-        <div className="flex items-center justify-between">
+        {/* L1 Extras: Description & Image */}
+        {isL1 && (
+          <div className="space-y-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+
+            {/* Description */}
+            <div>
+              <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">Description (อธิบายเพิ่มเติม)</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="เช่น จากภาพ จงตอบคำถามต่อไปนี้..."
+                className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs"
+                rows={2}
+              />
+            </div>
+
+            {/* Image */}
+            <div>
+              <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">Image (รูปภาพประกอบ)</label>
+
+              {!imagePath ? (
+                <button
+                  onClick={handleImageUpload}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-500 dark:text-slate-400 transition-all w-full justify-center"
+                >
+                  <ImageIcon className="w-4 h-4" />
+                  <span className="text-xs">คลิกเพื่ออัปโหลดรูปภาพ</span>
+                </button>
+              ) : (
+                <div className="relative group inline-block">
+                  <div className="w-32 h-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden relative">
+                    {/* Async Image Preview */}
+                    <AsyncImagePreview path={imagePath} />
+                  </div>
+                  <button
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center justify-between pt-2">
           <span className="text-[11px] text-slate-300 dark:text-slate-600 select-none">
             ⌨ Ctrl+Enter = บันทึก · Esc = ยกเลิก
           </span>
@@ -516,6 +733,64 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>
       </div>
     </div>
+  );
+};
+
+// Async Image Helper Component
+interface AsyncImagePreviewProps { // Added interface
+  path: string;
+  className?: string;
+  onImageClick?: (src: string) => void;
+}
+
+const AsyncImagePreview: React.FC<AsyncImagePreviewProps> = ({ path, className, onImageClick }) => {
+  const [src, setSrc] = useState<string>('');
+  const [resolvedPath, setResolvedPath] = useState<string>('');
+
+  useEffect(() => {
+    async function load() {
+      try {
+        if (!path) return;
+        if (path.startsWith('http') || path.startsWith('asset')) {
+          setSrc(path);
+          return;
+        }
+
+        // Use backend to get base64 data directly (Reliable method)
+        const base64Data = await invoke<string>('get_question_image_base64', { path });
+        setSrc(base64Data);
+        setResolvedPath(path); // Keep original path for opening
+      } catch (e) {
+        console.error("Failed to load image preview", e);
+        // Fallback
+        setSrc(convertFileSrc(path));
+      }
+    }
+    load();
+  }, [path]);
+
+
+
+  if (!src) return <div className={`animate-pulse bg-gray-200 dark:bg-slate-700 ${className}`} />;
+
+  return (
+    <img
+      src={src}
+      alt="Preview"
+      title="คลิกเพื่อเปิดรูปภาพขยาย"
+      className={`cursor-pointer ${className}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onImageClick) {
+          onImageClick(src);
+        } else if (resolvedPath) {
+          invoke('open_path', { path: resolvedPath });
+        }
+      }}
+      onError={() => {
+        console.error("Image load error for src:", src);
+      }}
+    />
   );
 };
 
@@ -538,18 +813,19 @@ interface QuestionDisplayCardProps {
   onInsertAfter: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onImageClick?: (src: string) => void;
 }
 
 const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   question, prefix, level, readOnly, isExpanded,
   hasChildren, canAddSub, isFirst, isLast,
-  onToggle, onEdit, onDelete, onAddSub, onInsertAfter, onMoveUp, onMoveDown,
+  onToggle, onEdit, onDelete, onAddSub, onInsertAfter, onMoveUp, onMoveDown, onImageClick
 }) => {
   const isL1 = level === 0;
 
   return (
     <div className={`
-      group relative flex items-center gap-3 px-4 py-3 transition-all duration-150
+      group relative flex items-start gap-3 px-4 py-3 transition-all duration-150
       ${isL1
         ? 'bg-white dark:bg-slate-800'
         : 'bg-slate-50/50 dark:bg-slate-800/50 ml-6'
@@ -593,13 +869,19 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       </span>
 
       {/* Content */}
-      <span className={`flex-1 text-sm truncate
+      <span className={`flex-1 truncate select-text
         ${isL1
-          ? 'font-medium text-slate-800 dark:text-slate-100'
+          ? 'text-sm font-medium text-slate-800 dark:text-slate-100'
           : 'text-slate-600 dark:text-slate-300'
         }
       `} title={question.content}>
         {question.content}
+        {isL1 && question.description && (
+          <div className="mt-1 text-base font-normal text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{question.description}</div>
+        )}
+        {isL1 && question.metadata && (
+          <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
+        )}
       </span>
 
       {/* Subtask count badge */}
@@ -672,6 +954,25 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           </button>
         </div>
       )}
+    </div>
+  );
+};
+
+// Helper to Display Metadata (Images)
+const QuestionMetadataDisplay: React.FC<{ metadata: string; onImageClick?: (src: string) => void }> = ({ metadata, onImageClick }) => {
+  const data = useMemo(() => {
+    try { return JSON.parse(metadata); } catch { return {}; }
+  }, [metadata]);
+
+  if (!data.image) return null;
+
+  return (
+    <div className="mt-2 ml-4">
+      <AsyncImagePreview
+        path={data.image}
+        className="h-32 w-auto object-cover rounded border border-gray-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105"
+        onImageClick={onImageClick}
+      />
     </div>
   );
 };
