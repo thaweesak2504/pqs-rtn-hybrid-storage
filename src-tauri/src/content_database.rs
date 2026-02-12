@@ -948,16 +948,31 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
         seq
     } else {
         // Find max sequence in this context
-        let sql = if args.parent_id.is_some() {
-            "SELECT MAX(sequence) FROM Questions WHERE parent_id = ?1"
+        if let Some(pid) = &args.parent_id {
+            let max_seq: Option<i32> = conn.query_row(
+                "SELECT MAX(sequence) FROM Questions WHERE parent_id = ?1",
+                params![pid],
+                |row| row.get(0)
+            ).unwrap_or(None);
+            max_seq.unwrap_or(0) + 1
         } else {
-            "SELECT MAX(sequence) FROM Questions WHERE document_id = ?1 AND parent_id IS NULL"
-        };
-        
-        let param = if let Some(pid) = &args.parent_id { pid.clone() } else { args.document_id.clone() };
-        
-        let max_seq: Option<i32> = conn.query_row(sql, params![param], |row| row.get(0)).unwrap_or(None);
-        max_seq.unwrap_or(0) + 1
+            // Root level: Must filter by Document AND Section
+            // Root level: Must filter by Document AND Section
+            let max_seq_val: Option<i32> = if let Some(sid) = args.section_id {
+                 conn.query_row(
+                    "SELECT MAX(sequence) FROM Questions WHERE document_id = ?1 AND section_id = ?2 AND parent_id IS NULL",
+                    params![args.document_id, sid],
+                    |row| row.get(0)
+                ).unwrap_or(None)
+            } else {
+                 conn.query_row(
+                    "SELECT MAX(sequence) FROM Questions WHERE document_id = ?1 AND section_id IS NULL AND parent_id IS NULL",
+                    params![args.document_id],
+                    |row| row.get(0)
+                ).unwrap_or(None)
+            };
+            max_seq_val.unwrap_or(0) + 1
+        }
     };
 
     conn.execute(
