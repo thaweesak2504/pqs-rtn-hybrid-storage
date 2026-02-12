@@ -774,9 +774,25 @@ fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
     content_database::remove_section_reference(section_ref_id)
 }
 
+
 #[tauri::command]
 fn get_section_references(section_id: i64) -> Result<Vec<content_database::SectionReferenceDetail>, String> {
     content_database::get_section_references(section_id)
+}
+
+#[tauri::command]
+fn add_question_reference(req: content_database::AddQuestionReferenceRequest) -> Result<(), String> {
+    content_database::add_question_reference(req)
+}
+
+#[tauri::command]
+fn remove_question_reference(id: i32) -> Result<(), String> {
+    content_database::remove_question_reference(id)
+}
+
+#[tauri::command]
+fn update_question_reference_location(id: i32, location_text: Option<String>) -> Result<(), String> {
+    content_database::update_question_reference_location(id, location_text)
 }
 
 #[tauri::command]
@@ -1035,6 +1051,9 @@ fn main() {
             remove_section_reference,
             get_section_references,
             seed_section_104_references,
+            add_question_reference,
+            remove_question_reference,
+            update_question_reference_location,
             get_document_stats,
             open_path,
             show_in_folder,

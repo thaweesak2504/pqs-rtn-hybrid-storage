@@ -7,7 +7,7 @@ import { convertFileSrc } from '@tauri-apps/api/tauri';
 
 import ConfirmModal from '../modals/ConfirmModal';
 import ImagePreviewModal from '../modals/ImagePreviewModal';
-import { QuestionDetail } from '../../types/content';
+import { QuestionDetail, SectionReferenceDetail, QuestionReferenceDetail } from '../../types/content';
 
 // ============ Helpers ============
 
@@ -44,9 +44,12 @@ const buildPrefix = (level: number, sequence: number, sectionNumber: number) => 
 
 interface PqsQuestionSectionProps {
   docId: string;
-  sectionId: number;
+  sectionId?: number;
   sectionNumber: number;
+  initialQuestions?: QuestionDetail[];
   readOnly?: boolean;
+  refreshTrigger?: number;
+  onReferencesUpdated?: () => void; // Added callback
 }
 
 
@@ -54,10 +57,7 @@ interface PqsQuestionSectionProps {
 // ============ Main Component ============
 
 const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
-  docId,
-  sectionId,
-  sectionNumber,
-  readOnly = false,
+  docId, sectionId, sectionNumber, initialQuestions = [], readOnly = false, refreshTrigger = 0, onReferencesUpdated
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -76,6 +76,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     message: string;
     onConfirm: () => void;
     variant: 'danger' | 'warning' | 'info';
+    cancelText?: string;
   }>({
     isOpen: false,
     title: '',
@@ -85,7 +86,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   });
 
   const fetchQuestions = async () => {
-    if (!docId || !sectionId) return;
+    if (!docId || sectionId === undefined) return; // sectionId can be 0, so check for undefined
     try {
       setLoading(true);
       const data = await invoke<QuestionDetail[]>('get_document_questions_with_details', { docId });
@@ -100,7 +101,17 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     }
   };
 
-  useEffect(() => { fetchQuestions(); }, [docId, sectionId, sectionNumber]);
+  useEffect(() => {
+    if (docId) {
+      if (initialQuestions.length === 0) {
+        fetchQuestions();
+      } else {
+        setQuestions(initialQuestions);
+        setLoading(false);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId, sectionId, refreshTrigger]);
 
   const questionTree = useMemo(() => {
     const tree: QuestionDetail[] = [];
@@ -141,12 +152,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     setIsCreating(true);
   };
 
-  const handleCreate = async (
-    data: { content: string, description?: string, image?: string, id?: string },
-    parentId: string | null,
-    insertAfterId?: string | null
-  ) => {
+  const handleCreate = async (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[] }, parentId: string | null, insertAfterId: string | null = null) => {
     try {
+      // 1. Create Question
+      // Construct metadata from image
       const metadata = data.image ? JSON.stringify({ image: data.image }) : null;
 
       const newId = await invoke<string>('create_question', {
@@ -163,6 +172,19 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           metadata: metadata,
         }
       });
+
+      // 1.5 Save References if provided (for L1)
+      if (data.references && data.references.length > 0) {
+        for (const ref of data.references) {
+          await invoke('add_question_reference', {
+            req: {
+              question_id: newId,
+              reference_id: ref.reference.id,
+              location_text: ref.location_text
+            }
+          });
+        }
+      }
 
       // 2. If insertAfterId provided, reorder siblings immediately
       if (insertAfterId) {
@@ -185,12 +207,13 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
       resetForms();
       await fetchQuestions();
+      onReferencesUpdated?.(); // Update references count after create
     } catch (err) {
       console.error('Failed to create question:', err);
     }
   };
 
-  const handleUpdate = async (id: string, content: string, description?: string | null, metadata?: string | null) => {
+  const handleUpdate = async (id: string, content: string, description?: string | null, metadata?: string | null, references?: QuestionReferenceDetail[]) => {
     try {
       // Note: We might want to preserve existing metadata if not passed, but QuestionTreeNode passes the *updated* metadata logic.
       // So we just trust what is passed. If metadata is undefined, we might want to keep existing? 
@@ -220,8 +243,37 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           metadata: finalMeta
         }
       });
+
+      // 2. Sync References (if provided)
+      if (references) {
+        const question = questions.find(q => q.id === id);
+        const oldRefs = question?.references || [];
+        const newRefs = references;
+
+        // Diffing
+        const toAdd = newRefs.filter(nr => !oldRefs.some(or => or.reference.id === nr.reference.id));
+        const toRemove = oldRefs.filter(or => !newRefs.some(nr => nr.reference.id === or.reference.id));
+
+        // Execute Additions
+        for (const ref of toAdd) {
+          await invoke('add_question_reference', {
+            req: {
+              question_id: id,
+              reference_id: ref.reference_id, // Use reference_id
+              location_text: ref.location_text
+            }
+          });
+        }
+
+        // Execute Removals
+        for (const ref of toRemove) {
+          await invoke('remove_question_reference', { id: ref.id });
+        }
+      }
+
       resetForms();
       await fetchQuestions();
+      onReferencesUpdated?.(); // Update references count after all changes
     } catch (err) {
       console.error('Failed to update question:', err);
     }
@@ -236,6 +288,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         try {
           await invoke('delete_question', { id: question.id });
           await fetchQuestions();
+          onReferencesUpdated?.(); // Update references count
         } catch (err) { console.error('Failed to delete:', err); }
       },
       variant: 'warning',
@@ -315,7 +368,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
             level={0}
             onSave={(data) => handleCreate(data, null)}
             onCancel={resetForms}
-            documentId={docId} // Pass documentId
+            documentId={docId}
+            sectionId={sectionId} // Pass sectionId
           />
         )}
 
@@ -345,8 +399,17 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 siblings={questionTree}
                 isFirst={idx === 0}
                 isLast={idx === questionTree.length - 1}
-                documentId={docId} // Pass documentId
+                documentId={docId}
+                sectionId={sectionId || 0} // Pass sectionId
                 onImageClick={(src) => { setSelectedImage(src); setIsImageModalOpen(true); }}
+                onAlert={(msg, type) => setConfirmModal({
+                  isOpen: true,
+                  title: 'แจ้งเตือน',
+                  message: msg,
+                  onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+                  variant: type || 'warning',
+                  cancelText: ''
+                })}
               />
             ))}
           </div>
@@ -408,11 +471,11 @@ interface QuestionTreeNodeProps {
   creatingAtParent: string | null;
   insertingAfterId: string | null;
   onStartEdit: (id: string) => void;
-  onUpdate: (id: string, content: string, description?: string | null, metadata?: string | null) => void;
+  onUpdate: (id: string, content: string, description?: string | null, metadata?: string | null, references?: QuestionReferenceDetail[]) => void;
   onDelete: (question: QuestionDetail) => void;
   onStartCreate: (parentId: string | null) => void;
   onStartInsertAfter: (afterId: string) => void;
-  onCreate: (data: { content: string, description?: string, image?: string, id?: string }, parentId: string | null, afterId?: string | null) => void;
+  onCreate: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[] }, parentId: string | null, afterId?: string | null) => void;
   onCancel: () => void;
   onMoveUp: (questionId: string, siblings: QuestionDetail[]) => void;
   onMoveDown: (questionId: string, siblings: QuestionDetail[]) => void;
@@ -420,15 +483,17 @@ interface QuestionTreeNodeProps {
   isFirst: boolean;
   isLast: boolean;
   documentId: string;
+  sectionId: number; // Added sectionId
   onImageClick: (src: string) => void;
+  onAlert: (message: string, type?: 'warning' | 'danger') => void;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question, level, sectionNumber, readOnly, editingId,
   isCreating, creatingAtParent, insertingAfterId,
   onStartEdit, onUpdate, onDelete, onStartCreate, onStartInsertAfter, onCreate, onCancel,
-  onMoveUp, onMoveDown, siblings, isFirst, isLast, documentId,
-  onImageClick
+  onMoveUp, onMoveDown, siblings, isFirst, isLast, documentId, sectionId,
+  onImageClick, onAlert
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const prefix = buildPrefix(level, question.sequence, sectionNumber);
@@ -456,11 +521,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           onSave={(data) => {
             // Construct metadata from image
             const metadata = data.image ? JSON.stringify({ image: data.image }) : null;
-            onUpdate(question.id, data.content, data.description || null, metadata);
+            onUpdate(question.id, data.content, data.description || null, metadata, data.references);
           }}
           onCancel={onCancel}
-          documentId={documentId} // Pass documentId
-          existingId={question.id} // Pass existing ID for edit mode
+          documentId={documentId}
+          sectionId={sectionId} // Pass sectionId
+          existingId={question.id}
+          initialReferences={question.references} // Pass existing references
+          onAlert={onAlert}
         />
       </div>
     );
@@ -496,7 +564,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             level={level} // Insert sibling has same level
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
             onCancel={onCancel}
-            documentId={documentId} // Pass documentId
+            documentId={documentId}
+            sectionId={sectionId}
+            onAlert={onAlert}
           />
         </div>
       )}
@@ -527,8 +597,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
               siblings={question.children!}
               isFirst={idx === 0}
               isLast={idx === question.children!.length - 1}
-              documentId={documentId} // Pass documentId
+              documentId={documentId}
+              sectionId={sectionId} // Pass sectionId
               onImageClick={onImageClick}
+              onAlert={onAlert}
             />
           ))}
         </div>
@@ -542,7 +614,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             level={level + 1}
             onSave={(data) => onCreate(data, question.id)}
             onCancel={onCancel}
-            documentId={documentId} // Pass documentId
+            documentId={documentId}
+            sectionId={sectionId}
+            onAlert={onAlert}
           />
         </div>
       )}
@@ -552,20 +626,28 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
 // ============ QuestionFormCard ============
 
+// ============ QuestionFormCard ============
+
 interface QuestionFormCardProps {
   prefix: string;
   level: number; // New prop to determine if L1
   initialContent?: string;
   initialDescription?: string;
   initialImage?: string;
-  onSave: (data: { content: string, description?: string, image?: string, id?: string }) => void; // Added id
+  initialReferences?: QuestionReferenceDetail[];
+  onSave: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[] }) => void; // Added references
   onCancel: () => void;
   documentId: string; // Added documentId
   existingId?: string; // Edit mode ID
+  sectionId?: number; // Added sectionId for fetching available references
+  onAlert?: (message: string, type?: 'warning' | 'danger') => void;
 }
 
+const EMPTY_REFS: QuestionReferenceDetail[] = [];
+
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
-  prefix, level, initialContent = '', initialDescription = '', initialImage = '', onSave, onCancel, documentId, existingId
+  prefix, level, initialContent = '', initialDescription = '', initialImage = '', initialReferences = EMPTY_REFS,
+  onSave, onCancel, documentId, existingId, sectionId, onAlert
 }) => {
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
@@ -573,12 +655,82 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // Store a generated ID for new questions that have images uploaded BEFORE save
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
+  // Reference Linking State
+  const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
+  const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
+  const [selectedRefId, setSelectedRefId] = useState<string>(''); // string for select value
+  const [pageInput, setPageInput] = useState<string>('');
+
   const isEdit = !!initialContent;
   const isL1 = level === 0;
 
+  // Sync initialReferences when they change (critical for Edit mode reload)
   useEffect(() => {
-    // Logic for preview moved to AsyncImagePreview
-  }, [imagePath]);
+    // Only update if initialReferences actually changed and is different from current
+    // We can use a simple length check + ID check for efficiency, or just rely on the stable prop for the loop fix.
+    // The loop main cause was unstable default prop.
+    // But let's be safe.
+    if (initialReferences && initialReferences !== linkedRefs) {
+      console.log("QuestionFormCard: Syncing initialReferences", initialReferences);
+      setLinkedRefs(initialReferences);
+    }
+  }, [initialReferences]);
+
+  // Fetch Available References for this Section
+  useEffect(() => {
+    if (isL1 && sectionId) {
+      invoke<SectionReferenceDetail[]>('get_section_references', { sectionId })
+        .then(refs => setAvailableRefs(refs))
+        .catch(err => console.error("Failed to fetch section references:", err));
+    }
+  }, [isL1, sectionId]);
+
+  // Handle Adding Reference
+  const handleAddReference = async () => {
+    if (!selectedRefId) return;
+    const refIdNum = parseInt(selectedRefId);
+    const selectedRef = availableRefs.find(r => r.reference.id === refIdNum);
+    if (!selectedRef) return;
+
+    // Check if already linked
+    if (linkedRefs.some(r => r.reference.id === refIdNum)) {
+      if (onAlert) onAlert("เอกสารนี้ถูกเชื่อมโยงแล้ว", "warning");
+      else alert("เอกสารนี้ถูกเชื่อมโยงแล้ว");
+      return;
+    }
+
+    // Logic: Always update local state. References are saved on "Save" button click.
+
+    // Construct the new reference object (Optimistic)
+
+    // Construct the new reference object (Optimistic)
+    const newRef: QuestionReferenceDetail = {
+      id: 0, // Temporary ID
+      question_id: existingId || 'temp',
+      reference_id: selectedRef.reference.id, // Added reference_id
+      reference: selectedRef.reference,
+      location_text: pageInput || null,
+      display_order: linkedRefs.length + 1,
+      thai_letter: selectedRef.thai_letter
+    };
+
+    if (existingId) {
+      // Edit mode: Just update local state for now
+      setLinkedRefs([...linkedRefs, newRef]);
+      setSelectedRefId('');
+      setPageInput('');
+    } else {
+      // Creating mode: Just update local state
+      setLinkedRefs([...linkedRefs, newRef]);
+      setSelectedRefId('');
+      setPageInput('');
+    }
+  };
+
+  const handleRemoveReference = async (ref: QuestionReferenceDetail) => {
+    // Logic: Always update local state. Removal happens on "Save".
+    setLinkedRefs(linkedRefs.filter(r => r.reference.id !== ref.reference.id));
+  };
 
   const handleImageUpload = async () => {
     try {
@@ -588,7 +740,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       });
 
       if (selected && typeof selected === 'string') {
-        // Determine Question ID
         let targetId = existingId;
         if (!targetId) {
           if (generatedId) {
@@ -599,15 +750,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         }
 
-        // Sanitize prefix for filename (use Arabic helper)
-        // Sanitize prefix for filename (use Arabic helper)
         const friendlyPrefix = convertThaiToArabic(prefix);
-
         const newPath = await invoke<string>('upload_question_image', {
           path: selected,
           documentId: documentId,
           questionId: targetId,
-          friendlyPrefix: friendlyPrefix // Pass the prefix
+          friendlyPrefix: friendlyPrefix
         });
         setImagePath(newPath);
       }
@@ -619,7 +767,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const handleRemoveImage = async () => {
     if (imagePath) {
       try {
-        // Delete physical file
         await invoke('delete_question_image', { path: imagePath });
       } catch (err) {
         console.error("Failed to delete image file:", err);
@@ -630,11 +777,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   const handleSave = () => {
     if (!content.trim()) return;
+
+    // Validation for L1: Must have at least 1 reference
+    // Validation for L1: Must have at least 1 reference
+    if (isL1 && linkedRefs.length === 0) {
+      if (onAlert) onAlert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ", "warning");
+      else alert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ");
+      return;
+    }
+
     onSave({
       content,
       description: isL1 ? description : undefined,
       image: isL1 ? (imagePath || undefined) : undefined,
-      id: !isEdit ? (generatedId || undefined) : undefined // Pass generated ID if creating
+      id: !isEdit ? (generatedId || undefined) : undefined,
+      references: isL1 ? linkedRefs : undefined // Pass references
     });
   };
 
@@ -667,7 +824,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           rows={2}
         />
 
-        {/* L1 Extras: Description & Image */}
+        {/* L1 Extras: Description & Image & References */}
         {isL1 && (
           <div className="space-y-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
 
@@ -681,6 +838,83 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs"
                 rows={2}
               />
+            </div>
+
+            {/* Linked References */}
+            <div>
+              <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">
+                เอกสารอ้างอิง ({linkedRefs.length}/2)
+              </label>
+
+              {/* List */}
+              <div className="space-y-2 mb-2">
+                {linkedRefs.map((ref, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
+                    <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
+                      <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">{ref.thai_letter ? `${ref.thai_letter}.` : '?.'}</span>
+                      {ref.reference.code} - {ref.reference.title} (หน้า {ref.location_text || '-'})
+                    </span>
+                    <button onClick={() => handleRemoveReference(ref)} className="text-red-400 hover:text-red-500">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add New (Limit 2) */}
+              {linkedRefs.length < 2 && (
+                <div className="flex gap-2">
+                  {availableRefs.length === 0 ? (
+                    <div className="flex-1 p-2 text-xs text-orange-500 bg-orange-50 border border-orange-200 rounded-lg flex items-center justify-between gap-2">
+                      <span>⚠️ ไม่พบเอกสารใน Section นี้ ({sectionId})</span>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          if (sectionId) {
+                            invoke<SectionReferenceDetail[]>('get_section_references', { sectionId })
+                              .then(refs => setAvailableRefs(refs))
+                              .catch(err => {
+                                if (onAlert) onAlert("Fetch error: " + err, 'danger');
+                                else alert("Fetch error: " + err);
+                              });
+                          } else {
+                            if (onAlert) onAlert("No Section ID", 'warning');
+                            else alert("No Section ID");
+                          }
+                        }}
+                        className="px-2 py-1 bg-white border border-orange-300 rounded hover:bg-orange-100"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={selectedRefId}
+                        onChange={(e) => setSelectedRefId(e.target.value)}
+                        className="flex-1 p-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
+                      >
+                        <option value="">-- เลือกเอกสารอ้างอิง --</option>
+                        {availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).map(r => (
+                          <option key={r.reference.id} value={r.reference.id}>
+                            {r.thai_letter}. {r.reference.code} - {r.reference.title}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="เลขหน้า (e.g. 35)"
+                        value={pageInput}
+                        onChange={(e) => setPageInput(e.target.value)}
+                        className="w-24 p-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 shrink-0 placeholder:text-slate-400"
+                      />
+                      <Button variant="secondary" size="small" onClick={handleAddReference} disabled={!selectedRefId}>
+                        <Plus className="w-3 h-3" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Image */}
@@ -872,12 +1106,18 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         }
       `} title={question.content}>
         {question.content}
+        {isL1 && question.references && question.references.length > 0 && (
+          <span className="ml-2 text-sm text-slate-500 font-normal">
+            ({question.references.map(ref => `${ref.thai_letter || '?'}.${ref.location_text || '-'}`).join(', ')})
+          </span>
+        )}
         {isL1 && question.description && (
           <div className="mt-1 text-sm font-normal text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{question.description}</div> // Description: Match L2 style
         )}
         {isL1 && question.metadata && (
           <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
         )}
+
       </span>
 
       {/* Subtask count badge */}

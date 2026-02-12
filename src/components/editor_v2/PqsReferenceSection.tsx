@@ -19,6 +19,7 @@ export interface ReferenceDoc {
   resource_type: string; // DOCUMENT, WEBLINK, VIDEO, IMAGE, AUDIO, TEMPLATE
   file_path: string;
   description?: string;
+  usage_count?: number; // Added usage_count
 }
 
 interface PqsReferenceSectionProps {
@@ -388,10 +389,17 @@ const ReferenceSearchCard: React.FC<{
           ) : (
             <div className="space-y-1">
               {filteredResults.map(ref => (
-                <button
+                <div
                   key={ref.id}
                   onClick={() => toggleSelect(ref.id)}
-                  className={`w-full flex items-center gap-3 p-2 rounded-md transition-all text-left ${selectedIds.has(ref.id) ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'}`}
+                  className={`w-full flex items-center gap-3 p-2 rounded-md transition-all text-left cursor-pointer ${selectedIds.has(ref.id) ? 'bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'}`}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      toggleSelect(ref.id);
+                    }
+                  }}
                 >
                   <div className={`shrink-0 w-5 h-5 rounded flex items-center justify-center border-2 transition-colors ${selectedIds.has(ref.id) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 dark:border-slate-600'}`}>
                     {selectedIds.has(ref.id) ? <CheckCircle className="w-3.5 h-3.5" /> :
@@ -422,7 +430,7 @@ const ReferenceSearchCard: React.FC<{
                       </button>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -850,6 +858,17 @@ const ReferenceDisplayCard: React.FC<{
                   data.category === 'SAFETY' ? 'SAFETY' :
                     data.category === 'DIAGRAM' ? 'DIAGRAM' :
                       data.category === 'OTHER' ? 'OTHER' : data.category}
+          </span>
+        )}
+
+        {/* Usage Badge (NEW) */}
+        {(data.usage_count || 0) > 0 ? (
+          <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" title={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
+            Used: {data.usage_count}
+          </span>
+        ) : (
+          <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80" title="ยังไม่ได้ถูกอ้างอิง">
+            Unused
           </span>
         )}
       </div>

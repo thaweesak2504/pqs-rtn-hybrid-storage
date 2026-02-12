@@ -908,34 +908,34 @@ pub struct CreateQuestionArgs {
     pub metadata: Option<String>,
 }
 
-fn sync_question_references(conn: &Connection, question_id: &str, metadata_json: Option<&str>) -> Result<(), String> {
-    // 1. Always clear existing references first (simplest strategy for both create and update)
-    conn.execute("DELETE FROM QuestionReferences WHERE question_id = ?1", params![question_id])
-        .map_err(|e| e.to_string())?;
+// fn sync_question_references(conn: &Connection, question_id: &str, metadata_json: Option<&str>) -> Result<(), String> {
+//     // 1. Always clear existing references first (simplest strategy for both create and update)
+//     conn.execute("DELETE FROM QuestionReferences WHERE question_id = ?1", params![question_id])
+//         .map_err(|e| e.to_string())?;
 
-    // 2. Insert new references if metadata exists
-    if let Some(json_str) = metadata_json {
-        // Access serde_json directly. If not imported, we use full path.
-        // Assuming serde_json crate is available.
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
-            if let Some(refs) = v.get("references").and_then(|r| r.as_array()) {
-                for (idx, r) in refs.iter().enumerate() {
-                    // Extract fields. Be robust against missing/wrong types.
-                    if let Some(ref_id) = r.get("id").and_then(|i| i.as_i64()) {
-                        let page = r.get("page").and_then(|s| s.as_str()).unwrap_or("-");
+//     // 2. Insert new references if metadata exists
+//     if let Some(json_str) = metadata_json {
+//         // Access serde_json directly. If not imported, we use full path.
+//         // Assuming serde_json crate is available.
+//         if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
+//             if let Some(refs) = v.get("references").and_then(|r| r.as_array()) {
+//                 for (idx, r) in refs.iter().enumerate() {
+//                     // Extract fields. Be robust against missing/wrong types.
+//                     if let Some(ref_id) = r.get("id").and_then(|i| i.as_i64()) {
+//                         let page = r.get("page").and_then(|s| s.as_str()).unwrap_or("-");
                         
-                        conn.execute(
-                            "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
-                             VALUES (?1, ?2, ?3, ?4)",
-                            params![question_id, ref_id, page, idx + 1]
-                        ).map_err(|e| e.to_string())?;
-                    }
-                }
-            }
-        }
-    }
-    Ok(())
-}
+//                         conn.execute(
+//                             "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
+//                              VALUES (?1, ?2, ?3, ?4)",
+//                             params![question_id, ref_id, page, idx + 1]
+//                         ).map_err(|e| e.to_string())?;
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//     Ok(())
+// }
 
 pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -979,7 +979,8 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     .map_err(|e| e.to_string())?;
 
     // SYNC References from Metadata
-    sync_question_references(&conn, &id, args.metadata.as_deref())?;
+    // DISABLED: We manage references via add_question_reference API now.
+    // sync_question_references(&conn, &id, args.metadata.as_deref())?;
 
     Ok(id)
 }
@@ -1009,7 +1010,8 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     // SYNC References from Metadata to Table
-    sync_question_references(&conn, &args.id, args.metadata.as_deref())?;
+    // DISABLED: We manage references via add_question_reference API now.
+    // sync_question_references(&conn, &args.id, args.metadata.as_deref())?;
 
     Ok(())
 }
@@ -1506,6 +1508,7 @@ pub struct SectionReferenceDetail {
     pub reference: DocumentReference,
     pub display_order: i32,
     pub thai_letter: String,
+    pub usage_count: i64,
 }
 
 /// Helper to get Thai letter from display order (1=ก, 2=ข, etc.)
@@ -1869,6 +1872,27 @@ pub fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
         |row| Ok((row.get(0)?, row.get(1)?))
     ).map_err(|e| format!("Reference not found: {}", e))?;
 
+    // 1.5 Check dependency: Is this reference used by any question in this section?
+    // We need to find the reference_id first. Wait, we selected section_id and display_order, but we need reference_id too.
+    let reference_id: i64 = tx.query_row(
+        "SELECT reference_id FROM SectionReferences WHERE id = ?1",
+        params![section_ref_id],
+        |row| row.get(0)
+    ).map_err(|e| format!("Reference ID not found: {}", e))?;
+
+    let usage_count: i64 = tx.query_row(
+        "SELECT COUNT(*) 
+         FROM QuestionReferences qr
+         JOIN Questions q ON qr.question_id = q.id
+         WHERE qr.reference_id = ?1 AND q.section_id = ?2",
+        params![reference_id, section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    if usage_count > 0 {
+        return Err(format!("Cannot remove reference: It is currently used by {} question(s) in this section. Please unlink it from questions first.", usage_count));
+    }
+
     // 2. Delete
     tx.execute(
         "DELETE FROM SectionReferences WHERE id = ?1",
@@ -1896,7 +1920,11 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
     let mut stmt = conn
         .prepare(
             "SELECT sr.id, sr.section_id, sr.reference_id, sr.display_order,
-                    dr.id, dr.code, dr.title, dr.category, dr.classification, dr.resource_type, dr.file_path, dr.created_at, dr.updated_at
+                    dr.id, dr.code, dr.title, dr.category, dr.classification, dr.resource_type, dr.file_path, dr.created_at, dr.updated_at,
+                    (SELECT COUNT(*) 
+                     FROM QuestionReferences qr 
+                     JOIN Questions q ON qr.question_id = q.id 
+                     WHERE qr.reference_id = sr.reference_id AND q.section_id = sr.section_id) as usage_count
              FROM SectionReferences sr
              JOIN DocumentReferences dr ON sr.reference_id = dr.id
              WHERE sr.section_id = ?1
@@ -1924,6 +1952,7 @@ pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDet
                 },
                 display_order,
                 thai_letter: get_thai_letter(display_order),
+                usage_count: row.get(13)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -2182,6 +2211,79 @@ pub fn get_question_image_base64(relative_path: String) -> Result<String, String
     let base64_data = general_purpose::STANDARD.encode(&data);
     
     Ok(format!("data:{};base64,{}", mime_type, base64_data))
+}
+
+// ==========================================
+// Question Reference Management (L1 Linking)
+// ==========================================
+
+#[derive(serde::Deserialize)]
+pub struct AddQuestionReferenceRequest {
+    pub question_id: String,
+    pub reference_id: i64,
+    pub location_text: Option<String>,
+}
+
+/// Add a reference link to a specific question (with page number)
+pub fn add_question_reference(req: AddQuestionReferenceRequest) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Check if already linked
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM QuestionReferences WHERE question_id = ?1 AND reference_id = ?2)",
+            params![req.question_id, req.reference_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    
+    if exists {
+        return Err("This reference is already linked to this question".to_string());
+    }
+    
+    // Get next display_order for this question's references
+    let max_order: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(display_order), 0) FROM QuestionReferences WHERE question_id = ?1",
+            params![req.question_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+        
+    conn.execute(
+        "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![req.question_id, req.reference_id, req.location_text, max_order + 1],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Remove a reference link from a question
+pub fn remove_question_reference(id: i32) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    conn.execute(
+        "DELETE FROM QuestionReferences WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
+}
+
+/// Update page number/location text for a question reference link
+pub fn update_question_reference_location(id: i32, location_text: Option<String>) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    conn.execute(
+        "UPDATE QuestionReferences SET location_text = ?1 WHERE id = ?2",
+        params![location_text, id],
+    )
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
 }
 
 

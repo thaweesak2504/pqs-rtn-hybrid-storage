@@ -91,12 +91,14 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
 
           {/* Actions */}
           <div className="flex justify-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-github-bg-tertiary dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800 transition-colors"
-            >
-              {cancelText}
-            </button>
+            {cancelText && (
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-github-bg-tertiary dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-800 transition-colors"
+              >
+                {cancelText}
+              </button>
+            )}
             <button
               onClick={() => {
                 onConfirm();

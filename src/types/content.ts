@@ -59,3 +59,20 @@ export interface UserAnswer {
   verified_by: string | null;
   updated_at: string;
 }
+
+export interface SectionReferenceDetail {
+  id: number;
+  section_id: number;
+  reference: {
+    id: number;
+    code: string;
+    title: string;
+    category: string | null;
+    classification: string | null;
+    resource_type: string | null;
+    file_path: string | null;
+  };
+  display_order: number;
+  thai_letter: string;
+  usage_count: number;
+}

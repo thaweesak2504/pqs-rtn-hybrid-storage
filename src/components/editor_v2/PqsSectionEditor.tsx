@@ -23,6 +23,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
   const [sectionId, setSectionId] = useState<number>(0);
+  const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
 
   const fetchReferences = async (sId: number) => {
     try {
@@ -36,7 +37,8 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         classification: r.reference.classification || 'Unclassified',
         resource_type: r.reference.resource_type || 'DOCUMENT',
         file_path: r.reference.file_path || '',
-        description: r.reference.title // Use title as description if short_name is gone
+        description: r.reference.title,
+        usage_count: r.usage_count || 0 // Added usage_count
       })));
     } catch (error) {
       console.error("Failed to fetch references:", error);
@@ -131,6 +133,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 
       // 4. Refresh List
       await fetchReferences(sectionId);
+      setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
 
     } catch (error) {
       console.error("Failed to add reference:", error);
@@ -175,6 +178,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       await invoke('remove_section_reference', { sectionRefId: parseInt(id) });
       // Update local state directly for speed
       setReferences(prev => prev.filter(r => r.id !== id));
+      setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
     } catch (error) {
       console.error("Failed to remove reference:", error);
       alert("Failed to remove reference: " + error);
@@ -206,7 +210,10 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           onDelete={handleDeleteRef}
           readOnly={isPreviewMode}
           sectionId={sectionId}
-          onRefresh={() => fetchReferences(sectionId)}
+          onRefresh={() => {
+            fetchReferences(sectionId);
+            setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
+          }}
         />
       </div>
 
@@ -217,6 +224,10 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           sectionId={sectionId}
           sectionNumber={sectionNumber}
           readOnly={isPreviewMode}
+          refreshTrigger={refreshQuestionsTrigger} // Pass trigger
+          onReferencesUpdated={() => {
+            fetchReferences(sectionId);
+          }}
         />
       </div>
 
