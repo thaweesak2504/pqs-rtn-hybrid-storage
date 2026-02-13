@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Edit, Save, X, ChevronRight, ChevronDown, MessageSquarePlus, FileQuestion, Layers, ArrowUp, ArrowDown, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Edit, Save, X, ChevronRight, ChevronDown, MessageSquarePlus, FileQuestion, Layers, ArrowUp, ArrowDown, Image as ImageIcon, CheckCircle, Globe, Video, Mic, FileDigit, FileText, AlertTriangle, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import Button from '../ui/Button';
 import { invoke } from '@tauri-apps/api/tauri';
 import { open as openDialog } from '@tauri-apps/api/dialog';
@@ -659,7 +659,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
   const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
   const [selectedRefId, setSelectedRefId] = useState<string>(''); // string for select value
-  const [pageInput, setPageInput] = useState<string>('');
+  const [pageInput, setPageInput] = useState<string>('-'); // Default to "-"
 
   const isEdit = !!initialContent;
   const isL1 = level === 0;
@@ -888,30 +888,104 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       </button>
                     </div>
                   ) : (
-                    <>
-                      <select
-                        value={selectedRefId}
-                        onChange={(e) => setSelectedRefId(e.target.value)}
-                        className="flex-1 p-2 text-xs border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:border-blue-500"
-                      >
-                        <option value="">-- เลือกเอกสารอ้างอิง --</option>
-                        {availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).map(r => (
-                          <option key={r.reference.id} value={r.reference.id}>
-                            {r.thai_letter}. {r.reference.code} - {r.reference.title}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="เลขหน้า (e.g. 35)"
-                        value={pageInput}
-                        onChange={(e) => setPageInput(e.target.value)}
-                        className="w-24 p-2 text-xs border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 outline-none focus:border-blue-500 shrink-0 placeholder:text-slate-400"
-                      />
-                      <Button variant="secondary" size="small" onClick={handleAddReference} disabled={!selectedRefId}>
-                        <Plus className="w-3 h-3" />
-                      </Button>
-                    </>
+                    <div className="flex flex-col gap-2 w-full">
+                      {/* 1. Custom Reference Picker (List) - MIRRORING Section Manager */}
+                      <div className="max-h-[200px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900 p-1 custom-scrollbar">
+                        {availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).length === 0 ? (
+                          <div className="text-center py-4 text-xs text-gray-400 italic">ไม่มีเอกสารเพิ่มเติมให้เลือก</div>
+                        ) : (
+                          availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).map(r => {
+                            const isSelected = selectedRefId === r.reference.id.toString();
+                            return (
+                              <div
+                                key={r.reference.id}
+                                onClick={() => setSelectedRefId(prev => prev === r.reference.id.toString() ? '' : r.reference.id.toString())}
+                                className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700' : 'hover:bg-gray-100 dark:hover:bg-slate-800 border border-transparent'}`}
+                              >
+                                {/* Thai Letter (Sequence) */}
+                                <span className={`text-sm font-bold w-6 text-center ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                                  {r.thai_letter}.
+                                </span>
+
+                                {/* Icon (Resource Type) */}
+                                <div className={`shrink-0 w-6 h-6 rounded flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400'}`}>
+                                  {isSelected ? <CheckCircle className="w-3.5 h-3.5" /> :
+                                    r.reference.resource_type === 'WEBLINK' ? <Globe className="w-3.5 h-3.5 text-emerald-500" /> :
+                                      r.reference.resource_type === 'VIDEO' ? <Video className="w-3.5 h-3.5 text-purple-500" /> :
+                                        r.reference.resource_type === 'IMAGE' ? <ImageIcon className="w-3.5 h-3.5 text-blue-500" /> :
+                                          r.reference.resource_type === 'AUDIO' ? <Mic className="w-3.5 h-3.5 text-orange-500" /> :
+                                            r.reference.resource_type === 'TEMPLATE' ? <FileDigit className="w-3.5 h-3.5 text-slate-500" /> :
+                                              <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                  }
+                                </div>
+
+                                {/* Content & Classification (Inline) */}
+                                <div className="flex flex-col min-w-0 flex-1 justify-center">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1 rounded">{r.reference.code}</span>
+                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate" title={r.reference.title}>{r.reference.title}</span>
+
+                                    {/* Classification Icon - Inline & Resized */}
+                                    {r.reference.classification && (
+                                      <div className="flex items-center ml-1" title={`Classification: ${r.reference.classification}`}>
+                                        {r.reference.classification === 'Secret' || r.reference.classification === 'Top Secret' ? (
+                                          <ShieldAlert className={`w-3.5 h-3.5 ${r.reference.classification === 'Top Secret' ? 'text-red-700' : 'text-red-500'}`} />
+                                        ) : r.reference.classification === 'Confidential' ? (
+                                          <ShieldCheck className="w-3.5 h-3.5 text-orange-500" />
+                                        ) : r.reference.classification === 'Restricted' ? (
+                                          <Shield className="w-3.5 h-3.5 text-yellow-500" />
+                                        ) : r.reference.classification === 'Unclassified' ? (
+                                          <Shield className="w-3.5 h-3.5 text-green-500" />
+                                        ) : (
+                                          <Shield className="w-3.5 h-3.5 text-slate-400" />
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Usage Badge - MIRRORING */}
+                                <div className="flex flex-col items-end gap-1">
+                                  {r.usage_count > 0 ? (
+                                    <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded-full border border-green-200 dark:border-green-800 whitespace-nowrap" title={`ถูกอ้างอิงแล้ว ${r.usage_count} ครั้ง`}>
+                                      Used: {r.usage_count}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800 whitespace-nowrap opacity-80">
+                                      Unused
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* 2. Page Input & Add Button */}
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            placeholder="ระบุเลขหน้า (e.g. -, 1-25)"
+                            value={pageInput}
+                            onChange={(e) => setPageInput(e.target.value)}
+                            className={`w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${pageInput === '-' ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-700 dark:text-yellow-400' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
+                          />
+                          {pageInput === '-' && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
+                              <AlertTriangle className="w-4 h-4 text-yellow-500 cursor-help" />
+                              <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                                กรุณาพยายามเพิ่มเติมหน้าที่ใช้ออกคำถามจะสมบูรณ์ที่สุด
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <Button variant="secondary" size="small" onClick={handleAddReference} disabled={!selectedRefId}>
+                          <Plus className="w-3 h-3 mr-1" /> เพิ่ม
+                        </Button>
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
