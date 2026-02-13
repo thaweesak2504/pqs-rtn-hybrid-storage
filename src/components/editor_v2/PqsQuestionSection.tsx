@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Plus, Trash2, Edit, Save, X, ChevronRight, ChevronDown, MessageSquarePlus, FileQuestion, Layers, ArrowUp, ArrowDown, Image as ImageIcon, CheckCircle, Globe, Video, Mic, FileDigit, FileText, AlertTriangle, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, ImageIcon, X, Save, AlertTriangle, Shield, ShieldAlert, ShieldCheck, FileQuestion, Layers, ArrowUp, ArrowDown, MessageSquarePlus, Edit, ChevronDown, ChevronRight, CheckCircle, Globe, Video, Mic, FileDigit, FileText, MoreVertical } from 'lucide-react';
 import Button from '../ui/Button';
+import DropdownMenu, { DropdownMenuItem } from '../ui/DropdownMenu';
 import { invoke } from '@tauri-apps/api/tauri';
 import { open as openDialog } from '@tauri-apps/api/dialog';
 import { convertFileSrc } from '@tauri-apps/api/tauri';
@@ -152,11 +153,18 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     setIsCreating(true);
   };
 
-  const handleCreate = async (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[] }, parentId: string | null, insertAfterId: string | null = null) => {
+  const handleCreate = async (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], metadata?: string }, parentId: string | null, insertAfterId: string | null = null) => {
     try {
       // 1. Create Question
-      // Construct metadata from image
-      const metadata = data.image ? JSON.stringify({ image: data.image }) : null;
+      // Construct metadata from image AND answerKey (passed in data.metadata)
+      let metaObj: any = {};
+      if (data.metadata) {
+        try { metaObj = JSON.parse(data.metadata); } catch (e) { }
+      }
+      if (data.image) {
+        metaObj.image = data.image;
+      }
+      const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
 
       const newId = await invoke<string>('create_question', {
         args: {
@@ -169,7 +177,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           is_header: false,
           sequence: null, // Let backend assign sequence
           answer_type: 'text',
-          metadata: metadata,
+          metadata: finalMetadata, // Use merged metadata
         }
       });
 
@@ -518,10 +526,18 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialContent={question.content}
           initialDescription={question.description || undefined}
           initialImage={initialImage}
+          initialMetadata={question.metadata} // Pass metadata
           onSave={(data) => {
-            // Construct metadata from image
-            const metadata = data.image ? JSON.stringify({ image: data.image }) : null;
-            onUpdate(question.id, data.content, data.description || null, metadata, data.references);
+            // Construct metadata from image AND answerKey
+            let metaObj: any = {};
+            if (data.metadata) {
+              try { metaObj = JSON.parse(data.metadata); } catch (e) { }
+            }
+            if (data.image) {
+              metaObj.image = data.image;
+            }
+            const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
+            onUpdate(question.id, data.content, data.description || null, finalMetadata, data.references);
           }}
           onCancel={onCancel}
           documentId={documentId}
@@ -545,7 +561,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         hasChildren={!!hasChildren}
         canAddSub={canAddSub}
         isFirst={isFirst}
-        isLast={isLast && !hasChildren}
+        isLast={isLast}
         onToggle={() => setIsExpanded(!isExpanded)}
         onEdit={() => onStartEdit(question.id)}
         onDelete={() => onDelete(question)}
@@ -634,8 +650,9 @@ interface QuestionFormCardProps {
   initialContent?: string;
   initialDescription?: string;
   initialImage?: string;
+  initialMetadata?: string | null; // Added initialMetadata
   initialReferences?: QuestionReferenceDetail[];
-  onSave: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[] }) => void; // Added references
+  onSave: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], metadata?: string }) => void; // Added references & metadata
   onCancel: () => void;
   documentId: string; // Added documentId
   existingId?: string; // Edit mode ID
@@ -646,7 +663,7 @@ interface QuestionFormCardProps {
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
-  prefix, level, initialContent = '', initialDescription = '', initialImage = '', initialReferences = EMPTY_REFS,
+  prefix, level, initialContent = '', initialDescription = '', initialImage = '', initialMetadata = null, initialReferences = EMPTY_REFS,
   onSave, onCancel, documentId, existingId, sectionId, onAlert
 }) => {
   const [content, setContent] = useState(initialContent);
@@ -660,21 +677,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
   const [selectedRefId, setSelectedRefId] = useState<string>(''); // string for select value
   const [pageInput, setPageInput] = useState<string>('-'); // Default to "-"
+  const [answerKey, setAnswerKey] = useState<string>(() => {
+    if (!initialMetadata) return '';
+    try {
+      const meta = JSON.parse(initialMetadata);
+      return meta.answerKey || '';
+    } catch { return ''; }
+  }); // Correct Answer State Initialized from Metadata
 
   const isEdit = !!initialContent;
   const isL1 = level === 0;
 
-  // Sync initialReferences when they change (critical for Edit mode reload)
-  useEffect(() => {
-    // Only update if initialReferences actually changed and is different from current
-    // We can use a simple length check + ID check for efficiency, or just rely on the stable prop for the loop fix.
-    // The loop main cause was unstable default prop.
-    // But let's be safe.
-    if (initialReferences && initialReferences !== linkedRefs) {
-      console.log("QuestionFormCard: Syncing initialReferences", initialReferences);
-      setLinkedRefs(initialReferences);
-    }
-  }, [initialReferences]);
+
 
   // Fetch Available References for this Section
   useEffect(() => {
@@ -779,11 +793,34 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!content.trim()) return;
 
     // Validation for L1: Must have at least 1 reference
-    // Validation for L1: Must have at least 1 reference
     if (isL1 && linkedRefs.length === 0) {
       if (onAlert) onAlert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ", "warning");
       else alert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ");
       return;
+    }
+
+    // Construct metadata string (Answer Key +/ Image +/ Other)
+    // Note: Image is handled by handleUpdate/handleCreate logic via returned generic 'image' field if not L1?
+    // Actually QuestionFormCard handles Image state locally and passes it as 'image' field.
+    // So 'metadata' from here mainly carries 'answerKey'.
+    // BUT we must preserve existing metadata if answerKey changes.
+
+    let metadataString: string | undefined = undefined;
+    if (answerKey.trim()) {
+      // Preserve existing metadata if needed
+      let newMeta: any = {};
+      if (initialMetadata) {
+        try { newMeta = JSON.parse(initialMetadata); } catch (e) { }
+      }
+      newMeta.answerKey = answerKey.trim();
+      metadataString = JSON.stringify(newMeta);
+    } else if (initialMetadata) {
+      // If clearing answerKey but keeping other metadata
+      try {
+        const existing = JSON.parse(initialMetadata);
+        if (existing.answerKey) delete existing.answerKey;
+        if (Object.keys(existing).length > 0) metadataString = JSON.stringify(existing);
+      } catch (e) { }
     }
 
     onSave({
@@ -791,12 +828,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       description: isL1 ? description : undefined,
       image: isL1 ? (imagePath || undefined) : undefined,
       id: !isEdit ? (generatedId || undefined) : undefined,
-      references: isL1 ? linkedRefs : undefined // Pass references
+      references: isL1 ? linkedRefs : undefined,
+      metadata: metadataString // Pass metadata
     });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') onCancel();
+    if (e.key === 'Escape') {
+      setAnswerKey('');
+      onCancel();
+    }
     if (e.key === 'Enter' && e.ctrlKey) handleSave();
   };
 
@@ -1021,6 +1062,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
+        {/* Correct Answer (All Levels) */}
+        <div className="mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+          <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">Correct Answer (เฉลย)</label>
+          <textarea
+            value={answerKey}
+            onChange={(e) => setAnswerKey(e.target.value)}
+            placeholder="คำตอบที่ถูกต้อง..."
+            className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-none text-xs"
+            rows={2}
+          />
+        </div>
+
         {/* Actions */}
         <div className="flex items-center justify-between pt-2">
           <span className="text-[11px] text-slate-300 dark:text-slate-600 select-none">
@@ -1173,95 +1226,86 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       </span>
 
       {/* Content */}
-      <span className={`flex-1 truncate select-text
+      <div className={`flex-1 flex flex-col min-w-0 select-text
         ${isL1
-          ? 'text-sm font-semibold text-slate-900 dark:text-slate-100' // L1: Stronger emphasis
-          : 'text-sm font-normal text-slate-700 dark:text-slate-300' // L2: Normal weight as requested
+          ? 'text-sm text-slate-900 dark:text-slate-100' // L1: Stronger emphasis
+          : 'text-sm text-slate-700 dark:text-slate-300' // L2: Normal weight as requested
         }
-      `} title={question.content}>
-        {question.content}
-        {isL1 && question.references && question.references.length > 0 && (
-          <span className="ml-2 text-sm text-slate-500 font-normal">
-            ({question.references.map(ref => `${ref.thai_letter || '?'}.${ref.location_text || '-'}`).join(', ')})
-          </span>
-        )}
+      `}>
+
+        {/* Row 1: Content + Refs (Inline) */}
+        <div className="truncate pr-8" title={question.content}>
+          <span className={isL1 ? 'font-semibold' : 'font-normal'}>{question.content}</span>
+          {isL1 && question.references && question.references.length > 0 && (
+            <span className="ml-2 text-sm text-slate-500 font-normal">
+              ({question.references.map(ref => `${ref.thai_letter || '?'}.${ref.location_text || '-'}`).join(', ')})
+            </span>
+          )}
+        </div>
+
         {isL1 && question.description && (
           <div className="mt-1 text-sm font-normal text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{question.description}</div> // Description: Match L2 style
         )}
-        {isL1 && question.metadata && (
+        {question.metadata && (
           <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
         )}
 
-      </span>
+      </div>
 
       {/* Subtask count badge */}
       {hasChildren && (
-        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full">
+        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full shrink-0">
           {question.children?.length} sub
         </span>
       )}
 
       {/* Actions */}
       {!readOnly && (
-        <div className="flex items-center gap-1 pl-2 border-l border-slate-200 dark:border-slate-700 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-
-          {/* Insert After (New) */}
-          <button
-            onClick={onInsertAfter}
-            className="p-1 text-green-500 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded transition-colors"
-            title="แทรกคำถามต่อท้าย"
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Separator */}
-          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5" />
-
-          {/* Move Up/Down */}
-          <button
-            onClick={onMoveUp}
-            disabled={isFirst}
-            className={`p-1 rounded transition-colors ${isFirst ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30'}`}
-            title="เลื่อนขึ้น"
-          >
-            <ArrowUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={isLast}
-            className={`p-1 rounded transition-colors ${isLast ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30'}`}
-            title="เลื่อนลง"
-          >
-            <ArrowDown className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Separator */}
-          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5" />
-
-          {/* Add Sub */}
-          {canAddSub && (
-            <button
-              onClick={onAddSub}
-              className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-              title="เพิ่มคำถามย่อย"
-            >
-              <MessageSquarePlus className="w-3.5 h-3.5" />
-            </button>
-          )}
-          <button
-            onClick={onEdit}
-            className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-            title="แก้ไข"
-          >
-            <Edit className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-            title="ลบ"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
+        <div className="pl-2 border-l border-slate-200 dark:border-slate-700 shrink-0">
+          <DropdownMenu
+            trigger={
+              <button className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            }
+            items={[
+              {
+                label: 'แทรกคำถามต่อท้าย (Insert After)',
+                icon: <Plus />,
+                onClick: onInsertAfter
+              },
+              { label: 'separator', onClick: () => { }, separator: true },
+              {
+                label: 'เลื่อนขึ้น (Move Up)',
+                icon: <ArrowUp />,
+                onClick: onMoveUp,
+                disabled: isFirst
+              },
+              {
+                label: 'เลื่อนลง (Move Down)',
+                icon: <ArrowDown />,
+                onClick: onMoveDown,
+                disabled: isLast
+              },
+              { label: 'separator', onClick: () => { }, separator: true },
+              ...(canAddSub ? [{
+                label: 'เพิ่มคำถามย่อย (Add Sub-Question)',
+                icon: <MessageSquarePlus />,
+                onClick: onAddSub
+              }] : []),
+              {
+                label: 'แก้ไข (Edit)',
+                icon: <Edit />,
+                onClick: onEdit
+              },
+              {
+                label: 'ลบ (Delete)',
+                icon: <Trash2 />,
+                onClick: onDelete,
+                danger: true
+              }
+            ] as DropdownMenuItem[]}
+          />
         </div>
       )}
     </div>
@@ -1274,15 +1318,26 @@ const QuestionMetadataDisplay: React.FC<{ metadata: string; onImageClick?: (src:
     try { return JSON.parse(metadata); } catch { return {}; }
   }, [metadata]);
 
-  if (!data.image) return null;
+  if (!data.image && !data.answerKey) return null;
 
   return (
-    <div className="mt-2 ml-4">
-      <AsyncImagePreview
-        path={data.image}
-        className="h-32 w-auto object-cover rounded border border-gray-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105"
-        onImageClick={onImageClick}
-      />
+    <div className="mt-2 ml-4 space-y-2">
+      {/* Image Display (First) */}
+      {data.image && (
+        <AsyncImagePreview
+          path={data.image}
+          className="h-32 w-auto object-cover rounded border border-gray-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105"
+          onImageClick={onImageClick}
+        />
+      )}
+
+      {/* Answer Key Display (Last) */}
+      {data.answerKey && (
+        <div className="flex items-start gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+          <span className="font-bold">เฉลย:</span>
+          <span className="whitespace-pre-wrap">{data.answerKey}</span>
+        </div>
+      )}
     </div>
   );
 };
