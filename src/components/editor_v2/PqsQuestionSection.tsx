@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
-import { Plus, Trash2, ImageIcon, X, Save, AlertTriangle, Shield, ShieldAlert, ShieldCheck, FileQuestion, Layers, ArrowUp, ArrowDown, MessageSquarePlus, Edit, ChevronDown, ChevronRight, CheckCircle, Globe, Video, Mic, FileDigit, FileText, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, ImageIcon, X, Save, FileQuestion, Layers, ArrowUp, ArrowDown, MessageSquarePlus, Edit, ChevronDown, ChevronRight, CheckCircle, FileText, MoreVertical } from 'lucide-react';
 import Button from '../ui/Button';
 import DropdownMenu, { DropdownMenuItem } from '../ui/DropdownMenu';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -535,6 +535,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             }
             if (data.image) {
               metaObj.image = data.image;
+            } else {
+              delete metaObj.image;
             }
             const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
             onUpdate(question.id, data.content, data.description || null, finalMetadata, data.references);
@@ -668,6 +670,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 }) => {
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
+  const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
@@ -685,6 +688,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   });
 
   const [isRefExpanded, setIsRefExpanded] = useState(false); // Collapsible State
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [errors, setErrors] = useState<{ content?: boolean; answerKey?: boolean; refs?: boolean }>({}); // Inline Validation State
 
   const isEdit = !!initialContent;
   const isL1 = level === 0;
@@ -803,10 +809,40 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   const handleSave = () => {
-    if (!content.trim()) return;
+    // Reset errors
+    setErrors({});
+    const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
+    let hasError = false;
+
+    // Validation
+    if (!content.trim()) {
+      newErrors.content = true;
+      hasError = true;
+    }
+    if (!answerKey.trim()) {
+      newErrors.answerKey = true;
+      hasError = true;
+    }
     if (isL1 && linkedRefs.length === 0) {
-      if (onAlert) onAlert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ", "warning");
-      else alert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ");
+      newErrors.refs = true;
+      hasError = true;
+    }
+
+    if (hasError) {
+      setErrors(newErrors);
+      // Construct alert message based on errors
+      const messages = [];
+      if (newErrors.content) messages.push('คำถาม (Question)');
+      if (newErrors.answerKey) messages.push('เฉลย (Answer Key)');
+      if (newErrors.refs) messages.push('เอกสารอ้างอิง (References)');
+
+      const missingParts = `กรุณากรอกข้อมูลให้ครบถ้วน:\n- ${messages.join('\n- ')}`;
+      if (onAlert) {
+        onAlert(missingParts, "warning");
+      } else {
+        setAlertMessage(missingParts);
+        setIsAlertOpen(true);
+      }
       return;
     }
 
@@ -848,52 +884,125 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     <div className="m-1 rounded-lg border border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-3 shadow-md backdrop-blur-sm animate-in zoom-in-95 duration-200">
       <div className="space-y-2">
         {/* Header */}
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
-            {prefix}
-          </span>
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-            {isEdit ? '✏️ แก้ไข' : '✨ สร้างใหม่'}
-          </span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
+              {prefix}
+            </span>
+            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+              {isEdit ? '✏️ แก้ไข' : '✨ สร้างใหม่'}
+            </span>
+          </div>
+
+          {/* Optional Toggles (L1 Only) */}
+          {isL1 && (
+            <div className="flex items-center gap-1">
+              {!showDescription && (
+                <button
+                  type="button"
+                  onClick={() => setShowDescription(true)}
+                  className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                  title="เพิ่มคำอธิบาย"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="sr-only">+ คำอธิบาย</span>
+                </button>
+              )}
+              {!imagePath && (
+                <button
+                  type="button"
+                  onClick={handleImageUpload}
+                  className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                  title="เพิ่มรูปภาพ"
+                >
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span className="sr-only">+ รูปภาพ</span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content (Main Question) - Compact & Auto-expanding */}
-        <textarea
-          ref={contentRef}
-          autoFocus
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="พิมพ์คำถาม..."
-          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900/80 text-xs dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 resize-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 min-h-[36px] overflow-hidden leading-relaxed"
-          rows={1}
-        />
+        <div>
+          <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
+            คำถาม (Question) <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            ref={contentRef}
+            autoFocus
+            value={content}
+            onChange={(e) => {
+              setContent(e.target.value);
+              if (errors.content) setErrors(prev => ({ ...prev, content: false }));
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="พิมพ์คำถาม..."
+            className={`w-full p-2 border rounded-md text-xs resize-none transition-all min-h-[36px] overflow-hidden leading-relaxed
+              ${errors.content
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300'
+                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600'
+              } focus:outline-none focus:ring-1`}
+            rows={1}
+          />
+        </div>
 
         {/* L1 Extras */}
         {isL1 && (
           <div className="space-y-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
 
-            {/* Description - Auto-expanding */}
-            <div>
-              <textarea
-                ref={descriptionRef}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs min-h-[34px] overflow-hidden"
-                rows={1}
-              />
-            </div>
+            {/* Description - Auto-expanding (Optional) */}
+            {showDescription && (
+              <div className="group/desc animate-in slide-in-from-top-1">
+                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  คำอธิบาย (Description)
+                </label>
+                <div className="relative">
+                  <textarea
+                    ref={descriptionRef}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="คำอธิบายเพิ่มเติม (Description)..."
+                    className="w-full p-2 pr-7 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs min-h-[34px] overflow-hidden"
+                    rows={1}
+                  />
+                  <button
+                    onClick={() => {
+                      setDescription('');
+                      setShowDescription(false);
+                    }}
+                    className="absolute top-1.5 right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded opacity-0 group-hover/desc:opacity-100 transition-opacity"
+                    title="ลบคำอธิบาย"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* References Label */}
+            <label className="block text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
+              เอกสารอ้างอิง (References)
+            </label>
 
             {/* Collapsible References */}
-            <div className="border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900/30 overflow-hidden">
+            <div className={`border rounded-md overflow-hidden transition-colors ${errors.refs
+              ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
+              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/30'
+              }`}>
               {/* Summary Header (Always Visible) */}
               <div
                 className="flex items-center justify-between p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                onClick={() => setIsRefExpanded(!isRefExpanded)}
+                onClick={() => {
+                  setIsRefExpanded(!isRefExpanded);
+                  if (errors.refs) setErrors(prev => ({ ...prev, refs: false }));
+                }}
               >
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">REF</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider ${errors.refs ? 'text-red-500' : 'text-slate-400 dark:text-slate-500'
+                    }`}>
+                    {linkedRefs.length === 0 ? 'ยังไม่ได้เลือก (None Selected)' : `เลือกแล้ว (${linkedRefs.length}/2 รายการ)`} <span className="text-red-500">*</span>
+                  </span>
                   {linkedRefs.length > 0 ? (
                     <div className="flex gap-1 overflow-hidden">
                       {linkedRefs.map((r, i) => (
@@ -922,12 +1031,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <div className="space-y-2">
                     {/* List of Linked Refs (Full Detail) */}
                     {linkedRefs.map((ref, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs ">
+                      <div key={idx} className="flex items-center justify-between p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs group/ref-item">
                         <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
                           <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">{ref.thai_letter ? `${ref.thai_letter}.` : '?.'}</span>
                           {ref.reference.title} (หน้า {ref.location_text || '-'})
                         </span>
-                        <button onClick={() => handleRemoveReference(ref)} className="text-red-400 hover:text-red-500 p-0.5 hover:bg-red-50 rounded">
+                        <button onClick={() => handleRemoveReference(ref)} className="text-slate-300 hover:text-red-500 p-0.5 transition-colors opacity-100 sm:opacity-0 sm:group-hover/ref-item:opacity-100" title="ลบเอกสารอ้างอิง">
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
@@ -977,38 +1086,40 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               )}
             </div>
 
-            {/* Image (Compact) */}
-            <div className="flex items-center gap-2">
-              {!imagePath ? (
-                <button
-                  onClick={handleImageUpload}
-                  className="text-xs text-slate-400 hover:text-blue-500 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>แนบรูปภาพ</span>
-                </button>
-              ) : (
+            {/* Image Preview (Compact) */}
+            {imagePath && (
+              <div className="flex items-center gap-2 pt-1">
                 <div className="relative group inline-block">
                   <div className="w-16 h-12 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden">
                     <AsyncImagePreview path={imagePath} className="w-full h-full object-cover" />
                   </div>
-                  <button onClick={handleRemoveImage} className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full shadow-sm hover:bg-red-600">
-                    <X className="w-2.5 h-2.5" />
+                  <button onClick={handleRemoveImage} className="absolute -top-1.5 -right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded bg-white dark:bg-slate-800 shadow-sm transition-colors opacity-0 group-hover:opacity-100">
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
         {/* Answer Key - Auto-expanding */}
         <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+          <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+            เฉลย (Answer Key) <span className="text-red-500">*</span>
+          </label>
           <textarea
             ref={answerKeyRef}
             value={answerKey}
-            onChange={(e) => setAnswerKey(e.target.value)}
+            onChange={(e) => {
+              setAnswerKey(e.target.value);
+              if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
+            }}
             placeholder="เฉลยคำตอบ (Answer Key)..."
-            className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-none text-xs min-h-[34px] overflow-hidden"
+            className={`w-full p-2 border rounded-md text-xs resize-none min-h-[34px] overflow-hidden
+              ${errors.answerKey
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100'
+                : 'border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-slate-700 dark:text-slate-300 focus:ring-emerald-500/50'
+              } focus:outline-none focus:ring-1`}
             rows={1}
           />
         </div>
@@ -1019,15 +1130,26 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             Ctrl+Enter = บันทึก
           </span>
           <div className="flex gap-1.5">
-            <Button variant="ghost" size="small" icon={<X className="w-3 h-3" />} onClick={onCancel} className="h-7 text-xs px-2">
+            <Button variant="outline" size="small" icon={<X className="w-3 h-3" />} onClick={onCancel} className="h-7 text-xs px-2">
               ยกเลิก
             </Button>
-            <Button variant="primary" size="small" icon={<Save className="w-3 h-3" />} onClick={handleSave} disabled={!content.trim()} className="h-7 text-xs px-2">
+            <Button variant="primary" size="small" icon={<Save className="w-3 h-3" />} onClick={handleSave} className="h-7 text-xs px-2">
               {isEdit ? 'บันทึก' : 'เพิ่ม'}
             </Button>
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isAlertOpen}
+        onClose={() => setIsAlertOpen(false)}
+        onConfirm={() => setIsAlertOpen(false)}
+        title="แจ้งเตือน"
+        message={alertMessage}
+        confirmText="ตกลง"
+        variant="warning"
+        cancelText="" // Hide cancel button
+      />
     </div>
   );
 };

@@ -171,7 +171,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
           </p>
         </div>
         {onCancel && (
-          <Button variant="ghost" size="small" onClick={onCancel}>
+          <Button variant="outline" size="small" onClick={onCancel}>
             Cancel
           </Button>
         )}
@@ -186,7 +186,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                 <label className="block text-xs font-semibold text-github-text-secondary uppercase tracking-wider mb-2">
                   1. Unit Owner (Locked)
                 </label>
-                <div className="text-sm font-medium text-github-text-primary">
+                <div className="text-sm font-medium text-github-text-primary dark:text-slate-200">
                   Unit Code: {initialData?.unit_code || 'N/A'}
                   <div className="text-xs text-orange-600 dark:text-orange-400 mt-2 font-semibold">
                     Note: Document ID is permanent.
@@ -197,6 +197,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
               <UnitSelector
                 label="1. Unit Owner"
                 onSelectionChange={(sel) => setSelectedUnit(sel)}
+                className="dark:text-slate-200"
               />
             )}
 
@@ -214,7 +215,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
 
           {/* Right Column: Document Info */}
           <div className="space-y-6">
-            <h3 className="text-sm font-semibold text-github-fg-default mb-3 uppercase tracking-wider">2. Document Details</h3>
+            <h3 className="text-sm font-semibold text-github-fg-default dark:text-slate-200 mb-3 uppercase tracking-wider">2. Document Details</h3>
             <FormGroup>
               <FormInput
                 name="docName"
@@ -223,6 +224,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                 value={docName}
                 onChange={(e) => setDocName(e.target.value)}
                 required
+                className="dark:text-slate-200 dark:placeholder:text-slate-500"
               />
 
               <FormRow>
@@ -235,6 +237,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                     { value: '10', label: '10 - General (ทั่วไป)' },
                     { value: '20', label: '20 - Specific (เฉพาะ)' }
                   ]}
+                  className="dark:text-slate-200"
                 />
                 <FormSelect
                   name="userLevel"
@@ -247,6 +250,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                     { value: '2', label: '2 - Undefined (ไม่ระบุ)' },
                     { value: '3', label: '3 - Both (ประทวน และ สัญญาบัตร)' }
                   ]}
+                  className="dark:text-slate-200"
                 />
               </FormRow>
 
@@ -258,6 +262,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
                 onChange={(e) => setAppliedTo(e.target.value)}
                 rows={3}
                 required
+                className="dark:text-slate-200 dark:placeholder:text-slate-500"
               />
             </FormGroup>
           </div>
@@ -284,12 +289,12 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
 
           <div className="flex justify-end space-x-3">
             {onCancel && (
-              <Button variant="ghost" onClick={onCancel} type="button">Cancel</Button>
+              <Button variant="outline" onClick={onCancel} type="button">Cancel</Button>
             )}
             <Button
               type="submit"
               variant="primary"
-              size="large"
+              size="medium"
               icon={<Save className="w-5 h-5" />}
               loading={isLoading}
               disabled={(!isEditing && !selectedUnit.finalUnitId) || !docName || !appliedTo}
@@ -299,7 +304,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
           </div>
         </FormActions>
       </form>
-    </div>
+    </div >
   )
 }
 

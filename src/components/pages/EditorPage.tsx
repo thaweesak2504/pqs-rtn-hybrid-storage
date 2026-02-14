@@ -174,7 +174,7 @@ const EditorPage: React.FC = () => {
                       onClick={() => navigate(`/pqs/${doc.id}`)}
                       variant="primary"
                       size="small"
-                      className="bg-blue-600 hover:bg-blue-700 text-white w-full sm:w-auto"
+                      className="w-full sm:w-auto"
                     >
                       ดำเนินการต่อ
                     </Button>
