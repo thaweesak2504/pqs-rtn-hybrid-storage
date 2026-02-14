@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { Plus, Trash2, ImageIcon, X, Save, AlertTriangle, Shield, ShieldAlert, ShieldCheck, FileQuestion, Layers, ArrowUp, ArrowDown, MessageSquarePlus, Edit, ChevronDown, ChevronRight, CheckCircle, Globe, Video, Mic, FileDigit, FileText, MoreVertical } from 'lucide-react';
 import Button from '../ui/Button';
 import DropdownMenu, { DropdownMenuItem } from '../ui/DropdownMenu';
@@ -669,28 +669,52 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
-  // Store a generated ID for new questions that have images uploaded BEFORE save
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
   // Reference Linking State
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
   const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
-  const [selectedRefId, setSelectedRefId] = useState<string>(''); // string for select value
-  const [pageInput, setPageInput] = useState<string>('-'); // Default to "-"
+  const [selectedRefId, setSelectedRefId] = useState<string>('');
+  const [pageInput, setPageInput] = useState<string>('-');
   const [answerKey, setAnswerKey] = useState<string>(() => {
     if (!initialMetadata) return '';
     try {
       const meta = JSON.parse(initialMetadata);
       return meta.answerKey || '';
     } catch { return ''; }
-  }); // Correct Answer State Initialized from Metadata
+  });
+
+  const [isRefExpanded, setIsRefExpanded] = useState(false); // Collapsible State
 
   const isEdit = !!initialContent;
   const isL1 = level === 0;
 
+  // Refs for auto-resizing
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const answerKeyRef = useRef<HTMLTextAreaElement>(null);
 
+  // Auto-resize textarea helper (Strict)
+  const adjustHeight = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  };
 
-  // Fetch Available References for this Section
+  // Trigger resize on content change
+  useLayoutEffect(() => {
+    adjustHeight(contentRef.current);
+  }, [content]);
+
+  useLayoutEffect(() => {
+    if (isL1) adjustHeight(descriptionRef.current);
+  }, [description, isL1]);
+
+  useLayoutEffect(() => {
+    adjustHeight(answerKeyRef.current);
+  }, [answerKey]);
+
+  // Fetch Available References
   useEffect(() => {
     if (isL1 && sectionId) {
       invoke<SectionReferenceDetail[]>('get_section_references', { sectionId })
@@ -699,29 +723,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [isL1, sectionId]);
 
-  // Handle Adding Reference
   const handleAddReference = async () => {
     if (!selectedRefId) return;
     const refIdNum = parseInt(selectedRefId);
     const selectedRef = availableRefs.find(r => r.reference.id === refIdNum);
     if (!selectedRef) return;
 
-    // Check if already linked
     if (linkedRefs.some(r => r.reference.id === refIdNum)) {
       if (onAlert) onAlert("เอกสารนี้ถูกเชื่อมโยงแล้ว", "warning");
       else alert("เอกสารนี้ถูกเชื่อมโยงแล้ว");
       return;
     }
 
-    // Logic: Always update local state. References are saved on "Save" button click.
-
-    // Construct the new reference object (Optimistic)
-
-    // Construct the new reference object (Optimistic)
     const newRef: QuestionReferenceDetail = {
-      id: 0, // Temporary ID
+      id: 0,
       question_id: existingId || 'temp',
-      reference_id: selectedRef.reference.id, // Added reference_id
+      reference_id: selectedRef.reference.id,
       reference: selectedRef.reference,
       location_text: pageInput || null,
       display_order: linkedRefs.length + 1,
@@ -729,12 +746,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     };
 
     if (existingId) {
-      // Edit mode: Just update local state for now
       setLinkedRefs([...linkedRefs, newRef]);
       setSelectedRefId('');
       setPageInput('');
     } else {
-      // Creating mode: Just update local state
       setLinkedRefs([...linkedRefs, newRef]);
       setSelectedRefId('');
       setPageInput('');
@@ -742,7 +757,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   const handleRemoveReference = async (ref: QuestionReferenceDetail) => {
-    // Logic: Always update local state. Removal happens on "Save".
     setLinkedRefs(linkedRefs.filter(r => r.reference.id !== ref.reference.id));
   };
 
@@ -763,7 +777,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setGeneratedId(targetId);
           }
         }
-
         const friendlyPrefix = convertThaiToArabic(prefix);
         const newPath = await invoke<string>('upload_question_image', {
           path: selected,
@@ -791,23 +804,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   const handleSave = () => {
     if (!content.trim()) return;
-
-    // Validation for L1: Must have at least 1 reference
     if (isL1 && linkedRefs.length === 0) {
       if (onAlert) onAlert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ", "warning");
       else alert("กรุณาเลือกเอกสารอ้างอิงอย่างน้อย 1 รายการครับ");
       return;
     }
 
-    // Construct metadata string (Answer Key +/ Image +/ Other)
-    // Note: Image is handled by handleUpdate/handleCreate logic via returned generic 'image' field if not L1?
-    // Actually QuestionFormCard handles Image state locally and passes it as 'image' field.
-    // So 'metadata' from here mainly carries 'answerKey'.
-    // BUT we must preserve existing metadata if answerKey changes.
-
     let metadataString: string | undefined = undefined;
     if (answerKey.trim()) {
-      // Preserve existing metadata if needed
       let newMeta: any = {};
       if (initialMetadata) {
         try { newMeta = JSON.parse(initialMetadata); } catch (e) { }
@@ -815,7 +819,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       newMeta.answerKey = answerKey.trim();
       metadataString = JSON.stringify(newMeta);
     } else if (initialMetadata) {
-      // If clearing answerKey but keeping other metadata
       try {
         const existing = JSON.parse(initialMetadata);
         if (existing.answerKey) delete existing.answerKey;
@@ -829,7 +832,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       image: isL1 ? (imagePath || undefined) : undefined,
       id: !isEdit ? (generatedId || undefined) : undefined,
       references: isL1 ? linkedRefs : undefined,
-      metadata: metadataString // Pass metadata
+      metadata: metadataString
     });
   };
 
@@ -842,219 +845,155 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   return (
-    <div className="m-2 rounded-xl border-2 border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-4 shadow-xl shadow-blue-500/10 backdrop-blur-sm animate-in zoom-in-95 duration-200">
-      <div className="space-y-3">
+    <div className="m-1 rounded-lg border border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-3 shadow-md backdrop-blur-sm animate-in zoom-in-95 duration-200">
+      <div className="space-y-2">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
             {prefix}
           </span>
-          <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-            {isEdit ? '✏️ แก้ไขคำถาม' : '✨ เพิ่มคำถามใหม่'}
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+            {isEdit ? '✏️ แก้ไข' : '✨ สร้างใหม่'}
           </span>
         </div>
 
-        {/* Content (Main Question) */}
+        {/* Content (Main Question) - Compact & Auto-expanding */}
         <textarea
+          ref={contentRef}
           autoFocus
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="พิมพ์คำถาม..."
-          className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-slate-900/80 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 resize-none text-sm transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600"
-          rows={2}
+          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-slate-900/80 text-xs dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 resize-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 min-h-[36px] overflow-hidden leading-relaxed"
+          rows={1}
         />
 
-        {/* L1 Extras: Description & Image & References */}
+        {/* L1 Extras */}
         {isL1 && (
-          <div className="space-y-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
+          <div className="space-y-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
 
-            {/* Description */}
+            {/* Description - Auto-expanding */}
             <div>
-              <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">Description (อธิบายเพิ่มเติม)</label>
               <textarea
+                ref={descriptionRef}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="เช่น จากภาพ จงตอบคำถามต่อไปนี้..."
-                className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs"
-                rows={2}
+                placeholder="คำอธิบายเพิ่มเติม (Description)..."
+                className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs min-h-[34px] overflow-hidden"
+                rows={1}
               />
             </div>
 
-            {/* Linked References */}
-            <div>
-              <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">
-                เอกสารอ้างอิง ({linkedRefs.length}/2)
-              </label>
-
-              {/* List */}
-              <div className="space-y-2 mb-2">
-                {linkedRefs.map((ref, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs">
-                    <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
-                      <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">{ref.thai_letter ? `${ref.thai_letter}.` : '?.'}</span>
-                      {ref.reference.code} - {ref.reference.title} (หน้า {ref.location_text || '-'})
-                    </span>
-                    <button onClick={() => handleRemoveReference(ref)} className="text-red-400 hover:text-red-500">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add New (Limit 2) */}
-              {linkedRefs.length < 2 && (
-                <div className="flex gap-2">
-                  {availableRefs.length === 0 ? (
-                    <div className="flex-1 p-2 text-xs text-orange-500 bg-orange-50 border border-orange-200 rounded-lg flex items-center justify-between gap-2">
-                      <span>⚠️ ไม่พบเอกสารใน Section นี้ ({sectionId})</span>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (sectionId) {
-                            invoke<SectionReferenceDetail[]>('get_section_references', { sectionId })
-                              .then(refs => setAvailableRefs(refs))
-                              .catch(err => {
-                                if (onAlert) onAlert("Fetch error: " + err, 'danger');
-                                else alert("Fetch error: " + err);
-                              });
-                          } else {
-                            if (onAlert) onAlert("No Section ID", 'warning');
-                            else alert("No Section ID");
-                          }
-                        }}
-                        className="px-2 py-1 bg-white border border-orange-300 rounded hover:bg-orange-100"
-                      >
-                        Refresh
-                      </button>
+            {/* Collapsible References */}
+            <div className="border border-slate-200 dark:border-slate-700 rounded-md bg-white dark:bg-slate-900/30 overflow-hidden">
+              {/* Summary Header (Always Visible) */}
+              <div
+                className="flex items-center justify-between p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                onClick={() => setIsRefExpanded(!isRefExpanded)}
+              >
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">REF</span>
+                  {linkedRefs.length > 0 ? (
+                    <div className="flex gap-1 overflow-hidden">
+                      {linkedRefs.map((r, i) => (
+                        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800 truncate max-w-[150px]">
+                          {r.thai_letter}.{r.reference.code}
+                        </span>
+                      ))}
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-2 w-full">
-                      {/* 1. Custom Reference Picker (List) - MIRRORING Section Manager */}
-                      <div className="max-h-[200px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg bg-slate-50 dark:bg-slate-900 p-1 custom-scrollbar">
-                        {availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).length === 0 ? (
-                          <div className="text-center py-4 text-xs text-gray-400 italic">ไม่มีเอกสารเพิ่มเติมให้เลือก</div>
-                        ) : (
-                          availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).map(r => {
-                            const isSelected = selectedRefId === r.reference.id.toString();
-                            return (
-                              <div
-                                key={r.reference.id}
-                                onClick={() => setSelectedRefId(prev => prev === r.reference.id.toString() ? '' : r.reference.id.toString())}
-                                className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700' : 'hover:bg-gray-100 dark:hover:bg-slate-800 border border-transparent'}`}
-                              >
-                                {/* Thai Letter (Sequence) */}
-                                <span className={`text-sm font-bold w-6 text-center ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}>
-                                  {r.thai_letter}.
-                                </span>
+                    <span className="text-[10px] text-orange-400 dark:text-orange-500 italic">* required</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {linkedRefs.length < 2 && !isRefExpanded && (
+                    <span className="text-[9px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1 rounded animate-pulse">
+                      + Add
+                    </span>
+                  )}
+                  {isRefExpanded ? <ChevronDown className="w-3 h-3 text-slate-400" /> : <ChevronRight className="w-3 h-3 text-slate-400" />}
+                </div>
+              </div>
 
-                                {/* Icon (Resource Type) */}
-                                <div className={`shrink-0 w-6 h-6 rounded flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400'}`}>
-                                  {isSelected ? <CheckCircle className="w-3.5 h-3.5" /> :
-                                    r.reference.resource_type === 'WEBLINK' ? <Globe className="w-3.5 h-3.5 text-emerald-500" /> :
-                                      r.reference.resource_type === 'VIDEO' ? <Video className="w-3.5 h-3.5 text-purple-500" /> :
-                                        r.reference.resource_type === 'IMAGE' ? <ImageIcon className="w-3.5 h-3.5 text-blue-500" /> :
-                                          r.reference.resource_type === 'AUDIO' ? <Mic className="w-3.5 h-3.5 text-orange-500" /> :
-                                            r.reference.resource_type === 'TEMPLATE' ? <FileDigit className="w-3.5 h-3.5 text-slate-500" /> :
-                                              <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                  }
-                                </div>
-
-                                {/* Content & Classification (Inline) */}
-                                <div className="flex flex-col min-w-0 flex-1 justify-center">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1 rounded">{r.reference.code}</span>
-                                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate" title={r.reference.title}>{r.reference.title}</span>
-
-                                    {/* Classification Icon - Inline & Resized */}
-                                    {r.reference.classification && (
-                                      <div className="flex items-center ml-1" title={`Classification: ${r.reference.classification}`}>
-                                        {r.reference.classification === 'Secret' || r.reference.classification === 'Top Secret' ? (
-                                          <ShieldAlert className={`w-3.5 h-3.5 ${r.reference.classification === 'Top Secret' ? 'text-red-700' : 'text-red-500'}`} />
-                                        ) : r.reference.classification === 'Confidential' ? (
-                                          <ShieldCheck className="w-3.5 h-3.5 text-orange-500" />
-                                        ) : r.reference.classification === 'Restricted' ? (
-                                          <Shield className="w-3.5 h-3.5 text-yellow-500" />
-                                        ) : r.reference.classification === 'Unclassified' ? (
-                                          <Shield className="w-3.5 h-3.5 text-green-500" />
-                                        ) : (
-                                          <Shield className="w-3.5 h-3.5 text-slate-400" />
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Usage Badge - MIRRORING */}
-                                <div className="flex flex-col items-end gap-1">
-                                  {r.usage_count > 0 ? (
-                                    <span className="text-[10px] bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded-full border border-green-200 dark:border-green-800 whitespace-nowrap" title={`ถูกอ้างอิงแล้ว ${r.usage_count} ครั้ง`}>
-                                      Used: {r.usage_count}
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800 whitespace-nowrap opacity-80">
-                                      Unused
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        )}
+              {/* Expanded Content */}
+              {isRefExpanded && (
+                <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="space-y-2">
+                    {/* List of Linked Refs (Full Detail) */}
+                    {linkedRefs.map((ref, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs ">
+                        <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
+                          <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">{ref.thai_letter ? `${ref.thai_letter}.` : '?.'}</span>
+                          {ref.reference.title} (หน้า {ref.location_text || '-'})
+                        </span>
+                        <button onClick={() => handleRemoveReference(ref)} className="text-red-400 hover:text-red-500 p-0.5 hover:bg-red-50 rounded">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
+                    ))}
 
-                      {/* 2. Page Input & Add Button */}
-                      <div className="flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <input
-                            type="text"
-                            placeholder="ระบุเลขหน้า (e.g. -, 1-25)"
-                            value={pageInput}
-                            onChange={(e) => setPageInput(e.target.value)}
-                            className={`w-full p-2 text-xs border rounded-lg outline-none focus:ring-2 focus:ring-blue-500 ${pageInput === '-' ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/10 text-yellow-700 dark:text-yellow-400' : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}
-                          />
-                          {pageInput === '-' && (
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 group">
-                              <AlertTriangle className="w-4 h-4 text-yellow-500 cursor-help" />
-                              <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-800 text-white text-[10px] rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                                กรุณาพยายามเพิ่มเติมหน้าที่ใช้ออกคำถามจะสมบูรณ์ที่สุด
-                              </div>
-                            </div>
+                    {/* Add New Selector */}
+                    {linkedRefs.length < 2 && (
+                      <div className="flex flex-col gap-2 animate-in slide-in-from-top-1 duration-200">
+                        <div className="max-h-[150px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-slate-900 p-1 custom-scrollbar">
+                          {availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).length === 0 ? (
+                            <div className="text-center py-2 text-xs text-gray-400 italic">ไม่มีเอกสารเพิ่มเติม</div>
+                          ) : (
+                            availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).map(r => {
+                              const isSelected = selectedRefId === r.reference.id.toString();
+                              return (
+                                <div
+                                  key={r.reference.id}
+                                  onClick={() => setSelectedRefId(prev => prev === r.reference.id.toString() ? '' : r.reference.id.toString())}
+                                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent'}`}
+                                >
+                                  <span className={`text-xs font-bold w-5 text-center ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}>{r.thai_letter}.</span>
+                                  <div className={`shrink-0 w-5 h-5 rounded flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400'}`}>
+                                    {isSelected ? <CheckCircle className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+                                  </div>
+                                  <span className="text-xs text-slate-700 dark:text-slate-200 truncate flex-1">{r.reference.code} - {r.reference.title}</span>
+                                </div>
+                              );
+                            })
                           )}
                         </div>
-                        <Button variant="secondary" size="small" onClick={handleAddReference} disabled={!selectedRefId}>
-                          <Plus className="w-3 h-3 mr-1" /> เพิ่ม
-                        </Button>
+                        <div className="flex gap-1">
+                          <input
+                            type="text"
+                            placeholder="เลขหน้า (เช่น 1-5)"
+                            value={pageInput}
+                            onChange={(e) => setPageInput(e.target.value)}
+                            className="flex-1 p-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-slate-800 focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                          <Button variant="secondary" size="small" onClick={handleAddReference} disabled={!selectedRefId} className="h-full">
+                            <Plus className="w-3 h-3" />
+                          </Button>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Image */}
-            <div>
-              <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">Image (รูปภาพประกอบ)</label>
-
+            {/* Image (Compact) */}
+            <div className="flex items-center gap-2">
               {!imagePath ? (
                 <button
                   onClick={handleImageUpload}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-slate-500 dark:text-slate-400 transition-all w-full justify-center"
+                  className="text-xs text-slate-400 hover:text-blue-500 flex items-center gap-1 transition-colors px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
                 >
-                  <ImageIcon className="w-4 h-4" />
-                  <span className="text-xs">คลิกเพื่ออัปโหลดรูปภาพ</span>
+                  <ImageIcon className="w-3.5 h-3.5" />
+                  <span>แนบรูปภาพ</span>
                 </button>
               ) : (
                 <div className="relative group inline-block">
-                  <div className="w-32 h-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden relative">
-                    {/* Async Image Preview */}
-                    <AsyncImagePreview path={imagePath} />
+                  <div className="w-16 h-12 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden">
+                    <AsyncImagePreview path={imagePath} className="w-full h-full object-cover" />
                   </div>
-                  <button
-                    onClick={handleRemoveImage}
-                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full shadow-md hover:bg-red-600 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
+                  <button onClick={handleRemoveImage} className="absolute -top-1.5 -right-1.5 p-0.5 bg-red-500 text-white rounded-full shadow-sm hover:bg-red-600">
+                    <X className="w-2.5 h-2.5" />
                   </button>
                 </div>
               )}
@@ -1062,29 +1001,29 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Correct Answer (All Levels) */}
-        <div className="mt-3 pt-2 border-t border-slate-200/50 dark:border-slate-700/50">
-          <label className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1 block">Correct Answer (เฉลย)</label>
+        {/* Answer Key - Auto-expanding */}
+        <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
           <textarea
+            ref={answerKeyRef}
             value={answerKey}
             onChange={(e) => setAnswerKey(e.target.value)}
-            placeholder="คำตอบที่ถูกต้อง..."
-            className="w-full p-2.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-none text-xs"
-            rows={2}
+            placeholder="เฉลยคำตอบ (Answer Key)..."
+            className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-md bg-emerald-50 dark:bg-emerald-900/20 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 resize-none text-xs min-h-[34px] overflow-hidden"
+            rows={1}
           />
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-[11px] text-slate-300 dark:text-slate-600 select-none">
-            ⌨ Ctrl+Enter = บันทึก · Esc = ยกเลิก
+        <div className="flex items-center justify-between pt-1">
+          <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none">
+            Ctrl+Enter = บันทึก
           </span>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="small" icon={<X className="w-3.5 h-3.5" />} onClick={onCancel}>
+          <div className="flex gap-1.5">
+            <Button variant="ghost" size="small" icon={<X className="w-3 h-3" />} onClick={onCancel} className="h-7 text-xs px-2">
               ยกเลิก
             </Button>
-            <Button variant="primary" size="small" icon={<Save className="w-3.5 h-3.5" />} onClick={handleSave} disabled={!content.trim()}>
-              {isEdit ? 'บันทึก' : 'เพิ่มคำถาม'}
+            <Button variant="primary" size="small" icon={<Save className="w-3 h-3" />} onClick={handleSave} disabled={!content.trim()} className="h-7 text-xs px-2">
+              {isEdit ? 'บันทึก' : 'เพิ่ม'}
             </Button>
           </div>
         </div>
@@ -1237,7 +1176,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         <div className="truncate pr-8" title={question.content}>
           <span className={isL1 ? 'font-semibold' : 'font-normal'}>{question.content}</span>
           {isL1 && question.references && question.references.length > 0 && (
-            <span className="ml-2 text-sm text-slate-500 font-normal">
+            <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
               ({question.references.map(ref => `${ref.thai_letter || '?'}.${ref.location_text || '-'}`).join(', ')})
             </span>
           )}
@@ -1334,7 +1273,7 @@ const QuestionMetadataDisplay: React.FC<{ metadata: string; onImageClick?: (src:
       {/* Answer Key Display (Last) */}
       {data.answerKey && (
         <div className="flex items-start gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
-          <span className="font-bold">เฉลย:</span>
+          <span className="text-slate-900 dark:text-slate-100">เฉลย:</span>
           <span className="whitespace-pre-wrap">{data.answerKey}</span>
         </div>
       )}
