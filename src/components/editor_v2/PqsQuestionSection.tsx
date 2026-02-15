@@ -519,7 +519,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
   if (editingId === question.id) {
     return (
-      <div className={level > 0 ? 'ml-6' : ''}>
+      <div className={level > 0 ? 'ml-12' : ''}>
         <QuestionFormCard
           prefix={prefix}
           level={level}
@@ -576,7 +576,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
       {/* Insert After Form */}
       {isCreating && insertingAfterId === question.id && (
-        <div className={level > 0 ? 'ml-6' : ''}>
+        <div className={level > 0 ? 'ml-12' : ''}>
           <QuestionFormCard
             prefix={buildPrefix(level, question.sequence + 1, sectionNumber)} // Optimistic next number
             level={level} // Insert sibling has same level
@@ -626,7 +626,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
       {/* Add Sub Form (Append) */}
       {isCreating && creatingAtParent === question.id && (
-        <div className="ml-6 mt-1 mb-1">
+        <div className="ml-12 mt-1 mb-1">
           <QuestionFormCard
             prefix={buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
             level={level + 1}
@@ -760,10 +760,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       setSelectedRefId('');
       setPageInput('');
     }
+
+    // Clear reference validation error if it exists
+    if (errors.refs) setErrors(prev => ({ ...prev, refs: false }));
   };
 
   const handleRemoveReference = async (ref: QuestionReferenceDetail) => {
-    setLinkedRefs(linkedRefs.filter(r => r.reference.id !== ref.reference.id));
+    const updatedRefs = linkedRefs.filter(r => r.reference.id !== ref.reference.id);
+    setLinkedRefs(updatedRefs);
+
+    // Also clear error state on removal to signal fresh state
+    if (errors.refs) setErrors(prev => ({ ...prev, refs: false }));
   };
 
   const handleImageUpload = async () => {
@@ -1282,7 +1289,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       group relative flex items-start gap-3 px-4 py-3 transition-all duration-150
       ${isL1
         ? 'bg-white dark:bg-slate-800'
-        : 'bg-slate-50/50 dark:bg-slate-800/50 ml-6'
+        : 'bg-slate-50/50 dark:bg-slate-800/50 ml-12'
       }
       ${!isLast ? 'border-b border-gray-100 dark:border-slate-700/50' : ''}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
@@ -1290,8 +1297,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
       {/* L2 connector dot */}
       {!isL1 && (
-        <div className="absolute left-[6px] top-[24px] -translate-y-1/2 flex items-center">
-          <div className="w-[18px] h-px bg-blue-200 dark:bg-blue-800" />
+        <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
+          <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
         </div>
       )}
