@@ -678,7 +678,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
   const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
   const [selectedRefId, setSelectedRefId] = useState<string>('');
-  const [pageInput, setPageInput] = useState<string>('-');
+  const [pageInput, setPageInput] = useState<string>('');
   const [answerKey, setAnswerKey] = useState<string>(() => {
     if (!initialMetadata) return '';
     try {
@@ -703,7 +703,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // Auto-resize textarea helper (Strict)
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
     if (!el) return;
-    el.style.height = 'auto';
+    el.style.height = '0px';
     el.style.height = el.scrollHeight + 'px';
   };
 
@@ -886,10 +886,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
               {prefix}
             </span>
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
               {isEdit ? '✏️ แก้ไข' : '✨ สร้างใหม่'}
             </span>
           </div>
@@ -925,7 +925,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
         {/* Content (Main Question) - Compact & Auto-expanding */}
         <div>
-          <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
             คำถาม (Question) <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -938,7 +938,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder="พิมพ์คำถาม..."
-            className={`w-full p-2 border rounded-md text-xs resize-none transition-all min-h-[36px] overflow-hidden leading-relaxed
+            className={`w-full p-2 border rounded-md text-sm font-semibold resize-none min-h-[36px] overflow-hidden leading-relaxed
               ${errors.content
                 ? 'border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300'
                 : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600'
@@ -954,7 +954,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             {/* Description - Auto-expanding (Optional) */}
             {showDescription && (
               <div className="group/desc animate-in slide-in-from-top-1">
-                <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                   คำอธิบาย (Description)
                 </label>
                 <div className="relative">
@@ -963,7 +963,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                    className="w-full p-2 pr-7 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-xs min-h-[34px] overflow-hidden"
+                    className="w-full p-2 pr-7 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-sm min-h-[34px] overflow-hidden"
                     rows={1}
                   />
                   <button
@@ -981,70 +981,56 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             )}
 
             {/* References Label */}
-            <label className="block text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
-              เอกสารอ้างอิง (References)
+            <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
+              <span>เอกสารอ้างอิง (References)</span>
+              <span className={`text-xs font-normal Normal ${errors.refs ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                (เลือกแล้ว {linkedRefs.length}/2 รายการ) <span className="text-red-500">*</span>
+              </span>
             </label>
 
             {/* Collapsible References */}
-            <div className={`border rounded-md overflow-hidden transition-colors ${errors.refs
-              ? 'border-red-500 bg-red-50 dark:bg-red-900/10'
-              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/30'
-              }`}>
-              {/* Summary Header (Always Visible) */}
-              <div
-                className="flex items-center justify-between p-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                onClick={() => {
-                  setIsRefExpanded(!isRefExpanded);
-                  if (errors.refs) setErrors(prev => ({ ...prev, refs: false }));
-                }}
-              >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${errors.refs ? 'text-red-500' : 'text-slate-400 dark:text-slate-500'
-                    }`}>
-                    {linkedRefs.length === 0 ? 'ยังไม่ได้เลือก (None Selected)' : `เลือกแล้ว (${linkedRefs.length}/2 รายการ)`} <span className="text-red-500">*</span>
-                  </span>
-                  {linkedRefs.length > 0 ? (
-                    <div className="flex gap-1 overflow-hidden">
-                      {linkedRefs.map((r, i) => (
-                        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-800 truncate max-w-[150px]">
-                          {r.thai_letter}.{r.reference.code}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-[10px] text-orange-400 dark:text-orange-500 italic">* required</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1">
-                  {linkedRefs.length < 2 && !isRefExpanded && (
-                    <span className="text-[9px] text-blue-500 bg-blue-50 dark:bg-blue-900/20 px-1 rounded animate-pulse">
-                      + Add
+            <div className={`rounded-md overflow-hidden space-y-2 ${errors.refs ? 'p-2 border border-red-500 bg-red-50 dark:bg-red-900/10' : ''}`}>
+
+              {/* 1. Selected References List (Always Visible) */}
+              <div className="space-y-1">
+                {linkedRefs.map((ref, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-sm group/ref-item shadow-sm">
+                    <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
+                      <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">{ref.thai_letter ? `${ref.thai_letter}.` : '?.'}</span>
+                      {ref.reference.title} <span className="text-slate-400 ml-1">(หน้า {ref.location_text || '-'})</span>
                     </span>
-                  )}
-                  {isRefExpanded ? <ChevronDown className="w-3 h-3 text-slate-400" /> : <ChevronRight className="w-3 h-3 text-slate-400" />}
-                </div>
+                    <button
+                      onClick={() => handleRemoveReference(ref)}
+                      className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      title="ลบเอกสารอ้างอิง"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
 
-              {/* Expanded Content */}
-              {isRefExpanded && (
-                <div className="p-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                  <div className="space-y-2">
-                    {/* List of Linked Refs (Full Detail) */}
-                    {linkedRefs.map((ref, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs group/ref-item">
-                        <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
-                          <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">{ref.thai_letter ? `${ref.thai_letter}.` : '?.'}</span>
-                          {ref.reference.title} (หน้า {ref.location_text || '-'})
-                        </span>
-                        <button onClick={() => handleRemoveReference(ref)} className="text-slate-300 hover:text-red-500 p-0.5 transition-colors opacity-100 sm:opacity-0 sm:group-hover/ref-item:opacity-100" title="ลบเอกสารอ้างอิง">
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
+              {/* 2. Add Reference Section (Collapsible) */}
+              {linkedRefs.length < 2 && (
+                <div className={`border rounded-md transition-all duration-200 ${isRefExpanded
+                  ? 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20'
+                  : 'border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50 dark:bg-slate-900/30'
+                  }`}>
+                  {/* Toggle Header */}
+                  <div
+                    className="flex items-center justify-between p-2 cursor-pointer"
+                    onClick={() => setIsRefExpanded(!isRefExpanded)}
+                  >
+                    <span className={`text-xs font-medium ${isRefExpanded ? 'text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                      {isRefExpanded ? 'ซ่อนตัวเลือก (Hide Options)' : '+ เพิ่มเอกสารอ้างอิง (Add Reference)'}
+                    </span>
+                    {isRefExpanded ? <ChevronDown className="w-4 h-4 text-blue-500" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                  </div>
 
-                    {/* Add New Selector */}
-                    {linkedRefs.length < 2 && (
-                      <div className="flex flex-col gap-2 animate-in slide-in-from-top-1 duration-200">
+                  {/* Selector Content */}
+                  {isRefExpanded && (
+                    <div className="p-2 border-t border-blue-100 dark:border-blue-800/50">
+                      <div className="flex flex-col gap-2 animate-in slide-in-from-top-1">
                         <div className="max-h-[150px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-slate-900 p-1 custom-scrollbar">
                           {availableRefs.filter(avail => !linkedRefs.some(linked => linked.reference.id === avail.reference.id)).length === 0 ? (
                             <div className="text-center py-2 text-xs text-gray-400 italic">ไม่มีเอกสารเพิ่มเติม</div>
@@ -1070,18 +1056,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         <div className="flex gap-1">
                           <input
                             type="text"
-                            placeholder="เลขหน้า (เช่น 1-5)"
+                            placeholder="เลขหน้า (เช่น 25, 1-5) ไม่ป้อนเลขหน้า จะแสดง -"
                             value={pageInput}
                             onChange={(e) => setPageInput(e.target.value)}
-                            className="flex-1 p-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-slate-800 focus:ring-1 focus:ring-blue-500 outline-none"
+                            className="flex-1 px-2 py-1 h-8 text-sm text-slate-900 dark:text-slate-100 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-slate-800 focus:ring-1 focus:ring-blue-500 outline-none placeholder:text-slate-400"
                           />
-                          <Button variant="secondary" size="small" onClick={handleAddReference} disabled={!selectedRefId} className="h-full">
-                            <Plus className="w-3 h-3" />
+                          <Button variant="outline" size="small" onClick={handleAddReference} disabled={!selectedRefId} icon={<Plus className="w-3 h-3" />} className="h-8 text-xs px-3">
+                            เพิ่ม
                           </Button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1104,7 +1090,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
         {/* Answer Key - Auto-expanding */}
         <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-          <label className="block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
             เฉลย (Answer Key) <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -1115,10 +1101,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
             }}
             placeholder="เฉลยคำตอบ (Answer Key)..."
-            className={`w-full p-2 border rounded-md text-xs resize-none min-h-[34px] overflow-hidden
+            className={`w-full p-2 border rounded-md text-sm font-normal resize-none min-h-[34px] overflow-hidden
               ${errors.answerKey
                 ? 'border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100'
-                : 'border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-slate-700 dark:text-slate-300 focus:ring-emerald-500/50'
+                : 'border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500/50'
               } focus:outline-none focus:ring-1`}
             rows={1}
           />
@@ -1126,9 +1112,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-1">
-          <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none">
-            Ctrl+Enter = บันทึก
-          </span>
+          <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none"></span>
           <div className="flex gap-1.5">
             <Button variant="outline" size="small" icon={<X className="w-3 h-3" />} onClick={onCancel} className="h-7 text-xs px-2">
               ยกเลิก
@@ -1305,7 +1289,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         </div>
 
         {isL1 && question.description && (
-          <div className="mt-1 text-sm font-normal text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{question.description}</div> // Description: Match L2 style
+          <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">{question.description}</div> // Description: Match L2 style
         )}
         {question.metadata && (
           <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
@@ -1394,7 +1378,7 @@ const QuestionMetadataDisplay: React.FC<{ metadata: string; onImageClick?: (src:
 
       {/* Answer Key Display (Last) */}
       {data.answerKey && (
-        <div className="flex items-start gap-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+        <div className="flex items-start gap-2 text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
           <span className="text-slate-900 dark:text-slate-100">เฉลย:</span>
           <span className="whitespace-pre-wrap">{data.answerKey}</span>
         </div>
