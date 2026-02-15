@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
-import { Plus, Trash2, ImageIcon, X, Save, FileQuestion, Layers, ArrowUp, ArrowDown, MessageSquarePlus, Edit, ChevronDown, ChevronRight, CheckCircle, FileText, MoreVertical } from 'lucide-react';
+import { Plus, Trash2, ImageIcon, X, Save, FileQuestion, Layers, ArrowUp, ArrowDown, MessageSquarePlus, Edit, ChevronDown, ChevronRight, CheckCircle, FileText, MoreVertical, Shield, Lock, Globe, Video, Image, Mic, FileDigit } from 'lucide-react';
 import Button from '../ui/Button';
 import DropdownMenu, { DropdownMenuItem } from '../ui/DropdownMenu';
 import { invoke } from '@tauri-apps/api/tauri';
@@ -1041,13 +1041,65 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 <div
                                   key={r.reference.id}
                                   onClick={() => setSelectedRefId(prev => prev === r.reference.id.toString() ? '' : r.reference.id.toString())}
-                                  className={`flex items-center gap-2 p-1.5 rounded cursor-pointer transition-colors ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent'}`}
+                                  className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors border-b border-gray-100 dark:border-slate-800/50 last:border-0 ${isSelected ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700' : 'hover:bg-gray-50 dark:hover:bg-slate-800 border-transparent'}`}
                                 >
-                                  <span className={`text-xs font-bold w-5 text-center ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}>{r.thai_letter}.</span>
-                                  <div className={`shrink-0 w-5 h-5 rounded flex items-center justify-center border ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400'}`}>
-                                    {isSelected ? <CheckCircle className="w-3 h-3" /> : <FileText className="w-3 h-3" />}
+                                  {/* Thai Letter */}
+                                  <span className={`text-[10px] font-bold w-5 text-center ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {r.thai_letter}.
+                                  </span>
+
+                                  {/* Selection Checkbox/Icon Area */}
+                                  <div className={`shrink-0 w-6 h-6 rounded flex items-center justify-center border cursor-default ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400'}`}>
+                                    {isSelected ? (
+                                      <CheckCircle className="w-4 h-4" />
+                                    ) : (
+                                      // Resource Type Icon
+                                      <>
+                                        {r.reference.resource_type === 'WEBLINK' ? <Globe className="w-3.5 h-3.5 text-emerald-500" /> :
+                                          r.reference.resource_type === 'VIDEO' ? <Video className="w-3.5 h-3.5 text-purple-500" /> :
+                                            r.reference.resource_type === 'IMAGE' ? <Image className="w-3.5 h-3.5 text-blue-500" /> :
+                                              r.reference.resource_type === 'AUDIO' ? <Mic className="w-3.5 h-3.5 text-orange-500" /> :
+                                                r.reference.resource_type === 'TEMPLATE' ? <FileDigit className="w-3.5 h-3.5 text-slate-500" /> :
+                                                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                        }
+                                      </>
+                                    )}
                                   </div>
-                                  <span className="text-xs text-slate-700 dark:text-slate-200 truncate flex-1">{r.reference.code} - {r.reference.title}</span>
+
+                                  {/* Title Area */}
+                                  <div className="flex-1 min-w-0 flex items-center gap-2">
+                                    <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
+                                      {r.reference.code}
+                                    </span>
+                                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate" title={r.reference.title}>
+                                      {r.reference.title}
+                                    </span>
+                                  </div>
+
+                                  {/* Status Area (Usage + Class) */}
+                                  <div className="shrink-0 flex items-center gap-2">
+                                    {/* Usage Badge */}
+                                    {r.usage_count > 0 ? (
+                                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                        Used: {r.usage_count}
+                                      </span>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/20 opacity-80">
+                                        Unused
+                                      </span>
+                                    )}
+
+                                    {/* Classification Icon */}
+                                    <div className="flex items-center" title={r.reference.classification || 'Unclassified'}>
+                                      {r.reference.classification === 'Confidential' || r.reference.classification === 'Secret' ? (
+                                        <Lock className="w-3.5 h-3.5 text-red-500" />
+                                      ) : r.reference.classification === 'Restricted' ? (
+                                        <Shield className="w-3.5 h-3.5 text-blue-500" />
+                                      ) : (
+                                        <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             })
