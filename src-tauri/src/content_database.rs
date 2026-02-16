@@ -529,6 +529,7 @@ pub struct QuestionChoice {
     pub sequence: i32,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Reference {
     pub id: i32,
@@ -549,6 +550,7 @@ pub struct DocumentReference {
     pub created_at: String,
     pub updated_at: Option<String>,
 }
+#[allow(dead_code)]
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct QuestionReference {
     pub id: i32,
@@ -558,6 +560,7 @@ pub struct QuestionReference {
     pub display_order: i32,
 }
 
+#[allow(dead_code)]
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct UserAnswer {
     pub id: i32,
@@ -1507,6 +1510,7 @@ pub struct CreateReferenceRequest {
     pub pqs_id: Option<String>, // Optional: PQS Document ID for folder organization
 }
 
+#[allow(dead_code)]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SectionReference {
     pub id: i64,

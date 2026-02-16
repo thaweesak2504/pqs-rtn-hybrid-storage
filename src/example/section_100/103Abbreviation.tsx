@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { abbreviationData, documentMeta } from './abbreviationData';
-import { UINode, CheckboxItem } from '../section_200/types';
+import React, { useState } from "react";
+import { UINode } from "../section_200/types";
+import { abbreviationData, documentMeta } from "./abbreviationData";
 
 const Abbreviation103: React.FC = () => {
   const [showAnswers, setShowAnswers] = useState(false);
@@ -12,28 +12,64 @@ const Abbreviation103: React.FC = () => {
   };
 
   const toThaiNumber = (num: number) => {
-    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
+    const thaiDigits = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
+    return num
+      .toString()
+      .split("")
+      .map((d) => thaiDigits[parseInt(d)] || d)
+      .join("");
   };
 
-  const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ'];
+  const thaiAlpha = [
+    "ก",
+    "ข",
+    "ค",
+    "ง",
+    "จ",
+    "ฉ",
+    "ช",
+    "ซ",
+    "ฌ",
+    "ญ",
+    "ฎ",
+    "ฏ",
+    "ฐ",
+    "ฑ",
+    "ฒ",
+    "ณ",
+    "ด",
+    "ต",
+    "ถ",
+    "ท",
+    "ธ",
+    "น",
+    "บ",
+    "ป",
+    "ผ",
+    "ฝ",
+    "พ",
+    "ฟ",
+    "ภ",
+    "ม",
+    "ย",
+    "ร",
+    "ล",
+    "ว",
+    "ศ",
+    "ษ",
+    "ส",
+    "ห",
+    "ฬ",
+    "อ",
+    "ฮ",
+  ];
 
-  const renderCheckboxes = (checkboxes: boolean[]) => (
-    <div className="flex gap-2 ml-4">
-      {checkboxes.map((isChecked, idx) => (
-        <label key={idx} className="flex items-center mt-3">
-          <input
-            type="checkbox"
-            checked={isChecked}
-            readOnly
-            className="w-[0.7em] h-[0.7em] text-blue-600 rounded focus:ring-blue-500"
-          />
-        </label>
-      ))}
-    </div>
-  );
-
-  const renderQuestion = (item: UINode, index: number, level: number = 1, parentPath: string = "") => {
+  const renderQuestion = (
+    item: UINode,
+    index: number,
+    level: number = 1,
+    parentPath: string = "",
+  ) => {
     let currentPath = "";
     let questionLabel = "";
 
@@ -46,12 +82,10 @@ const Abbreviation103: React.FC = () => {
       questionLabel = `${thaiAlpha[index]}.`;
     }
 
-    const fullPathForAnswer = level === 1 ? currentPath : `${parentPath} ${questionLabel}`;
-
     const renderChildren = () => {
       if (!item.children || item.children.length === 0) return null;
 
-      const isGrid = item.childLayout === 'grid';
+      const isGrid = item.childLayout === "grid";
       const containerClass = isGrid
         ? "grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 mt-4 ml-[8ch]"
         : "list-none space-y-2 mt-2"; // Standard list behavior
@@ -69,7 +103,9 @@ const Abbreviation103: React.FC = () => {
                   </div>
                   {showAnswers && child.answerCheckboxes && (
                     <div className="mt-1 ml-[3ch] p-2 border border-gray-300 dark:border-github-border-primary rounded bg-gray-50 dark:bg-github-bg-tertiary">
-                      <span className="font-normal">{currentPath} {thaiAlpha[childIdx]}. : </span>
+                      <span className="font-normal">
+                        {currentPath} {thaiAlpha[childIdx]}. :{" "}
+                      </span>
                       {child.answerCheckboxes[0]?.text}
                     </div>
                   )}
@@ -89,21 +125,24 @@ const Abbreviation103: React.FC = () => {
         {/* Main Question Display */}
         {level === 1 && (
           <div className="flex items-baseline">
-            <span className={`${level === 1 ? "min-w-[8ch]" : "min-w-[4ch]"} ${level > 1 ? "ml-[4ch]" : ""}`}>{questionLabel}</span>
+            <span
+              className={`${level === 1 ? "min-w-[8ch]" : "min-w-[4ch]"} ${level > 1 ? "ml-[4ch]" : ""}`}
+            >
+              {questionLabel}
+            </span>
             <span className="flex-1">{item.q}</span>
           </div>
         )}
 
         {/* Answers for Level 1 (if any, though rare for abbreviation parent) */}
         {showAnswers && level === 1 && item.answerCheckboxes && (
-          <div className={`mt-2 ${level === 1 ? 'ml-[8ch]' : 'ml-[8ch]'}`}>
+          <div className={`mt-2 ${level === 1 ? "ml-[8ch]" : "ml-[8ch]"}`}>
             {/* Similar answer rendering as other sections if needed */}
           </div>
         )}
 
         {/* Children (The abbreviations) */}
         {renderChildren()}
-
       </li>
     );
   };
@@ -123,7 +162,7 @@ const Abbreviation103: React.FC = () => {
                   onClick={toggleAllAnswers}
                   className="px-3 py-1 border border-gray-400 dark:border-github-border-primary bg-gray-200 dark:bg-github-bg-muted hover:bg-gray-300 dark:hover:bg-github-bg-hover text-black dark:text-github-text-primary rounded text-sm transition-colors whitespace-nowrap ml-4"
                 >
-                  {showAnswers ? 'ซ่อนคำตอบ' : 'แสดงคำตอบ'}
+                  {showAnswers ? "ซ่อนคำตอบ" : "แสดงคำตอบ"}
                 </button>
               </div>
 

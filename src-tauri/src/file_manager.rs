@@ -8,6 +8,7 @@ use tauri::Config;
 use lazy_static::lazy_static;
 use crate::logger;
 
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
     pub path: String,
