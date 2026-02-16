@@ -13,7 +13,7 @@ edition = "2021"
 tauri-build = { version = "1.5.6", features = [] }
 
 [dependencies]
-tauri = { version = "1.8.3", features = [ "window-set-always-on-top", "window-set-focus", "window-set-cursor-icon", "window-set-cursor-grab", "window-set-cursor-position", "window-set-ignore-cursor-events", "window-set-skip-taskbar", "window-set-position", "window-set-min-size", "window-set-fullscreen", "window-set-icon", "window-set-resizable", "window-print", "window-set-size", "window-set-decorations", "window-set-cursor-visible", "window-set-max-size", "window-maximize", "window-show", "window-unmaximize", "window-start-dragging", "window-close", "window-minimize", "window-unminimize", "window-hide", "fs-exists", "fs-read-file", "shell-open", "dialog-ask", "dialog-save", "fs-remove-file", "fs-copy-file", "dialog-message", "fs-create-dir", "fs-write-file", "dialog-confirm", "fs-rename-file", "fs-remove-dir", "path-all", "fs-read-dir", "dialog-open"] }
+tauri = { version = "1.8.3", features = [ "protocol-asset", "window-all", "fs-exists", "fs-read-file", "shell-open", "dialog-ask", "dialog-save", "fs-remove-file", "fs-copy-file", "dialog-message", "fs-create-dir", "fs-write-file", "dialog-confirm", "fs-rename-file", "fs-remove-dir", "path-all", "fs-read-dir", "dialog-open"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 rusqlite = { version = "0.30", features = ["bundled"] }

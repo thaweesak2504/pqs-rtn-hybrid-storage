@@ -7,9 +7,132 @@ const HeaderMenuBar: React.FC = () => {
 
   const [open, setOpen] = React.useState<string | null>(null)
   const barRef = React.useRef<HTMLDivElement | null>(null)
+  // Actions
+  const handleNewWindow = async () => {
+    try {
+      const { WebviewWindow } = await import('@tauri-apps/api/window')
+      const label = `win-${Date.now()}`
+      const webview = new WebviewWindow(label, {
+        url: 'index.html',
+        title: 'Pqs Hybrid Storage',
+        width: 1200,
+        height: 800,
+      })
+      webview.once('tauri://created', function () {
+        console.log('New window created')
+      })
+      webview.once('tauri://error', function (e) {
+        console.error('Error creating new window', e)
+      })
+    } catch (error) {
+      console.error('New window failed:', error)
+    }
+  }
+
+  const handleCloseWindow = async () => {
+    try {
+      const { getCurrent } = await import('@tauri-apps/api/window')
+      const currentWindow = getCurrent()
+      await currentWindow.close()
+    } catch (error) {
+      console.error('Close window failed:', error)
+    }
+  }
+
+  const handleZoomIn = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri')
+      await invoke('zoom_in')
+    } catch (error) {
+      console.error('Zoom in failed:', error)
+    }
+  }
+
+  const handleZoomOut = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri')
+      await invoke('zoom_out')
+    } catch (error) {
+      console.error('Zoom out failed:', error)
+    }
+  }
+
+  const handleZoomReset = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri')
+      await invoke('zoom_reset')
+    } catch (error) {
+      console.error('Zoom reset failed:', error)
+    }
+  }
+
+  const handleReload = () => {
+    try {
+      window.location.reload()
+    } catch (error) {
+      console.error('Reload failed:', error)
+    }
+  }
+
+  const handleToggleDevTools = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/tauri')
+      try {
+        await invoke('toggle_devtools')
+      } catch (error) {
+        console.log('Use Ctrl+Shift+I to toggle developer tools')
+      }
+    } catch (error) {
+      console.error('Toggle dev tools failed:', error)
+    }
+  }
+
   React.useEffect(() => {
     const onClick = (e: MouseEvent) => { if (barRef.current && !barRef.current.contains(e.target as Node)) setOpen(null) }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(null) }
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(null)
+
+      // Shortcuts - Use e.code to be layout-independent (works with Thai keyboard)
+      if (e.ctrlKey) {
+        switch (e.code) {
+          case 'KeyN':
+            e.preventDefault() // Prevent default browser new window
+            handleNewWindow()
+            break
+          case 'KeyW':
+            e.preventDefault()
+            handleCloseWindow()
+            break
+          case 'Equal':
+          case 'NumpadAdd':
+            e.preventDefault()
+            handleZoomIn()
+            break
+          case 'Minus':
+          case 'NumpadSubtract':
+            e.preventDefault()
+            handleZoomOut()
+            break
+          case 'Digit0':
+          case 'Numpad0':
+            e.preventDefault()
+            handleZoomReset()
+            break
+          case 'KeyR':
+            // Allow default reload or handle custom
+            // Ctrl+Shift+R is handled by browser usually, but we can intercept if needed
+            break
+          default:
+            break
+        }
+      }
+
+      if (e.code === 'F12') {
+        handleToggleDevTools()
+      }
+    }
+
     document.addEventListener('click', onClick)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('click', onClick); document.removeEventListener('keydown', onKey) }
@@ -20,15 +143,9 @@ const HeaderMenuBar: React.FC = () => {
   const sep: Item = { label: '-', type: 'separator' }
 
   const fileItems: Item[] = [
-    mk('Close Window', async () => {
-      try {
-        const { getCurrent } = await import('@tauri-apps/api/window')
-        const currentWindow = getCurrent()
-        await currentWindow.close()
-      } catch (error) {
-        console.error('Close window failed:', error)
-      }
-    }, 'Ctrl+W'),
+    mk('New Window', handleNewWindow, 'Ctrl+N'),
+    sep,
+    mk('Close Window', handleCloseWindow, 'Ctrl+W'),
     sep,
     mk('Exit', async () => {
       try {
@@ -43,64 +160,31 @@ const HeaderMenuBar: React.FC = () => {
 
   const editItems: Item[] = [
     mk('Undo', () => {
-      // Tauri doesn't have built-in edit operations, disable for now
       console.log('Undo not implemented in Tauri')
     }, 'Ctrl+Z', true),
     mk('Redo', () => {
-      // Tauri doesn't have built-in edit operations, disable for now
       console.log('Redo not implemented in Tauri')
     }, 'Ctrl+Y', true),
     sep,
     mk('Cut', () => {
-      // Tauri doesn't have built-in edit operations, disable for now
       console.log('Cut not implemented in Tauri')
     }, 'Ctrl+X', true),
     mk('Copy', () => {
-      // Tauri doesn't have built-in edit operations, disable for now
       console.log('Copy not implemented in Tauri')
     }, 'Ctrl+C', true),
     mk('Paste', () => {
-      // Tauri doesn't have built-in edit operations, disable for now
       console.log('Paste not implemented in Tauri')
     }, 'Ctrl+V', true),
     mk('Select All', () => {
-      // Tauri doesn't have built-in edit operations, disable for now
       console.log('Select All not implemented in Tauri')
     }, 'Ctrl+A', true),
   ]
   const viewItems: Item[] = [
-    mk('Zoom In', async () => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/tauri')
-        await invoke('zoom_in')
-      } catch (error) {
-        console.error('Zoom in failed:', error)
-      }
-    }, 'Ctrl+Plus'),
-    mk('Zoom Out', async () => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/tauri')
-        await invoke('zoom_out')
-      } catch (error) {
-        console.error('Zoom out failed:', error)
-      }
-    }, 'Ctrl+Minus'),
-    mk('Actual Size', async () => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/tauri')
-        await invoke('zoom_reset')
-      } catch (error) {
-        console.error('Zoom reset failed:', error)
-      }
-    }, 'Ctrl+0'),
+    mk('Zoom In', handleZoomIn, 'Ctrl+Plus'),
+    mk('Zoom Out', handleZoomOut, 'Ctrl+Minus'),
+    mk('Actual Size', handleZoomReset, 'Ctrl+0'),
     sep,
-    mk('Reload', () => {
-      try {
-        window.location.reload()
-      } catch (error) {
-        console.error('Reload failed:', error)
-      }
-    }, 'Ctrl+R'),
+    mk('Reload', handleReload, 'Ctrl+R'),
     mk('Force Reload', () => {
       try {
         window.location.reload()
@@ -109,25 +193,11 @@ const HeaderMenuBar: React.FC = () => {
       }
     }, 'Ctrl+Shift+R'),
     sep,
-    mk('Toggle Developer Tools', async () => {
-      try {
-        // Tauri supports dev tools via keyboard shortcut
-        // We can simulate the keyboard event or use a different approach
-        const { invoke } = await import('@tauri-apps/api/tauri')
-        // Try to invoke a custom command if available
-        try {
-          await invoke('toggle_devtools')
-        } catch (error) {
-          // Fallback: show message that user should use Ctrl+Shift+I
-          console.log('Use Ctrl+Shift+I to toggle developer tools')
-          alert('Use Ctrl+Shift+I to toggle developer tools')
-        }
-      } catch (error) {
-        console.error('Toggle dev tools failed:', error)
-      }
-    }, 'F12'),
+    mk('Toggle Developer Tools', handleToggleDevTools, 'F12'),
   ]
   const windowItems: Item[] = [
+    mk('New Window', handleNewWindow, 'Ctrl+N'),
+    sep,
     mk('Minimize', async () => {
       try {
         const { getCurrent } = await import('@tauri-apps/api/window')
@@ -146,17 +216,9 @@ const HeaderMenuBar: React.FC = () => {
         console.error('Toggle maximize failed:', error)
       }
     }),
-    mk('Close', async () => {
-      try {
-        const { getCurrent } = await import('@tauri-apps/api/window')
-        const currentWindow = getCurrent()
-        await currentWindow.close()
-      } catch (error) {
-        console.error('Close failed:', error)
-      }
-    }, 'Ctrl+W'),
+    mk('Close', handleCloseWindow, 'Ctrl+W'),
   ]
-  const helpItems: Item[] = [ 
+  const helpItems: Item[] = [
     mk('About', () => {
       setShowAbout(true)
       setOpen(null)
@@ -216,11 +278,11 @@ const HeaderMenuBar: React.FC = () => {
         <TopBtn id="window" label="Window" items={windowItems} />
         <TopBtn id="help" label="Help" items={helpItems} />
       </div>
-      
+
       {/* About Dialog */}
-      <AboutDialog 
-        isOpen={showAbout} 
-        onClose={() => setShowAbout(false)} 
+      <AboutDialog
+        isOpen={showAbout}
+        onClose={() => setShowAbout(false)}
       />
     </>
   )

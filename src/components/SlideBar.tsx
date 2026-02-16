@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { ChevronDown, ChevronRight, X, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react'
+import { ChevronDown, ChevronRight, X, ChevronLeft, ChevronRight as ChevronRightIcon, Lock } from 'lucide-react'
 import { useSlideBar } from '../hooks/useSlideBar'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigationState } from '../hooks/useNavigationState'
@@ -7,25 +7,25 @@ import { useNavigationHandlers } from '../hooks/useNavigationHandlers'
 import { useRouterSync } from '../hooks/useRouterSync'
 import { useNavigationHistory } from '../hooks/useNavigationHistory'
 import Button from './ui/Button'
-import { 
-  MENU_ITEMS_CONFIG, 
+import {
+  MENU_ITEMS_CONFIG,
   AUTH_MENU_ITEMS
 } from '../config/navigationConfig'
 
 const SlideBar: React.FC = () => {
   const { isOpen, closeSlideBar } = useSlideBar()
   const { isAuthenticated, signOut, user } = useAuth()
-  
+
   // Use new navigation state management
   const [navigationState, navigationActions] = useNavigationState()
   const navigationHandlers = useNavigationHandlers(navigationState, navigationActions)
-  
+
   // Sync with router
   useRouterSync(navigationActions)
-  
+
   // Navigation history for back/forward buttons
   const { canGoBack, canGoForward, goBack, goForward } = useNavigationHistory()
-  
+
   // Refs for focus management
   const panelRef = React.useRef<HTMLDivElement>(null)
   const closeBtnRef = React.useRef<HTMLButtonElement>(null)
@@ -34,18 +34,21 @@ const SlideBar: React.FC = () => {
 
   // Memoized menu items to prevent recreation on every render
   const menuItems = useMemo(() => {
-    const authMenu = isAuthenticated 
+    const authMenu = isAuthenticated
       ? AUTH_MENU_ITEMS.filter(item => item.id === 'signout')
       : AUTH_MENU_ITEMS.filter(item => item.id === 'signin' || item.id === 'register')
-    
+
     // Filter admin menu based on authentication and role
     const filteredMenuItems = MENU_ITEMS_CONFIG.filter(item => {
       if (item.id === 'admin') {
         return isAuthenticated && user?.role === 'admin'
       }
+      if (item.id === 'create_pqs') {
+        return isAuthenticated && (user?.role === 'admin' || user?.role === 'editor')
+      }
       return true
     })
-    
+
     return [...filteredMenuItems, ...authMenu]
   }, [isAuthenticated, user?.role])
 
@@ -112,28 +115,28 @@ const SlideBar: React.FC = () => {
     panel.addEventListener('keydown', handleKeyDown)
     return () => panel.removeEventListener('keydown', handleKeyDown)
   }, [isOpen])
-  
+
 
   // Function to get the correct title for the sidebar header
   const getSidebarTitle = () => {
     const activeItem = navigationState.activeItem
-    
+
     // Check if active item is a submenu item
-    const parentMenu = menuItems.find(item => 
+    const parentMenu = menuItems.find(item =>
       item.subItems?.some(subItem => subItem.id === activeItem)
     )
-    
+
     if (parentMenu) {
       // If active item is a submenu item, show parent menu name
       return parentMenu.label
     }
-    
+
     // Check if active item is a standalone menu item
     const standaloneMenu = menuItems.find(item => item.id === activeItem && !item.subItems)
     if (standaloneMenu) {
       return standaloneMenu.label
     }
-    
+
     // Default fallback
     return 'Welcome'
   }
@@ -144,13 +147,13 @@ const SlideBar: React.FC = () => {
     if (clickedItem?.subItems) {
       // Handle menu items with submenus - Toggle expanded state
       const isCurrentlyExpanded = navigationState.expandedMenus.includes(menuId)
-      navigationActions.updateState({ 
+      navigationActions.updateState({
         // Don't change activeItem - preserve current submenu active state
-        expandedMenus: isCurrentlyExpanded 
+        expandedMenus: isCurrentlyExpanded
           ? navigationState.expandedMenus.filter(id => id !== menuId)
           : [...navigationState.expandedMenus, menuId]
       })
-      
+
       // Navigate to first submenu item for Welcome menu - DISABLED
       // if (menuId === 'welcome') {
       //   navigationHandlers.handleSubItemClick(menuId, 'home')
@@ -186,7 +189,7 @@ const SlideBar: React.FC = () => {
     <>
       {/* Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
           onClick={closeSlideBar}
           role="presentation"
@@ -195,7 +198,7 @@ const SlideBar: React.FC = () => {
       )}
 
       {/* Slide Bar */}
-      <div 
+      <div
         className={`
           fixed top-10 left-0 h-[calc(100vh-2.5rem)] w-64 bg-github-bg-tertiary border-r border-github-border-primary shadow-github-large z-50
           transform transition-transform duration-300 ease-in-out rounded-tr-[20px]
@@ -266,92 +269,125 @@ const SlideBar: React.FC = () => {
           {menuItems.map((item) => (
             <div key={item.id} className="relative">
               <button
-                 onClick={() => item.subItems ? toggleMenu(item.id) : navigationHandlers.handleMenuClick(item.id)}
-                 className={`relative w-full flex items-center justify-between p-3 rounded-lg transition-colors duration-200 focus:outline-none ${
-                   // แสดง active state เฉพาะ standalone menu เท่านั้น (ไม่แสดงที่ parent menu)
-                   (!item.subItems && navigationState.activeItem === item.id)
-                     ? 'bg-github-bg-active'
-                     : 'hover:bg-github-bg-hover active:bg-github-bg-active'
-                 } ${
-                   // Only show focus ring for non-Welcome menus when authenticated
-                   isAuthenticated && user?.role === 'admin' && item.id === 'welcome'
-                     ? 'focus-visible:ring-0'
-                     : 'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-github-accent-primary focus-visible:z-10'
-                 }`}
-                 type="button"
-                 aria-current={(!item.subItems && navigationState.activeItem === item.id) ? 'page' : undefined}
-                 aria-haspopup={item.subItems ? true : undefined}
-                 tabIndex={isOpen ? 0 : -1}
-                 aria-expanded={item.subItems ? navigationState.expandedMenus.includes(item.id) : undefined}
-                 aria-controls={item.subItems ? `submenu-${item.id}` : undefined}
-                 ref={(el) => { topItemRefs.current[item.id] = el }}
-                 onKeyDown={(e) => {
-                   const key = e.key
-                   if (!item.subItems) {
-                     // Roving focus among top-level items
-                     const ids = menuItems.map(m => m.id)
-                     const idx = ids.indexOf(item.id)
-                     if (key === 'ArrowDown') {
-                       e.preventDefault()
-                       const next = ids[(idx + 1) % ids.length]
-                       topItemRefs.current[next]?.focus()
-                     } else if (key === 'ArrowUp') {
-                       e.preventDefault()
-                       const prev = ids[(idx - 1 + ids.length) % ids.length]
-                       topItemRefs.current[prev]?.focus()
-                     } else if (key === 'Enter' || key === ' ') {
-                       e.preventDefault()
-                       navigationHandlers.handleMenuClick(item.id)
-                     }
-                   } else {
-                     // Parent item with submenu
-                     if (key === 'ArrowRight' || key === 'Enter' || key === ' ') {
-                       e.preventDefault()
-                       if (!navigationState.expandedMenus.includes(item.id)) {
-                         toggleMenu(item.id)
-                       }
-                       const first = item.subItems[0]
-                       if (first) subItemRefs.current[first.id]?.focus()
-                     } else if (key === 'ArrowLeft' || key === 'Escape') {
-                       e.preventDefault()
-                       navigationActions.setExpandedMenus(navigationState.expandedMenus.filter(id => id !== item.id))
-                     } else if (key === 'ArrowDown' || key === 'ArrowUp') {
-                       // Move among top-level groups
-                       const ids = menuItems.map(m => m.id)
-                       const idx = ids.indexOf(item.id)
-                       if (key === 'ArrowDown') {
-                         e.preventDefault()
-                         const next = ids[(idx + 1) % ids.length]
-                         topItemRefs.current[next]?.focus()
-                       } else if (key === 'ArrowUp') {
-                         e.preventDefault()
-                         const prev = ids[(idx - 1 + ids.length) % ids.length]
-                         topItemRefs.current[prev]?.focus()
-                       }
-                     }
-                   }
-                 }}
-               >
+                onClick={() => {
+                  if (item.subItems) {
+                    toggleMenu(item.id)
+                  } else {
+                    if (item.id === 'pqs_example') {
+                      if (!isAuthenticated) {
+                        navigationHandlers.handleMenuClick('signin')
+                        // closeSlideBar() // Optional: Close on redirect to signin? usually yes
+                        return
+                      }
+                      navigationHandlers.handleMenuClick(item.id)
+                      closeSlideBar() // Auto-close here
+                    } else if (item.id === 'create_pqs') {
+                      navigationHandlers.handleMenuClick(item.id)
+                      closeSlideBar() // Auto-close here
+                    } else {
+                      navigationHandlers.handleMenuClick(item.id)
+                    }
+                  }
+                }}
+                className={`relative w-full flex items-center justify-between p-3 rounded-lg transition-colors duration-200 focus:outline-none ${
+                  // แสดง active state เฉพาะ standalone menu เท่านั้น (ไม่แสดงที่ parent menu)
+                  (!item.subItems && navigationState.activeItem === item.id)
+                    ? 'bg-github-bg-active'
+                    : 'hover:bg-github-bg-hover active:bg-github-bg-active'
+                  } ${
+                  // Only show focus ring for non-Welcome menus when authenticated
+                  isAuthenticated && user?.role === 'admin' && item.id === 'welcome'
+                    ? 'focus-visible:ring-0'
+                    : 'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-github-accent-primary focus-visible:z-10'
+                  }`}
+                type="button"
+                aria-current={(!item.subItems && navigationState.activeItem === item.id) ? 'page' : undefined}
+                aria-haspopup={item.subItems ? true : undefined}
+                tabIndex={isOpen ? 0 : -1}
+                aria-expanded={item.subItems ? navigationState.expandedMenus.includes(item.id) : undefined}
+                aria-controls={item.subItems ? `submenu-${item.id}` : undefined}
+                ref={(el) => { topItemRefs.current[item.id] = el }}
+                onKeyDown={(e) => {
+                  const key = e.key
+                  if (!item.subItems) {
+                    // Roving focus among top-level items
+                    const ids = menuItems.map(m => m.id)
+                    const idx = ids.indexOf(item.id)
+                    if (key === 'ArrowDown') {
+                      e.preventDefault()
+                      const next = ids[(idx + 1) % ids.length]
+                      topItemRefs.current[next]?.focus()
+                    } else if (key === 'ArrowUp') {
+                      e.preventDefault()
+                      const prev = ids[(idx - 1 + ids.length) % ids.length]
+                      topItemRefs.current[prev]?.focus()
+                    } else if (key === 'Enter' || key === ' ') {
+                      e.preventDefault()
+                      navigationHandlers.handleMenuClick(item.id)
+                    }
+                  } else {
+                    // Parent item with submenu
+                    if (key === 'ArrowRight' || key === 'Enter' || key === ' ') {
+                      e.preventDefault()
+                      if (!navigationState.expandedMenus.includes(item.id)) {
+                        toggleMenu(item.id)
+                      }
+                      const first = item.subItems[0]
+                      if (first) subItemRefs.current[first.id]?.focus()
+                    } else if (key === 'ArrowLeft' || key === 'Escape') {
+                      e.preventDefault()
+                      navigationActions.setExpandedMenus(navigationState.expandedMenus.filter(id => id !== item.id))
+                    } else if (key === 'ArrowDown' || key === 'ArrowUp') {
+                      // Move among top-level groups
+                      const ids = menuItems.map(m => m.id)
+                      const idx = ids.indexOf(item.id)
+                      if (key === 'ArrowDown') {
+                        e.preventDefault()
+                        const next = ids[(idx + 1) % ids.length]
+                        topItemRefs.current[next]?.focus()
+                      } else if (key === 'ArrowUp') {
+                        e.preventDefault()
+                        const prev = ids[(idx - 1 + ids.length) % ids.length]
+                        topItemRefs.current[prev]?.focus()
+                      }
+                    }
+                  }
+                }}
+              >
                 <div className="flex items-center space-x-3">
                   <span className={`${
                     // เปลี่ยนสี icon เมื่อ parent menu active หรือเป็น standalone menu ที่ active
                     // หรือถ้าเป็น Admin Dashboard และมี submenu เปิดอยู่
-                    (item.subItems && item.subItems.some(subItem => navigationState.activeItem === subItem.id)) || 
-                    (!item.subItems && navigationState.activeItem === item.id)
+                    (item.subItems && item.subItems.some(subItem => navigationState.activeItem === subItem.id)) ||
+                      (!item.subItems && navigationState.activeItem === item.id)
                       ? 'text-github-text-primary'
                       : 'text-github-text-secondary'
-                  }`}>
+                    }`}>
                     {item.icon}
                   </span>
                   <span className={`text-sm font-medium ${
                     // เปลี่ยนสี text เมื่อ parent menu active หรือเป็น standalone menu ที่ active
-                    (item.subItems && item.subItems.some(subItem => navigationState.activeItem === subItem.id)) || 
-                    (!item.subItems && navigationState.activeItem === item.id)
+                    (item.subItems && item.subItems.some(subItem => navigationState.activeItem === subItem.id)) ||
+                      (!item.subItems && navigationState.activeItem === item.id)
                       ? 'text-github-text-primary'
                       : 'text-github-text-primary'
-                  }`}>
+                    }`}>
                     {item.label}
                   </span>
+                  {/* Show Lock icon if pqs_example and not authenticated */}
+                  {item.id === 'pqs_example' && !isAuthenticated && (
+                    <span
+                      className="group relative ml-2 flex items-center justify-center p-1 bg-amber-100 dark:bg-amber-900/30 rounded-md border border-amber-200 dark:border-amber-700/50 cursor-help transition-transform hover:scale-105"
+                    >
+                      <Lock className="w-3 h-3 text-amber-600 dark:text-amber-500" />
+                      {/* Custom Styled Tooltip */}
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max px-2 py-1 bg-amber-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 shadow-lg">
+                        กรุณาเข้าสู่ระบบเพื่อดูเอกสารนี้
+                        {/* Arrow */}
+                        <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-amber-800"></span>
+                      </span>
+                    </span>
+                  )}
                 </div>
                 {item.subItems && (
                   <span className="text-github-text-tertiary transition-transform duration-300 ease-out">
@@ -373,53 +409,50 @@ const SlideBar: React.FC = () => {
                   <div className="ml-8 space-y-1 pb-1">
                     {item.subItems.map((subItem) => (
                       <button
-                         key={subItem.id}
-                         id={`submenu-item-${subItem.id}`}
-                         onClick={() => handleSubItemClick(item.id, subItem.id)}
-                         tabIndex={isOpen ? 0 : -1}
-                         // Prefetch removed - not needed for desktop app
-                         className={`relative w-full flex items-center space-x-3 p-2 rounded-lg transition-colors duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-github-accent-primary focus-visible:z-10 ${
-                           navigationState.activeItem === subItem.id
-                             ? 'bg-github-bg-active'
-                             : 'hover:bg-github-bg-hover active:bg-github-bg-active'
-                         }`}
-                         type="button"
-                         aria-current={navigationState.activeItem === subItem.id ? 'page' : undefined}
-                          ref={(el) => { subItemRefs.current[subItem.id] = el }}
-                          onKeyDown={(e) => {
-                            const key = e.key
-                            const ids = item.subItems!.map(s => s.id)
-                            const idx = ids.indexOf(subItem.id)
-                            if (key === 'ArrowDown') {
-                              e.preventDefault()
-                              const next = ids[(idx + 1) % ids.length]
-                              subItemRefs.current[next]?.focus()
-                            } else if (key === 'ArrowUp') {
-                              e.preventDefault()
-                              const prev = ids[(idx - 1 + ids.length) % ids.length]
-                              subItemRefs.current[prev]?.focus()
-                            } else if (key === 'ArrowLeft') {
-                              e.preventDefault()
-                              // Move focus back to parent item
-                              topItemRefs.current[item.id]?.focus()
-                            } else if (key === 'Enter' || key === ' ') {
-                              e.preventDefault()
-                              handleSubItemClick(item.id, subItem.id)
-                            }
-                          }}
-                       >
-                        <span className={`${
-                          navigationState.activeItem === subItem.id
-                            ? 'text-github-text-primary'
-                            : 'text-github-text-tertiary'
-                        }`}>
+                        key={subItem.id}
+                        id={`submenu-item-${subItem.id}`}
+                        onClick={() => handleSubItemClick(item.id, subItem.id)}
+                        tabIndex={isOpen ? 0 : -1}
+                        // Prefetch removed - not needed for desktop app
+                        className={`relative w-full flex items-center space-x-3 p-2 rounded-lg transition-colors duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-github-accent-primary focus-visible:z-10 ${navigationState.activeItem === subItem.id
+                          ? 'bg-github-bg-active'
+                          : 'hover:bg-github-bg-hover active:bg-github-bg-active'
+                          }`}
+                        type="button"
+                        aria-current={navigationState.activeItem === subItem.id ? 'page' : undefined}
+                        ref={(el) => { subItemRefs.current[subItem.id] = el }}
+                        onKeyDown={(e) => {
+                          const key = e.key
+                          const ids = item.subItems!.map(s => s.id)
+                          const idx = ids.indexOf(subItem.id)
+                          if (key === 'ArrowDown') {
+                            e.preventDefault()
+                            const next = ids[(idx + 1) % ids.length]
+                            subItemRefs.current[next]?.focus()
+                          } else if (key === 'ArrowUp') {
+                            e.preventDefault()
+                            const prev = ids[(idx - 1 + ids.length) % ids.length]
+                            subItemRefs.current[prev]?.focus()
+                          } else if (key === 'ArrowLeft') {
+                            e.preventDefault()
+                            // Move focus back to parent item
+                            topItemRefs.current[item.id]?.focus()
+                          } else if (key === 'Enter' || key === ' ') {
+                            e.preventDefault()
+                            handleSubItemClick(item.id, subItem.id)
+                          }
+                        }}
+                      >
+                        <span className={`${navigationState.activeItem === subItem.id
+                          ? 'text-github-text-primary'
+                          : 'text-github-text-tertiary'
+                          }`}>
                           {subItem.icon}
                         </span>
-                        <span className={`text-sm ${
-                          navigationState.activeItem === subItem.id
-                            ? 'text-github-text-primary font-medium'
-                            : 'text-github-text-secondary'
-                        }`}>
+                        <span className={`text-sm ${navigationState.activeItem === subItem.id
+                          ? 'text-github-text-primary font-medium'
+                          : 'text-github-text-secondary'
+                          }`}>
                           {subItem.label}
                         </span>
                       </button>

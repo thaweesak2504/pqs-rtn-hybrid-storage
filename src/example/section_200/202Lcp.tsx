@@ -26,7 +26,7 @@ const Lcp202: React.FC = () => {
             type="checkbox"
             checked={isChecked}
             readOnly
-            className="w-[0.7em] h-[0.7em] text-blue-600 rounded focus:ring-blue-500"
+            className="w-[0.7em] h-[0.7em] text-red-600 rounded focus:ring-red-500"
           />
         </label>
       ))}

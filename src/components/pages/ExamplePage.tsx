@@ -1,6 +1,4 @@
 import React, { useState } from 'react'
-import Container from '../ui/Container'
-// import { useAuth } from '../../hooks/useAuth'
 import ExampleCover from '../../example/section_001/ExampleCover'
 import Introduction100 from '../../example/section_100/Introduction100'
 import Introduction200 from '../../example/section_200/Introduction200'
@@ -16,18 +14,18 @@ import Rcp203 from '../../example/section_200/203Rcp'
 import Elx204 from '../../example/section_200/204Elx'
 import TapeEmulator205 from '../../example/section_200/205TapeEmulator'
 import Teletype206 from '../../example/section_200/206Teletype'
+import { BookOpen, FileText, ChevronDown, ChevronRight, Crosshair, Monitor, Radio, Zap, Disc, Printer, AlertTriangle, Shield, List } from 'lucide-react'
 
-import { BookOpen, Home, FileText, ChevronDown, ChevronRight, Crosshair, Monitor, Radio, Zap, Disc, Printer, AlertTriangle, Shield, List } from 'lucide-react'
-
-const VisitorPage: React.FC = () => {
+const ExamplePage: React.FC = () => {
   // const { user } = useAuth() // Removed authentication check
-  const [activeTab, setActiveTab] = useState<'home' | 'exampleCover' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104' | 'radarWeapon201' | 'lcp202' | 'rcp203' | 'elx204' | 'tapeEmulator205' | 'teletype206'>('home')
+  const [activeTab, setActiveTab] = useState<'home' | 'exampleCover' | 'introductionPqs' | 'introduction100' | 'introduction200' | 'introduction300' | 'precautions101' | 'ordnanceSafety102' | 'abbreviation103' | 'ciwsBasic104' | 'radarWeapon201' | 'lcp202' | 'rcp203' | 'elx204' | 'tapeEmulator205' | 'teletype206'>('exampleCover')
   const [isSection200Open, setIsSection200Open] = useState(false)
   const [isSection100Open, setIsSection100Open] = useState(false)
 
   const renderContent = () => {
     switch (activeTab) {
       case 'exampleCover':
+      default:
         return <ExampleCover />
       case 'introductionPqs':
         return <IntroductionPqs />
@@ -59,25 +57,7 @@ const VisitorPage: React.FC = () => {
       case 'introduction300':
         return <Introduction300 />
 
-      case 'home':
-      default:
-        return (
-          <Container size="medium" padding="large" className="py-12 sm:py-20">
-            <div className="text-center">
-              <div className="mb-8">
-                <img
-                  src="/src/assets/images/usnavy_logo.webp"
-                  alt="US Navy Logo"
-                  className="mx-auto h-24 w-auto"
-                />
-              </div>
-              Welcome Visitor
-              <p className="mt-4 text-github-text-secondary">
-                This is your dedicated page. Select a topic from the menu to begin.
-              </p>
-            </div>
-          </Container>
-        )
+
     }
   }
 
@@ -90,16 +70,6 @@ const VisitorPage: React.FC = () => {
             Menu
           </h2>
           <nav className="space-y-1">
-            <button
-              onClick={() => { setActiveTab('home'); setIsSection200Open(false); setIsSection100Open(false) }}
-              className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'home'
-                ? 'bg-github-bg-active text-github-text-primary'
-                : 'text-github-text-secondary hover:bg-github-bg-hover hover:text-github-text-primary'
-                }`}
-            >
-              <Home className="mr-3 h-5 w-5" />
-              Home
-            </button>
             <button
               onClick={() => { setActiveTab('exampleCover'); setIsSection200Open(false); setIsSection100Open(false) }}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'exampleCover'
@@ -299,4 +269,4 @@ const VisitorPage: React.FC = () => {
   )
 }
 
-export default VisitorPage
+export default ExamplePage

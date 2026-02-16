@@ -40,10 +40,10 @@ const SignInPage: React.FC = () => {
     const handleAuthChange = () => {
       setFormKey(prev => prev + 1)
     }
-    
+
     // Listen for storage changes (when users are deleted)
     window.addEventListener('storage', handleAuthChange)
-    
+
     return () => {
       window.removeEventListener('storage', handleAuthChange)
     }
@@ -55,7 +55,7 @@ const SignInPage: React.FC = () => {
       ...prev,
       [name]: value
     }))
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -91,7 +91,7 @@ const SignInPage: React.FC = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!validateForm()) {
       return
     }
@@ -104,13 +104,13 @@ const SignInPage: React.FC = () => {
         username_or_email: formData.usernameOrEmail,
         password: formData.password
       })
-      
+
       if (result.success) {
         setIsSuccess(true)
-        
+
         // Redirect based on user role
-        const redirectPath = result.user?.role === 'admin' ? '/dashboard' : 
-                            result.user?.role === 'editor' ? '/editor' : '/visitor'
+        // All roles (Admin/Editor/Visitor) -> Home
+        const redirectPath = '/home'
         setTimeout(() => {
           navigate(redirectPath, { replace: true })
         }, 1000)
@@ -119,8 +119,8 @@ const SignInPage: React.FC = () => {
           general: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง'
         })
       }
-      
-  } catch (error) {
+
+    } catch (error) {
       console.error('Sign In Error:', error)
       setErrors({
         general: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง'
@@ -137,8 +137,8 @@ const SignInPage: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <img 
-              src={navyLogo} 
+            <img
+              src={navyLogo}
               alt="PQS RTN Logo"
               className="h-16 w-auto object-contain"
             />
@@ -199,7 +199,7 @@ const SignInPage: React.FC = () => {
               disabled={isLoading}
               error={errors.usernameOrEmail}
             />
-            
+
             <FormInput
               name="password"
               value={formData.password}
@@ -242,14 +242,14 @@ const SignInPage: React.FC = () => {
         <div className="mt-8 text-center">
           <p className="text-sm text-github-text-secondary">
             ยังไม่มีบัญชี?{' '}
-            <button 
+            <button
               className="text-github-accent-primary hover:text-github-accent-secondary font-medium"
               onClick={() => navigate('/register')}
             >
               สมัครสมาชิก
             </button>
             {' '}•{' '}
-            <button 
+            <button
               className="text-github-accent-primary hover:text-github-accent-secondary font-medium"
               onClick={() => {
                 // TODO: Navigate to forgot password page
@@ -262,7 +262,7 @@ const SignInPage: React.FC = () => {
 
         {/* Exit Button */}
         <div className="mt-6 text-center">
-          <button 
+          <button
             onClick={() => {
               // Try to go back to previous page, fallback to home
               if (window.history.length > 1) {

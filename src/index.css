@@ -13,29 +13,30 @@
     height: 100vh;
     overflow: hidden;
     background: var(--github-bg-primary) !important;
-    
+
     /* Root font-size for zoom control - default 16px */
     font-size: 16px;
     transition: font-size 0.2s ease-out;
-    
+
     /* Optimize for resize performance */
     will-change: auto;
     contain: layout style paint;
-    transform: translateZ(0); /* Force hardware acceleration */
+    transform: translateZ(0);
+    /* Force hardware acceleration */
   }
-  
+
   body {
     @apply font-sans antialiased w-full m-0 p-0;
     /* Fixed height - matches viewport */
     height: 100vh;
     overflow: hidden;
     background: var(--github-bg-primary) !important;
-    
+
     /* Optimize resize performance */
     will-change: auto;
     contain: layout style;
   }
-  
+
   #root {
     @apply w-full m-0 p-0;
     /* Fixed height with scrolling content inside */
@@ -70,53 +71,54 @@
     contain: layout style paint;
     transform: translateZ(0);
   }
-  
+
   /* Prevent layout thrashing during resize */
   .resize-container {
     contain: layout;
   }
+
   .text-display-1 {
     @apply text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold;
   }
-  
+
   .text-display-2 {
     @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold;
   }
-  
+
   .text-heading-1 {
     @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold;
   }
-  
+
   .text-heading-2 {
     @apply text-lg sm:text-xl md:text-2xl lg:text-3xl font-semibold;
   }
-  
+
   .text-heading-3 {
     @apply text-base sm:text-lg md:text-xl lg:text-2xl font-semibold;
   }
-  
+
   .text-body-large {
     @apply text-base sm:text-lg md:text-xl;
   }
-  
+
   .text-body-medium {
     @apply text-sm sm:text-base md:text-lg;
   }
-  
+
   .text-body-small {
     @apply text-xs sm:text-sm md:text-base;
   }
-  
+
   .text-caption {
     @apply text-xs sm:text-sm;
   }
 
   /* GitHub-style CSS Variables */
   :root {
-  /* Dark Mode Colors (Default) */
-  --github-bg-primary: #010409;
-  --github-bg-secondary: #0d1117;
-  --github-bg-tertiary: #0d1117;
+    /* Dark Mode Colors (Default) */
+    --github-bg-primary: #010409;
+    --github-bg-secondary: #0d1117;
+    --github-bg-tertiary: #0d1117;
     --github-bg-hover: #1f2937;
     --github-bg-active: #1f2937;
     --github-bg-muted: #0d1117;
@@ -127,14 +129,15 @@
     --github-text-secondary: #b1bac4;
     --github-text-tertiary: #8b949e;
     --github-accent-primary: #58a6ff;
-  --github-accent-secondary: #3fb950;
-  --github-accent-primary-hover: #4096e3; /* added for hover states */
-  --github-accent-secondary-hover: #369c46;
+    --github-accent-secondary: #3fb950;
+    --github-accent-primary-hover: #4096e3;
+    /* added for hover states */
+    --github-accent-secondary-hover: #369c46;
     --github-accent-muted: #b1bac4;
     --github-shadow-small: 0 1px 3px rgba(1, 4, 9, 0.3);
     --github-shadow-medium: 0 3px 6px rgba(1, 4, 9, 0.4);
     --github-shadow-large: 0 8px 24px rgba(1, 4, 9, 0.5);
-    
+
     /* Dark Mode Semantic Colors */
     --github-accent-success: #22c55e;
     --github-accent-danger: #ef4444;
@@ -144,7 +147,7 @@
     --github-accent-orange: #f97316;
     --github-accent-pink: #ec4899;
     --github-accent-indigo: #6366f1;
-    
+
     /* Dark Mode Background Variants */
     --github-bg-success: #064e3b;
     --github-bg-danger: #7f1d1d;
@@ -156,10 +159,10 @@
 
   /* Light Mode Overrides */
   html:not(.dark) {
-  /* Light Mode Colors */
-  --github-bg-primary: #ffffff;
-  --github-bg-secondary: #f6f8fa;
-  --github-bg-tertiary: #ffffff;
+    /* Light Mode Colors */
+    --github-bg-primary: #ffffff;
+    --github-bg-secondary: #f6f8fa;
+    --github-bg-tertiary: #ffffff;
     --github-bg-hover: #f3f4f6;
     --github-bg-active: #f3f4f6;
     --github-bg-muted: #f6f8fa;
@@ -170,14 +173,15 @@
     --github-text-secondary: #4a5568;
     --github-text-tertiary: #718096;
     --github-accent-primary: #0969da;
-  --github-accent-secondary: #1f883d;
-  --github-accent-primary-hover: #0758b3; /* hover variants */
-  --github-accent-secondary-hover: #166c2e;
+    --github-accent-secondary: #1f883d;
+    --github-accent-primary-hover: #0758b3;
+    /* hover variants */
+    --github-accent-secondary-hover: #166c2e;
     --github-accent-muted: #4a5568;
     --github-shadow-small: 0 1px 3px rgba(27, 31 36, 0.04);
     --github-shadow-medium: 0 3px 6px rgba(140, 149, 159, 0.15);
     --github-shadow-large: 0 8px 24px rgba(140, 149, 159, 0.2);
-    
+
     /* Light Mode Semantic Colors */
     --github-accent-success: #16a34a;
     --github-accent-danger: #dc2626;
@@ -187,7 +191,7 @@
     --github-accent-orange: #ea580c;
     --github-accent-pink: #db2777;
     --github-accent-indigo: #4f46e5;
-    
+
     /* Light Mode Background Variants */
     --github-bg-success: #f0fdf4;
     --github-bg-danger: #fef2f2;
@@ -226,14 +230,29 @@
 }
 
 @layer utilities {
-  .app-drag { -webkit-app-region: drag; }
-  .app-no-drag { -webkit-app-region: no-drag; }
-  
+  @counter-style thai-numerals {
+    system: numeric;
+    symbols: '๐' '๑' '๒' '๓' '๔' '๕' '๖' '๗' '๘' '๙';
+    suffix: ". ";
+  }
+
+  .list-thai {
+    list-style: thai-numerals !important;
+  }
+
+  .app-drag {
+    -webkit-app-region: drag;
+  }
+
+  .app-no-drag {
+    -webkit-app-region: no-drag;
+  }
+
   /* Tauri-specific drag region */
   .tauri-drag {
     -webkit-app-region: drag !important;
   }
-  
+
   .tauri-no-drag {
     -webkit-app-region: no-drag !important;
   }
@@ -244,37 +263,68 @@
     bottom: 0;
     left: 0;
     right: 0;
-    z-index: 60; /* Above SlideBar (z-50) and header (z-50) to prevent overlap */
-    height: 2rem; /* 32px - compact footer height */
+    z-index: 60;
+    /* Above SlideBar (z-50) and header (z-50) to prevent overlap */
+    height: 2rem;
+    /* 32px - compact footer height */
   }
-  
+
   /* Main content with footer spacing */
   .main-with-footer {
-    padding-bottom: 2rem; /* 32px - matches footer height */
+    padding-bottom: 2rem;
+    /* 32px - matches footer height */
   }
-  
+
   /* Toast stacking utility */
   .toast-stack {
     transform: translateY(calc(var(--toast-index, 0) * 10px));
     z-index: calc(1000 - var(--toast-index, 0));
   }
+
   @keyframes fade-in {
-    from { opacity: 0; transform: translateY(2px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-  .animate-fade-in { animation: fade-in 0.25s ease-out both; }
-  
+
+  .animate-fade-in {
+    animation: fade-in 0.25s ease-out both;
+  }
+
   /* Simple Loading Screen Animations */
   @keyframes pulse-slow {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.7;
+    }
   }
-  
+
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
   }
-  
-  .animate-pulse-slow { animation: pulse-slow 2s ease-in-out infinite; }
-  .animate-spin { animation: spin 1s linear infinite; }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 2s ease-in-out infinite;
+  }
+
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
 }

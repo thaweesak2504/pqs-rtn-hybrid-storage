@@ -15,7 +15,8 @@ mod hybrid_avatar;
 mod hybrid_high_rank_avatar;
 mod logger; // Logger system for conditional debug output
 mod hybrid_backup; // New hybrid backup system
-// mod database_logger; // DISABLED - logging removed
+mod content_database; // Separate content database
+mod migration_helper; // Database migration utilities
 
 // Re-export database structs
 pub use database::{User, Avatar, HighRankingOfficer};
@@ -598,6 +599,82 @@ fn initialize_database_if_needed() -> Result<String, String> {
     }
 }
 
+#[tauri::command]
+fn initialize_content_database() -> Result<String, String> {
+    content_database::initialize_content_database()
+}
+
+#[tauri::command]
+fn seed_content_database(file_path: String) -> Result<String, String> {
+    content_database::seed_content_database_from_file(&file_path)
+}
+
+#[tauri::command]
+fn create_new_document(args: content_database::CreateDocumentArgs) -> Result<String, String> {
+    content_database::create_document(args)
+}
+
+#[tauri::command]
+fn generate_document_id_preview(unit_code: String, doc_type: String, user_level: String) -> Result<String, String> {
+    content_database::generate_document_id(&unit_code, &doc_type, &user_level)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_owner_units(parent_id: Option<String>) -> Result<Vec<content_database::OwnerUnit>, String> {
+    content_database::get_owner_units(parent_id)
+}
+
+#[tauri::command]
+fn search_documents(unit_id_prefix: Option<String>, doc_type: Option<String>, name_part: Option<String>, status: Option<String>) -> Result<Vec<content_database::Document>, String> {
+    content_database::search_documents(unit_id_prefix, doc_type, name_part, status)
+}
+
+#[tauri::command]
+fn delete_document(id: String) -> Result<String, String> {
+    content_database::delete_document(id)
+}
+
+#[tauri::command]
+fn update_document(args: content_database::UpdateDocumentArgs) -> Result<String, String> {
+    content_database::update_document(args)
+}
+
+#[tauri::command]
+fn get_document_questions(doc_id: String) -> Result<Vec<content_database::Question>, String> {
+    content_database::get_document_questions(doc_id)
+}
+
+#[tauri::command]
+fn get_document_questions_with_details(doc_id: String) -> Result<Vec<content_database::QuestionDetail>, String> {
+    content_database::get_document_questions_with_details(doc_id)
+}
+
+#[tauri::command]
+fn get_document_with_hierarchy(id: String) -> Result<content_database::DocumentHierarchy, String> {
+    content_database::get_document_with_hierarchy(id)
+}
+
+#[tauri::command]
+fn create_question(args: content_database::CreateQuestionArgs) -> Result<String, String> {
+    content_database::create_question(args)
+}
+
+#[tauri::command]
+fn update_question(args: content_database::UpdateQuestionArgs) -> Result<(), String> {
+    content_database::update_question(args)
+}
+
+#[tauri::command]
+fn delete_question(id: String) -> Result<(), String> {
+    content_database::delete_question(id)
+}
+
+#[tauri::command]
+fn reorder_questions(question_ids: Vec<String>) -> Result<(), String> {
+    content_database::reorder_questions(question_ids)
+}
+
 // DISABLED - Database logging functions removed
 // #[tauri::command]
 // fn get_database_logs() -> Result<String, String> {
@@ -621,7 +698,244 @@ fn initialize_database_if_needed() -> Result<String, String> {
 //     }
 // }
 
+// ===== Section Management Commands =====
 
+#[tauri::command]
+fn create_section(request: content_database::CreateSectionRequest) -> Result<content_database::Section, String> {
+    content_database::create_section(request)
+}
+
+#[tauri::command]
+fn get_sections_by_document(document_id: String) -> Result<Vec<content_database::Section>, String> {
+    content_database::get_sections_by_document(document_id)
+}
+
+#[tauri::command]
+fn delete_section(id: i64) -> Result<(), String> {
+    content_database::delete_section(id)
+}
+
+#[tauri::command]
+fn update_section(args: content_database::UpdateSectionArgs) -> Result<(), String> {
+    content_database::update_section(args)
+}
+
+#[tauri::command]
+fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
+    content_database::update_section_order(id, new_order)
+}
+
+#[tauri::command]
+fn migrate_section_101() -> Result<usize, String> {
+    migration_helper::migrate_create_section_101()
+}
+
+// ===== Reference Management Commands =====
+
+#[tauri::command]
+fn create_reference(request: content_database::CreateReferenceRequest) -> Result<content_database::DocumentReference, String> {
+    content_database::create_reference(request)
+}
+
+#[tauri::command]
+fn get_references(
+    search: Option<String>,
+    category: Option<String>,
+) -> Result<Vec<content_database::DocumentReference>, String> {
+    content_database::get_references(search, category)
+}
+
+#[tauri::command]
+fn update_reference(args: content_database::UpdateReferenceArgs) -> Result<(), String> {
+    content_database::update_reference(args)
+}
+
+#[tauri::command]
+fn delete_reference(id: i64) -> Result<(), String> {
+    content_database::delete_reference(id)
+}
+
+#[tauri::command]
+fn delete_all_references() -> Result<(), String> {
+    content_database::delete_all_references()
+}
+
+#[tauri::command]
+fn add_section_reference(
+    section_id: i64,
+    reference_id: i64,
+    display_order: Option<i32>,
+) -> Result<(), String> {
+    content_database::add_section_reference(section_id, reference_id, display_order)
+}
+
+#[tauri::command]
+fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
+    content_database::remove_section_reference(section_ref_id)
+}
+
+
+#[tauri::command]
+fn get_section_references(section_id: i64) -> Result<Vec<content_database::SectionReferenceDetail>, String> {
+    content_database::get_section_references(section_id)
+}
+
+#[tauri::command]
+fn add_question_reference(req: content_database::AddQuestionReferenceRequest) -> Result<(), String> {
+    content_database::add_question_reference(req)
+}
+
+#[tauri::command]
+fn remove_question_reference(id: i32) -> Result<(), String> {
+    content_database::remove_question_reference(id)
+}
+
+#[tauri::command]
+fn update_question_reference_location(id: i32, location_text: Option<String>) -> Result<(), String> {
+    content_database::update_question_reference_location(id, location_text)
+}
+
+#[tauri::command]
+fn seed_section_104_references(section_id: i64) -> Result<String, String> {
+    use rusqlite::params;
+    
+    let conn = content_database::get_content_connection()
+        .map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Sample references for Section 104 (CIWS Phalanx)
+    let references = vec![
+        ("NAVSEA_OP4154_V1P1", "NAVSEA OP4154 Vol.1 Pt.1 Operator's Manual for Gun System Close-In Weapon System Phalanx Mk.15", Some("Manual"), true),
+        ("NAVSEA_OP4154_V2", "NAVSEA OP4154 Vol.2 Maintenance Manual for Gun System Close-In Weapon System Phalanx Mk.15", Some("Manual"), true),
+        ("SW221_JO_MMO_010", "SW221-JO-MMO-010 Operation Procedure CIWS System", Some("Procedure"), true),
+        ("TM_MK15_BLOCK1B", "Technical Manual Phalanx CIWS Mk.15 Block 1B Baseline 2", Some("Technical Manual"), false),
+        ("NAVORD_OP4986", "NAVORD OP4986 Ammunition Handling and Storage Safety", Some("Safety Manual"), true),
+    ];
+    
+    let mut created_count = 0;
+    for (idx, (code, title, category, is_common)) in references.iter().enumerate() {
+        // Create or get reference
+        let ref_id: i64 = conn.query_row(
+            "SELECT id FROM DocumentReferences WHERE code = ?1",
+            params![code],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| {
+            conn.execute(
+                "INSERT INTO DocumentReferences (code, title, category, is_common) VALUES (?1, ?2, ?3, ?4)",
+                params![code, title, category, is_common],
+            ).ok();
+            conn.last_insert_rowid()
+        });
+        
+        // Link to section
+        let display_order = (idx + 1) as i32;
+        let result = conn.execute(
+            "INSERT OR IGNORE INTO SectionReferences (section_id, reference_id, display_order) VALUES (?1, ?2, ?3)",
+            params![section_id, ref_id, display_order],
+        );
+        
+        if result.is_ok() {
+            created_count += 1;
+        }
+    }
+    
+    Ok(format!("Added {} references to Section 104", created_count))
+}
+
+#[tauri::command]
+fn get_document_stats() -> Result<content_database::DocumentStats, String> {
+    content_database::get_document_stats()
+}
+
+#[tauri::command]
+fn open_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let path_to_open = if path.starts_with("data/") || path.starts_with("data\\") {
+            // Resolve portable path to physical path
+            let data_dir = content_database::get_portable_data_dir()
+                .map_err(|e| format!("Failed to get data dir: {}", e))?;
+            
+            // Remove "data/" or "data\" prefix
+            let relative_path = if path.starts_with("data/") {
+                path.strip_prefix("data/").unwrap()
+            } else {
+                path.strip_prefix("data\\").unwrap()
+            };
+            
+            data_dir.join(relative_path).to_string_lossy().to_string()
+        } else {
+            path
+        };
+
+        // Use cmd /C start to open URLs or files with their default application
+        // The first "" is for the window title (empty) to avoid issues with paths containing spaces
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &path_to_open])
+            .spawn()
+            .map_err(|e| format!("Failed to open path: {}", e))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Simple fallback
+        Err("Unsupported OS for open_path".to_string())
+    }
+}
+
+#[tauri::command]
+fn show_in_folder(path: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let path_to_show = if path.starts_with("data/") || path.starts_with("data\\") {
+            // Resolve portable path to physical path
+            let data_dir = content_database::get_portable_data_dir()
+                .map_err(|e| format!("Failed to get data dir: {}", e))?;
+            
+            // Remove "data/" or "data\" prefix
+            let relative_path = if path.starts_with("data/") {
+                path.strip_prefix("data/").unwrap()
+            } else {
+                path.strip_prefix("data\\").unwrap()
+            };
+            
+            data_dir.join(relative_path).to_string_lossy().to_string()
+        } else {
+            path
+        };
+
+        // Use explorer /select,path to highlight the file
+        std::process::Command::new("explorer")
+            .args(["/select,", &path_to_show])
+            .spawn()
+            .map_err(|e| format!("Failed to show in folder: {}", e))?;
+        Ok(())
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Simple fallback
+        Err("Unsupported OS for show_in_folder".to_string())
+    }
+}
+
+#[tauri::command]
+fn upload_question_image(path: String, document_id: String, question_id: String, friendly_prefix: Option<String>) -> Result<String, String> {
+    content_database::upload_question_image(path, document_id, question_id, friendly_prefix)
+}
+
+#[tauri::command]
+fn delete_question_image(path: String) -> Result<(), String> {
+    content_database::delete_question_image(path)
+}
+
+#[tauri::command]
+fn resolve_image_path(path: String) -> Result<String, String> {
+    content_database::resolve_image_path(path)
+}
+
+#[tauri::command]
+fn get_question_image_base64(path: String) -> Result<String, String> {
+    content_database::get_question_image_base64(path)
+}
 
 fn main() {
 
@@ -701,10 +1015,58 @@ fn main() {
             get_users_count,
             // Database initialization command
             initialize_database_if_needed,
+            initialize_content_database,
+            seed_content_database,
+            create_new_document,
+            generate_document_id_preview,
+            get_owner_units,
+            search_documents,
+            delete_document,
+            update_document,
+            get_document_questions,
+            get_document_questions_with_details, // New command
+            create_question, // Restored
+            update_question, // New command
+            delete_question, // New command
+            upload_question_image, // New image upload command
+             delete_question_image, // New image delete command
+             resolve_image_path, // New path resolver command
+             get_question_image_base64, // New base64 image command
+             reorder_questions, // Reorder command
+            get_document_with_hierarchy,
+            // Section management
+            create_section,
+            get_sections_by_document,
+            delete_section,
+            update_section_order,
+            update_section,
+            migrate_section_101,
+            // Reference management
+            create_reference,
+            get_references,
+            update_reference,
+            delete_reference,
+            delete_all_references,
+            add_section_reference,
+            remove_section_reference,
+            get_section_references,
+            seed_section_104_references,
+            add_question_reference,
+            remove_question_reference,
+            update_question_reference_location,
+            get_document_stats,
+            open_path,
+            show_in_folder,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
             
+            // Initialize content database (OwnerUnits, Documents, etc.)
+            match content_database::initialize_content_database() {
+                Ok(_) => logger::success("Content database initialized successfully"),
+                Err(e) => logger::error(&format!("Failed to initialize content database: {}", e)),
+            }
+
             // Skip automatic database initialization - let frontend handle it
             logger::info("Skipping automatic database initialization - frontend will handle based on system state");            // Initialize FileManager to ensure directories exist (singleton)
             match file_manager::FileManager::get_instance() {

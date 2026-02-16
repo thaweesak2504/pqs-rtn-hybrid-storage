@@ -8,12 +8,14 @@ import { useToast } from '../contexts/ToastContext'
 import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
 import UserAvatar from './UserAvatar'
 import { logger } from '../utils/logger'
+import ConfirmModal from './modals/ConfirmModal'
 
 
 const UserCRUDForm: React.FC = () => {
   const [users, setUsers] = useState<UserType[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [editingUser, setEditingUser] = useState<UserType | null>(null)
+  const [userToDelete, setUserToDelete] = useState<UserType | null>(null)
   const { checkAuthStatus, user: currentUser } = useAuth()
   const { showSuccess, showError } = useToast()
   const [formData, setFormData] = useState({
@@ -24,7 +26,7 @@ const UserCRUDForm: React.FC = () => {
     rank: '',
     role: 'visitor' as 'admin' | 'editor' | 'visitor'
   })
-  
+
   // Password visibility toggle for form
   const [showFormPassword, setShowFormPassword] = useState(false)
   // Avatar preview (base64) map for admin viewing in dev http origin and immediate feedback post upload
@@ -74,7 +76,7 @@ const UserCRUDForm: React.FC = () => {
       } catch (error) {
         logger.warn('Error:', error);
       }
-      
+
       // Password loading removed for security
     } catch (error) {
       logger.error('Failed to load users:', error)
@@ -104,10 +106,10 @@ const UserCRUDForm: React.FC = () => {
         const response = await fetch(dataUrl)
         const arrayBuffer = await response.arrayBuffer()
         const fileData = new Uint8Array(arrayBuffer)
-        
+
         // Get MIME type from data URL
         const mimeType = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg'
-        
+
         // Save avatar using Hybrid Avatar System
         const { invoke } = await import('@tauri-apps/api/tauri')
         const result = await invoke('save_hybrid_avatar', {
@@ -115,25 +117,25 @@ const UserCRUDForm: React.FC = () => {
           avatarData: Array.from(fileData),
           mimeType: mimeType
         }) as { avatar_updated_at: string; avatar_mime: string; avatar_size: number; avatar_path: string }
-        
+
         // Update local users state with hybrid avatar info
-        setUsers(prev => prev.map(u => u.id === user.id ? { 
-          ...u, 
-          avatar_updated_at: result.avatar_updated_at, 
-          avatar_mime: result.avatar_mime, 
+        setUsers(prev => prev.map(u => u.id === user.id ? {
+          ...u,
+          avatar_updated_at: result.avatar_updated_at,
+          avatar_mime: result.avatar_mime,
           avatar_size: result.avatar_size,
           avatar_path: result.avatar_path
         } : u))
-        
+
         // Clear preview since avatar is saved
         setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
-        
+
         // Trigger global avatar refresh event for all components
         // UserAvatar hook will handle the refresh automatically
-        window.dispatchEvent(new CustomEvent('avatarUpdated', { 
-          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true } 
+        window.dispatchEvent(new CustomEvent('avatarUpdated', {
+          detail: { userId: user.id, avatarPath: result.avatar_path, forceRefresh: true }
         }))
-        
+
         showSuccess('อัปเดต Avatar สำเร็จ (Hybrid System)')
       } catch (dbError) {
         logger.error('Database save failed:', dbError)
@@ -146,8 +148,8 @@ const UserCRUDForm: React.FC = () => {
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: false }))
       // Reset input value to allow same file reselect
       try { if (fileInputRefs.current[user.id]) fileInputRefs.current[user.id]!.value = '' } catch (error) {
-          logger.warn('Error:', error);
-        }
+        logger.warn('Error:', error);
+      }
     }
   }
 
@@ -163,58 +165,58 @@ const UserCRUDForm: React.FC = () => {
       showError('ข้อมูลผู้ใช้ไม่ถูกต้อง')
       return
     }
-    
+
     // No confirmation dialog needed - user can easily re-upload if mistake
-    
+
     try {
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: true }))
-      
+
       // Delete avatar using Hybrid Avatar System with enhanced error handling
       try {
         const { invoke } = await import('@tauri-apps/api/tauri')
-        
+
         // Call Tauri backend with proper error handling
-        const result = await invoke<boolean>('delete_hybrid_avatar', { 
-          userId: user.id 
+        const result = await invoke<boolean>('delete_hybrid_avatar', {
+          userId: user.id
         })
-        
+
         if (!result) {
           throw new Error('Backend returned false - delete operation failed')
         }
-        
+
         logger.debug('Avatar deleted successfully for user:', user.id)
-        
+
       } catch (dbError: any) {
         logger.error('Hybrid avatar delete failed:', {
           error: dbError,
           userId: user.id,
           message: dbError?.message || String(dbError)
         })
-        
+
         // Show user-friendly error message
-        const errorMessage = typeof dbError === 'string' 
-          ? dbError 
+        const errorMessage = typeof dbError === 'string'
+          ? dbError
           : dbError?.message || 'ลบรูปไม่สำเร็จ - กรุณาลองอีกครั้ง'
-        
+
         showError(errorMessage)
         return
       }
-      
+
       // Update local users state with hybrid avatar info
-      setUsers(prev => prev.map(u => u.id === user.id ? { 
-        ...u, 
-        avatar_updated_at: null, 
-        avatar_mime: null, 
+      setUsers(prev => prev.map(u => u.id === user.id ? {
+        ...u,
+        avatar_updated_at: null,
+        avatar_mime: null,
         avatar_size: null,
         avatar_path: null
       } : u))
-      
+
       // Clear avatar preview safely
-      setAvatarPreviews(prev => { 
+      setAvatarPreviews(prev => {
         const { [user.id as number]: _omit, ...rest } = prev
         return rest
       })
-        
+
       // Trigger global avatar refresh event (single dispatch only)
       // Use setTimeout to ensure state updates are processed first
       setTimeout(() => {
@@ -222,9 +224,9 @@ const UserCRUDForm: React.FC = () => {
           detail: { userId: user.id, forceRefresh: true }
         }))
       }, 50)
-        
+
       showSuccess('ลบ Avatar สำเร็จ')
-      
+
     } catch (e: any) {
       logger.error('Remove avatar failed - outer catch:', {
         error: e,
@@ -261,7 +263,7 @@ const UserCRUDForm: React.FC = () => {
   // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.full_name.trim() || !formData.email.trim() || !formData.username.trim()) {
       showError('Required fields missing')
       return
@@ -269,7 +271,7 @@ const UserCRUDForm: React.FC = () => {
 
     try {
       setIsLoading(true)
-      
+
       if (editingUser) {
         // Update existing user
         const updatedUser = await updateUser(editingUser.id!, formData)
@@ -285,7 +287,7 @@ const UserCRUDForm: React.FC = () => {
           showError('กรุณากรอกรหัสผ่าน')
           return
         }
-        
+
         await createUser({
           username: formData.username,
           email: formData.email,
@@ -296,7 +298,7 @@ const UserCRUDForm: React.FC = () => {
         })
         showSuccess('User created')
       }
-      
+
       // Reset form and reload users
       setFormData({ full_name: '', email: '', username: '', password: '', rank: '', role: 'visitor' })
       setShowFormPassword(false)
@@ -322,35 +324,36 @@ const UserCRUDForm: React.FC = () => {
     })
   }
 
-  // Handle delete user
-  const handleDeleteUser = async (id: number) => {
-    // Find the user to be deleted
-    const userToDelete = users.find(u => u.id === id)
-    
+  // Handle delete click
+  const handleDeleteClick = (user: UserType) => {
     // Prevent admin from deleting themselves
-  if (userToDelete && currentUser && String(userToDelete.id) === String(currentUser.id)) {
+    if (currentUser && String(user.id) === String(currentUser.id)) {
       showError('ไม่สามารถลบบัญชีของตัวเองได้')
       return
     }
-    
+
     // Prevent deleting admin users
-    if (userToDelete && userToDelete.role === 'admin') {
+    if (user.role === 'admin') {
       showError('ไม่สามารถลบผู้ดูแลระบบได้')
       return
     }
 
-    if (!window.confirm('Are you sure you want to delete this user?')) {
-      return
-    }
+    setUserToDelete(user)
+  }
+
+  // Confirm delete action
+  const confirmDeleteUser = async () => {
+    if (!userToDelete || !userToDelete.id) return
 
     try {
       setIsLoading(true)
-      const success = await deleteUser(id)
+      const success = await deleteUser(userToDelete.id)
       if (success) {
-        showSuccess('User deleted')
+        showSuccess('Deleted user successfully')
         loadUsers()
         // Refresh auth state to prevent Sign In Form issues
         await checkAuthStatus()
+        setUserToDelete(null)
       } else {
         showError('User not found')
       }
@@ -524,7 +527,7 @@ const UserCRUDForm: React.FC = () => {
             >
               {editingUser ? 'Update User' : 'Create User'}
             </Button>
-            
+
             {(editingUser || hasFormInput) && (
               <Button
                 type="button"
@@ -564,10 +567,10 @@ const UserCRUDForm: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-4">
                     <div className="relative flex flex-col items-center">
-                      <UserAvatar 
-                        user={user} 
-                        size="md" 
-                        className={avatarBusy[user.id as number] ? 'opacity-60' : ''} 
+                      <UserAvatar
+                        user={user}
+                        size="md"
+                        className={avatarBusy[user.id as number] ? 'opacity-60' : ''}
                       />
                       {currentUser?.role === 'admin' && user.id && (
                         <div className="mt-1 flex gap-1">
@@ -579,7 +582,7 @@ const UserCRUDForm: React.FC = () => {
                           >
                             {avatarBusy[user.id as number] ? '...' : 'เปลี่ยน'}
                           </button>
-                          { (user.avatar_path || avatarPreviews[user.id as number]) && (
+                          {(user.avatar_path || avatarPreviews[user.id as number]) && (
                             <button
                               type="button"
                               disabled={!!avatarBusy[user.id as number]}
@@ -608,13 +611,13 @@ const UserCRUDForm: React.FC = () => {
                       <div className="flex items-center gap-4 text-xs text-github-text-tertiary">
                         <span>Username: {user.username}</span>
                         <span>Role: {user.role}</span>
-                        
+
                         {/* Password section removed for security */}
                       </div>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -626,8 +629,7 @@ const UserCRUDForm: React.FC = () => {
                   </Button>
                   <Button
                     variant="outline"
-                    size="small"
-                    onClick={() => handleDeleteUser(user.id!)}
+                    onClick={() => handleDeleteClick(user)}
                     icon={<Trash2 className="w-4 h-4" />}
                     disabled={
                       user.role === 'admin' || (currentUser ? String(user.id) === String(currentUser.id) : false)
@@ -647,6 +649,16 @@ const UserCRUDForm: React.FC = () => {
           </div>
         )}
       </Card>
+
+      <ConfirmModal
+        isOpen={!!userToDelete}
+        onClose={() => setUserToDelete(null)}
+        onConfirm={confirmDeleteUser}
+        title="ยืนยันการลบผู้ใช้งาน"
+        message={`คุณต้องการลบผู้ใช้งาน "${userToDelete?.full_name}" (${userToDelete?.username}) ใช่หรือไม่?\n\nการกระทำนี้ไม่สามารถเรียกคืนได้`}
+        confirmText="ลบผู้ใช้งาน"
+        variant="danger"
+      />
     </div>
   )
 }

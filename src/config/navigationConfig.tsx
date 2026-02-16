@@ -13,6 +13,7 @@ import {
   UserPlus,
   Archive,
   BookOpen,
+  FilePlus,
 } from 'lucide-react'
 
 // Route configuration for navigation
@@ -33,7 +34,8 @@ export const ROUTE_CONFIG = {
     signin: '/signin',
     registration: '/register',
     register: '/register',
-    pqs_example: '/visitor',
+    pqs_example: '/example',
+    create_pqs: '/editor',
   }
 } as const
 
@@ -51,7 +53,8 @@ export const ROUTE_STATE_MAP = {
   '/signin': { activeItem: 'signin', expandedMenus: [] },
   '/register': { activeItem: 'register', expandedMenus: [] },
   '/registration': { activeItem: 'register', expandedMenus: [] },
-  '/visitor': { activeItem: 'pqs_example', expandedMenus: [] }
+  '/example': { activeItem: 'pqs_example', expandedMenus: [] },
+  '/editor': { activeItem: 'create_pqs', expandedMenus: [] }
 } as const
 
 // Menu item configuration
@@ -93,6 +96,11 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
     id: 'pqs_example',
     label: 'Pqs Example',
     icon: <BookOpen className="w-5 h-5" />
+  },
+  {
+    id: 'create_pqs',
+    label: 'Create Pqs',
+    icon: <FilePlus className="w-5 h-5" />
   },
   {
     id: 'contact',
