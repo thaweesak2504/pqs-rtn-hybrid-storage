@@ -153,7 +153,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     setIsCreating(true);
   };
 
-  const handleCreate = async (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], metadata?: string }, parentId: string | null, insertAfterId: string | null = null) => {
+  const handleCreate = async (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], metadata?: string, childLayout?: 'list' | 'grid' }, parentId: string | null, insertAfterId: string | null = null) => {
     try {
       // 1. Create Question
       // Construct metadata from image AND answerKey (passed in data.metadata)
@@ -163,6 +163,9 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       }
       if (data.image) {
         metaObj.image = data.image;
+      }
+      if (data.childLayout) {
+        metaObj.childLayout = data.childLayout;
       }
       const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
 
@@ -483,7 +486,7 @@ interface QuestionTreeNodeProps {
   onDelete: (question: QuestionDetail) => void;
   onStartCreate: (parentId: string | null) => void;
   onStartInsertAfter: (afterId: string) => void;
-  onCreate: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[] }, parentId: string | null, afterId?: string | null) => void;
+  onCreate: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], childLayout?: 'list' | 'grid' }, parentId: string | null, afterId?: string | null) => void;
   onCancel: () => void;
   onMoveUp: (questionId: string, siblings: QuestionDetail[]) => void;
   onMoveDown: (questionId: string, siblings: QuestionDetail[]) => void;
@@ -491,9 +494,10 @@ interface QuestionTreeNodeProps {
   isFirst: boolean;
   isLast: boolean;
   documentId: string;
-  sectionId: number; // Added sectionId
+  sectionId: number;
   onImageClick: (src: string) => void;
   onAlert: (message: string, type?: 'warning' | 'danger') => void;
+  parentLayout?: 'list' | 'grid';
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -501,12 +505,23 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   isCreating, creatingAtParent, insertingAfterId,
   onStartEdit, onUpdate, onDelete, onStartCreate, onStartInsertAfter, onCreate, onCancel,
   onMoveUp, onMoveDown, siblings, isFirst, isLast, documentId, sectionId,
-  onImageClick, onAlert
+  onImageClick, onAlert, parentLayout = 'list'
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const prefix = buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
   const canAddSub = level < 1 && !readOnly;
+
+  const [childLayout, setChildLayout] = useState<'list' | 'grid'>('list');
+
+  useEffect(() => {
+    if (question.metadata) {
+      try {
+        const meta = JSON.parse(question.metadata);
+        setChildLayout(meta.childLayout || 'list');
+      } catch (e) { }
+    }
+  }, [question.metadata]);
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
@@ -519,20 +534,20 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
   if (editingId === question.id) {
     return (
-      <div className={level > 0 ? 'ml-12' : ''}>
+      <div className={level > 0 && parentLayout !== 'grid' ? 'ml-12' : ''}>
         <QuestionFormCard
           prefix={prefix}
           level={level}
           initialContent={question.content}
           initialDescription={question.description || undefined}
           initialImage={initialImage}
-          initialMetadata={question.metadata} // Pass metadata
+          initialMetadata={question.metadata}
           onSave={(data) => {
-            // Construct metadata from image AND answerKey
             let metaObj: any = {};
             if (data.metadata) {
               try { metaObj = JSON.parse(data.metadata); } catch (e) { }
             }
+            if (level === 0) metaObj.childLayout = data.childLayout || childLayout;
             if (data.image) {
               metaObj.image = data.image;
             } else {
@@ -543,10 +558,11 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           }}
           onCancel={onCancel}
           documentId={documentId}
-          sectionId={sectionId} // Pass sectionId
+          sectionId={sectionId}
           existingId={question.id}
-          initialReferences={question.references} // Pass existing references
+          initialReferences={question.references}
           onAlert={onAlert}
+          childLayout={childLayout}
         />
       </div>
     );
@@ -572,14 +588,15 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onMoveUp={() => onMoveUp(question.id, siblings)}
         onMoveDown={() => onMoveDown(question.id, siblings)}
         onImageClick={onImageClick}
+        parentLayout={parentLayout}
       />
 
       {/* Insert After Form */}
       {isCreating && insertingAfterId === question.id && (
-        <div className={level > 0 ? 'ml-12' : ''}>
+        <div className={level > 0 && parentLayout !== 'grid' ? 'ml-12' : ''}>
           <QuestionFormCard
-            prefix={buildPrefix(level, question.sequence + 1, sectionNumber)} // Optimistic next number
-            level={level} // Insert sibling has same level
+            prefix={buildPrefix(level, question.sequence + 1, sectionNumber)}
+            level={level}
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
             onCancel={onCancel}
             documentId={documentId}
@@ -591,42 +608,47 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
       {isExpanded && hasChildren && (
         <div className="relative">
-          <div className="absolute left-[30px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent" />
-          {question.children!.map((child, idx) => (
-            <QuestionTreeNode
-              key={child.id}
-              question={child}
-              level={level + 1}
-              sectionNumber={sectionNumber}
-              readOnly={readOnly}
-              editingId={editingId}
-              isCreating={isCreating}
-              creatingAtParent={creatingAtParent}
-              insertingAfterId={insertingAfterId}
-              onStartEdit={onStartEdit}
-              onUpdate={onUpdate}
-              onDelete={onDelete}
-              onStartCreate={onStartCreate}
-              onStartInsertAfter={onStartInsertAfter}
-              onCreate={onCreate}
-              onCancel={onCancel}
-              onMoveUp={onMoveUp}
-              onMoveDown={onMoveDown}
-              siblings={question.children!}
-              isFirst={idx === 0}
-              isLast={idx === question.children!.length - 1}
-              documentId={documentId}
-              sectionId={sectionId} // Pass sectionId
-              onImageClick={onImageClick}
-              onAlert={onAlert}
-            />
-          ))}
+          {childLayout !== 'grid' && parentLayout !== 'grid' && (
+            <div className="absolute left-[30px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent" />
+          )}
+          <div className={childLayout === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 ml-12' : ''}>
+            {question.children!.map((child, idx) => (
+              <QuestionTreeNode
+                key={child.id}
+                question={child}
+                level={level + 1}
+                sectionNumber={sectionNumber}
+                readOnly={readOnly}
+                editingId={editingId}
+                isCreating={isCreating}
+                creatingAtParent={creatingAtParent}
+                insertingAfterId={insertingAfterId}
+                onStartEdit={onStartEdit}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+                onStartCreate={onStartCreate}
+                onStartInsertAfter={onStartInsertAfter}
+                onCreate={onCreate}
+                onCancel={onCancel}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                siblings={question.children!}
+                isFirst={idx === 0}
+                isLast={idx === question.children!.length - 1}
+                documentId={documentId}
+                sectionId={sectionId}
+                onImageClick={onImageClick}
+                onAlert={onAlert}
+                parentLayout={childLayout}
+              />
+            ))}
+          </div>
         </div>
       )}
 
       {/* Add Sub Form (Append) */}
       {isCreating && creatingAtParent === question.id && (
-        <div className="ml-12 mt-1 mb-1">
+        <div className={childLayout === 'grid' ? 'm-1' : 'ml-12 mt-1 mb-1'}>
           <QuestionFormCard
             prefix={buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
             level={level + 1}
@@ -654,24 +676,26 @@ interface QuestionFormCardProps {
   initialImage?: string;
   initialMetadata?: string | null; // Added initialMetadata
   initialReferences?: QuestionReferenceDetail[];
-  onSave: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], metadata?: string }) => void; // Added references & metadata
+  onSave: (data: { content: string, description?: string, image?: string, id?: string, references?: QuestionReferenceDetail[], metadata?: string, childLayout?: 'list' | 'grid' }) => void; // Added references, metadata & childLayout
   onCancel: () => void;
   documentId: string; // Added documentId
   existingId?: string; // Edit mode ID
   sectionId?: number; // Added sectionId for fetching available references
   onAlert?: (message: string, type?: 'warning' | 'danger') => void;
+  childLayout?: 'list' | 'grid';
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   prefix, level, initialContent = '', initialDescription = '', initialImage = '', initialMetadata = null, initialReferences = EMPTY_REFS,
-  onSave, onCancel, documentId, existingId, sectionId, onAlert
+  onSave, onCancel, documentId, existingId, sectionId, onAlert, childLayout: initialChildLayout = 'list'
 }) => {
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
+  const [currentChildLayout, setCurrentChildLayout] = useState<'list' | 'grid'>(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
   // Reference Linking State
@@ -687,6 +711,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     } catch { return ''; }
   });
 
+  // Toggle states for optional required fields
+  const [requireRef, setRequireRef] = useState<boolean>(() => {
+    if (!initialMetadata) return true;
+    try {
+      const meta = JSON.parse(initialMetadata);
+      return meta.requireRef !== false;
+    } catch { return true; }
+  });
+  const [requireAnswerKey, setRequireAnswerKey] = useState<boolean>(() => {
+    if (!initialMetadata) return true;
+    try {
+      const meta = JSON.parse(initialMetadata);
+      return meta.requireAnswerKey !== false;
+    } catch { return true; }
+  });
+
   const [isRefExpanded, setIsRefExpanded] = useState(false); // Collapsible State
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
@@ -699,6 +739,62 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const answerKeyRef = useRef<HTMLTextAreaElement>(null);
+  const formCardRef = useRef<HTMLDivElement>(null);
+  const hasInitialAutoScrolledRef = useRef(false);
+
+  const findScrollableParent = (el: HTMLElement | null): HTMLElement | null => {
+    if (!el) return null;
+    let parent = el.parentElement;
+    while (parent) {
+      const style = window.getComputedStyle(parent);
+      const overflowY = style.overflowY;
+      const canScroll = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+      if (canScroll && parent.scrollHeight > parent.clientHeight) return parent;
+      parent = parent.parentElement;
+    }
+    return null;
+  };
+
+  const ensureFormFullyVisible = (smooth = false) => {
+    const formEl = formCardRef.current;
+    if (!formEl) return;
+
+    const scrollParent = findScrollableParent(formEl);
+    const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
+
+    // Extra bottom space to avoid fixed footer / OS taskbar overlap feeling
+    const bottomSafeArea = 88;
+    const topPadding = 8;
+    const bottomPadding = 12;
+
+    if (!scrollParent) {
+      const rect = formEl.getBoundingClientRect();
+      const visibleTop = topPadding;
+      const visibleBottom = window.innerHeight - bottomSafeArea;
+
+      if (rect.bottom > visibleBottom) {
+        window.scrollBy({ top: rect.bottom - visibleBottom + bottomPadding, behavior });
+        return;
+      }
+      if (rect.top < visibleTop) {
+        window.scrollBy({ top: rect.top - visibleTop - bottomPadding, behavior });
+      }
+      return;
+    }
+
+    const formRect = formEl.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const visibleTop = parentRect.top + topPadding;
+    const visibleBottom = parentRect.bottom - bottomPadding;
+
+    if (formRect.bottom > visibleBottom) {
+      scrollParent.scrollBy({ top: formRect.bottom - visibleBottom + bottomPadding, behavior });
+      return;
+    }
+    if (formRect.top < visibleTop) {
+      scrollParent.scrollBy({ top: formRect.top - visibleTop - bottomPadding, behavior });
+    }
+  };
 
   // Auto-resize textarea helper (Strict)
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
@@ -720,14 +816,31 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     adjustHeight(answerKeyRef.current);
   }, [answerKey]);
 
+  // Bottom-awareness: keep newly opened form fully visible without manual scrolling.
+  useEffect(() => {
+    if (hasInitialAutoScrolledRef.current) return;
+    hasInitialAutoScrolledRef.current = true;
+    const rafId = window.requestAnimationFrame(() => ensureFormFullyVisible(true));
+    return () => window.cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-check visibility when optional sections expand/collapse and change form height.
+  useEffect(() => {
+    if (!hasInitialAutoScrolledRef.current) return;
+    const rafId = window.requestAnimationFrame(() => ensureFormFullyVisible(false));
+    return () => window.cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDescription, imagePath, requireRef, requireAnswerKey, isRefExpanded, linkedRefs.length]);
+
   // Fetch Available References
   useEffect(() => {
-    if (isL1 && sectionId) {
+    if (requireRef && sectionId) {
       invoke<SectionReferenceDetail[]>('get_section_references', { sectionId })
         .then(refs => setAvailableRefs(refs))
         .catch(err => console.error("Failed to fetch section references:", err));
     }
-  }, [isL1, sectionId]);
+  }, [requireRef, sectionId]);
 
   const handleAddReference = async () => {
     if (!selectedRefId) return;
@@ -826,11 +939,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       newErrors.content = true;
       hasError = true;
     }
-    if (!answerKey.trim()) {
+    if (requireAnswerKey && !answerKey.trim()) {
       newErrors.answerKey = true;
       hasError = true;
     }
-    if (isL1 && linkedRefs.length === 0) {
+    if (requireRef && linkedRefs.length === 0) {
       newErrors.refs = true;
       hasError = true;
     }
@@ -853,29 +966,31 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
-    let metadataString: string | undefined = undefined;
-    if (answerKey.trim()) {
-      let newMeta: any = {};
-      if (initialMetadata) {
-        try { newMeta = JSON.parse(initialMetadata); } catch (e) { }
-      }
-      newMeta.answerKey = answerKey.trim();
-      metadataString = JSON.stringify(newMeta);
-    } else if (initialMetadata) {
-      try {
-        const existing = JSON.parse(initialMetadata);
-        if (existing.answerKey) delete existing.answerKey;
-        if (Object.keys(existing).length > 0) metadataString = JSON.stringify(existing);
-      } catch (e) { }
+    let newMeta: any = {};
+    if (initialMetadata) {
+      try { newMeta = JSON.parse(initialMetadata); } catch (e) { }
     }
+    // Save toggle states (only store non-default values)
+    if (!requireRef) newMeta.requireRef = false;
+    else delete newMeta.requireRef;
+    if (!requireAnswerKey) newMeta.requireAnswerKey = false;
+    else delete newMeta.requireAnswerKey;
+    // Save answer key
+    if (requireAnswerKey && answerKey.trim()) {
+      newMeta.answerKey = answerKey.trim();
+    } else {
+      delete newMeta.answerKey;
+    }
+    const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
 
     onSave({
       content,
       description: isL1 ? description : undefined,
       image: isL1 ? (imagePath || undefined) : undefined,
       id: !isEdit ? (generatedId || undefined) : undefined,
-      references: isL1 ? linkedRefs : undefined,
-      metadata: metadataString
+      references: requireRef ? linkedRefs : [],
+      metadata: metadataString,
+      childLayout: isL1 ? currentChildLayout : undefined
     });
   };
 
@@ -888,7 +1003,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   return (
-    <div className="m-1 rounded-lg border border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-3 shadow-md backdrop-blur-sm animate-in zoom-in-95 duration-200">
+    <div ref={formCardRef} className="m-1 rounded-lg border border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-3 shadow-md backdrop-blur-sm animate-in zoom-in-95 duration-200">
       <div className="space-y-2">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -912,7 +1027,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   title="เพิ่มคำอธิบาย"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span className="sr-only">+ คำอธิบาย</span>
                 </button>
               )}
               {!imagePath && (
@@ -923,9 +1037,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   title="เพิ่มรูปภาพ"
                 >
                   <ImageIcon className="w-3.5 h-3.5" />
-                  <span className="sr-only">+ รูปภาพ</span>
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => setCurrentChildLayout(prev => prev === 'grid' ? 'list' : 'grid')}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all border shadow-sm
+                  ${currentChildLayout === 'grid'
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                  }`}
+                title="สลับโหมดการแสดงผลคำถามย่อย"
+              >
+                <Plus className={`w-3 h-3 transition-transform ${currentChildLayout === 'grid' ? 'rotate-45' : ''}`} />
+                {currentChildLayout === 'grid' ? '2 คอลัมน์' : '1 คอลัมน์'}
+              </button>
             </div>
           )}
         </div>
@@ -954,12 +1080,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           />
         </div>
 
-        {/* L1 Extras */}
-        {isL1 && (
-          <div className="space-y-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+        {/* Form Extras */}
+        <div className="space-y-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
 
-            {/* Description - Auto-expanding (Optional) */}
-            {showDescription && (
+            {/* Description - L1 Only (Optional) */}
+            {isL1 && showDescription && (
               <div className="group/desc animate-in slide-in-from-top-1">
                 <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                   คำอธิบาย (Description)
@@ -987,11 +1112,60 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               </div>
             )}
 
-            {/* References Label */}
+            {/* Toggle Options: Reference + Answer Key */}
+            <div className="flex items-center gap-4 py-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <div className="relative inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={requireRef}
+                    onChange={(e) => {
+                      setRequireRef(e.target.checked);
+                      if (!e.target.checked) {
+                        setLinkedRefs([]);
+                        setSelectedRefId('');
+                        setIsRefExpanded(false);
+                        setErrors(prev => ({ ...prev, refs: false }));
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-500 transition-colors"></div>
+                  <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
+                </div>
+                <span className={`text-xs font-semibold transition-colors ${requireRef ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400 dark:text-slate-500 line-through'}`}>
+                  เอกสารอ้างอิง (Reference) {requireRef && <span className="text-red-500">*</span>}
+                </span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <div className="relative inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={requireAnswerKey}
+                    onChange={(e) => {
+                      setRequireAnswerKey(e.target.checked);
+                      if (!e.target.checked) {
+                        setAnswerKey('');
+                        setErrors(prev => ({ ...prev, answerKey: false }));
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-emerald-500 transition-colors"></div>
+                  <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
+                </div>
+                <span className={`text-xs font-semibold transition-colors ${requireAnswerKey ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400 dark:text-slate-500 line-through'}`}>
+                  คำเฉลย (Answer Key) {requireAnswerKey && <span className="text-red-500">*</span>}
+                </span>
+              </label>
+            </div>
+
+            {/* References Section (Both L1 & L2, conditional on toggle) */}
+            {requireRef && (<>
             <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
               <span>เอกสารอ้างอิง (References)</span>
-              <span className={`text-xs font-normal Normal ${errors.refs ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
-                (เลือกแล้ว {linkedRefs.length}/2 รายการ) <span className="text-red-500">*</span>
+              <span className={`text-xs font-normal ${errors.refs ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                (เลือกแล้ว {linkedRefs.length}/2 รายการ)
               </span>
             </label>
 
@@ -1131,8 +1305,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               )}
             </div>
 
-            {/* Image Preview (Compact) */}
-            {imagePath && (
+            </>)}
+
+            {/* Image Preview (L1 Only) */}
+            {isL1 && imagePath && (
               <div className="flex items-center gap-2 pt-1">
                 <div className="relative group inline-block">
                   <div className="w-16 h-12 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden">
@@ -1144,30 +1320,31 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 </div>
               </div>
             )}
+        </div>
+
+        {/* Answer Key (conditional on toggle) */}
+        {requireAnswerKey && (
+          <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+            <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+              เฉลย (Answer Key)
+            </label>
+            <textarea
+              ref={answerKeyRef}
+              value={answerKey}
+              onChange={(e) => {
+                setAnswerKey(e.target.value);
+                if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
+              }}
+              placeholder="เฉลยคำตอบ (Answer Key)..."
+              className={`w-full p-2 border rounded-md text-sm font-normal resize-none min-h-[34px] overflow-hidden
+                ${errors.answerKey
+                  ? 'border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100'
+                  : 'border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500/50'
+                } focus:outline-none focus:ring-1`}
+              rows={1}
+            />
           </div>
         )}
-
-        {/* Answer Key - Auto-expanding */}
-        <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-          <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-            เฉลย (Answer Key) <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            ref={answerKeyRef}
-            value={answerKey}
-            onChange={(e) => {
-              setAnswerKey(e.target.value);
-              if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
-            }}
-            placeholder="เฉลยคำตอบ (Answer Key)..."
-            className={`w-full p-2 border rounded-md text-sm font-normal resize-none min-h-[34px] overflow-hidden
-              ${errors.answerKey
-                ? 'border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100'
-                : 'border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500/50'
-              } focus:outline-none focus:ring-1`}
-            rows={1}
-          />
-        </div>
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-1">
@@ -1275,12 +1452,14 @@ interface QuestionDisplayCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   onImageClick?: (src: string) => void;
+  parentLayout?: 'list' | 'grid';
 }
 
 const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   question, prefix, level, readOnly, isExpanded,
   hasChildren, canAddSub, isFirst, isLast,
-  onToggle, onEdit, onDelete, onAddSub, onInsertAfter, onMoveUp, onMoveDown, onImageClick
+  onToggle, onEdit, onDelete, onAddSub, onInsertAfter, onMoveUp, onMoveDown, onImageClick,
+  parentLayout = 'list'
 }) => {
   const isL1 = level === 0;
 
@@ -1289,14 +1468,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       group relative flex items-start gap-3 px-4 py-3 transition-all duration-150
       ${isL1
         ? 'bg-white dark:bg-slate-800'
-        : 'bg-slate-50/50 dark:bg-slate-800/50 ml-12'
+        : parentLayout === 'grid'
+          ? 'bg-slate-50/80 dark:bg-slate-800/80 m-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm'
+          : 'bg-slate-50/50 dark:bg-slate-800/50 ml-12'
       }
-      ${!isLast ? 'border-b border-gray-100 dark:border-slate-700/50' : ''}
+      ${!isLast && parentLayout !== 'grid' ? 'border-b border-gray-100 dark:border-slate-700/50' : ''}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
     `}>
 
       {/* L2 connector dot */}
-      {!isL1 && (
+      {!isL1 && parentLayout !== 'grid' && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
@@ -1340,7 +1521,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         {/* Row 1: Content + Refs (Inline) */}
         <div className="truncate pr-8" title={question.content}>
           <span className={isL1 ? 'font-semibold' : 'font-normal'}>{question.content}</span>
-          {isL1 && question.references && question.references.length > 0 && (
+          {question.references && question.references.length > 0 && (
             <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
               ({question.references.map(ref => `${ref.thai_letter || '?'}.${ref.location_text || '-'}`).join(', ')})
             </span>
