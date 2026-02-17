@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Edit2, Check, X } from 'lucide-react';
+import { Check, Edit2, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 
-type SectionTheme = 'blue' | 'orange' | 'purple';
+type SectionTheme = 'blue' | 'green' | 'orange' | 'purple';
 
 interface PqsHeaderProps {
   section: string;
@@ -39,6 +39,7 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
   }, [isEditing]);
 
   const getTheme = (sec: string): SectionTheme => {
+    if (sec.startsWith('1')) return 'green';
     if (sec.startsWith('2')) return 'orange';
     if (sec.startsWith('3')) return 'purple';
     return 'blue';
@@ -57,6 +58,12 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
       text: 'text-blue-50',
       badge: 'bg-blue-500/30 text-blue-100',
       hover: 'hover:bg-blue-500/20'
+    },
+    green: {
+      gradient: 'from-green-600 to-green-700 dark:from-green-700 dark:to-green-900',
+      text: 'text-green-50',
+      badge: 'bg-green-500/30 text-green-100',
+      hover: 'hover:bg-green-500/20'
     },
     orange: {
       gradient: 'from-orange-600 to-orange-700 dark:from-orange-700 dark:to-orange-900',

@@ -1,5 +1,6 @@
-import React from 'react';
 import { BookOpen } from 'lucide-react';
+import React from 'react';
+import Container from '../ui/Container';
 
 interface IntroductionViewProps {
   appliedTo: string;
@@ -53,7 +54,7 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
   // Preview Mode - A4 Paper Format (like print)
   if (isPreviewMode) {
     return (
-      <div className="flex justify-center bg-gray-100 dark:bg-github-bg-primary min-w-fit transition-colors duration-300">
+      <div className="flex justify-center bg-github-bg-primary min-w-fit transition-colors duration-300">
         <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-github-text-primary box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_2.0cm_2.0cm_3.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
           <div className="mb-8">
             <h1 className='font-bold text-center text-lg'>
@@ -81,7 +82,7 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
 
   // Edit Mode - Modern Card UI
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <Container size="medium" padding="large" className="py-6 space-y-6">
       {/* Header Card */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 rounded-lg shadow-lg p-6 text-white">
         <div className="flex items-center space-x-3">
@@ -140,13 +141,13 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
       </div>
 
       {/* Footer Note */}
-      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
+      <div className="bg-github-bg-secondary dark:bg-gray-800 border border-github-border-primary dark:border-gray-700 rounded-lg p-4 text-sm text-github-text-secondary dark:text-gray-400">
         <p className="flex items-center">
           <span className="mr-2">💡</span>
           <span>ข้อมูลที่แสดงด้านบนจะถูกนำไปใช้ในการสร้างเอกสาร PDF มาตรฐาน RTN</span>
         </p>
       </div>
-    </div>
+    </Container>
   );
 };
 

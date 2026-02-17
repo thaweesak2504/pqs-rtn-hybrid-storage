@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../ui/Button';
-import { ArrowLeft, Menu, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 
 import { invoke } from '@tauri-apps/api/tauri';
 
@@ -38,11 +38,11 @@ import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 
+import { Edit2, Edit3, Eye } from 'lucide-react';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
-import EditMetadataModal from '../modals/EditMetadataModal';
 import AddSectionModal from '../modals/AddSectionModal';
 import ConfirmModal from '../modals/ConfirmModal';
-import { Edit2, Eye, Edit3 } from 'lucide-react';
+import EditMetadataModal from '../modals/EditMetadataModal';
 
 const ActiveDocumentPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
@@ -111,7 +111,7 @@ const ActiveDocumentPage: React.FC = () => {
   if (!docId) return <div>Invalid Document ID</div>;
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-github-bg-primary overflow-hidden">
+    <div className="flex h-screen bg-github-bg-primary overflow-hidden">
       {/* Left Sidebar */}
       <aside
         className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-white dark:bg-github-bg-secondary border-r border-gray-200 dark:border-github-border-primary transition-all duration-300 flex flex-col`}
@@ -293,7 +293,7 @@ const ActiveDocumentPage: React.FC = () => {
         </header>
 
         {/* Scrollable Document Area */}
-        <div className="flex-1 overflow-y-auto p-8 bg-gray-100 dark:bg-github-bg-primary">
+        <div className="flex-1 overflow-y-auto p-8 bg-github-bg-primary">
           {activeSection === 'cover' && docData && (
             <CoverPageView
               id={docData.document.id}

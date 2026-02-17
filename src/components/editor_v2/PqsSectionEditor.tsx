@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/tauri';
+import React, { useEffect, useState } from 'react';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
-import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 import PqsQuestionSection from './PqsQuestionSection';
-import { invoke } from '@tauri-apps/api/tauri';
+import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 
 interface PqsSectionEditorProps {
   docId: string;
@@ -204,6 +204,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       {/* 2. Reference Section */}
       <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
         <PqsReferenceSection
+          sectionNumber={sectionNumber.toString()}
           references={references}
           onAdd={handleAddRef}
           onEdit={handleEditRef}

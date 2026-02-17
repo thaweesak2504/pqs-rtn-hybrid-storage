@@ -160,11 +160,11 @@
   /* Light Mode Overrides */
   html:not(.dark) {
     /* Light Mode Colors */
-    --github-bg-primary: #ffffff;
-    --github-bg-secondary: #f6f8fa;
-    --github-bg-tertiary: #ffffff;
-    --github-bg-hover: #f3f4f6;
-    --github-bg-active: #f3f4f6;
+    --github-bg-primary: #f6f8fa;
+    --github-bg-secondary: #ffffff;
+    --github-bg-tertiary: #f6f8fa;
+    --github-bg-hover: #eff2f5;
+    --github-bg-active: #eff2f5;
     --github-bg-muted: #f6f8fa;
     --github-border-primary: #d0d7de;
     --github-border-secondary: #d0d7de;

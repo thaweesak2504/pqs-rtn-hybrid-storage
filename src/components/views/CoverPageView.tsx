@@ -1,6 +1,7 @@
+import { Building2, Calendar, FileText, Hash } from 'lucide-react';
 import React from 'react';
-import { FileText, Building2, Calendar, Hash } from 'lucide-react';
 import navyLogo from '../../assets/images/navy_logo.webp';
+import Container from '../ui/Container';
 
 interface CoverPageViewProps {
   id: string;
@@ -73,7 +74,7 @@ const CoverPageView: React.FC<CoverPageViewProps> = ({ id, name, hierarchy, isPr
   const displayUnits = hierarchy.slice(0, 3);
 
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <Container size="medium" padding="large" className="py-6 space-y-6">
       {/* Hero Card - Gradient Background */}
       <div className="relative overflow-hidden rounded-2xl shadow-2xl">
         {/* Gradient Background */}
@@ -218,7 +219,7 @@ const CoverPageView: React.FC<CoverPageViewProps> = ({ id, name, hierarchy, isPr
           </div>
         </div>
       </div>
-    </div>
+    </Container>
   );
 };
 

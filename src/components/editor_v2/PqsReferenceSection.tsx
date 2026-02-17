@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Book, Plus, Trash2, Edit, Save, X, FileText, Lock, Shield, Search, CheckCircle, Globe, Video, Image, Mic, FileDigit, FolderOpen } from 'lucide-react';
-import Button from '../ui/Button';
-import { invoke, convertFileSrc } from '@tauri-apps/api/tauri';
 import { open as openDialog } from '@tauri-apps/api/dialog';
 import { join } from '@tauri-apps/api/path';
+import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
+import { Book, CheckCircle, Edit, FileDigit, FileText, FolderOpen, Globe, Image, Lock, Mic, Plus, Save, Search, Shield, Trash2, Video, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ConfirmModal from '../modals/ConfirmModal';
 import ImagePreviewModal from '../modals/ImagePreviewModal';
+import Button from '../ui/Button';
 
 
 // Types
@@ -30,6 +30,7 @@ interface PqsReferenceSectionProps {
   readOnly?: boolean;
   sectionId?: number;
   docId?: string; // NEW: Pass Document ID for folder organization (e.g., "100")
+  sectionNumber?: string;
   onRefresh?: () => void;
 }
 
@@ -40,6 +41,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   onDelete,
   readOnly = false,
   sectionId,
+  sectionNumber = '100',
   onRefresh
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -99,8 +101,23 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
-            <Book className="w-6 h-6" />
+          <div className="relative">
+            <div className={`p-2 rounded-lg ${sectionNumber.startsWith('2') ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
+              sectionNumber.startsWith('3') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                sectionNumber.startsWith('1') ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                  'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+              }`}>
+              <Book className="w-6 h-6" />
+            </div>
+            {references.length > 0 && (
+              <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-sm backdrop-blur-sm ${sectionNumber.startsWith('2') ? 'bg-orange-50/80 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' :
+                  sectionNumber.startsWith('3') ? 'bg-purple-50/80 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800' :
+                    sectionNumber.startsWith('1') ? 'bg-green-50/80 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
+                      'bg-blue-50/80 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
+                }`}>
+                {references.length}
+              </div>
+            )}
           </div>
           <div>
             <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">เอกสารอ้างอิง</h2>
@@ -128,13 +145,25 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
             <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 w-full max-w-[320px]">
               <button
                 onClick={handleStartSearch}
-                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-bold rounded-md transition-all ${activeMode === 'search' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'}`}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-bold rounded-md transition-all ${activeMode === 'search'
+                  ? (sectionNumber.startsWith('2') ? 'bg-orange-600 text-white shadow-md' :
+                    sectionNumber.startsWith('3') ? 'bg-purple-600 text-white shadow-md' :
+                      sectionNumber.startsWith('1') ? 'bg-green-600 text-white shadow-md' :
+                        'bg-blue-600 text-white shadow-md')
+                  : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
               >
                 <Search className="w-3.5 h-3.5" /> ค้นหาเอกสารที่มีอยู่
               </button>
               <button
                 onClick={handleStartCreate}
-                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-bold rounded-md transition-all ${activeMode === 'create' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600'}`}
+                className={`flex-1 flex items-center justify-center gap-2 py-1.5 text-xs font-bold rounded-md transition-all ${activeMode === 'create'
+                  ? (sectionNumber.startsWith('2') ? 'bg-orange-600 text-white shadow-md' :
+                    sectionNumber.startsWith('3') ? 'bg-purple-600 text-white shadow-md' :
+                      sectionNumber.startsWith('1') ? 'bg-green-600 text-white shadow-md' :
+                        'bg-blue-600 text-white shadow-md')
+                  : 'text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
               >
                 <Plus className="w-3.5 h-3.5" /> สร้างเอกสารใหม่
               </button>

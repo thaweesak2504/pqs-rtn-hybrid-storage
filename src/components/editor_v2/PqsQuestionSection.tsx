@@ -157,7 +157,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => {},
+    onConfirm: () => { },
     variant: "danger",
   });
 
@@ -252,7 +252,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       if (data.metadata) {
         try {
           metaObj = JSON.parse(data.metadata);
-        } catch {}
+        } catch { }
       }
       if (data.image) {
         metaObj.image = data.image;
@@ -295,8 +295,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         // Find siblings
         const allSiblings = parentId
           ? questions
-              .filter((q) => q.parent_id === parentId)
-              .sort((a, b) => a.sequence - b.sequence)
+            .filter((q) => q.parent_id === parentId)
+            .sort((a, b) => a.sequence - b.sequence)
           : questions.filter((q) => !q.parent_id).sort((a, b) => a.sequence - b.sequence);
 
         // Construct new order: [...before, insertAfterId, NEW_ID, ...after]
@@ -458,11 +458,19 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <FileQuestion className="w-5 h-5 text-white" />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${sectionNumber.toString().startsWith('2') ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400' :
+              sectionNumber.toString().startsWith('3') ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400' :
+                sectionNumber.toString().startsWith('1') ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' :
+                  'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+              }`}>
+              <FileQuestion className="w-5 h-5" />
             </div>
             {questionTree.length > 0 && (
-              <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm">
+              <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-sm backdrop-blur-sm ${sectionNumber.toString().startsWith('2') ? 'bg-orange-50/80 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' :
+                  sectionNumber.toString().startsWith('3') ? 'bg-indigo-50/80 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800' :
+                    sectionNumber.toString().startsWith('1') ? 'bg-green-50/80 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
+                      'bg-blue-50/80 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
+                }`}>
                 {questionTree.length}
               </div>
             )}
@@ -685,7 +693,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       try {
         const meta = JSON.parse(question.metadata);
         setChildLayout(meta.childLayout || "list");
-      } catch {}
+      } catch { }
     }
   }, [question.metadata]);
 
@@ -715,7 +723,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             if (data.metadata) {
               try {
                 metaObj = JSON.parse(data.metadata);
-              } catch {}
+              } catch { }
             }
             if (level === 0) metaObj.childLayout = data.childLayout || childLayout;
             if (data.image) {
@@ -1174,7 +1182,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (initialMetadata) {
       try {
         newMeta = JSON.parse(initialMetadata);
-      } catch {}
+      } catch { }
     }
     // Save toggle states (only store non-default values)
     if (!requireRef) newMeta.requireRef = false;
@@ -1252,10 +1260,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 type="button"
                 onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
                 className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all border shadow-sm
-                  ${
-                    currentChildLayout === "grid"
-                      ? "bg-blue-600 border-blue-500 text-white"
-                      : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                  ${currentChildLayout === "grid"
+                    ? "bg-blue-600 border-blue-500 text-white"
+                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
                   }`}
                 title="สลับโหมดการแสดงผลคำถามย่อย"
               >
@@ -1284,10 +1291,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="พิมพ์คำถาม..."
             className={`w-full p-2 border rounded-md text-sm font-semibold resize-none min-h-[36px] overflow-hidden leading-relaxed
-              ${
-                errors.content
-                  ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300"
-                  : "border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+              ${errors.content
+                ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300"
+                : "border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
               } focus:outline-none focus:ring-1`}
             rows={1}
           />
@@ -1422,11 +1428,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 {/* 2. Add Reference Section (Collapsible) */}
                 {linkedRefs.length < 2 && (
                   <div
-                    className={`border rounded-md transition-all duration-200 ${
-                      isRefExpanded
-                        ? "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
-                        : "border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50 dark:bg-slate-900/30"
-                    }`}
+                    className={`border rounded-md transition-all duration-200 ${isRefExpanded
+                      ? "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
+                      : "border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50 dark:bg-slate-900/30"
+                      }`}
                   >
                     {/* Toggle Header */}
                     <div
@@ -1548,7 +1553,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                           title={r.reference.classification || "Unclassified"}
                                         >
                                           {r.reference.classification === "Confidential" ||
-                                          r.reference.classification === "Secret" ? (
+                                            r.reference.classification === "Secret" ? (
                                             <Lock className="w-3.5 h-3.5 text-red-500" />
                                           ) : r.reference.classification === "Restricted" ? (
                                             <Shield className="w-3.5 h-3.5 text-blue-500" />
@@ -1623,10 +1628,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               }}
               placeholder="เฉลยคำตอบ (Answer Key)..."
               className={`w-full p-2 border rounded-md text-sm font-normal resize-none min-h-[34px] overflow-hidden
-                ${
-                  errors.answerKey
-                    ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100"
-                    : "border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500/50"
+                ${errors.answerKey
+                  ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100"
+                  : "border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500/50"
                 } focus:outline-none focus:ring-1`}
               rows={1}
             />
@@ -1779,13 +1783,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     <div
       className={`
       group relative flex items-start gap-3 px-4 py-3 transition-all duration-150
-      ${
-        isL1
+      ${isL1
           ? "bg-white dark:bg-slate-800"
           : parentLayout === "grid"
             ? "bg-slate-50/80 dark:bg-slate-800/80 m-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm"
             : "bg-slate-50/50 dark:bg-slate-800/50 ml-12"
-      }
+        }
       ${!isLast && parentLayout !== "grid" ? "border-b border-gray-100 dark:border-slate-700/50" : ""}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
     `}
@@ -1802,10 +1805,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       <button
         onClick={onToggle}
         className={`w-5 h-5 mt-1 flex items-center justify-center rounded transition-all shrink-0
-          ${
-            hasChildren
-              ? "text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
-              : "invisible"
+          ${hasChildren
+            ? "text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+            : "invisible"
           }`}
       >
         {isExpanded ? (
@@ -1819,11 +1821,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       <span
         className={`
         shrink-0 inline-flex items-center justify-center
-        ${
-          isL1
+        ${isL1
             ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
             : "min-w-[24px] text-sm font-normal text-blue-600 dark:text-blue-400" // L2: No box, just text
-        }
+          }
       `}
       >
         {prefix}
@@ -1832,11 +1833,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       {/* Content */}
       <div
         className={`flex-1 flex flex-col min-w-0 select-text
-        ${
-          isL1
+        ${isL1
             ? "text-sm text-slate-900 dark:text-slate-100" // L1: Stronger emphasis
             : "text-sm text-slate-700 dark:text-slate-300" // L2: Normal weight as requested
-        }
+          }
       `}
       >
         {/* Row 1: Content + Refs (Inline) */}
@@ -1886,7 +1886,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   icon: <Plus />,
                   onClick: onInsertAfter,
                 },
-                { label: "separator", onClick: () => {}, separator: true },
+                { label: "separator", onClick: () => { }, separator: true },
                 {
                   label: "เลื่อนขึ้น (Move Up)",
                   icon: <ArrowUp />,
@@ -1899,15 +1899,15 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   onClick: onMoveDown,
                   disabled: isLast,
                 },
-                { label: "separator", onClick: () => {}, separator: true },
+                { label: "separator", onClick: () => { }, separator: true },
                 ...(canAddSub
                   ? [
-                      {
-                        label: "เพิ่มคำถามย่อย (Add Sub-Question)",
-                        icon: <MessageSquarePlus />,
-                        onClick: onAddSub,
-                      },
-                    ]
+                    {
+                      label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                      icon: <MessageSquarePlus />,
+                      onClick: onAddSub,
+                    },
+                  ]
                   : []),
                 {
                   label: "แก้ไข (Edit)",

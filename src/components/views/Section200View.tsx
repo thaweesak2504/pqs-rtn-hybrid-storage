@@ -1,5 +1,5 @@
-import React from 'react';
 import { BookOpen } from 'lucide-react';
+import Container from '../ui/Container';
 
 interface Section200ViewProps {
   isPreviewMode?: boolean;
@@ -93,7 +93,7 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
 
   // Edit Mode - Modern Card UI
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-6">
+    <Container size="medium" padding="large" className="py-6 space-y-6">
       {/* Header Card */}
       <div className="bg-gradient-to-r from-orange-600 to-orange-700 dark:from-orange-700 dark:to-orange-800 rounded-lg shadow-lg p-6 text-white">
         <div className="flex items-center space-x-3">
@@ -151,13 +151,13 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
       </div>
 
       {/* Footer Note */}
-      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-sm text-gray-600 dark:text-gray-400">
+      <div className="bg-github-bg-secondary dark:bg-gray-800 border border-github-border-primary dark:border-gray-700 rounded-lg p-4 text-sm text-github-text-secondary dark:text-gray-400">
         <p className="flex items-center">
           <span className="mr-2">💡</span>
           <span>เนื้อหาในหัวข้อ ๒๐๐ เป็นข้อมูลมาตรฐานที่ใช้กับทุกเอกสาร PQS</span>
         </p>
       </div>
-    </div>
+    </Container>
   );
 };
 
