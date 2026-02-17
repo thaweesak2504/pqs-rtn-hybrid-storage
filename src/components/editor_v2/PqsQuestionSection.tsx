@@ -1,41 +1,44 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-  ArrowDown,
-  ArrowUp,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  Edit,
-  FileDigit,
-  FileQuestion,
-  FileText,
-  Globe,
-  Image,
-  ImageIcon,
-  Layers,
-  Lock,
-  MessageSquarePlus,
-  Mic,
-  MoreVertical,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X,
+    ArrowDown,
+    ArrowUp,
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    Edit,
+    FileDigit,
+    FileQuestion,
+    FileText,
+    Globe,
+    Image,
+    ImageIcon,
+    Layers,
+    Lock,
+    MessageSquarePlus,
+    Mic,
+    MoreVertical,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X,
 } from "lucide-react";
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
-  QuestionDetail,
-  QuestionReferenceDetail,
-  SectionReferenceDetail,
+    QuestionDetail,
+    QuestionReferenceDetail,
+    SectionReferenceDetail,
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
+import AnswerKeyEditor from "./AnswerKeyEditor";
 
 // ============ Helpers ============
 
@@ -1619,20 +1622,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
               เฉลย (Answer Key)
             </label>
-            <textarea
-              ref={answerKeyRef}
+            <AnswerKeyEditor
               value={answerKey}
-              onChange={(e) => {
-                setAnswerKey(e.target.value);
+              onChange={(val: string) => {
+                setAnswerKey(val);
                 if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
               }}
-              placeholder="เฉลยคำตอบ (Answer Key)..."
-              className={`w-full p-2 border rounded-md text-sm font-normal resize-none min-h-[34px] overflow-hidden
-                ${errors.answerKey
-                  ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300 text-red-900 dark:text-red-100"
-                  : "border-gray-200 dark:border-gray-700 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 focus:ring-emerald-500/50"
-                } focus:outline-none focus:ring-1`}
-              rows={1}
+              hasError={!!errors.answerKey}
             />
           </div>
         )}
@@ -1955,11 +1951,15 @@ const QuestionMetadataDisplay: React.FC<{
         />
       )}
 
-      {/* Answer Key Display (Last) */}
+      {/* Answer Key Display (Last) — render as markdown */}
       {data.answerKey && (
-        <div className="flex items-start gap-2 text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
-          <span className="text-slate-900 dark:text-slate-100">เฉลย:</span>
-          <span className="whitespace-pre-wrap">{data.answerKey}</span>
+        <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+          <div className="flex items-start gap-2">
+            <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
+            <div className="answer-key-markdown min-w-0 flex-1">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.answerKey.replace(/\n/g, "  \n")}</ReactMarkdown>
+            </div>
+          </div>
         </div>
       )}
     </div>

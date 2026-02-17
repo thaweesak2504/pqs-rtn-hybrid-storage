@@ -1,6 +1,6 @@
 /* Import Local Fonts */
-@import url('./assets/fonts/kanit/kanit-local.css');
-@import url('./assets/fonts/th-sarabun/th-sarabun-local.css');
+@import url("./assets/fonts/kanit/kanit-local.css");
+@import url("./assets/fonts/th-sarabun/th-sarabun-local.css");
 
 @tailwind base;
 @tailwind components;
@@ -225,14 +225,63 @@
     -webkit-text-fill-color: var(--github-text-secondary) !important;
     background-color: var(--github-bg-secondary) !important;
   }
+}
 
-
+/* Answer Key Markdown Rendering */
+.answer-key-markdown p {
+  margin: 0;
+  line-height: 1.6;
+}
+.answer-key-markdown p + p {
+  margin-top: 0.25rem;
+}
+.answer-key-markdown ul,
+.answer-key-markdown ol {
+  margin: 0.25rem 0;
+  padding-left: 1.5rem;
+}
+.answer-key-markdown ol {
+  list-style-type: decimal;
+}
+.answer-key-markdown ul {
+  list-style-type: disc;
+}
+.answer-key-markdown li {
+  margin: 0;
+}
+.answer-key-markdown strong {
+  font-weight: 700;
+}
+.answer-key-markdown table {
+  border-collapse: collapse;
+  margin: 0.5rem 0;
+  font-size: inherit;
+  width: 100%;
+}
+.answer-key-markdown th,
+.answer-key-markdown td {
+  border: 1px solid #d1d5db;
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+.answer-key-markdown th {
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  .answer-key-markdown th,
+  .answer-key-markdown td {
+    border-color: #374151;
+  }
+  .answer-key-markdown th {
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 @layer utilities {
   @counter-style thai-numerals {
     system: numeric;
-    symbols: '๐' '๑' '๒' '๓' '๔' '๕' '๖' '๗' '๘' '๙';
+    symbols: "๐" "๑" "๒" "๓" "๔" "๕" "๖" "๗" "๘" "๙";
     suffix: ". ";
   }
 
@@ -299,7 +348,6 @@
 
   /* Simple Loading Screen Animations */
   @keyframes pulse-slow {
-
     0%,
     100% {
       opacity: 1;

@@ -1,5 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
 
@@ -231,8 +233,10 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
       {answerKey && (
         <div className={`mt-2 ${contentStartOffsetClass}`}>
           <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
-            <span className="text-slate-900 dark:text-slate-100">เฉลย:</span>
-            <span className="whitespace-pre-wrap">{answerKey}</span>
+            <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
+            <div className="answer-key-markdown min-w-0 flex-1">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{answerKey.replace(/\n/g, "  \n")}</ReactMarkdown>
+            </div>
           </div>
         </div>
       )}
