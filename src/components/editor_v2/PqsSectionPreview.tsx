@@ -44,13 +44,17 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
 
   useEffect(() => {
     const fetchQuestions = async () => {
-      if (!sectionId) return;
+      if (!docId || sectionId === undefined) return;
       try {
         setLoading(true);
-        const data = await invoke<QuestionDetail[]>('get_questions_by_section', {
-          sectionId,
-        });
-        setQuestions(data);
+        const data = await invoke<QuestionDetail[]>('get_document_questions_with_details', { docId });
+        // Filter by sectionId (same logic as PqsQuestionSection)
+        const filtered = data.filter(
+          (q) =>
+            q.section_id === sectionId ||
+            (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
+        );
+        setQuestions(filtered);
       } catch (error) {
         console.error('Failed to fetch questions for preview:', error);
       } finally {
@@ -58,7 +62,7 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
       }
     };
     fetchQuestions();
-  }, [sectionId, docId]);
+  }, [sectionId, docId, sectionNumber]);
 
   // Build question tree
   const questionTree = useMemo(() => {
@@ -99,7 +103,7 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
   return (
     <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
       {/* A4 Paper */}
-      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_2.0cm_2.0cm_3.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
+      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_1.0cm_2.0cm_2.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
 
         {/* ── Section Header ── */}
         <div className="mb-4">
@@ -129,7 +133,7 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
         </div>
 
         {/* ── Questions ── */}
-        <ol className="list-none space-y-1">
+        <div className="space-y-1">
           {questionTree.map((question, index) => (
             <PreviewQuestionNode
               key={question.id}
@@ -140,7 +144,7 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
               sectionNumber={sectionNumber}
             />
           ))}
-        </ol>
+        </div>
       </div>
     </div>
   );
@@ -189,13 +193,17 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   const answerKey = meta.answerKey || '';
   const hasChildren = question.children && question.children.length > 0;
 
+  const contentStartOffsetClass = level === 0 ? 'ml-[9ch]' : 'ml-[2ch]';
+
+  const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
+
   // Build reference text like "(ก.35, ข.12)"
   const refText = question.references && question.references.length > 0
     ? `(${question.references.map(r => `${r.thai_letter || '?'}.${r.location_text || '-'}`).join(', ')})`
     : '';
 
   return (
-    <li className="flex flex-col">
+    <div className="flex flex-col">
       {/* Question Row */}
       <div className="flex items-baseline">
         <span className={`${level === 0 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
@@ -207,7 +215,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
             {question.content}
           </span>
           {refText && (
-            <span className="ml-1 text-gray-600 dark:text-gray-400">{refText}</span>
+            <span className="ml-1">{refText}</span>
           )}
         </div>
       </div>
@@ -221,29 +229,37 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
 
       {/* Answer Key Box — always shown, no repeated question, no checkboxes */}
       {answerKey && (
-        <div className={`mt-2 ${level === 0 ? 'ml-[9ch]' : 'ml-0'}`}>
-          <div className="p-3 border border-gray-300 dark:border-github-border-primary rounded bg-gray-50 dark:bg-github-bg-tertiary mb-2">
-            <div className="font-normal whitespace-pre-wrap">{answerKey}</div>
+        <div className={`mt-2 ${contentStartOffsetClass}`}>
+          <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
+            <span className="text-slate-900 dark:text-slate-100">เฉลย:</span>
+            <span className="whitespace-pre-wrap">{answerKey}</span>
           </div>
         </div>
       )}
 
       {/* Children (sub-questions) */}
       {hasChildren && (
-        <ol className={`list-none ${level === 0 ? 'ml-[9ch]' : 'ml-4'}`}>
+        <div
+          className={
+            childLayout === 'grid'
+              ? `grid grid-cols-2 gap-x-8 gap-y-1 ${level === 0 ? 'ml-[9ch]' : 'ml-4'}`
+              : `space-y-1 ${level === 0 ? 'ml-[9ch]' : 'ml-4'}`
+          }
+        >
           {question.children!.map((child, childIdx) => (
-            <PreviewQuestionNode
-              key={child.id}
-              question={child}
-              index={childIdx}
-              level={level + 1}
-              parentPath={fullPath}
-              sectionNumber={sectionNumber}
-            />
+            <div key={child.id} className="break-inside-avoid">
+              <PreviewQuestionNode
+                question={child}
+                index={childIdx}
+                level={level + 1}
+                parentPath={fullPath}
+                sectionNumber={sectionNumber}
+              />
+            </div>
           ))}
-        </ol>
+        </div>
       )}
-    </li>
+    </div>
   );
 };
 
