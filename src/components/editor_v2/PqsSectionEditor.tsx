@@ -5,12 +5,15 @@ import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
 import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 
+type ViewMode = 'edit' | 'normal' | 'preview';
+
 interface PqsSectionEditorProps {
   docId: string;
   sectionNumber: number;
   title: string;
   subTitle?: string;
   isPreviewMode?: boolean;
+  viewMode?: ViewMode;
 }
 
 const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
@@ -18,8 +21,10 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   sectionNumber,
   title,
   subTitle,
-  isPreviewMode
+  viewMode = 'edit'
 }) => {
+  const readOnly = viewMode !== 'edit';
+  const isCompact = viewMode === 'normal';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
   const [sectionId, setSectionId] = useState<number>(0);
@@ -193,7 +198,8 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         section={sectionNumber.toString()}
         title={currentTitle}
         subTitle={subTitle}
-        onTitleChange={handleTitleChange}
+        onTitleChange={readOnly ? undefined : handleTitleChange}
+        readOnly={readOnly}
         metadata={{
           id: docId,
           unit_code: '',
@@ -209,7 +215,8 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           onAdd={handleAddRef}
           onEdit={handleEditRef}
           onDelete={handleDeleteRef}
-          readOnly={isPreviewMode}
+          readOnly={readOnly}
+          compact={isCompact}
           sectionId={sectionId}
           onRefresh={() => {
             fetchReferences(sectionId);
@@ -224,7 +231,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           docId={docId}
           sectionId={sectionId}
           sectionNumber={sectionNumber}
-          readOnly={isPreviewMode}
+          readOnly={readOnly}
           refreshTrigger={refreshQuestionsTrigger} // Pass trigger
           onReferencesUpdated={() => {
             fetchReferences(sectionId);

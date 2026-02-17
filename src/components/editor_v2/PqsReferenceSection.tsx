@@ -28,6 +28,7 @@ interface PqsReferenceSectionProps {
   onEdit: (ref: ReferenceDoc) => void;
   onDelete: (id: string) => void;
   readOnly?: boolean;
+  compact?: boolean;
   sectionId?: number;
   docId?: string; // NEW: Pass Document ID for folder organization (e.g., "100")
   sectionNumber?: string;
@@ -40,6 +41,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   onEdit,
   onDelete,
   readOnly = false,
+  compact = false,
   sectionId,
   sectionNumber = '100',
   onRefresh
@@ -214,6 +216,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
                 data={ref}
                 index={index}
                 readOnly={readOnly}
+                compact={compact}
                 onEdit={() => handleStartEdit(ref.id)}
                 onDelete={() => handleDelete(ref.id)}
                 onImageClick={(src) => {
@@ -810,10 +813,11 @@ const ReferenceDisplayCard: React.FC<{
   data: ReferenceDoc;
   index: number;
   readOnly?: boolean;
+  compact?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onImageClick?: (src: string) => void;
-}> = ({ data, index, readOnly, onEdit, onDelete, onImageClick }) => {
+}> = ({ data, index, readOnly, compact, onEdit, onDelete, onImageClick }) => {
 
   // Convert index to Thai Alphabet (ก., ข., ค., ...)
   const getThaiLetter = (i: number) => {
@@ -878,8 +882,8 @@ const ReferenceDisplayCard: React.FC<{
           {data.title}
         </span>
 
-        {/* 3. Category Badge */}
-        {data.category && (
+        {/* 3. Category Badge — hidden in compact mode */}
+        {!compact && data.category && (
           <span className="shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500 uppercase">
             {data.category === 'MANUAL' ? 'MANUAL' :
               data.category === 'PROC' ? 'PROCEDURE' :
@@ -890,8 +894,8 @@ const ReferenceDisplayCard: React.FC<{
           </span>
         )}
 
-        {/* Usage Badge (NEW) */}
-        {(data.usage_count || 0) > 0 ? (
+        {/* Usage Badge — hidden in compact mode */}
+        {!compact && ((data.usage_count || 0) > 0 ? (
           <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" title={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
             Used: {data.usage_count}
           </span>
@@ -899,15 +903,17 @@ const ReferenceDisplayCard: React.FC<{
           <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80" title="ยังไม่ได้ถูกอ้างอิง">
             Unused
           </span>
-        )}
+        ))}
       </div>
 
       {/* RIGHT: Code | Icon | File | Actions */}
       <div className="flex items-center gap-3 shrink-0">
-        {/* 4. Code Badge */}
-        <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-          {data.code}
-        </span>
+        {/* 4. Code Badge — hidden in compact mode */}
+        {!compact && (
+          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+            {data.code}
+          </span>
+        )}
 
         {/* 5. Resource Icon */}
         <div

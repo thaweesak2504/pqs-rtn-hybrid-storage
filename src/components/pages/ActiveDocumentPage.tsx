@@ -38,11 +38,13 @@ import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 
-import { Edit2, Edit3, Eye } from 'lucide-react';
+import { Edit2, Edit3, Eye, FileText } from 'lucide-react';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
 import ConfirmModal from '../modals/ConfirmModal';
 import EditMetadataModal from '../modals/EditMetadataModal';
+
+type ViewMode = 'edit' | 'normal' | 'preview';
 
 const ActiveDocumentPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
@@ -51,7 +53,9 @@ const ActiveDocumentPage: React.FC = () => {
   const [docData, setDocData] = useState<DocumentHierarchy | null>(null);
   const [activeSection, setActiveSection] = useState<string>('cover'); // 'cover', 'intro', '100', '200', '300', or section numbers
   const [isEditModalOpen, setEditModalOpen] = useState(false);
-  const [isPreviewMode, setPreviewMode] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const isPreviewMode = viewMode === 'preview';
+  const isEditMode = viewMode === 'edit';
 
   // Section Management States
   const [sections, setSections] = useState<Section[]>([]);
@@ -166,7 +170,7 @@ const ActiveDocumentPage: React.FC = () => {
               ))
             }
 
-            <AddSubSectionBtn onClick={() => handleAddSection(100)} />
+            {isEditMode && <AddSubSectionBtn onClick={() => handleAddSection(100)} />}
           </SectionGroup>
 
           {/* 200 System Sections */}
@@ -189,7 +193,7 @@ const ActiveDocumentPage: React.FC = () => {
               ))
             }
 
-            <AddSubSectionBtn onClick={() => handleAddSection(200)} />
+            {isEditMode && <AddSubSectionBtn onClick={() => handleAddSection(200)} />}
           </SectionGroup>
 
           {/* 300 Watch Station Sections */}
@@ -212,7 +216,7 @@ const ActiveDocumentPage: React.FC = () => {
               ))
             }
 
-            <AddSubSectionBtn onClick={() => handleAddSection(300)} />
+            {isEditMode && <AddSubSectionBtn onClick={() => handleAddSection(300)} />}
           </SectionGroup>
 
         </nav>
@@ -237,11 +241,11 @@ const ActiveDocumentPage: React.FC = () => {
                   มาตรฐานกำลังพล : {docId} {docData?.document.name || '...'}
                 </h1>
                 <div className="flex items-center space-x-2">
-                  {/* Preview Mode Toggle */}
+                  {/* View Mode Toggle */}
                   <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
                     <button
-                      onClick={() => setPreviewMode(false)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${!isPreviewMode
+                      onClick={() => setViewMode('edit')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${viewMode === 'edit'
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
@@ -250,27 +254,39 @@ const ActiveDocumentPage: React.FC = () => {
                       <span>Edit</span>
                     </button>
                     <button
-                      onClick={() => setPreviewMode(true)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${isPreviewMode
+                      onClick={() => setViewMode('normal')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${viewMode === 'normal'
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                         }`}
                     >
                       <Eye className="w-3.5 h-3.5" />
+                      <span>View</span>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('preview')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${viewMode === 'preview'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
                       <span>Preview</span>
                     </button>
                   </div>
 
-                  {/* Edit Metadata Button */}
-                  <Button
-                    variant="ghost"
-                    size="small"
-                    onClick={() => setEditModalOpen(true)}
-                    icon={<Edit2 className="w-4 h-4" />}
-                    className="text-github-text-secondary hover:text-blue-600"
-                  >
-                    Edit Metadata
-                  </Button>
+                  {/* Edit Metadata Button — only in Edit mode */}
+                  {isEditMode && (
+                    <Button
+                      variant="ghost"
+                      size="small"
+                      onClick={() => setEditModalOpen(true)}
+                      icon={<Edit2 className="w-4 h-4" />}
+                      className="text-github-text-secondary hover:text-blue-600"
+                    >
+                      Edit Metadata
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -337,6 +353,7 @@ const ActiveDocumentPage: React.FC = () => {
                   return parts.length > 1 ? parts.slice(1).join(' ') : "";
                 })()}
                 isPreviewMode={isPreviewMode}
+                viewMode={viewMode}
               />
             )}
 

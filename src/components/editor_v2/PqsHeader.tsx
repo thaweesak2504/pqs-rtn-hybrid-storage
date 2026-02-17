@@ -8,6 +8,7 @@ interface PqsHeaderProps {
   title: string;
   subTitle?: string;
   onTitleChange?: (newTitle: string) => void;
+  readOnly?: boolean;
   metadata?: {
     id: string;
     unit_code: string;
@@ -21,6 +22,7 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
   title,
   subTitle,
   onTitleChange,
+  readOnly = false,
   metadata,
   className = ''
 }) => {
@@ -150,13 +152,13 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
                 </div>
               ) : (
                 <div
-                  className="cursor-pointer flex items-baseline gap-2 hover:bg-white/5 px-1 -ml-1 rounded transition-colors flex-1 min-w-0"
-                  onClick={() => setIsEditing(true)}
+                  className={`flex items-baseline gap-2 px-1 -ml-1 rounded transition-colors flex-1 min-w-0 ${!readOnly ? 'cursor-pointer hover:bg-white/5' : ''}`}
+                  onClick={!readOnly ? () => setIsEditing(true) : undefined}
                 >
                   <h1 className="text-lg md:text-xl font-bold font-sarabun tracking-tight leading-tight truncate text-white drop-shadow-md">
                     {title || "Untitled Document"}
                   </h1>
-                  <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-70 transition-opacity text-white/80 shrink-0 self-center" />
+                  {!readOnly && <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-70 transition-opacity text-white/80 shrink-0 self-center" />}
                 </div>
               )}
             </div>
