@@ -4,6 +4,7 @@ import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
 import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
+import PqsSectionPreview from './PqsSectionPreview';
 
 type ViewMode = 'edit' | 'normal' | 'preview';
 
@@ -189,6 +190,19 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       alert("Failed to remove reference: " + error);
     }
   };
+
+  // Preview Mode: Render A4 paper view
+  if (viewMode === 'preview') {
+    return (
+      <PqsSectionPreview
+        docId={docId}
+        sectionId={sectionId}
+        sectionNumber={sectionNumber}
+        title={currentTitle}
+        references={references}
+      />
+    );
+  }
 
   return (
     <PqsEditorLayout section={sectionNumber.toString()}>
