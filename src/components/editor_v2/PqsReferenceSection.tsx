@@ -572,6 +572,7 @@ const ReferenceFormCard: React.FC<{
   };
 
   // Auto-Update Code on Category/Class Change (Smart Sequence)
+   
   useEffect(() => {
     if (!formData.category) return;
 
