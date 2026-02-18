@@ -39,6 +39,7 @@ import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 
 import { Edit2, Edit3, Eye, FileText } from 'lucide-react';
+import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
 import ConfirmModal from '../modals/ConfirmModal';
@@ -338,9 +339,9 @@ const ActiveDocumentPage: React.FC = () => {
             <Section300View isPreviewMode={isPreviewMode} />
           )}
 
-          {/* Dynamic Sections (101-199, 201-299, 301-399) - Using Question Renderer */}
+          {/* Dynamic Sections (101-199) - 100 Template */}
           {activeSection !== '100' && activeSection !== '200' && activeSection !== '300' &&
-            parseInt(activeSection) >= 100 && parseInt(activeSection) < 400 && docId && (
+            parseInt(activeSection) >= 100 && parseInt(activeSection) < 200 && docId && (
               <PqsSectionEditor
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
@@ -348,7 +349,42 @@ const ActiveDocumentPage: React.FC = () => {
                 subTitle={(() => {
                   const section = sections.find(s => s.section_number.toString() === activeSection);
                   if (!section) return "";
-                  // Extract text after number from menu_label (e.g., "201 Radar Weapon" -> "Radar Weapon")
+                  const parts = section.menu_label.split(' ');
+                  return parts.length > 1 ? parts.slice(1).join(' ') : "";
+                })()}
+                isPreviewMode={isPreviewMode}
+                viewMode={viewMode}
+              />
+            )}
+
+          {/* Dynamic Sections (201-299) - 200 Template */}
+          {activeSection !== '200' &&
+            parseInt(activeSection) >= 201 && parseInt(activeSection) < 300 && docId && (
+              <Pqs200SectionEditor
+                docId={docId}
+                sectionNumber={parseInt(activeSection)}
+                title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
+                subTitle={(() => {
+                  const section = sections.find(s => s.section_number.toString() === activeSection);
+                  if (!section) return "";
+                  const parts = section.menu_label.split(' ');
+                  return parts.length > 1 ? parts.slice(1).join(' ') : "";
+                })()}
+                isPreviewMode={isPreviewMode}
+                viewMode={viewMode}
+              />
+            )}
+
+          {/* Dynamic Sections (301-399) - 300 Template */}
+          {activeSection !== '300' &&
+            parseInt(activeSection) >= 301 && parseInt(activeSection) < 400 && docId && (
+              <PqsSectionEditor
+                docId={docId}
+                sectionNumber={parseInt(activeSection)}
+                title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
+                subTitle={(() => {
+                  const section = sections.find(s => s.section_number.toString() === activeSection);
+                  if (!section) return "";
                   const parts = section.menu_label.split(' ');
                   return parts.length > 1 ? parts.slice(1).join(' ') : "";
                 })()}

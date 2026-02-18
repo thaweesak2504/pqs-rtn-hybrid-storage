@@ -2,7 +2,7 @@ import { open as openDialog } from '@tauri-apps/api/dialog';
 import { join } from '@tauri-apps/api/path';
 import { convertFileSrc, invoke } from '@tauri-apps/api/tauri';
 import { Book, CheckCircle, Edit, FileDigit, FileText, FolderOpen, Globe, Image, Lock, Mic, Plus, Save, Search, Shield, Trash2, Video, X } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmModal from '../modals/ConfirmModal';
 import ImagePreviewModal from '../modals/ImagePreviewModal';
 import Button from '../ui/Button';
@@ -32,6 +32,7 @@ interface PqsReferenceSectionProps {
   sectionId?: number;
   docId?: string; // NEW: Pass Document ID for folder organization (e.g., "100")
   sectionNumber?: string;
+  sectionGroup?: 100 | 200 | 300;
   onRefresh?: () => void;
 }
 
@@ -44,8 +45,10 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   compact = false,
   sectionId,
   sectionNumber = '100',
+  sectionGroup = 100,
   onRefresh
 }) => {
+  const is200 = sectionGroup === 200;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<'idle' | 'create' | 'search'>('idle');
 
@@ -215,6 +218,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
                 key={ref.id}
                 data={ref}
                 index={index}
+                is200={is200}
                 readOnly={readOnly}
                 compact={compact}
                 onEdit={() => handleStartEdit(ref.id)}
@@ -535,9 +539,9 @@ const ReferenceFormCard: React.FC<{
 
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const handleChange = (field: keyof typeof formData, value: string) => {
+  const handleChange = useCallback((field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-  };
+  }, []);
 
   const handleBrowse = async () => {
     try {
@@ -622,7 +626,8 @@ const ReferenceFormCard: React.FC<{
     };
 
     updateSeq();
-  }, [formData.category, formData.classification]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.category, formData.classification, initialData, handleChange]);
 
   return (
     <div className="bg-white dark:bg-slate-800 border-2 border-blue-400 dark:border-blue-600 rounded-xl p-4 shadow-lg animate-in zoom-in-95 duration-200">
@@ -815,10 +820,11 @@ const ReferenceDisplayCard: React.FC<{
   index: number;
   readOnly?: boolean;
   compact?: boolean;
+  is200?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onImageClick?: (src: string) => void;
-}> = ({ data, index, readOnly, compact, onEdit, onDelete, onImageClick }) => {
+}> = ({ data, index, readOnly, compact, is200 = false, onEdit, onDelete, onImageClick }) => {
 
   // Convert index to Thai Alphabet (ก., ข., ค., ...)
   const getThaiLetter = (i: number) => {
@@ -895,8 +901,8 @@ const ReferenceDisplayCard: React.FC<{
           </span>
         )}
 
-        {/* Usage Badge — hidden in compact mode */}
-        {!compact && ((data.usage_count || 0) > 0 ? (
+        {/* Usage Badge — hidden in compact mode and 200 sections */}
+        {!compact && !is200 && ((data.usage_count || 0) > 0 ? (
           <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" title={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
             Used: {data.usage_count}
           </span>

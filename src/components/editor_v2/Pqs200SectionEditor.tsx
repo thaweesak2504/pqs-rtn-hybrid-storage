@@ -1,0 +1,311 @@
+import { invoke } from '@tauri-apps/api/tauri';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import PqsEditorLayout from './PqsEditorLayout';
+import PqsHeader from './PqsHeader';
+import PqsQuestionSection from './PqsQuestionSection';
+import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
+import PqsSectionPreview from './PqsSectionPreview';
+
+type ViewMode = 'edit' | 'normal' | 'preview';
+
+// ============ 6 Default L1 Questions for Section 200 ============
+
+const DEFAULT_200_QUESTIONS = [
+  'หน้าที่',
+  'ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ',
+  'หลักการทํางาน',
+  'ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน',
+  'การเชื่อมต่อระบบ',
+  'ข้อระมัดระวังอันตราย',
+];
+
+// ============ Component ============
+
+interface Pqs200SectionEditorProps {
+  docId: string;
+  sectionNumber: number;
+  title: string;
+  subTitle?: string;
+  isPreviewMode?: boolean;
+  viewMode?: ViewMode;
+}
+
+const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
+  docId,
+  sectionNumber,
+  title,
+  subTitle,
+  viewMode = 'edit'
+}) => {
+  const readOnly = viewMode !== 'edit';
+  const isCompact = viewMode === 'normal';
+  const [references, setReferences] = useState<ReferenceDoc[]>([]);
+  const [currentTitle, setCurrentTitle] = useState(title);
+  const [sectionId, setSectionId] = useState<number>(0);
+  const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
+  const hasInitializedDefaults = useRef(false);
+
+  const fetchReferences = async (sId: number) => {
+    try {
+      const refs = await invoke<any[]>('get_section_references', { sectionId: sId });
+      setReferences(refs.map(r => ({
+        id: r.id.toString(),
+        reference_id: r.reference.id,
+        code: r.reference.code,
+        title: r.reference.title,
+        category: r.reference.category || 'MANUAL',
+        classification: r.reference.classification || 'Unclassified',
+        resource_type: r.reference.resource_type || 'DOCUMENT',
+        file_path: r.reference.file_path || '',
+        description: r.reference.title,
+        usage_count: r.usage_count || 0
+      })));
+    } catch (error) {
+      console.error("Failed to fetch references:", error);
+    }
+  };
+
+  // Auto-create 6 default L1 questions if section has none
+  const ensureDefaultQuestions = useCallback(async (secId: number) => {
+    if (hasInitializedDefaults.current) return;
+    hasInitializedDefaults.current = true;
+
+    try {
+      // Check if section already has questions
+      const allQuestions = await invoke<any[]>('get_document_questions_with_details', { docId });
+      const sectionQuestions = allQuestions.filter(
+        (q: any) =>
+          q.section_id === secId ||
+          (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
+      );
+
+      // Only auto-create if section has NO questions at all
+      if (sectionQuestions.length > 0) return;
+
+      console.log(`[200 Template] Auto-creating ${DEFAULT_200_QUESTIONS.length} default L1 questions for section ${sectionNumber}`);
+
+      for (let i = 0; i < DEFAULT_200_QUESTIONS.length; i++) {
+        await invoke<string>('create_question', {
+          args: {
+            id: null,
+            document_id: docId,
+            section_id: secId,
+            parent_id: null,
+            content: DEFAULT_200_QUESTIONS[i],
+            description: null,
+            is_header: true, // Mark as system-defined/header
+            sequence: null,
+            answer_type: 'text',
+            metadata: null,
+          },
+        });
+      }
+
+      // Trigger refresh
+      setRefreshQuestionsTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error('[200 Template] Failed to create default questions:', error);
+    }
+  }, [docId, sectionNumber]);
+
+  // Fetch Section ID and References on mount or when sectionNumber changes
+  useEffect(() => {
+    hasInitializedDefaults.current = false; // Reset on section change
+
+    const fetchData = async () => {
+      try {
+        const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+        const currentSection = sections.find(s => s.section_number === sectionNumber);
+
+        if (currentSection) {
+          setSectionId(currentSection.id);
+          setCurrentTitle(currentSection.title_th);
+          await fetchReferences(currentSection.id);
+          // Auto-create default questions if needed
+          await ensureDefaultQuestions(currentSection.id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch section data:", error);
+      }
+    };
+    fetchData();
+  }, [docId, sectionNumber, ensureDefaultQuestions]);
+
+  const handleTitleChange = async (newTitle: string) => {
+    try {
+      await invoke('update_section', {
+        args: {
+          id: sectionId,
+          title_th: newTitle,
+          menu_label: `${sectionNumber} ${subTitle || ''}`.trim()
+        }
+      });
+      setCurrentTitle(newTitle);
+    } catch (error) {
+      console.error("Failed to update title:", error);
+      alert("Failed to save title: " + error);
+    }
+  };
+
+  const handleAddRef = async (ref: Omit<ReferenceDoc, 'id'>) => {
+    if (!sectionId) return;
+    try {
+      const existingRefs = await invoke<any[]>('get_references', { search: ref.code, commonOnly: false });
+      let refId = 0;
+      const match = existingRefs.find(r => r.code === ref.code);
+
+      if (match) {
+        refId = match.id;
+      } else {
+        const newRef = await invoke<any>('create_reference', {
+          request: {
+            code: ref.code,
+            title: ref.title,
+            category: ref.category,
+            classification: ref.classification,
+            resource_type: ref.resource_type,
+            file_path: ref.file_path,
+            pqs_id: docId
+          }
+        });
+        refId = newRef.id;
+      }
+
+      if (references.some(r => r.reference_id === refId)) {
+        alert("เอกสารนี้ถูกเชื่อมโยงอยู่ในรายการแล้วครับ");
+        return;
+      }
+
+      try {
+        await invoke('add_section_reference', {
+          sectionId: sectionId,
+          referenceId: refId,
+          displayOrder: null
+        });
+      } catch (linkErr: any) {
+        const errMsg = linkErr.toString().toLowerCase();
+        if (errMsg.includes('unique') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
+          alert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ");
+        } else {
+          throw linkErr;
+        }
+      }
+
+      await fetchReferences(sectionId);
+      setRefreshQuestionsTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error("Failed to add reference:", error);
+      alert("Failed to add reference: " + error);
+    }
+  };
+
+  const handleEditRef = async (updatedRef: ReferenceDoc) => {
+    if (!updatedRef.reference_id) {
+      alert("Error: Reference ID not found for update.");
+      return;
+    }
+
+    try {
+      await invoke('update_reference', {
+        args: {
+          id: updatedRef.reference_id,
+          code: updatedRef.code,
+          title: updatedRef.title,
+          category: updatedRef.category,
+          classification: updatedRef.classification,
+          resource_type: updatedRef.resource_type,
+          file_path: updatedRef.file_path,
+          pqs_id: docId
+        }
+      });
+
+      setReferences(prev => prev.map(r =>
+        r.id === updatedRef.id ? { ...r, ...updatedRef } : r
+      ));
+    } catch (error) {
+      console.error("Failed to update reference:", error);
+      alert("Failed to update reference: " + error);
+    }
+  };
+
+  const handleDeleteRef = async (id: string) => {
+    try {
+      await invoke('remove_section_reference', { sectionRefId: parseInt(id) });
+      setReferences(prev => prev.filter(r => r.id !== id));
+      setRefreshQuestionsTrigger(prev => prev + 1);
+    } catch (error) {
+      console.error("Failed to remove reference:", error);
+      alert("Failed to remove reference: " + error);
+    }
+  };
+
+  // Preview Mode: Render A4 paper view
+  if (viewMode === 'preview') {
+    return (
+      <PqsSectionPreview
+        docId={docId}
+        sectionId={sectionId}
+        sectionNumber={sectionNumber}
+        title={currentTitle}
+        references={references}
+        sectionGroup={200}
+      />
+    );
+  }
+
+  return (
+    <PqsEditorLayout section={sectionNumber.toString()}>
+
+      {/* 1. Header Area */}
+      <PqsHeader
+        section={sectionNumber.toString()}
+        title={currentTitle}
+        subTitle={subTitle}
+        onTitleChange={readOnly ? undefined : handleTitleChange}
+        readOnly={readOnly}
+        metadata={{
+          id: docId,
+          unit_code: '',
+          updated_at: new Date().toISOString()
+        }}
+      />
+
+      {/* 2. Reference Section */}
+      <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
+        <PqsReferenceSection
+          sectionNumber={sectionNumber.toString()}
+          sectionGroup={200}
+          references={references}
+          onAdd={handleAddRef}
+          onEdit={handleEditRef}
+          onDelete={handleDeleteRef}
+          readOnly={readOnly}
+          compact={isCompact}
+          sectionId={sectionId}
+          onRefresh={() => {
+            fetchReferences(sectionId);
+            setRefreshQuestionsTrigger(prev => prev + 1);
+          }}
+        />
+      </div>
+
+      {/* 3. Question Area — Section 200 Template */}
+      <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
+        <PqsQuestionSection
+          docId={docId}
+          sectionId={sectionId}
+          sectionNumber={sectionNumber}
+          sectionGroup={200}
+          readOnly={readOnly}
+          refreshTrigger={refreshQuestionsTrigger}
+          onReferencesUpdated={() => {
+            fetchReferences(sectionId);
+          }}
+        />
+      </div>
+
+    </PqsEditorLayout>
+  );
+};
+
+export default Pqs200SectionEditor;

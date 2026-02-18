@@ -1,29 +1,29 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-    ArrowDown,
-    ArrowUp,
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    Edit,
-    FileDigit,
-    FileQuestion,
-    FileText,
-    Globe,
-    Image,
-    ImageIcon,
-    Layers,
-    Lock,
-    MessageSquarePlus,
-    Mic,
-    MoreVertical,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X,
+  ArrowDown,
+  ArrowUp,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Edit,
+  FileDigit,
+  FileQuestion,
+  FileText,
+  Globe,
+  Image,
+  ImageIcon,
+  Layers,
+  Lock,
+  MessageSquarePlus,
+  Mic,
+  MoreVertical,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X,
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
@@ -33,9 +33,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import {
-    QuestionDetail,
-    QuestionReferenceDetail,
-    SectionReferenceDetail,
+  QuestionDetail,
+  QuestionReferenceDetail,
+  SectionReferenceDetail,
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
@@ -116,12 +116,21 @@ const buildPrefix = (level: number, sequence: number, sectionNumber: number) => 
   return `${toThaiAlphabet(sequence)}.`;
 };
 
+const buildPrefix200 = (level: number, sequence: number, sectionNumber: number, parentSequence?: number) => {
+  if (level === 0) return `${toThaiNumber(sectionNumber)}.${toThaiNumber(sequence)}`;
+  if (level === 1 && parentSequence !== undefined) {
+    return `${toThaiNumber(sectionNumber)}.${toThaiNumber(parentSequence)}.${toThaiNumber(sequence)}`;
+  }
+  return `${toThaiAlphabet(sequence)}.`;
+};
+
 // ============ Types ============
 
 interface PqsQuestionSectionProps {
   docId: string;
   sectionId?: number;
   sectionNumber: number;
+  sectionGroup?: 100 | 200 | 300;
   initialQuestions?: QuestionDetail[];
   readOnly?: boolean;
   refreshTrigger?: number;
@@ -134,11 +143,13 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   docId,
   sectionId,
   sectionNumber,
+  sectionGroup = 100,
   initialQuestions = [],
   readOnly = false,
   refreshTrigger = 0,
   onReferencesUpdated,
 }) => {
+  const is200 = sectionGroup === 200;
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -489,7 +500,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           </div>
         </div>
 
-        {!readOnly && !isCreating && !editingId && (
+        {!readOnly && !isCreating && !editingId && !is200 && (
           <Button
             variant="primary"
             size="small"
@@ -504,7 +515,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       {/* ── Content ── */}
       <div className="space-y-1">
         {/* Create Form (Top-Level - Append) */}
-        {isCreating && creatingAtParent === null && insertingAfterId === null && (
+        {isCreating && creatingAtParent === null && insertingAfterId === null && !is200 && (
           <QuestionFormCard
             prefix={buildPrefix(0, questionTree.length + 1, sectionNumber)}
             level={0}
@@ -524,6 +535,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 question={question}
                 level={0}
                 sectionNumber={sectionNumber}
+                sectionGroup={sectionGroup}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -617,6 +629,8 @@ interface QuestionTreeNodeProps {
   question: QuestionDetail;
   level: number;
   sectionNumber: number;
+  sectionGroup: 100 | 200 | 300;
+  parentSequence?: number;
   readOnly: boolean;
   editingId: string | null;
   isCreating: boolean;
@@ -662,6 +676,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question,
   level,
   sectionNumber,
+  sectionGroup,
+  parentSequence,
   readOnly,
   editingId,
   isCreating,
@@ -685,10 +701,15 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   onAlert,
   parentLayout = "list",
 }) => {
+  const is200 = sectionGroup === 200;
   const [isExpanded, setIsExpanded] = useState(true);
-  const prefix = buildPrefix(level, question.sequence, sectionNumber);
+  const prefix = is200
+    ? buildPrefix200(level, question.sequence, sectionNumber, parentSequence)
+    : buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
-  const canAddSub = level < 1 && !readOnly;
+  const maxSubLevel = is200 ? 2 : 1;
+  const canAddSub = level < maxSubLevel && !readOnly;
+  const isDefault200L1 = is200 && level === 0;
 
   const [childLayout, setChildLayout] = useState<"list" | "grid">("list");
 
@@ -718,6 +739,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <QuestionFormCard
           prefix={prefix}
           level={level}
+          sectionGroup={sectionGroup}
+          isDefault200L1={isDefault200L1}
           initialContent={question.content}
           initialDescription={question.description || undefined}
           initialImage={initialImage}
@@ -729,7 +752,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 metaObj = JSON.parse(data.metadata);
               } catch { }
             }
-            if (level === 0) metaObj.childLayout = data.childLayout || childLayout;
+            // Save childLayout for L0 (100/300) or L0+L1 (200)
+            const shouldSaveChildLayout = is200 ? (level === 0 || level === 1) : (level === 0);
+            if (shouldSaveChildLayout) metaObj.childLayout = data.childLayout || childLayout;
             if (data.image) {
               metaObj.image = data.image;
             } else {
@@ -762,12 +787,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         question={question}
         prefix={prefix}
         level={level}
+        sectionGroup={sectionGroup}
         readOnly={readOnly}
         isExpanded={isExpanded}
         hasChildren={!!hasChildren}
         canAddSub={canAddSub}
         isFirst={isFirst}
         isLast={isLast}
+        isDefault200L1={isDefault200L1}
         onToggle={() => setIsExpanded(!isExpanded)}
         onEdit={() => onStartEdit(question.id)}
         onDelete={() => onDelete(question)}
@@ -783,8 +810,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       {isCreating && insertingAfterId === question.id && (
         <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
           <QuestionFormCard
-            prefix={buildPrefix(level, question.sequence + 1, sectionNumber)}
+            prefix={is200 ? buildPrefix200(level, question.sequence + 1, sectionNumber, parentSequence) : buildPrefix(level, question.sequence + 1, sectionNumber)}
             level={level}
+            sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
             onCancel={onCancel}
             documentId={documentId}
@@ -806,6 +834,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 question={child}
                 level={level + 1}
                 sectionNumber={sectionNumber}
+                sectionGroup={sectionGroup}
+                parentSequence={question.sequence}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -838,8 +868,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       {isCreating && creatingAtParent === question.id && (
         <div className={childLayout === "grid" ? "m-1" : "ml-12 mt-1 mb-1"}>
           <QuestionFormCard
-            prefix={buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
+            prefix={is200 ? buildPrefix200(level + 1, (question.children?.length || 0) + 1, sectionNumber, question.sequence) : buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
             level={level + 1}
+            sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.id)}
             onCancel={onCancel}
             documentId={documentId}
@@ -859,6 +890,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 interface QuestionFormCardProps {
   prefix: string;
   level: number; // New prop to determine if L1
+  sectionGroup?: 100 | 200 | 300;
+  isDefault200L1?: boolean; // Flag for default 200 L1 questions (restricted editing)
   initialContent?: string;
   initialDescription?: string;
   initialImage?: string;
@@ -886,6 +919,8 @@ const EMPTY_REFS: QuestionReferenceDetail[] = [];
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   prefix,
   level,
+  sectionGroup = 100,
+  isDefault200L1 = false,
   initialContent = "",
   initialDescription = "",
   initialImage = "",
@@ -899,6 +934,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   onAlert,
   childLayout: initialChildLayout = "list",
 }) => {
+  const is200 = sectionGroup === 200;
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
@@ -923,12 +959,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
-    if (!initialMetadata) return true;
+    if (!initialMetadata) return is200 ? false : true; // Default: Unrequired for 200, Required for others
     try {
       const meta = JSON.parse(initialMetadata);
       return meta.requireRef !== false;
     } catch {
-      return true;
+      return is200 ? false : true;
     }
   });
   const [requireAnswerKey, setRequireAnswerKey] = useState<boolean>(() => {
@@ -950,6 +986,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   const isEdit = !!initialContent;
   const isL1 = level === 0;
+  const showExtraButtons = is200 ? (level === 0 || level === 1) : isL1; // 200: show for L0 & L1, others: L0 only
 
   // Refs for auto-resizing
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -1150,16 +1187,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
     let hasError = false;
 
-    // Validation
+    // Validation (skip answer key & refs for default 200 L1 — those fields are hidden)
     if (!content.trim()) {
       newErrors.content = true;
       hasError = true;
     }
-    if (requireAnswerKey && !answerKey.trim()) {
+    if (!isDefault200L1 && requireAnswerKey && !answerKey.trim()) {
       newErrors.answerKey = true;
       hasError = true;
     }
-    if (requireRef && linkedRefs.length === 0) {
+    if (!isDefault200L1 && requireRef && linkedRefs.length === 0) {
       newErrors.refs = true;
       hasError = true;
     }
@@ -1203,12 +1240,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
     onSave({
       content,
-      description: isL1 ? description : undefined,
-      image: isL1 ? imagePath || undefined : undefined,
+      description: showExtraButtons ? description : undefined,
+      image: showExtraButtons ? imagePath || undefined : undefined,
       id: !isEdit ? generatedId || undefined : undefined,
       references: requireRef ? linkedRefs : [],
       metadata: metadataString,
-      childLayout: isL1 ? currentChildLayout : undefined,
+      childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
   };
 
@@ -1237,8 +1274,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </span>
           </div>
 
-          {/* Optional Toggles (L1 Only) */}
-          {isL1 && (
+          {/* Optional Toggles (L1 Only for 100/300, L0+L1 for 200) */}
+          {showExtraButtons && (
             <div className="flex items-center gap-1">
               {!showDescription && (
                 <button
@@ -1260,21 +1297,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <ImageIcon className="w-3.5 h-3.5" />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
-                className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all border shadow-sm
-                  ${currentChildLayout === "grid"
-                    ? "bg-blue-600 border-blue-500 text-white"
-                    : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
-                  }`}
-                title="สลับโหมดการแสดงผลคำถามย่อย"
-              >
-                <Plus
-                  className={`w-3 h-3 transition-transform ${currentChildLayout === "grid" ? "rotate-45" : ""}`}
-                />
-                {currentChildLayout === "grid" ? "2 คอลัมน์" : "1 คอลัมน์"}
-              </button>
+              {!isDefault200L1 && (
+                <button
+                  type="button"
+                  onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
+                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all border shadow-sm
+                    ${currentChildLayout === "grid"
+                      ? "bg-blue-600 border-blue-500 text-white"
+                      : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                    }`}
+                  title="สลับโหมดการแสดงผลคำถามย่อย"
+                >
+                  <Plus
+                    className={`w-3 h-3 transition-transform ${currentChildLayout === "grid" ? "rotate-45" : ""}`}
+                  />
+                  {currentChildLayout === "grid" ? "2 คอลัมน์" : "1 คอลัมน์"}
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -1286,7 +1325,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </label>
           <textarea
             ref={contentRef}
-            autoFocus
+            autoFocus={!isDefault200L1}
             value={content}
             onChange={(e) => {
               setContent(e.target.value);
@@ -1294,7 +1333,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder="พิมพ์คำถาม..."
+            disabled={isDefault200L1}
             className={`w-full p-2 border rounded-md text-sm font-semibold resize-none min-h-[36px] overflow-hidden leading-relaxed
+              ${isDefault200L1 ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed" : ""}
               ${errors.content
                 ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300"
                 : "border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
@@ -1305,8 +1346,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
         {/* Form Extras */}
         <div className="space-y-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-          {/* Description - L1 Only (Optional) */}
-          {isL1 && showDescription && (
+          {/* Description - L1 Only for 100/300, L0+L1 for 200 (Optional) */}
+          {showExtraButtons && showDescription && (
             <div className="group/desc animate-in slide-in-from-top-1">
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 คำอธิบาย (Description)
@@ -1334,45 +1375,46 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </div>
           )}
 
-          {/* Toggle Options: Reference + Answer Key */}
-          <div className="flex items-center gap-4 py-1">
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <div className="relative inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={requireRef}
-                  onChange={(e) => {
-                    setRequireRef(e.target.checked);
-                    if (!e.target.checked) {
-                      setLinkedRefs([]);
-                      setSelectedRefId("");
-                      setIsRefExpanded(false);
-                      setErrors((prev) => ({ ...prev, refs: false }));
-                    }
-                  }}
-                  className="sr-only peer"
-                />
-                <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-500 transition-colors"></div>
-                <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
-              </div>
-              <span
-                className={`text-xs font-semibold transition-colors ${requireRef ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500 line-through"}`}
-              >
-                เอกสารอ้างอิง (Reference) {requireRef && <span className="text-red-500">*</span>}
-              </span>
-            </label>
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <div className="relative inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={requireAnswerKey}
-                  onChange={(e) => {
-                    setRequireAnswerKey(e.target.checked);
-                    if (!e.target.checked) {
-                      setAnswerKey("");
-                      setErrors((prev) => ({ ...prev, answerKey: false }));
-                    }
-                  }}
+          {/* Toggle Options: Reference + Answer Key (Hidden for default 200 L1) */}
+          {!isDefault200L1 && (
+            <div className="flex items-center gap-4 py-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <div className="relative inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={requireRef}
+                    onChange={(e) => {
+                      setRequireRef(e.target.checked);
+                      if (!e.target.checked) {
+                        setLinkedRefs([]);
+                        setSelectedRefId("");
+                        setIsRefExpanded(false);
+                        setErrors((prev) => ({ ...prev, refs: false }));
+                      }
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-indigo-500 transition-colors"></div>
+                  <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
+                </div>
+                <span
+                  className={`text-xs font-semibold transition-colors ${requireRef ? "text-indigo-600 dark:text-indigo-400" : "text-slate-400 dark:text-slate-500 line-through"}`}
+                >
+                  เอกสารอ้างอิง (Reference) {requireRef && <span className="text-red-500">*</span>}
+                </span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <div className="relative inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={requireAnswerKey}
+                    onChange={(e) => {
+                      setRequireAnswerKey(e.target.checked);
+                      if (!e.target.checked) {
+                        setAnswerKey("");
+                        setErrors((prev) => ({ ...prev, answerKey: false }));
+                      }
+                    }}
                   className="sr-only peer"
                 />
                 <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-emerald-500 transition-colors"></div>
@@ -1385,9 +1427,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               </span>
             </label>
           </div>
+          )}
 
-          {/* References Section (Both L1 & L2, conditional on toggle) */}
-          {requireRef && (
+          {/* References Section (Both L1 & L2, conditional on toggle — hidden for default 200 L1) */}
+          {!isDefault200L1 && requireRef && (
             <>
               <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
                 <span>เอกสารอ้างอิง (References)</span>
@@ -1540,8 +1583,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
                                       {/* Status Area (Usage + Class) */}
                                       <div className="shrink-0 flex items-center gap-2">
-                                        {/* Usage Badge */}
-                                        {r.usage_count > 0 ? (
+                                        {/* Usage Badge — hidden for 200 sections */}
+                                        {!is200 && (r.usage_count > 0 ? (
                                           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
                                             Used: {r.usage_count}
                                           </span>
@@ -1549,7 +1592,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/20 opacity-80">
                                             Unused
                                           </span>
-                                        )}
+                                        ))}
 
                                         {/* Classification Icon */}
                                         <div
@@ -1599,8 +1642,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </>
           )}
 
-          {/* Image Preview (L1 Only) */}
-          {isL1 && imagePath && (
+          {/* Image Preview (L1 Only for 100/300, L0+L1 for 200) */}
+          {showExtraButtons && imagePath && (
             <div className="flex items-center gap-2 pt-1">
               <div className="relative group inline-block">
                 <div className="w-16 h-12 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden">
@@ -1617,8 +1660,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
         </div>
 
-        {/* Answer Key (conditional on toggle) */}
-        {requireAnswerKey && (
+        {/* Answer Key (conditional on toggle — hidden for default 200 L1) */}
+        {!isDefault200L1 && requireAnswerKey && (
           <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
             <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
               เฉลย (Answer Key)
@@ -1737,12 +1780,14 @@ interface QuestionDisplayCardProps {
   question: QuestionDetail;
   prefix: string;
   level: number;
+  sectionGroup?: 100 | 200 | 300;
   readOnly: boolean;
   isExpanded: boolean;
   hasChildren: boolean;
   canAddSub: boolean;
   isFirst: boolean;
   isLast: boolean;
+  isDefault200L1?: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1758,12 +1803,14 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   question,
   prefix,
   level,
+  sectionGroup = 100,
   readOnly,
   isExpanded,
   hasChildren,
   canAddSub,
   isFirst,
   isLast,
+  isDefault200L1 = false,
   onToggle,
   onEdit,
   onDelete,
@@ -1775,6 +1822,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   parentLayout = "list",
 }) => {
   const isL1 = level === 0;
+  const is200 = sectionGroup === 200;
+  const showDescriptionImage = is200 ? (level === 0 || level === 1) : isL1; // 200: show for L0 & L1, others: L0 only
 
   return (
     <div
@@ -1850,7 +1899,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           )}
         </div>
 
-        {isL1 && question.description && (
+        {showDescriptionImage && question.description && (
           <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
@@ -1877,47 +1926,62 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               </button>
             }
             items={
-              [
-                {
-                  label: "แทรกคำถามต่อท้าย (Insert After)",
-                  icon: <Plus />,
-                  onClick: onInsertAfter,
-                },
-                { label: "separator", onClick: () => { }, separator: true },
-                {
-                  label: "เลื่อนขึ้น (Move Up)",
-                  icon: <ArrowUp />,
-                  onClick: onMoveUp,
-                  disabled: isFirst,
-                },
-                {
-                  label: "เลื่อนลง (Move Down)",
-                  icon: <ArrowDown />,
-                  onClick: onMoveDown,
-                  disabled: isLast,
-                },
-                { label: "separator", onClick: () => { }, separator: true },
-                ...(canAddSub
-                  ? [
-                    {
-                      label: "เพิ่มคำถามย่อย (Add Sub-Question)",
-                      icon: <MessageSquarePlus />,
-                      onClick: onAddSub,
-                    },
-                  ]
-                  : []),
-                {
-                  label: "แก้ไข (Edit)",
-                  icon: <Edit />,
-                  onClick: onEdit,
-                },
-                {
-                  label: "ลบ (Delete)",
-                  icon: <Trash2 />,
-                  onClick: onDelete,
-                  danger: true,
-                },
-              ] as DropdownMenuItem[]
+              isDefault200L1
+                ? ([
+                  ...(canAddSub
+                    ? [{
+                        label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                        icon: <MessageSquarePlus />,
+                        onClick: onAddSub,
+                      }]
+                    : []),
+                  {
+                    label: "แก้ไข (Edit)",
+                    icon: <Edit />,
+                    onClick: onEdit,
+                  },
+                ] as DropdownMenuItem[])
+                : ([
+                  {
+                    label: "แทรกคำถามต่อท้าย (Insert After)",
+                    icon: <Plus />,
+                    onClick: onInsertAfter,
+                  },
+                  { label: "separator", onClick: () => { }, separator: true },
+                  {
+                    label: "เลื่อนขึ้น (Move Up)",
+                    icon: <ArrowUp />,
+                    onClick: onMoveUp,
+                    disabled: isFirst,
+                  },
+                  {
+                    label: "เลื่อนลง (Move Down)",
+                    icon: <ArrowDown />,
+                    onClick: onMoveDown,
+                    disabled: isLast,
+                  },
+                  { label: "separator", onClick: () => { }, separator: true },
+                  ...(canAddSub
+                    ? [
+                      {
+                        label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                        icon: <MessageSquarePlus />,
+                        onClick: onAddSub,
+                      },
+                    ]
+                    : []),
+                  {
+                    label: "แก้ไข (Edit)",
+                    icon: <Edit />,
+                    onClick: onEdit,
+                  },
+                  {
+                    label: "ลบ (Delete)",
+                    icon: <Trash2 />,
+                    onClick: onDelete,
+                    danger: true,
+                  },
+                ] as DropdownMenuItem[])
             }
           />
         </div>

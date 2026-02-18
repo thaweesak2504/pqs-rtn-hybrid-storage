@@ -31,6 +31,7 @@ interface PqsSectionPreviewProps {
   sectionNumber: number;
   title: string;
   references: ReferenceDoc[];
+  sectionGroup?: 100 | 200 | 300;
 }
 
 // ============ Main Component ============
@@ -41,6 +42,7 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
   sectionNumber,
   title,
   references,
+  sectionGroup = 100,
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +147,7 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
               level={0}
               parentPath={toThaiNumber(sectionNumber)}
               sectionNumber={sectionNumber}
+              sectionGroup={sectionGroup}
             />
           ))}
         </div>
@@ -161,6 +164,7 @@ interface PreviewQuestionNodeProps {
   level: number;
   parentPath: string;
   sectionNumber: number;
+  sectionGroup: 100 | 200 | 300;
 }
 
 const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
@@ -169,18 +173,35 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   level,
   parentPath,
   sectionNumber,
+  sectionGroup,
 }) => {
-  // Build numbering: L0 = ๑๐๑.๑, L1 = ก.
+  const is200 = sectionGroup === 200;
+
+  // Build numbering based on section group
   let displayNumber = '';
   let fullPath = '';
 
-  if (level === 0) {
-    displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
-    fullPath = displayNumber;
+  if (is200) {
+    // 200: L0 = ๒๐๑.๑, L1 = ๒๐๑.๑.๑, L2 = ก.
+    if (level === 0) {
+      displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+      fullPath = displayNumber;
+    } else if (level === 1) {
+      displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+      fullPath = displayNumber;
+    } else {
+      displayNumber = toThaiAlphabet(index);
+      fullPath = `${parentPath} ${displayNumber}`;
+    }
   } else {
-    // L1+ uses Thai alphabet
-    displayNumber = toThaiAlphabet(index);
-    fullPath = `${parentPath} ${displayNumber}`;
+    // 100/300: L0 = ๑๐๑.๑, L1 = ก.
+    if (level === 0) {
+      displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+      fullPath = displayNumber;
+    } else {
+      displayNumber = toThaiAlphabet(index);
+      fullPath = `${parentPath} ${displayNumber}`;
+    }
   }
 
   // Parse metadata for answerKey and image
@@ -240,7 +261,8 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
     return out.join("\n");
   };
 
-  const contentStartOffsetClass = level === 0 ? 'ml-[9ch]' : 'ml-[2ch]';
+  const is200L2 = is200 && level === 1;
+  const contentStartOffsetClass = (level === 0 || is200L2) ? 'ml-[9ch]' : 'ml-[2ch]';
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
 
@@ -253,7 +275,9 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
     <div className="flex flex-col">
       {/* Question Row */}
       <div className="flex items-baseline">
-        <span className={`${level === 0 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
+        <span
+          className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}
+        >
           {displayNumber}
         </span>
 
@@ -296,8 +320,14 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         <div
           className={
             childLayout === 'grid'
-              ? `grid grid-cols-2 gap-x-8 gap-y-1 ${level === 0 ? 'ml-[9ch]' : 'ml-4'}`
-              : `space-y-1 ${level === 0 ? 'ml-[9ch]' : 'ml-4'}`
+              ? `grid grid-cols-2 gap-x-8 gap-y-1 ${level === 0
+                ? (is200 ? 'ml-0' : 'ml-[9ch]')
+                : (is200 && level === 1 ? 'ml-[9ch]' : 'ml-4')
+              }`
+              : `space-y-1 ${level === 0
+                ? (is200 ? 'ml-0' : 'ml-[9ch]')
+                : (is200 && level === 1 ? 'ml-[9ch]' : 'ml-4')
+              }`
           }
         >
           {question.children!.map((child, childIdx) => (
@@ -308,6 +338,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
                 level={level + 1}
                 parentPath={fullPath}
                 sectionNumber={sectionNumber}
+                sectionGroup={sectionGroup}
               />
             </div>
           ))}
