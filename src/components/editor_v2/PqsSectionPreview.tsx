@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
@@ -195,6 +196,50 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   const answerKey = meta.answerKey || '';
   const hasChildren = question.children && question.children.length > 0;
 
+  const formatAnswerKeyForDisplay = (raw: string): string => {
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    const out: string[] = [];
+
+    const thaiAlphaRe = /^([ก-ฮ])\.\s+(.*)$/;
+    const thaiDigitRe = /^([๐-๙]+)\.\s+(.*)$/;
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i] ?? "";
+
+      const alphaM = line.match(thaiAlphaRe);
+      if (alphaM) {
+        const items: string[] = [];
+        while (i < lines.length) {
+          const m = (lines[i] ?? "").match(thaiAlphaRe);
+          if (!m) break;
+          items.push(m[2]);
+          i++;
+        }
+        out.push(`<ol class="thai-alpha">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
+        continue;
+      }
+
+      const digitM = line.match(thaiDigitRe);
+      if (digitM) {
+        const items: string[] = [];
+        while (i < lines.length) {
+          const m = (lines[i] ?? "").match(thaiDigitRe);
+          if (!m) break;
+          items.push(m[2]);
+          i++;
+        }
+        out.push(`<ol class="thai-num">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
+        continue;
+      }
+
+      out.push(line);
+      i++;
+    }
+
+    return out.join("\n");
+  };
+
   const contentStartOffsetClass = level === 0 ? 'ml-[9ch]' : 'ml-[2ch]';
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
@@ -235,7 +280,12 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
           <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
             <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
             <div className="answer-key-markdown min-w-0 flex-1">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{answerKey.replace(/\n/g, "  \n")}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+              >
+                {formatAnswerKeyForDisplay(answerKey).replace(/\n/g, "  \n")}
+              </ReactMarkdown>
             </div>
           </div>
         </div>

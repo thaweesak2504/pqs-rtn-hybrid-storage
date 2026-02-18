@@ -240,11 +240,21 @@
   margin: 0.25rem 0;
   padding-left: 1.5rem;
 }
-.answer-key-markdown ol {
+.answer-key-markdown ol:not(.thai-num):not(.thai-alpha) {
   list-style-type: decimal;
 }
 .answer-key-markdown ul {
   list-style-type: disc;
+}
+
+.answer-key-markdown ol.thai-num {
+  list-style: thai-numerals !important;
+  list-style-position: outside;
+}
+
+.answer-key-markdown ol.thai-alpha {
+  list-style: thai-alpha !important;
+  list-style-position: outside;
 }
 .answer-key-markdown li {
   margin: 0;
@@ -282,6 +292,13 @@
   @counter-style thai-numerals {
     system: numeric;
     symbols: "๐" "๑" "๒" "๓" "๔" "๕" "๖" "๗" "๘" "๙";
+    suffix: ". ";
+  }
+
+  @counter-style thai-alpha {
+    system: fixed;
+    symbols: "ก" "ข" "ค" "ง" "จ" "ฉ" "ช" "ซ" "ฌ" "ญ" "ฎ" "ฏ" "ฐ" "ฑ" "ฒ" "ณ" "ด" "ต" "ถ" "ท" "ธ" "น"
+      "บ" "ป" "ผ" "ฝ" "พ" "ฟ" "ภ" "ม" "ย" "ร" "ล" "ว" "ศ" "ษ" "ส" "ห" "ฬ" "อ" "ฮ";
     suffix: ". ";
   }
 

@@ -25,11 +25,12 @@ import {
     Video,
     X,
 } from "lucide-react";
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import {
     QuestionDetail,
@@ -1930,6 +1931,50 @@ const QuestionMetadataDisplay: React.FC<{
   metadata: string;
   onImageClick?: (src: string) => void;
 }> = ({ metadata, onImageClick }) => {
+  const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    const out: string[] = [];
+
+    const thaiAlphaRe = /^([ก-ฮ])\.\s+(.*)$/;
+    const thaiDigitRe = /^([๐-๙]+)\.\s+(.*)$/;
+
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i] ?? "";
+
+      const alphaM = line.match(thaiAlphaRe);
+      if (alphaM) {
+        const items: string[] = [];
+        while (i < lines.length) {
+          const m = (lines[i] ?? "").match(thaiAlphaRe);
+          if (!m) break;
+          items.push(m[2]);
+          i++;
+        }
+        out.push(`<ol class="thai-alpha">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
+        continue;
+      }
+
+      const digitM = line.match(thaiDigitRe);
+      if (digitM) {
+        const items: string[] = [];
+        while (i < lines.length) {
+          const m = (lines[i] ?? "").match(thaiDigitRe);
+          if (!m) break;
+          items.push(m[2]);
+          i++;
+        }
+        out.push(`<ol class="thai-num">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
+        continue;
+      }
+
+      out.push(line);
+      i++;
+    }
+
+    return out.join("\n");
+  }, []);
+
   const data = useMemo(() => {
     try {
       return JSON.parse(metadata);
@@ -1957,7 +2002,12 @@ const QuestionMetadataDisplay: React.FC<{
           <div className="flex items-start gap-2">
             <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
             <div className="answer-key-markdown min-w-0 flex-1">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{data.answerKey.replace(/\n/g, "  \n")}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw]}
+              >
+                {formatAnswerKeyForDisplay(data.answerKey).replace(/\n/g, "  \n")}
+              </ReactMarkdown>
             </div>
           </div>
         </div>
