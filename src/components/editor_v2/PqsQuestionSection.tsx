@@ -239,7 +239,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     return tree;
   }, [questions]);
 
-  // อ่าน occupationBranches จาก L1 seq=2 เพื่อส่งให้ L1 seq=4 (บังคับใช้สาขาเดียวกัน)
+  // อ่าน occupationBranches และ selectedBranch จาก L1 seq=2 เพื่อส่งให้ L1 seq=4 (บังคับใช้สาขาเดียวกัน)
   type OccBranchMap = Record<string, { name: string; subs: Record<string, string> }>;
   const seq2OccupationBranches = useMemo((): OccBranchMap => {
     if (!is200) return {};
@@ -249,6 +249,16 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       const meta = JSON.parse(seq2.metadata);
       return (meta.occupationBranches as OccBranchMap) || {};
     } catch { return {}; }
+  }, [questionTree, is200]);
+
+  const seq2SelectedBranch = useMemo((): { main: string; sub: string } => {
+    if (!is200) return { main: "", sub: "" };
+    const seq2 = questionTree.find(q => q.sequence === 2);
+    if (!seq2?.metadata) return { main: "", sub: "" };
+    try {
+      const meta = JSON.parse(seq2.metadata);
+      return { main: meta.selectedBranch?.main || "", sub: meta.selectedBranch?.sub || "" };
+    } catch { return { main: "", sub: "" }; }
   }, [questionTree, is200]);
 
   const resetForms = () => {
@@ -560,6 +570,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 sectionOccupationBranches={is200 && question.sequence === 4 ? seq2OccupationBranches : undefined}
+                sectionSelectedBranch={is200 && question.sequence === 4 ? seq2SelectedBranch : undefined}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -696,6 +707,7 @@ interface QuestionTreeNodeProps {
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
   sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
+  sectionSelectedBranch?: { main: string; sub: string };
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -706,6 +718,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   parentSequence,
   parentSubQuestionList,
   sectionOccupationBranches,
+  sectionSelectedBranch,
   readOnly,
   editingId,
   isCreating,
@@ -820,6 +833,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           questionSequence={question.sequence}
           parentSubQuestionList={parentSubQuestionList}
           sectionOccupationBranches={sectionOccupationBranches}
+          sectionSelectedBranch={sectionSelectedBranch}
         />
       </div>
     );
@@ -959,6 +973,7 @@ interface QuestionFormCardProps {
   questionSequence?: number;
   parentSubQuestionList?: SubQuestionItem[];
   sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
+  sectionSelectedBranch?: { main: string; sub: string };
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -983,6 +998,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   questionSequence,
   parentSubQuestionList,
   sectionOccupationBranches,
+  sectionSelectedBranch,
 }) => {
   const is200 = sectionGroup === 200;
   const [content, setContent] = useState(initialContent);
@@ -1019,10 +1035,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     return merged;
   });
   const [selMainBranch, setSelMainBranch] = useState<string>(() => {
+    // 2xx.4: บังคับใช้ค่าจาก 2xx.2 เสมอ
+    if (sectionSelectedBranch) return sectionSelectedBranch.main;
     if (!initialMetadata) return "";
     try { return JSON.parse(initialMetadata).selectedBranch?.main || ""; } catch { return ""; }
   });
   const [selSubBranch, setSelSubBranch] = useState<string>(() => {
+    // 2xx.4: บังคับใช้ค่าจาก 2xx.2 เสมอ
+    if (sectionSelectedBranch) return sectionSelectedBranch.sub;
     if (!initialMetadata) return "";
     try { return JSON.parse(initialMetadata).selectedBranch?.sub || ""; } catch { return ""; }
   });
@@ -1370,15 +1390,28 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         newMeta.useSubQuestions = true;
         if (subQuestionList.length > 0) newMeta.subQuestionList = subQuestionList;
         else delete newMeta.subQuestionList;
-        if (Object.keys(occupationBranches).length > 0) newMeta.occupationBranches = occupationBranches;
-        else delete newMeta.occupationBranches;
+        // 2xx.4: ไม่ save occupationBranches และ selectedBranch ลงใน metadata ตัวเอง (รับจาก 2xx.2 เสมอ)
+        if (!sectionOccupationBranches) {
+          if (Object.keys(occupationBranches).length > 0) newMeta.occupationBranches = occupationBranches;
+          else delete newMeta.occupationBranches;
+          if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
+          else delete newMeta.selectedBranch;
+        } else {
+          delete newMeta.occupationBranches;
+          delete newMeta.selectedBranch;
+        }
         newMeta.activeSubQuestions = activeSubQCodes;
-        if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
-        else delete newMeta.selectedBranch;
       } else {
         delete newMeta.useSubQuestions;
-        delete newMeta.subQuestionList;
-        delete newMeta.occupationBranches;
+        // เก็บ subQuestionList ไว้เพื่อให้กลับมาแก้ไขได้
+        if (subQuestionList.length > 0) newMeta.subQuestionList = subQuestionList;
+        else delete newMeta.subQuestionList;
+        // 2xx.4: ไม่ save occupationBranches ลงใน metadata ตัวเอง
+        if (!sectionOccupationBranches) {
+          if (Object.keys(occupationBranches).length > 0) newMeta.occupationBranches = occupationBranches;
+        } else {
+          delete newMeta.occupationBranches;
+        }
         delete newMeta.activeSubQuestions;
         delete newMeta.selectedBranch;
       }
@@ -1592,10 +1625,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
                       ) : (
-                        /* 2xx.4: read-only select จาก branches ของ 2xx.2 */
-                        <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); }}
-                          className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
-                          <option value="">-- เลือก --</option>
+                        /* 2xx.4: disabled select แสดงค่าจาก 2xx.2 */
+                        <select value={selMainBranch} disabled
+                          className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
+                          <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
                           {Object.entries(occupationBranches).map(([code, b]) => <option key={code} value={code}>{code} - {b.name}</option>)}
                         </select>
                       )}
@@ -1637,10 +1670,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
                         ) : (
-                          /* 2xx.4: read-only select จาก branches ของ 2xx.2 */
-                          <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                            className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
-                            <option value="">-- เลือก --</option>
+                          /* 2xx.4: disabled select แสดงค่าจาก 2xx.2 */
+                          <select value={selSubBranch} disabled
+                            className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
+                            <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
                             {occupationBranches[selMainBranch] && Object.entries(occupationBranches[selMainBranch].subs).map(([code, name]) => <option key={code} value={code}>{code} - {name}</option>)}
                           </select>
                         )}
