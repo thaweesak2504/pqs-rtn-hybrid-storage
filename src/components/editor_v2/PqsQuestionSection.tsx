@@ -2351,7 +2351,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           </div>
           {/* Inline SubQ checkboxes — ชิดขวา */}
           {inlineSubQItems && (
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               {inlineSubQItems.map(({ sq, checked }, idx) => (
                 <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
                   <span className="text-amber-600 dark:text-amber-400 font-bold">{toThaiAlphabet(idx + 1)}.</span>
