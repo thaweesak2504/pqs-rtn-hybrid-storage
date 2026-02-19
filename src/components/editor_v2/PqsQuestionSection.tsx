@@ -862,6 +862,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onMoveDown={() => onMoveDown(question.id, siblings)}
         onImageClick={onImageClick}
         parentLayout={parentLayout}
+        parentSubQuestionList={parentSubQuestionList}
       />
 
       {/* Insert After Form */}
@@ -876,6 +877,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             documentId={documentId}
             sectionId={sectionId}
             onAlert={onAlert}
+            parentSubQuestionList={parentSubQuestionList}
           />
         </div>
       )}
@@ -894,7 +896,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 parentSequence={question.sequence}
-                parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : undefined}
+                parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -935,7 +937,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             documentId={documentId}
             sectionId={sectionId}
             onAlert={onAlert}
-            parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : undefined}
+            parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
           />
         </div>
       )}
@@ -1089,6 +1091,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // hasParentSubQ: this question is a child of a L1 with SubQuestionList
   const hasParentSubQ = !!(parentSubQuestionList && parentSubQuestionList.length > 0);
+
+  // Sync selectedSubQCodes เมื่อ parentSubQuestionList เปลี่ยน (reorder/delete)
+  useEffect(() => {
+    if (!parentSubQuestionList || parentSubQuestionList.length === 0) return;
+    const validCodes = new Set(parentSubQuestionList.map(sq => sq.code));
+    setSelectedSubQCodes(prev => prev.filter(c => validCodes.has(c)));
+  }, [parentSubQuestionList]);
 
   // Reference Linking State
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
@@ -2225,6 +2234,7 @@ interface QuestionDisplayCardProps {
   onMoveDown: () => void;
   onImageClick?: (src: string) => void;
   parentLayout?: "list" | "grid";
+  parentSubQuestionList?: SubQuestionItem[];
 }
 
 const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
@@ -2248,10 +2258,22 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   onMoveDown,
   onImageClick,
   parentLayout = "list",
+  parentSubQuestionList,
 }) => {
   const isL1 = level === 0;
   const is200 = sectionGroup === 200;
-  const showDescriptionImage = is200 ? (level === 0 || level === 1) : isL1; // 200: show for L0 & L1, others: L0 only
+  const showDescriptionImage = is200 ? (level === 0 || level === 1) : isL1;
+
+  // Compute inline sub-question checkboxes for L2/L3
+  const inlineSubQItems = useMemo(() => {
+    if (!parentSubQuestionList || parentSubQuestionList.length === 0) return null;
+    if (!question.metadata) return parentSubQuestionList.map(sq => ({ sq, checked: false }));
+    try {
+      const meta = JSON.parse(question.metadata);
+      const selected: string[] = Array.isArray(meta.selectedSubQuestions) ? meta.selectedSubQuestions : [];
+      return parentSubQuestionList.map(sq => ({ sq, checked: selected.includes(sq.code) }));
+    } catch { return parentSubQuestionList.map(sq => ({ sq, checked: false })); }
+  }, [parentSubQuestionList, question.metadata]); // 200: show for L0 & L1, others: L0 only
 
   return (
     <div
@@ -2313,17 +2335,36 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           }
       `}
       >
-        {/* Row 1: Content + Refs (Inline) */}
-        <div className="truncate pr-8" title={question.content}>
-          <span className={isL1 ? "font-semibold" : "font-normal"}>{question.content}</span>
-          {question.references && question.references.length > 0 && (
-            <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
-              (
-              {question.references
-                .map((ref) => `${ref.thai_letter || "?"}.${ref.location_text || "-"}`)
-                .join(", ")}
-              )
-            </span>
+        {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
+        <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : "pr-8"}`}>
+          <div className="flex-1 truncate min-w-0" title={question.content}>
+            <span className={isL1 ? "font-semibold" : "font-normal"}>{question.content}</span>
+            {question.references && question.references.length > 0 && (
+              <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
+                (
+                {question.references
+                  .map((ref) => `${ref.thai_letter || "?"}.${ref.location_text || "-"}`)
+                  .join(", ")}
+                )
+              </span>
+            )}
+          </div>
+          {/* Inline SubQ checkboxes — ชิดขวา */}
+          {inlineSubQItems && (
+            <div className="flex items-center gap-0.5 shrink-0 flex-wrap justify-end">
+              {inlineSubQItems.map(({ sq, checked }, idx) => (
+                <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <span className="text-amber-600 dark:text-amber-400 font-bold">{toThaiAlphabet(idx + 1)}.</span>
+                  <span className={`w-3.5 h-3.5 inline-flex items-center justify-center rounded border text-[9px] font-bold shrink-0
+                    ${checked
+                      ? "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-transparent"
+                    }`}>
+                    {checked ? "✓" : ""}
+                  </span>
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
