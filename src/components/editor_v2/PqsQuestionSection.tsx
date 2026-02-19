@@ -11,13 +11,16 @@ import {
   FileQuestion,
   FileText,
   Globe,
+  GripVertical,
   Image,
   ImageIcon,
   Layers,
+  ListChecks,
   Lock,
   MessageSquarePlus,
   Mic,
   MoreVertical,
+  Pencil,
   Plus,
   Save,
   Shield,
@@ -40,6 +43,14 @@ import {
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
 import AnswerKeyEditor from "./AnswerKeyEditor";
+
+// ============ Types ============
+
+interface SubQuestionItem {
+  code: string;
+  text: string;
+  alwaysChecked?: boolean;
+}
 
 // ============ Helpers ============
 
@@ -670,6 +681,7 @@ interface QuestionTreeNodeProps {
   onImageClick: (src: string) => void;
   onAlert: (message: string, type?: "warning" | "danger") => void;
   parentLayout?: "list" | "grid";
+  parentSubQuestionList?: SubQuestionItem[];
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -678,6 +690,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   sectionNumber,
   sectionGroup,
   parentSequence,
+  parentSubQuestionList,
   readOnly,
   editingId,
   isCreating,
@@ -720,6 +733,19 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         setChildLayout(meta.childLayout || "list");
       } catch { }
     }
+  }, [question.metadata]);
+
+  // Extract parentSubQuestionList from this question's metadata (for passing to children)
+  const ownSubQuestionList = useMemo((): SubQuestionItem[] => {
+    if (!question.metadata) return [];
+    try {
+      const meta = JSON.parse(question.metadata);
+      if (!meta.useSubQuestions) return [];
+      const list: SubQuestionItem[] = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
+      const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+      if (activeCodes.length === 0) return [];
+      return list.filter(sq => activeCodes.includes(sq.code));
+    } catch { return []; }
   }, [question.metadata]);
 
   // Extract initial image from metadata
@@ -776,6 +802,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialReferences={question.references}
           onAlert={onAlert}
           childLayout={childLayout}
+          questionSequence={question.sequence}
+          parentSubQuestionList={parentSubQuestionList}
         />
       </div>
     );
@@ -836,6 +864,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 parentSequence={question.sequence}
+                parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : undefined}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -876,14 +905,13 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             documentId={documentId}
             sectionId={sectionId}
             onAlert={onAlert}
+            parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : undefined}
           />
         </div>
       )}
     </div>
   );
 };
-
-// ============ QuestionFormCard ============
 
 // ============ QuestionFormCard ============
 
@@ -912,6 +940,9 @@ interface QuestionFormCardProps {
   sectionId?: number; // Added sectionId for fetching available references
   onAlert?: (message: string, type?: "warning" | "danger") => void;
   childLayout?: "list" | "grid";
+  questionSequence?: number;
+  parentSubQuestionList?: SubQuestionItem[];
+  sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -933,6 +964,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   sectionId,
   onAlert,
   childLayout: initialChildLayout = "list",
+  questionSequence,
+  parentSubQuestionList,
+  sectionOccupationBranches,
 }) => {
   const is200 = sectionGroup === 200;
   const [content, setContent] = useState(initialContent);
@@ -941,6 +975,84 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
+
+  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4 only) ----
+  type OccBranchMap = Record<string, { name: string; subs: Record<string, string> }>;
+  const showSubQuestionEditor = is200 && level === 0 && (questionSequence === 2 || questionSequence === 4);
+  const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
+    if (!initialMetadata) return false;
+    try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
+  });
+  const [subQuestionList, setSubQuestionList] = useState<SubQuestionItem[]>(() => {
+    if (!initialMetadata) return [];
+    try { const m = JSON.parse(initialMetadata); return Array.isArray(m.subQuestionList) ? m.subQuestionList : []; } catch { return []; }
+  });
+  const [occupationBranches, setOccupationBranches] = useState<OccBranchMap>(() => {
+    const merged: OccBranchMap = { ...(sectionOccupationBranches || {}) };
+    if (initialMetadata) {
+      try {
+        const m = JSON.parse(initialMetadata);
+        if (m.occupationBranches) {
+          for (const [code, val] of Object.entries(m.occupationBranches as OccBranchMap)) {
+            if (!merged[code]) merged[code] = { ...(val as any) };
+            else merged[code].subs = { ...merged[code].subs, ...(val as any).subs };
+          }
+        }
+      } catch { }
+    }
+    return merged;
+  });
+  const [selMainBranch, setSelMainBranch] = useState<string>(() => {
+    if (!initialMetadata) return "";
+    try { return JSON.parse(initialMetadata).selectedBranch?.main || ""; } catch { return ""; }
+  });
+  const [selSubBranch, setSelSubBranch] = useState<string>(() => {
+    if (!initialMetadata) return "";
+    try { return JSON.parse(initialMetadata).selectedBranch?.sub || ""; } catch { return ""; }
+  });
+  const [activeSubQCodes, setActiveSubQCodes] = useState<string[]>(() => {
+    if (!initialMetadata) return [];
+    try { const m = JSON.parse(initialMetadata); return Array.isArray(m.activeSubQuestions) ? m.activeSubQuestions : []; } catch { return []; }
+  });
+  const [selectedSubQCodes, setSelectedSubQCodes] = useState<string[]>(() => {
+    if (!initialMetadata) return [];
+    try { const m = JSON.parse(initialMetadata); return Array.isArray(m.selectedSubQuestions) ? m.selectedSubQuestions : []; } catch { return []; }
+  });
+  const [newMainName, setNewMainName] = useState("");
+  const [newSubName, setNewSubName] = useState("");
+  const [isAddingMain, setIsAddingMain] = useState(false);
+  const [isAddingSub, setIsAddingSub] = useState(false);
+  const [editingMainCode, setEditingMainCode] = useState<string | null>(null);
+  const [editingMainName, setEditingMainName] = useState("");
+  const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
+  const [editingSubName, setEditingSubName] = useState("");
+  const [newSqText, setNewSqText] = useState("");
+
+  // Auto-generate code: S + L + X + Y + Z
+  const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
+  const lCode = questionSequence?.toString() || "0";
+  const autoCodePrefix = selMainBranch && selSubBranch ? `${sCode}${lCode}${selMainBranch}${selSubBranch}` : "";
+  const nextZ = useMemo(() => {
+    if (!autoCodePrefix) return "";
+    const used = subQuestionList.filter(sq => sq.code.startsWith(autoCodePrefix)).map(sq => sq.code.slice(4));
+    for (const z of ["1","2","3","4","5","6","7","8","9","A"]) { if (!used.includes(z)) return z; }
+    return "";
+  }, [autoCodePrefix, subQuestionList]);
+  const autoCode = autoCodePrefix && nextZ ? `${autoCodePrefix}${nextZ}` : "";
+  const filteredItems = useMemo(() => {
+    if (!autoCodePrefix) return [];
+    return subQuestionList.filter(sq => sq.code.startsWith(autoCodePrefix));
+  }, [autoCodePrefix, subQuestionList]);
+  const prevPrefixRef = useRef(autoCodePrefix);
+  useEffect(() => {
+    if (prevPrefixRef.current !== autoCodePrefix && prevPrefixRef.current !== "") {
+      if (autoCodePrefix) setActiveSubQCodes(prev => prev.filter(c => c.startsWith(autoCodePrefix)));
+    }
+    prevPrefixRef.current = autoCodePrefix;
+  }, [autoCodePrefix]);
+
+  // hasParentSubQ: this question is a child of a L1 with SubQuestionList
+  const hasParentSubQ = !!(parentSubQuestionList && parentSubQuestionList.length > 0);
 
   // Reference Linking State
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
@@ -1236,6 +1348,30 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     } else {
       delete newMeta.answerKey;
     }
+    // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
+    if (showSubQuestionEditor) {
+      if (useSubQuestions) {
+        newMeta.useSubQuestions = true;
+        if (subQuestionList.length > 0) newMeta.subQuestionList = subQuestionList;
+        else delete newMeta.subQuestionList;
+        if (Object.keys(occupationBranches).length > 0) newMeta.occupationBranches = occupationBranches;
+        else delete newMeta.occupationBranches;
+        newMeta.activeSubQuestions = activeSubQCodes;
+        if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
+        else delete newMeta.selectedBranch;
+      } else {
+        delete newMeta.useSubQuestions;
+        delete newMeta.subQuestionList;
+        delete newMeta.occupationBranches;
+        delete newMeta.activeSubQuestions;
+        delete newMeta.selectedBranch;
+      }
+    }
+    // Save selectedSubQuestions (for child questions of L1 with SubQuestionList)
+    if (hasParentSubQ) {
+      if (selectedSubQCodes.length > 0) newMeta.selectedSubQuestions = selectedSubQCodes;
+      else delete newMeta.selectedSubQuestions;
+    }
     const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
 
     onSave({
@@ -1371,6 +1507,233 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── SubQuestionList Editor (2xx.2 and 2xx.4 L1 headers only) ── */}
+          {showSubQuestionEditor && (
+            <div className="rounded-lg border border-orange-200 dark:border-orange-800/50 bg-orange-50/50 dark:bg-orange-950/20 p-3 space-y-2">
+              {/* Header + Opt-in Toggle */}
+              <div className="flex items-center gap-2">
+                <ListChecks className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                <span className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider flex-1">
+                  รายการคำถามย่อย (SubQuestion List)
+                </span>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                  <div className="relative inline-flex items-center">
+                    <input type="checkbox" checked={useSubQuestions}
+                      onChange={(e) => { setUseSubQuestions(e.target.checked); if (!e.target.checked) setActiveSubQCodes([]); }}
+                      className="sr-only peer" />
+                    <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-orange-500 transition-colors"></div>
+                    <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
+                  </div>
+                  <span className={`text-[10px] font-semibold ${useSubQuestions ? "text-orange-600 dark:text-orange-400" : "text-slate-400 dark:text-slate-500"}`}>
+                    {useSubQuestions ? "ใช้งาน" : "ไม่ใช้"}
+                  </span>
+                </label>
+              </div>
+
+              {useSubQuestions && (
+                <div className="space-y-2">
+                  {/* Branch Selector Row */}
+                  <div className="flex flex-wrap gap-2 items-end">
+                    {/* Main Branch */}
+                    <div className="min-w-[140px] max-w-[280px] w-fit">
+                      <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">สาขาอาชีพหลัก</label>
+                      {editingMainCode ? (
+                        <div className="flex gap-1">
+                          <input type="text" maxLength={50} value={editingMainName} onChange={e => setEditingMainName(e.target.value)}
+                            className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                          <button onClick={() => { if (!editingMainName.trim()) return; setOccupationBranches(prev => ({ ...prev, [editingMainCode]: { ...prev[editingMainCode], name: editingMainName.trim() } })); setEditingMainCode(null); setEditingMainName(""); }}
+                            className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                          <button onClick={() => { setEditingMainCode(null); setEditingMainName(""); }}
+                            className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
+                        </div>
+                      ) : !isAddingMain ? (
+                        <div className="flex gap-1">
+                          <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
+                            className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
+                            <option value="">-- เลือก --</option>
+                            {Object.entries(occupationBranches).map(([code, b]) => <option key={code} value={code}>{code} - {b.name}</option>)}
+                          </select>
+                          {selMainBranch && <>
+                            <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(occupationBranches[selMainBranch]?.name || ""); }}
+                              className="px-1.5 py-1 text-[10px] rounded border border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30" title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
+                            <button onClick={() => { if (!window.confirm(`ลบสาขา "${occupationBranches[selMainBranch]?.name}"?`)) return; const u = { ...occupationBranches }; delete u[selMainBranch]; setOccupationBranches(u); setSelMainBranch(""); setSelSubBranch(""); setSubQuestionList(prev => prev.filter(sq => !sq.code.startsWith(`${sCode}${lCode}${selMainBranch}`))); }}
+                              className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขา"><Trash2 className="w-3 h-3" /></button>
+                          </>}
+                          <button onClick={() => setIsAddingMain(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-1">
+                          <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
+                            className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                          <button onClick={() => { if (!newMainName.trim()) return; const nc = (Object.keys(occupationBranches).length + 1).toString(); setOccupationBranches({ ...occupationBranches, [nc]: { name: newMainName.trim(), subs: {} } }); setSelMainBranch(nc); setSelSubBranch(""); setNewMainName(""); setIsAddingMain(false); }}
+                            className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                          <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sub Branch */}
+                    {selMainBranch && (
+                      <div className="min-w-[140px] max-w-[280px] w-fit">
+                        <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">สาขาย่อย</label>
+                        {editingSubCode ? (
+                          <div className="flex gap-1">
+                            <input type="text" maxLength={50} value={editingSubName} onChange={e => setEditingSubName(e.target.value)}
+                              className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                            <button onClick={() => { if (!editingSubName.trim()) return; setOccupationBranches(prev => ({ ...prev, [selMainBranch]: { ...prev[selMainBranch], subs: { ...prev[selMainBranch].subs, [editingSubCode]: editingSubName.trim() } } })); setEditingSubCode(null); setEditingSubName(""); }}
+                              className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                            <button onClick={() => { setEditingSubCode(null); setEditingSubName(""); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
+                          </div>
+                        ) : !isAddingSub ? (
+                          <div className="flex gap-1">
+                            <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
+                              className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
+                              <option value="">-- เลือก --</option>
+                              {occupationBranches[selMainBranch] && Object.entries(occupationBranches[selMainBranch].subs).map(([code, name]) => <option key={code} value={code}>{code} - {name}</option>)}
+                            </select>
+                            {selSubBranch && <>
+                              <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(occupationBranches[selMainBranch]?.subs[selSubBranch] || ""); }}
+                                className="px-1.5 py-1 text-[10px] rounded border border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30" title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
+                              <button onClick={() => { if (!window.confirm(`ลบสาขาย่อย "${occupationBranches[selMainBranch]?.subs[selSubBranch]}"?`)) return; const us = { ...occupationBranches[selMainBranch].subs }; delete us[selSubBranch]; setOccupationBranches(prev => ({ ...prev, [selMainBranch]: { ...prev[selMainBranch], subs: us } })); setSelSubBranch(""); setSubQuestionList(prev => prev.filter(sq => !sq.code.startsWith(`${sCode}${lCode}${selMainBranch}${selSubBranch}`))); }}
+                                className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขาย่อย"><Trash2 className="w-3 h-3" /></button>
+                            </>}
+                            <button onClick={() => setIsAddingSub(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>
+                          </div>
+                        ) : (
+                          <div className="flex gap-1">
+                            <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
+                              className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                            <button onClick={() => { if (!newSubName.trim()) return; const subs = occupationBranches[selMainBranch]?.subs || {}; const nc = (Object.keys(subs).length + 1).toString(); setOccupationBranches({ ...occupationBranches, [selMainBranch]: { ...occupationBranches[selMainBranch], subs: { ...subs, [nc]: newSubName.trim() } } }); setSelSubBranch(nc); setNewSubName(""); setIsAddingSub(false); }}
+                              className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                            <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Auto code display */}
+                    {autoCodePrefix && (
+                      <div className="shrink-0">
+                        <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">รหัส (Auto)</label>
+                        <div className="px-2 py-1.5 text-xs font-mono font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded">
+                          {autoCode || <span className="text-slate-400">เต็ม</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Filtered item list for current branch */}
+                  {filteredItems.length > 0 && (
+                    <div className="space-y-1">
+                      {filteredItems.map((item, localIdx) => {
+                        const globalIdx = subQuestionList.findIndex(sq => sq.code === item.code);
+                        return (
+                          <div key={item.code} className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 border border-orange-100 dark:border-orange-900/30 rounded-md group/sq-item">
+                            <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
+                            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(localIdx + 1)}.</span>
+                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
+                            <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
+                            {item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
+                              <button onClick={() => { const u = [...subQuestionList]; u[globalIdx] = { ...u[globalIdx], alwaysChecked: !u[globalIdx].alwaysChecked }; setSubQuestionList(u); }}
+                                className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`} title={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
+                                <CheckCircle className="w-3 h-3" />
+                              </button>
+                              {localIdx > 0 && <button onClick={() => { const pi = subQuestionList.findIndex(sq => sq.code === filteredItems[localIdx - 1].code); const u = [...subQuestionList]; [u[pi], u[globalIdx]] = [u[globalIdx], u[pi]]; setSubQuestionList(u); }} className="p-0.5 text-slate-400 hover:text-blue-500 rounded" title="เลื่อนขึ้น"><ArrowUp className="w-3 h-3" /></button>}
+                              {localIdx < filteredItems.length - 1 && <button onClick={() => { const ni = subQuestionList.findIndex(sq => sq.code === filteredItems[localIdx + 1].code); const u = [...subQuestionList]; [u[globalIdx], u[ni]] = [u[ni], u[globalIdx]]; setSubQuestionList(u); }} className="p-0.5 text-slate-400 hover:text-blue-500 rounded" title="เลื่อนลง"><ArrowDown className="w-3 h-3" /></button>}
+                              <button onClick={() => setSubQuestionList(subQuestionList.filter((_, i) => i !== globalIdx))} className="p-0.5 text-slate-400 hover:text-red-500 rounded" title="ลบ"><Trash2 className="w-3 h-3" /></button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Add new item */}
+                  {autoCode && (
+                    <div className="flex gap-1.5 items-end">
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
+                        <input type="text" value={newSqText} onChange={e => setNewSqText(e.target.value)} placeholder="พิมพ์คำถามย่อย..."
+                          className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                          onKeyDown={e => { if (e.key === "Enter" && newSqText.trim()) { setSubQuestionList([...subQuestionList, { code: autoCode, text: newSqText.trim() }]); setNewSqText(""); } }} />
+                      </div>
+                      <button onClick={() => { if (!newSqText.trim()) return; setSubQuestionList([...subQuestionList, { code: autoCode, text: newSqText.trim() }]); setNewSqText(""); }}
+                        disabled={!newSqText.trim()}
+                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
+                        <Plus className="w-3 h-3" /> เพิ่ม
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Step 2: Select active items for children */}
+                  {filteredItems.length > 0 && autoCodePrefix && (() => {
+                    const branchCodes = filteredItems.map(sq => sq.code);
+                    const activeInBranch = activeSubQCodes.filter(c => branchCodes.includes(c));
+                    const allActive = activeInBranch.length === filteredItems.length;
+                    const alwaysCodes = filteredItems.filter(sq => sq.alwaysChecked).map(sq => sq.code);
+                    return (
+                      <div className="pt-2 border-t border-orange-200 dark:border-orange-800/50">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <CheckCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex-1">เลือกข้อย่อยที่ใช้งาน</span>
+                          <span className="text-[10px] text-amber-500">{activeInBranch.length}/{filteredItems.length}</span>
+                          <div className="flex gap-1 ml-auto">
+                            <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...branchCodes])}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-colors ${allActive ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200'}`}>เลือกทั้งหมด</button>
+                            <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...alwaysCodes])}
+                              className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100">ยกเลิกทั้งหมด</button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-0.5">
+                          {filteredItems.map((sq, idx) => {
+                            const isActive = activeSubQCodes.includes(sq.code);
+                            return (
+                              <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? 'bg-amber-50 dark:bg-amber-900/20 text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                                <input type="checkbox" checked={isActive} onChange={() => setActiveSubQCodes(prev => isActive ? prev.filter(c => c !== sq.code) : [...prev, sq.code])}
+                                  className="w-3 h-3 rounded border-amber-400 text-amber-600 focus:ring-amber-500" />
+                                <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                                <span className="flex-1 truncate">{sq.text}</span>
+                                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{sq.code}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── SubQuestion Binding (children of L1 with SubQuestionList) ── */}
+          {hasParentSubQ && (
+            <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <ListChecks className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">เลือกคำถามย่อย (Select Sub-Questions)</span>
+                <span className="text-[10px] text-amber-500">{selectedSubQCodes.length}/{parentSubQuestionList!.length}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1">
+                {parentSubQuestionList!.map((sq, idx) => {
+                  const isChecked = selectedSubQCodes.includes(sq.code);
+                  const isForced = sq.alwaysChecked === true;
+                  return (
+                    <label key={sq.code} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? 'bg-amber-50 dark:bg-amber-900/20 text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
+                      <input type="checkbox" checked={isChecked} disabled={isForced}
+                        onChange={() => { if (isForced) return; setSelectedSubQCodes(prev => isChecked ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
+                        className="w-3 h-3 rounded border-amber-400 text-amber-600 focus:ring-amber-500" />
+                      <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                      <span className="flex-1">{sq.text}</span>
+                      {isForced && <span className="text-[9px] text-emerald-500 font-bold">Auto ✓</span>}
+                    </label>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1904,6 +2267,41 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             {question.description}
           </div> // Description: Match L2 style
         )}
+        {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 */}
+        {is200 && isL1 && question.metadata && (() => {
+          try {
+            const meta = JSON.parse(question.metadata);
+            if (!meta.useSubQuestions) return null;
+            const list: SubQuestionItem[] = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
+            const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+            if (activeCodes.length === 0) {
+              return (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
+                  <span>⚠</span><span>ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน</span>
+                </div>
+              );
+            }
+            const display = list.filter(sq => activeCodes.includes(sq.code));
+            if (display.length === 0) {
+              return (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
+                  <span>⚠</span><span>ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน</span>
+                </div>
+              );
+            }
+            return (
+              <div className="mt-1.5 space-y-0.5">
+                {display.map((sq, idx) => (
+                  <div key={sq.code} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                    <span>{sq.text}</span>
+                    {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
+                  </div>
+                ))}
+              </div>
+            );
+          } catch { return null; }
+        })()}
         {question.metadata && (
           <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
         )}
