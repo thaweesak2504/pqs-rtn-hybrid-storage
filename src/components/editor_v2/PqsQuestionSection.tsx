@@ -239,6 +239,18 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     return tree;
   }, [questions]);
 
+  // อ่าน occupationBranches จาก L1 seq=2 เพื่อส่งให้ L1 seq=4 (บังคับใช้สาขาเดียวกัน)
+  type OccBranchMap = Record<string, { name: string; subs: Record<string, string> }>;
+  const seq2OccupationBranches = useMemo((): OccBranchMap => {
+    if (!is200) return {};
+    const seq2 = questionTree.find(q => q.sequence === 2);
+    if (!seq2?.metadata) return {};
+    try {
+      const meta = JSON.parse(seq2.metadata);
+      return (meta.occupationBranches as OccBranchMap) || {};
+    } catch { return {}; }
+  }, [questionTree, is200]);
+
   const resetForms = () => {
     setIsCreating(false);
     setCreatingAtParent(null);
@@ -547,6 +559,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 level={0}
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
+                sectionOccupationBranches={is200 && question.sequence === 4 ? seq2OccupationBranches : undefined}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -682,6 +695,7 @@ interface QuestionTreeNodeProps {
   onAlert: (message: string, type?: "warning" | "danger") => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
+  sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -691,6 +705,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   sectionGroup,
   parentSequence,
   parentSubQuestionList,
+  sectionOccupationBranches,
   readOnly,
   editingId,
   isCreating,
@@ -804,6 +819,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           childLayout={childLayout}
           questionSequence={question.sequence}
           parentSubQuestionList={parentSubQuestionList}
+          sectionOccupationBranches={sectionOccupationBranches}
         />
       </div>
     );
@@ -1540,8 +1556,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <div className="flex flex-wrap gap-2 items-end">
                     {/* Main Branch */}
                     <div className="min-w-[140px] max-w-[280px] w-fit">
-                      <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">สาขาอาชีพหลัก</label>
-                      {editingMainCode ? (
+                      <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">
+                        สาขาอาชีพหลัก{sectionOccupationBranches && <span className="ml-1 text-[9px] text-slate-400">(จาก 2xx.2)</span>}
+                      </label>
+                      {!sectionOccupationBranches && editingMainCode ? (
                         <div className="flex gap-1">
                           <input type="text" maxLength={50} value={editingMainName} onChange={e => setEditingMainName(e.target.value)}
                             className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
@@ -1550,7 +1568,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <button onClick={() => { setEditingMainCode(null); setEditingMainName(""); }}
                             className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
-                      ) : !isAddingMain ? (
+                      ) : !sectionOccupationBranches && !isAddingMain ? (
                         <div className="flex gap-1">
                           <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
                             className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
@@ -1565,7 +1583,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           </>}
                           <button onClick={() => setIsAddingMain(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>
                         </div>
-                      ) : (
+                      ) : !sectionOccupationBranches ? (
                         <div className="flex gap-1">
                           <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
                             className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
@@ -1573,6 +1591,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                           <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
+                      ) : (
+                        /* 2xx.4: read-only select จาก branches ของ 2xx.2 */
+                        <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); }}
+                          className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
+                          <option value="">-- เลือก --</option>
+                          {Object.entries(occupationBranches).map(([code, b]) => <option key={code} value={code}>{code} - {b.name}</option>)}
+                        </select>
                       )}
                     </div>
 
@@ -1580,7 +1605,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     {selMainBranch && (
                       <div className="min-w-[140px] max-w-[280px] w-fit">
                         <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">สาขาย่อย</label>
-                        {editingSubCode ? (
+                        {!sectionOccupationBranches && editingSubCode ? (
                           <div className="flex gap-1">
                             <input type="text" maxLength={50} value={editingSubName} onChange={e => setEditingSubName(e.target.value)}
                               className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
@@ -1588,7 +1613,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setEditingSubCode(null); setEditingSubName(""); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
-                        ) : !isAddingSub ? (
+                        ) : !sectionOccupationBranches && !isAddingSub ? (
                           <div className="flex gap-1">
                             <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
                               className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
@@ -1603,7 +1628,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             </>}
                             <button onClick={() => setIsAddingSub(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>
                           </div>
-                        ) : (
+                        ) : !sectionOccupationBranches ? (
                           <div className="flex gap-1">
                             <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
                               className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
@@ -1611,6 +1636,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
+                        ) : (
+                          /* 2xx.4: read-only select จาก branches ของ 2xx.2 */
+                          <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
+                            className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
+                            <option value="">-- เลือก --</option>
+                            {occupationBranches[selMainBranch] && Object.entries(occupationBranches[selMainBranch].subs).map(([code, name]) => <option key={code} value={code}>{code} - {name}</option>)}
+                          </select>
                         )}
                       </div>
                     )}
@@ -2292,7 +2324,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             return (
               <div className="mt-1.5 space-y-0.5">
                 {display.map((sq, idx) => (
-                  <div key={sq.code} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                  <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
                     <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
                     <span>{sq.text}</span>
                     {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
