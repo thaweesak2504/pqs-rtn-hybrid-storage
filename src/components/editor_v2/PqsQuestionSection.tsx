@@ -2637,7 +2637,7 @@ const QuestionMetadataDisplay: React.FC<{
             return (
             <div key={code} className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
               <div className="flex items-start gap-2">
-                <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400 font-bold">{label}.</span></span>
+                <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
                 <div className="answer-key-markdown min-w-0 flex-1">
                   <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                     {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
