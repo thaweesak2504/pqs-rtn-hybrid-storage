@@ -405,8 +405,8 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         </div>
       ) : answerKey ? (
         <div className={`mt-2 ${contentStartOffsetClass}`}>
-          <div className="flex items-start gap-2 text-sm font-normal text-black dark:text-gray-100 bg-white dark:bg-black px-2 py-1.5 rounded-md border border-gray-400 dark:border-gray-600 mb-2">
-            <span className="text-black dark:text-gray-100 shrink-0">เฉลย:</span>
+          <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
+            <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
             <div className="answer-key-markdown min-w-0 flex-1">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
