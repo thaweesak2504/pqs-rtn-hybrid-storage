@@ -708,6 +708,49 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create index on SectionReferences.reference_id: {}", e))?;
 
+    // OccupationBranches Table - Global main branches (สาขาอาชีพหลัก)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS OccupationBranches (
+            code VARCHAR(10) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL UNIQUE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create OccupationBranches table: {}", e))?;
+
+    // OccupationSubBranches Table - Sub-branches (สาขาอาชีพย่อย)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS OccupationSubBranches (
+            code VARCHAR(10) NOT NULL,
+            branch_code VARCHAR(10) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (branch_code, code),
+            FOREIGN KEY (branch_code) REFERENCES OccupationBranches(code) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create OccupationSubBranches table: {}", e))?;
+
+    // OccupationSubQuestions Table - Reusable sub-question templates
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS OccupationSubQuestions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            branch_code VARCHAR(10) NOT NULL,
+            sub_branch_code VARCHAR(10) NOT NULL,
+            code VARCHAR(20) NOT NULL UNIQUE,
+            text TEXT NOT NULL,
+            always_checked BOOLEAN DEFAULT 0,
+            sequence INTEGER DEFAULT 0,
+            FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create OccupationSubQuestions table: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_occ_subq_branch ON OccupationSubQuestions(branch_code, sub_branch_code)",
+        [],
+    ).map_err(|e| format!("Failed to create index on OccupationSubQuestions: {}", e))?;
+
     Ok(())
 }
 
@@ -1279,40 +1322,26 @@ fn to_thai_digit(n: i32) -> String {
 }
 
 /// Seed Section 200 Template (2xx.1 - 2xx.6)
-fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, section_num: i32) -> Result<(), String> {
-    let p = to_thai_digit(section_num); // e.g. "๒๐๑"
-
+fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
+    // Prefix is handled dynamically by the frontend component (buildPrefix200)
+    
     // Helper closure to insert question
-    let insert_q = |parent: Option<String>, seq: i32, content: String, is_header: bool, ans_type: &str| -> Result<String, String> {
+    let insert_q = |seq: i32, content: String| -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
             "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![q_id, doc_id, section_id, parent, seq, content, is_header, ans_type]
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'text')",
+            params![q_id, doc_id, section_id, seq, content]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
     };
 
-    // 1. Function
-    let q1 = insert_q(None, 1, format!("{}.๑ หน้าที่", p), true, "header")?;
-    insert_q(Some(q1), 1, format!("{}.๑.๑ ระบบนี้ทำหน้าที่อะไร", p), false, "text")?;
-
-    // 2. Components
-    let q2 = insert_q(None, 2, format!("{}.๒ ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ", p), true, "header")?;
-    insert_q(Some(q2), 1, "อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคําถามที่กําหนด".to_string(), false, "info")?;
-
-    // 3. Principles
-    let q3 = insert_q(None, 3, format!("{}.๓ หลักการทํางาน", p), true, "header")?;
-    insert_q(Some(q3), 1, format!("{}.๓.๑ ส่วนประกอบต่างๆ ทํางานร่วมกันในระบบอย่างไร", p), false, "text")?;
-
-    // 4. Operating Parameters
-    insert_q(None, 4, format!("{}.๔ ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน", p), true, "text")?;
-
-    // 5. System Interfaces
-    insert_q(None, 5, format!("{}.๕ การเชื่อมต่อระบบ", p), true, "text")?;
-
-    // 6. Safety Precautions
-    insert_q(None, 6, format!("{}.๖ ข้อระมัดระวังอันตราย", p), true, "text")?;
+    insert_q(1, "หน้าที่".to_string())?;
+    insert_q(2, "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string())?;
+    insert_q(3, "หลักการทำงาน".to_string())?;
+    insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string())?;
+    insert_q(5, "การเชื่อมต่อระบบ".to_string())?;
+    insert_q(6, "ข้อระมัดระวังอันตราย".to_string())?;
 
     Ok(())
 }
@@ -1434,7 +1463,7 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
     Ok(sections)
 }
 
-/// Delete a section
+/// Delete a section and all its questions (cascade)
 pub fn delete_section(id: i64) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
@@ -1450,6 +1479,11 @@ pub fn delete_section(id: i64) -> Result<(), String> {
     if is_system {
         return Err("Cannot delete system-defined section (e.g., Section 101)".to_string());
     }
+    
+    // Delete all questions belonging to this section first
+    // (QuestionChoices, QuestionReferences, UserAnswers cascade from Questions automatically)
+    conn.execute("DELETE FROM Questions WHERE section_id = ?1", params![id])
+        .map_err(|e| format!("Failed to delete section questions: {}", e))?;
     
     conn.execute("DELETE FROM Sections WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
@@ -2307,3 +2341,237 @@ pub fn update_question_reference_location(id: i32, location_text: Option<String>
 
 
 
+
+// ==========================================
+// Occupation Branch Management (Global)
+// ==========================================
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct OccupationBranch {
+    pub code: String,
+    pub name: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct OccupationSubBranch {
+    pub code: String,
+    pub branch_code: String,
+    pub name: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+pub struct OccupationSubQuestion {
+    pub id: i64,
+    pub branch_code: String,
+    pub sub_branch_code: String,
+    pub code: String,
+    pub text: String,
+    pub always_checked: bool,
+    pub sequence: i32,
+}
+
+// --- Main Branches ---
+
+/// Get all occupation branches
+pub fn get_occupation_branches() -> Result<Vec<OccupationBranch>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut stmt = conn.prepare("SELECT code, name FROM OccupationBranches ORDER BY code")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok(OccupationBranch { code: row.get(0)?, name: row.get(1)? })
+    }).map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    Ok(result)
+}
+
+/// Create a new occupation branch
+pub fn create_occupation_branch(code: String, name: String) -> Result<OccupationBranch, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute(
+        "INSERT INTO OccupationBranches (code, name) VALUES (?1, ?2)",
+        params![code, name],
+    ).map_err(|e| e.to_string())?;
+    Ok(OccupationBranch { code, name })
+}
+
+/// Update an occupation branch name
+pub fn update_occupation_branch(code: String, name: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute(
+        "UPDATE OccupationBranches SET name = ?1 WHERE code = ?2",
+        params![name, code],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Delete an occupation branch (cascades to sub-branches and sub-questions)
+pub fn delete_occupation_branch(code: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM OccupationBranches WHERE code = ?1",
+        params![code],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// --- Sub-Branches ---
+
+/// Get sub-branches for a given main branch
+pub fn get_occupation_sub_branches(branch_code: String) -> Result<Vec<OccupationSubBranch>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut stmt = conn.prepare(
+        "SELECT code, branch_code, name FROM OccupationSubBranches WHERE branch_code = ?1 ORDER BY code"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![branch_code], |row| {
+        Ok(OccupationSubBranch { code: row.get(0)?, branch_code: row.get(1)?, name: row.get(2)? })
+    }).map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    Ok(result)
+}
+
+/// Create a new sub-branch
+pub fn create_occupation_sub_branch(code: String, branch_code: String, name: String) -> Result<OccupationSubBranch, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute(
+        "INSERT INTO OccupationSubBranches (code, branch_code, name) VALUES (?1, ?2, ?3)",
+        params![code, branch_code, name],
+    ).map_err(|e| e.to_string())?;
+    Ok(OccupationSubBranch { code, branch_code, name })
+}
+
+/// Update a sub-branch name
+pub fn update_occupation_sub_branch(code: String, branch_code: String, name: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute(
+        "UPDATE OccupationSubBranches SET name = ?1 WHERE branch_code = ?2 AND code = ?3",
+        params![name, branch_code, code],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Delete a sub-branch (cascades to sub-questions)
+pub fn delete_occupation_sub_branch(code: String, branch_code: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2",
+        params![branch_code, code],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// --- Sub-Questions ---
+
+/// Get sub-questions for a given branch + sub-branch pair
+pub fn get_occupation_sub_questions(branch_code: String, sub_branch_code: String) -> Result<Vec<OccupationSubQuestion>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut stmt = conn.prepare(
+        "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
+         FROM OccupationSubQuestions WHERE branch_code = ?1 AND sub_branch_code = ?2
+         ORDER BY sequence, id"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![branch_code, sub_branch_code], |row| {
+        Ok(OccupationSubQuestion {
+            id: row.get(0)?,
+            branch_code: row.get(1)?,
+            sub_branch_code: row.get(2)?,
+            code: row.get(3)?,
+            text: row.get(4)?,
+            always_checked: row.get(5)?,
+            sequence: row.get(6)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    Ok(result)
+}
+
+/// Get ALL sub-questions for a given main branch (across all sub-branches)
+pub fn get_all_sub_questions_for_branch(branch_code: String) -> Result<Vec<OccupationSubQuestion>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut stmt = conn.prepare(
+        "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
+         FROM OccupationSubQuestions WHERE branch_code = ?1
+         ORDER BY sub_branch_code, sequence, id"
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![branch_code], |row| {
+        Ok(OccupationSubQuestion {
+            id: row.get(0)?,
+            branch_code: row.get(1)?,
+            sub_branch_code: row.get(2)?,
+            code: row.get(3)?,
+            text: row.get(4)?,
+            always_checked: row.get(5)?,
+            sequence: row.get(6)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    Ok(result)
+}
+
+#[derive(serde::Deserialize)]
+pub struct CreateSubQuestionRequest {
+    pub branch_code: String,
+    pub sub_branch_code: String,
+    pub code: String,
+    pub text: String,
+    pub always_checked: Option<bool>,
+}
+
+/// Create a new sub-question
+pub fn create_occupation_sub_question(req: CreateSubQuestionRequest) -> Result<OccupationSubQuestion, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Get next sequence
+    let max_seq: i32 = conn.query_row(
+        "SELECT COALESCE(MAX(sequence), 0) FROM OccupationSubQuestions WHERE branch_code = ?1 AND sub_branch_code = ?2",
+        params![req.branch_code, req.sub_branch_code],
+        |row| row.get(0),
+    ).unwrap_or(0);
+    
+    conn.execute(
+        "INSERT INTO OccupationSubQuestions (branch_code, sub_branch_code, code, text, always_checked, sequence)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![req.branch_code, req.sub_branch_code, req.code, req.text, req.always_checked.unwrap_or(false), max_seq + 1],
+    ).map_err(|e| e.to_string())?;
+    
+    let id = conn.last_insert_rowid();
+    Ok(OccupationSubQuestion {
+        id,
+        branch_code: req.branch_code,
+        sub_branch_code: req.sub_branch_code,
+        code: req.code,
+        text: req.text,
+        always_checked: req.always_checked.unwrap_or(false),
+        sequence: max_seq + 1,
+    })
+}
+
+/// Update a sub-question text
+pub fn update_occupation_sub_question(id: i64, text: String, always_checked: Option<bool>) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    if let Some(ac) = always_checked {
+        conn.execute(
+            "UPDATE OccupationSubQuestions SET text = ?1, always_checked = ?2 WHERE id = ?3",
+            params![text, ac, id],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "UPDATE OccupationSubQuestions SET text = ?1 WHERE id = ?2",
+            params![text, id],
+        ).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Delete a sub-question
+pub fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute("DELETE FROM OccupationSubQuestions WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}

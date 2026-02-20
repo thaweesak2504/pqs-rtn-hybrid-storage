@@ -763,17 +763,31 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     }
   }, [question.metadata]);
 
-  // Extract parentSubQuestionList from this question's metadata (for passing to children)
-  const ownSubQuestionList = useMemo((): SubQuestionItem[] => {
-    if (!question.metadata) return [];
+  // Extract parentSubQuestionList from DB (for passing to children)
+  const [ownSubQuestionList, setOwnSubQuestionList] = useState<SubQuestionItem[]>([]);
+  useEffect(() => {
+    console.log('[ownSubQuestionList] metadata:', question.metadata);
+    if (!question.metadata) { setOwnSubQuestionList([]); return; }
     try {
       const meta = JSON.parse(question.metadata);
-      if (!meta.useSubQuestions) return [];
-      const list: SubQuestionItem[] = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
+      console.log('[ownSubQuestionList] parsed meta:', meta);
+      if (!meta.useSubQuestions) { setOwnSubQuestionList([]); return; }
       const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-      if (activeCodes.length === 0) return [];
-      return list.filter(sq => activeCodes.includes(sq.code));
-    } catch { return []; }
+      const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
+      console.log('[ownSubQuestionList] activeCodes:', activeCodes, 'selectedBranch:', selectedBranch);
+      if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
+      invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
+        'get_all_sub_questions_for_branch',
+        { branchCode: selectedBranch.main }
+      ).then(dbSqs => {
+        console.log('[ownSubQuestionList] dbSqs from DB:', dbSqs);
+        const filtered = dbSqs
+          .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
+          .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
+        console.log('[ownSubQuestionList] filtered result:', filtered);
+        setOwnSubQuestionList(filtered);
+      }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
+    } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
   }, [question.metadata]);
 
   // Extract initial image from metadata
@@ -878,6 +892,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionId={sectionId}
             onAlert={onAlert}
             parentSubQuestionList={parentSubQuestionList}
+            sectionOccupationBranches={sectionOccupationBranches}
+            sectionSelectedBranch={sectionSelectedBranch}
           />
         </div>
       )}
@@ -919,6 +935,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 onImageClick={onImageClick}
                 onAlert={onAlert}
                 parentLayout={childLayout}
+                sectionOccupationBranches={sectionOccupationBranches}
+                sectionSelectedBranch={sectionSelectedBranch}
               />
             ))}
           </div>
@@ -938,6 +956,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionId={sectionId}
             onAlert={onAlert}
             parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
+            sectionOccupationBranches={sectionOccupationBranches}
+            sectionSelectedBranch={sectionSelectedBranch}
           />
         </div>
       )}
@@ -1017,33 +1037,32 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
   });
+
+  // DB-backed occupation branches state
+  interface DbBranch { code: string; name: string; }
+  interface DbSubBranch { code: string; branch_code: string; name: string; }
+  interface DbSubQuestion { id: number; branch_code: string; sub_branch_code: string; code: string; text: string; always_checked: boolean; sequence: number; }
+  const [dbBranches, setDbBranches] = useState<DbBranch[]>([]);
+  const [dbSubBranches, setDbSubBranches] = useState<DbSubBranch[]>([]);
+  const [dbSubQuestions, setDbSubQuestions] = useState<DbSubQuestion[]>([]);
+
+  // Keep legacy subQuestionList for backward compat display only
   const [subQuestionList, setSubQuestionList] = useState<SubQuestionItem[]>(() => {
     if (!initialMetadata) return [];
     try { const m = JSON.parse(initialMetadata); return Array.isArray(m.subQuestionList) ? m.subQuestionList : []; } catch { return []; }
   });
-  const [occupationBranches, setOccupationBranches] = useState<OccBranchMap>(() => {
-    const merged: OccBranchMap = { ...(sectionOccupationBranches || {}) };
-    if (initialMetadata) {
-      try {
-        const m = JSON.parse(initialMetadata);
-        if (m.occupationBranches) {
-          for (const [code, val] of Object.entries(m.occupationBranches as OccBranchMap)) {
-            if (!merged[code]) merged[code] = { ...(val as any) };
-            else merged[code].subs = { ...merged[code].subs, ...(val as any).subs };
-          }
-        }
-      } catch { }
-    }
-    return merged;
-  });
+
+  // Legacy occupationBranches kept for 2xx.4 read-only display (from sectionOccupationBranches)
+  const occupationBranches: OccBranchMap = useMemo(() => {
+    return { ...(sectionOccupationBranches || {}) };
+  }, [sectionOccupationBranches]);
+
   const [selMainBranch, setSelMainBranch] = useState<string>(() => {
-    // 2xx.4: บังคับใช้ค่าจาก 2xx.2 เสมอ
     if (sectionSelectedBranch) return sectionSelectedBranch.main;
     if (!initialMetadata) return "";
     try { return JSON.parse(initialMetadata).selectedBranch?.main || ""; } catch { return ""; }
   });
   const [selSubBranch, setSelSubBranch] = useState<string>(() => {
-    // 2xx.4: บังคับใช้ค่าจาก 2xx.2 เสมอ
     if (sectionSelectedBranch) return sectionSelectedBranch.sub;
     if (!initialMetadata) return "";
     try { return JSON.parse(initialMetadata).selectedBranch?.sub || ""; } catch { return ""; }
@@ -1066,21 +1085,56 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [editingSubName, setEditingSubName] = useState("");
   const [newSqText, setNewSqText] = useState("");
 
+  // Fetch branches from DB on mount
+  useEffect(() => {
+    if (!showSubQuestionEditor || sectionOccupationBranches) return;
+    invoke<DbBranch[]>('get_occupation_branches').then(setDbBranches).catch(console.error);
+  }, [showSubQuestionEditor, sectionOccupationBranches]);
+
+  // Fetch sub-branches when main branch changes
+  useEffect(() => {
+    if (!showSubQuestionEditor || sectionOccupationBranches || !selMainBranch) { setDbSubBranches([]); return; }
+    invoke<DbSubBranch[]>('get_occupation_sub_branches', { branchCode: selMainBranch }).then(setDbSubBranches).catch(console.error);
+  }, [showSubQuestionEditor, sectionOccupationBranches, selMainBranch]);
+
+  // Fetch sub-questions when branch+sub-branch changes
+  useEffect(() => {
+    if (!showSubQuestionEditor || !selMainBranch || !selSubBranch) { setDbSubQuestions([]); return; }
+    invoke<DbSubQuestion[]>('get_occupation_sub_questions', { branchCode: selMainBranch, subBranchCode: selSubBranch })
+      .then(sqs => {
+        setDbSubQuestions(sqs);
+        // Auto-include always_checked items into activeSubQCodes
+        const alwaysCodes = sqs.filter(sq => sq.always_checked).map(sq => sq.code);
+        if (alwaysCodes.length > 0) {
+          setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
+        }
+      })
+      .catch(console.error);
+  }, [showSubQuestionEditor, selMainBranch, selSubBranch]);
+
   // Auto-generate code: S + L + X + Y + Z
   const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
   const lCode = questionSequence?.toString() || "0";
   const autoCodePrefix = selMainBranch && selSubBranch ? `${sCode}${lCode}${selMainBranch}${selSubBranch}` : "";
-  const nextZ = useMemo(() => {
-    if (!autoCodePrefix) return "";
-    const used = subQuestionList.filter(sq => sq.code.startsWith(autoCodePrefix)).map(sq => sq.code.slice(4));
-    for (const z of ["1","2","3","4","5","6","7","8","9","A"]) { if (!used.includes(z)) return z; }
-    return "";
-  }, [autoCodePrefix, subQuestionList]);
-  const autoCode = autoCodePrefix && nextZ ? `${autoCodePrefix}${nextZ}` : "";
-  const filteredItems = useMemo(() => {
+
+  // Use DB sub-questions as the source of truth for filtered items
+  const filteredItems: SubQuestionItem[] = useMemo(() => {
+    if (dbSubQuestions.length > 0) {
+      return dbSubQuestions.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
+    }
+    // Fallback to legacy subQuestionList for backward compat
     if (!autoCodePrefix) return [];
     return subQuestionList.filter(sq => sq.code.startsWith(autoCodePrefix));
-  }, [autoCodePrefix, subQuestionList]);
+  }, [dbSubQuestions, autoCodePrefix, subQuestionList]);
+
+  const nextZ = useMemo(() => {
+    if (!autoCodePrefix) return "";
+    const used = filteredItems.map(sq => sq.code.replace(autoCodePrefix, ""));
+    for (const z of ["1","2","3","4","5","6","7","8","9","A"]) { if (!used.includes(z)) return z; }
+    return "";
+  }, [autoCodePrefix, filteredItems]);
+  const autoCode = autoCodePrefix && nextZ ? `${autoCodePrefix}${nextZ}` : "";
+
   const prevPrefixRef = useRef(autoCodePrefix);
   useEffect(() => {
     if (prevPrefixRef.current !== autoCodePrefix && prevPrefixRef.current !== "") {
@@ -1428,30 +1482,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (showSubQuestionEditor) {
       if (useSubQuestions) {
         newMeta.useSubQuestions = true;
-        if (subQuestionList.length > 0) newMeta.subQuestionList = subQuestionList;
-        else delete newMeta.subQuestionList;
-        // 2xx.4: ไม่ save occupationBranches และ selectedBranch ลงใน metadata ตัวเอง (รับจาก 2xx.2 เสมอ)
+        // Branches and sub-questions are now stored in DB tables, not metadata
+        delete newMeta.subQuestionList;
+        delete newMeta.occupationBranches;
         if (!sectionOccupationBranches) {
-          if (Object.keys(occupationBranches).length > 0) newMeta.occupationBranches = occupationBranches;
-          else delete newMeta.occupationBranches;
           if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
           else delete newMeta.selectedBranch;
         } else {
-          delete newMeta.occupationBranches;
           delete newMeta.selectedBranch;
         }
         newMeta.activeSubQuestions = activeSubQCodes;
       } else {
         delete newMeta.useSubQuestions;
-        // เก็บ subQuestionList ไว้เพื่อให้กลับมาแก้ไขได้
-        if (subQuestionList.length > 0) newMeta.subQuestionList = subQuestionList;
-        else delete newMeta.subQuestionList;
-        // 2xx.4: ไม่ save occupationBranches ลงใน metadata ตัวเอง
-        if (!sectionOccupationBranches) {
-          if (Object.keys(occupationBranches).length > 0) newMeta.occupationBranches = occupationBranches;
-        } else {
-          delete newMeta.occupationBranches;
-        }
+        delete newMeta.subQuestionList;
+        delete newMeta.occupationBranches;
         delete newMeta.activeSubQuestions;
         delete newMeta.selectedBranch;
       }
@@ -1636,7 +1680,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         <div className="flex gap-1">
                           <input type="text" maxLength={50} value={editingMainName} onChange={e => setEditingMainName(e.target.value)}
                             className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
-                          <button onClick={() => { if (!editingMainName.trim()) return; setOccupationBranches(prev => ({ ...prev, [editingMainCode]: { ...prev[editingMainCode], name: editingMainName.trim() } })); setEditingMainCode(null); setEditingMainName(""); }}
+                          <button onClick={async () => { if (!editingMainName.trim()) return; await invoke('update_occupation_branch', { code: editingMainCode, name: editingMainName.trim() }); setDbBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b)); setEditingMainCode(null); setEditingMainName(""); }}
                             className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                           <button onClick={() => { setEditingMainCode(null); setEditingMainName(""); }}
                             className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
@@ -1646,12 +1690,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
                             className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
                             <option value="">-- เลือก --</option>
-                            {Object.entries(occupationBranches).map(([code, b]) => <option key={code} value={code}>{code} - {b.name}</option>)}
+                            {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
                           </select>
                           {selMainBranch && <>
-                            <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(occupationBranches[selMainBranch]?.name || ""); }}
+                            <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
                               className="px-1.5 py-1 text-[10px] rounded border border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30" title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
-                            <button onClick={() => { if (!window.confirm(`ลบสาขา "${occupationBranches[selMainBranch]?.name}"?`)) return; const u = { ...occupationBranches }; delete u[selMainBranch]; setOccupationBranches(u); setSelMainBranch(""); setSelSubBranch(""); setSubQuestionList(prev => prev.filter(sq => !sq.code.startsWith(`${sCode}${lCode}${selMainBranch}`))); }}
+                            <button onClick={async () => { const br = dbBranches.find(b => b.code === selMainBranch); if (!window.confirm(`ลบสาขา "${br?.name}"?`)) return; await invoke('delete_occupation_branch', { code: selMainBranch }); setDbBranches(prev => prev.filter(b => b.code !== selMainBranch)); setSelMainBranch(""); setSelSubBranch(""); }}
                               className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขา"><Trash2 className="w-3 h-3" /></button>
                           </>}
                           <button onClick={() => setIsAddingMain(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>
@@ -1660,7 +1704,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         <div className="flex gap-1">
                           <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
                             className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
-                          <button onClick={() => { if (!newMainName.trim()) return; const nc = (Object.keys(occupationBranches).length + 1).toString(); setOccupationBranches({ ...occupationBranches, [nc]: { name: newMainName.trim(), subs: {} } }); setSelMainBranch(nc); setSelSubBranch(""); setNewMainName(""); setIsAddingMain(false); }}
+                          <button onClick={async () => { if (!newMainName.trim()) return; const nc = (dbBranches.length + 1).toString(); try { const created = await invoke<{code:string;name:string}>('create_occupation_branch', { code: nc, name: newMainName.trim() }); setDbBranches(prev => [...prev, created]); setSelMainBranch(nc); setSelSubBranch(""); } catch (e: any) { console.error(e); } setNewMainName(""); setIsAddingMain(false); }}
                             className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                           <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
@@ -1682,7 +1726,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <div className="flex gap-1">
                             <input type="text" maxLength={50} value={editingSubName} onChange={e => setEditingSubName(e.target.value)}
                               className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
-                            <button onClick={() => { if (!editingSubName.trim()) return; setOccupationBranches(prev => ({ ...prev, [selMainBranch]: { ...prev[selMainBranch], subs: { ...prev[selMainBranch].subs, [editingSubCode]: editingSubName.trim() } } })); setEditingSubCode(null); setEditingSubName(""); }}
+                            <button onClick={async () => { if (!editingSubName.trim()) return; await invoke('update_occupation_sub_branch', { code: editingSubCode, branchCode: selMainBranch, name: editingSubName.trim() }); setDbSubBranches(prev => prev.map(sb => sb.code === editingSubCode ? { ...sb, name: editingSubName.trim() } : sb)); setEditingSubCode(null); setEditingSubName(""); }}
                               className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setEditingSubCode(null); setEditingSubName(""); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
@@ -1691,12 +1735,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
                               className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
                               <option value="">-- เลือก --</option>
-                              {occupationBranches[selMainBranch] && Object.entries(occupationBranches[selMainBranch].subs).map(([code, name]) => <option key={code} value={code}>{code} - {name}</option>)}
+                              {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
                             </select>
                             {selSubBranch && <>
-                              <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(occupationBranches[selMainBranch]?.subs[selSubBranch] || ""); }}
+                              <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
                                 className="px-1.5 py-1 text-[10px] rounded border border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30" title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
-                              <button onClick={() => { if (!window.confirm(`ลบสาขาย่อย "${occupationBranches[selMainBranch]?.subs[selSubBranch]}"?`)) return; const us = { ...occupationBranches[selMainBranch].subs }; delete us[selSubBranch]; setOccupationBranches(prev => ({ ...prev, [selMainBranch]: { ...prev[selMainBranch], subs: us } })); setSelSubBranch(""); setSubQuestionList(prev => prev.filter(sq => !sq.code.startsWith(`${sCode}${lCode}${selMainBranch}${selSubBranch}`))); }}
+                              <button onClick={async () => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (!window.confirm(`ลบสาขาย่อย "${sb?.name}"?`)) return; await invoke('delete_occupation_sub_branch', { code: selSubBranch, branchCode: selMainBranch }); setDbSubBranches(prev => prev.filter(s => s.code !== selSubBranch)); setSelSubBranch(""); }}
                                 className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขาย่อย"><Trash2 className="w-3 h-3" /></button>
                             </>}
                             <button onClick={() => setIsAddingSub(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>
@@ -1705,7 +1749,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <div className="flex gap-1">
                             <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
                               className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
-                            <button onClick={() => { if (!newSubName.trim()) return; const subs = occupationBranches[selMainBranch]?.subs || {}; const nc = (Object.keys(subs).length + 1).toString(); setOccupationBranches({ ...occupationBranches, [selMainBranch]: { ...occupationBranches[selMainBranch], subs: { ...subs, [nc]: newSubName.trim() } } }); setSelSubBranch(nc); setNewSubName(""); setIsAddingSub(false); }}
+                            <button onClick={async () => { if (!newSubName.trim()) return; const nc = (dbSubBranches.length + 1).toString(); try { const created = await invoke<{code:string;branch_code:string;name:string}>('create_occupation_sub_branch', { code: nc, branchCode: selMainBranch, name: newSubName.trim() }); setDbSubBranches(prev => [...prev, created]); setSelSubBranch(nc); } catch (e: any) { console.error(e); } setNewSubName(""); setIsAddingSub(false); }}
                               className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
@@ -1735,7 +1779,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   {filteredItems.length > 0 && (
                     <div className="space-y-1">
                       {filteredItems.map((item, localIdx) => {
-                        const globalIdx = subQuestionList.findIndex(sq => sq.code === item.code);
+                        const dbSq = dbSubQuestions.find(sq => sq.code === item.code);
                         return (
                           <div key={item.code} className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 border border-orange-100 dark:border-orange-900/30 rounded-md group/sq-item">
                             <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
@@ -1744,13 +1788,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
                             {item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
-                              <button onClick={() => { const u = [...subQuestionList]; u[globalIdx] = { ...u[globalIdx], alwaysChecked: !u[globalIdx].alwaysChecked }; setSubQuestionList(u); }}
+                              <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); } }}
                                 className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`} title={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
                                 <CheckCircle className="w-3 h-3" />
                               </button>
-                              {localIdx > 0 && <button onClick={() => { const pi = subQuestionList.findIndex(sq => sq.code === filteredItems[localIdx - 1].code); const u = [...subQuestionList]; [u[pi], u[globalIdx]] = [u[globalIdx], u[pi]]; setSubQuestionList(u); }} className="p-0.5 text-slate-400 hover:text-blue-500 rounded" title="เลื่อนขึ้น"><ArrowUp className="w-3 h-3" /></button>}
-                              {localIdx < filteredItems.length - 1 && <button onClick={() => { const ni = subQuestionList.findIndex(sq => sq.code === filteredItems[localIdx + 1].code); const u = [...subQuestionList]; [u[globalIdx], u[ni]] = [u[ni], u[globalIdx]]; setSubQuestionList(u); }} className="p-0.5 text-slate-400 hover:text-blue-500 rounded" title="เลื่อนลง"><ArrowDown className="w-3 h-3" /></button>}
-                              <button onClick={() => setSubQuestionList(subQuestionList.filter((_, i) => i !== globalIdx))} className="p-0.5 text-slate-400 hover:text-red-500 rounded" title="ลบ"><Trash2 className="w-3 h-3" /></button>
+                              <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded" title="ลบ"><Trash2 className="w-3 h-3" /></button>
                             </div>
                           </div>
                         );
@@ -1765,9 +1807,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
                         <input type="text" value={newSqText} onChange={e => setNewSqText(e.target.value)} placeholder="พิมพ์คำถามย่อย..."
                           className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
-                          onKeyDown={e => { if (e.key === "Enter" && newSqText.trim()) { setSubQuestionList([...subQuestionList, { code: autoCode, text: newSqText.trim() }]); setNewSqText(""); } }} />
+                          onKeyDown={async (e) => { if (e.key === "Enter" && newSqText.trim()) { try { const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { req: { branch_code: selMainBranch, sub_branch_code: selSubBranch, code: autoCode, text: newSqText.trim() } }); setDbSubQuestions(prev => [...prev, created]); } catch (err: any) { console.error(err); } setNewSqText(""); } }} />
                       </div>
-                      <button onClick={() => { if (!newSqText.trim()) return; setSubQuestionList([...subQuestionList, { code: autoCode, text: newSqText.trim() }]); setNewSqText(""); }}
+                      <button onClick={async () => { if (!newSqText.trim()) return; try { const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { req: { branch_code: selMainBranch, sub_branch_code: selSubBranch, code: autoCode, text: newSqText.trim() } }); setDbSubQuestions(prev => [...prev, created]); } catch (err: any) { console.error(err); } setNewSqText(""); }}
                         disabled={!newSqText.trim()}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
                         <Plus className="w-3 h-3" /> เพิ่ม
@@ -2321,6 +2363,27 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 }) => {
   const isL1 = level === 0;
   const is200 = sectionGroup === 200;
+
+  // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4)
+  const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
+  const [displayActiveCodes, setDisplayActiveCodes] = useState<string[]>([]);
+  useEffect(() => {
+    if (!is200 || !isL1 || !question.metadata) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
+    try {
+      const meta = JSON.parse(question.metadata);
+      if (!meta.useSubQuestions) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
+      const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+      setDisplayActiveCodes(activeCodes);
+      const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
+      if (!selectedBranch?.main) { setDisplaySubQList([]); return; }
+      invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
+        'get_all_sub_questions_for_branch',
+        { branchCode: selectedBranch.main }
+      ).then(dbSqs => {
+        setDisplaySubQList(dbSqs.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
+      }).catch(() => setDisplaySubQList([]));
+    } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
+  }, [is200, isL1, question.metadata]);
   const showDescriptionImage = is200 ? (level === 0 || level === 1) : isL1;
 
   // Compute inline sub-question checkboxes for L2/L3
@@ -2436,40 +2499,34 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             {question.description}
           </div> // Description: Match L2 style
         )}
-        {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 */}
-        {is200 && isL1 && question.metadata && (() => {
-          try {
-            const meta = JSON.parse(question.metadata);
-            if (!meta.useSubQuestions) return null;
-            const list: SubQuestionItem[] = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
-            const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-            if (activeCodes.length === 0) {
-              return (
-                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
-                  <span>⚠</span><span>ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน</span>
-                </div>
-              );
-            }
-            const display = list.filter(sq => activeCodes.includes(sq.code));
-            if (display.length === 0) {
-              return (
-                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
-                  <span>⚠</span><span>ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน</span>
-                </div>
-              );
-            }
+        {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 — DB-backed */}
+        {is200 && isL1 && displaySubQList.length > 0 && (() => {
+          if (displayActiveCodes.length === 0) {
             return (
-              <div className="mt-1.5 space-y-0.5">
-                {display.map((sq, idx) => (
-                  <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
-                    <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
-                    <span>{sq.text}</span>
-                    {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
-                  </div>
-                ))}
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
+                <span>⚠</span><span>ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน</span>
               </div>
             );
-          } catch { return null; }
+          }
+          const display = displaySubQList.filter(sq => displayActiveCodes.includes(sq.code) || sq.alwaysChecked);
+          if (display.length === 0) {
+            return (
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
+                <span>⚠</span><span>ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน</span>
+              </div>
+            );
+          }
+          return (
+            <div className="mt-1.5 space-y-0.5">
+              {display.map((sq, idx) => (
+                <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
+                  <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                  <span>{sq.text}</span>
+                  {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
+                </div>
+              ))}
+            </div>
+          );
         })()}
         {question.metadata && (
           <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} parentSubQuestionList={parentSubQuestionList} />

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
@@ -7,17 +7,6 @@ import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 import PqsSectionPreview from './PqsSectionPreview';
 
 type ViewMode = 'edit' | 'normal' | 'preview';
-
-// ============ 6 Default L1 Questions for Section 200 ============
-
-const DEFAULT_200_QUESTIONS = [
-  'หน้าที่',
-  'ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ',
-  'หลักการทํางาน',
-  'ค่าทํางานปกติ ค่าสูงสุด ต่ำสุด ของการทํางาน',
-  'การเชื่อมต่อระบบ',
-  'ข้อระมัดระวังอันตราย',
-];
 
 // ============ Component ============
 
@@ -37,13 +26,13 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   subTitle,
   viewMode = 'edit'
 }) => {
+  console.log(`%c[Pqs200SectionEditor] ✅ RENDERING section ${sectionNumber} (200 Template)`, 'color: lime; font-weight: bold; font-size: 14px');
   const readOnly = viewMode !== 'edit';
   const isCompact = viewMode === 'normal';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
   const [sectionId, setSectionId] = useState<number>(0);
   const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
-  const hasInitializedDefaults = useRef(false);
 
   const fetchReferences = async (sId: number) => {
     try {
@@ -65,53 +54,8 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
     }
   };
 
-  // Auto-create 6 default L1 questions if section has none
-  const ensureDefaultQuestions = useCallback(async (secId: number) => {
-    if (hasInitializedDefaults.current) return;
-    hasInitializedDefaults.current = true;
-
-    try {
-      // Check if section already has questions
-      const allQuestions = await invoke<any[]>('get_document_questions_with_details', { docId });
-      const sectionQuestions = allQuestions.filter(
-        (q: any) =>
-          q.section_id === secId ||
-          (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
-      );
-
-      // Only auto-create if section has NO questions at all
-      if (sectionQuestions.length > 0) return;
-
-      console.log(`[200 Template] Auto-creating ${DEFAULT_200_QUESTIONS.length} default L1 questions for section ${sectionNumber}`);
-
-      for (let i = 0; i < DEFAULT_200_QUESTIONS.length; i++) {
-        await invoke<string>('create_question', {
-          args: {
-            id: null,
-            document_id: docId,
-            section_id: secId,
-            parent_id: null,
-            content: DEFAULT_200_QUESTIONS[i],
-            description: null,
-            is_header: true, // Mark as system-defined/header
-            sequence: null,
-            answer_type: 'text',
-            metadata: null,
-          },
-        });
-      }
-
-      // Trigger refresh
-      setRefreshQuestionsTrigger(prev => prev + 1);
-    } catch (error) {
-      console.error('[200 Template] Failed to create default questions:', error);
-    }
-  }, [docId, sectionNumber]);
-
   // Fetch Section ID and References on mount or when sectionNumber changes
   useEffect(() => {
-    hasInitializedDefaults.current = false; // Reset on section change
-
     const fetchData = async () => {
       try {
         const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
@@ -121,15 +65,13 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
           setSectionId(currentSection.id);
           setCurrentTitle(currentSection.title_th);
           await fetchReferences(currentSection.id);
-          // Auto-create default questions if needed
-          await ensureDefaultQuestions(currentSection.id);
         }
       } catch (error) {
         console.error("Failed to fetch section data:", error);
       }
     };
     fetchData();
-  }, [docId, sectionNumber, ensureDefaultQuestions]);
+  }, [docId, sectionNumber]);
 
   const handleTitleChange = async (newTitle: string) => {
     try {
