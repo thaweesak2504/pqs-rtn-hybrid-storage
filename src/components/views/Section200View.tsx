@@ -74,7 +74,7 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
                     <ol className="list-none mt-2 space-y-1 ml-8">
                       {section.subItems.map((item, subIndex) => (
                         <li key={subIndex} className="flex items-baseline gap-[1ch]">
-                          <span className="min-w-fit font-normal text-orange-700 dark:text-orange-400">{toThaiAlphabet(subIndex)}.</span>
+                          <span className="min-w-fit font-bold text-orange-700 dark:text-orange-400">{toThaiAlphabet(subIndex)}.</span>
                           <div className="flex-1 text-justify text-slate-700 dark:text-slate-300">
                             {item}
                           </div>

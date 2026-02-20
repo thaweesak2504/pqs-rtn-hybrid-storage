@@ -277,7 +277,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
       {/* Question Row */}
       <div className={`flex items-baseline ${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
         <span
-          className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} ${is200L3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}
+          className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header || is200L3 ? 'font-bold' : 'font-normal'} ${is200L3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}
         >
           {displayNumber}
         </span>
