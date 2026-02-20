@@ -227,6 +227,20 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   const answerKeys = (meta.answerKeys && typeof meta.answerKeys === "object") ? meta.answerKeys as Record<string, string> : null;
   const hasChildren = question.children && question.children.length > 0;
 
+  // Extract parentSubQuestionList from this question's metadata (for passing to children)
+  const ownSubQuestionList = useMemo((): SubQuestionItem[] => {
+    if (!question.metadata) return [];
+    try {
+      const meta = JSON.parse(question.metadata);
+      if (meta.useSubQuestions && Array.isArray(meta.subQuestionList)) {
+        // กรองเอาเฉพาะอันที่ active
+        const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+        return meta.subQuestionList.filter((sq: SubQuestionItem) => activeCodes.includes(sq.code));
+      }
+      return [];
+    } catch { return []; }
+  }, [question.metadata]);
+
   const formatAnswerKeyForDisplay = (raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
     const out: string[] = [];
@@ -275,22 +289,10 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   const inlineSubQItems = useMemo(() => {
     if (!is200) return null;
     if (level === 0) return null; // ไม่แสดงใน L1
-    
-    // สำหรับ L2, เช็คว่าตัวเองมีการใช้ subQuestionList ไหม ถ้ามีให้แสดงของตัวเอง ถ้าไม่มีให้รับจาก parent (แต่จริง ๆ L2 ของ 200 ส่วนใหญ่ไม่มี subQ ของตัวเอง, มันรับจาก L1 มา)
-    // ตรงนี้เราต้องระวังว่า เราจะแสดง inline checkboxes เฉพาะเมื่อ parentSubQuestionList มีของ และ node นี้ "ถูกคาดหวัง" ให้ตอบ
-    // หรือดูจาก meta.selectedSubQuestions ว่ามีการเลือกไว้ไหม
     if (!parentSubQuestionList || parentSubQuestionList.length === 0) return null;
-    
-    // ถ้าเป็น L2 (เช่น 201.2) ปกติมันคือหัวข้อหมวดหมู่ อาจจะไม่มีการเลือกคำถามย่อยโดยตรง
-    // เราจะแสดง inline checkboxes ต่อเมื่อมันมีการเลือกคำถามย่อย (selectedSubQuestions > 0)
-    // หรือถ้าเป็น L3 (ก. ข. ค.) มักจะมีการเลือกคำถามย่อย
     
     try {
       const selected: string[] = Array.isArray(meta.selectedSubQuestions) ? meta.selectedSubQuestions : [];
-      // ถ้าไม่มีการเลือกอะไรเลย ไม่ต้องแสดง checkbox ให้รก (เฉพาะกรณีที่ไม่อยากบังคับให้เห็นว่างๆ)
-      // แต่ User อยากให้แสดงเฉพาะที่ "มีอยู่จริง" (parentSubQuestionList)
-      
-      // กรองเอาเฉพาะอันที่มีใน parentSubQuestionList
       return parentSubQuestionList.map(sq => ({ sq, checked: selected.includes(sq.code) }));
     } catch { return null; }
   }, [is200, level, parentSubQuestionList, meta]);
@@ -355,28 +357,17 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
       )}
 
       {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 (เหมือนใน PqsQuestionSection) */}
-      {is200 && level === 0 && meta.useSubQuestions && (() => {
-        try {
-          const list: SubQuestionItem[] = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
-          const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-          if (activeCodes.length === 0) return null;
-          
-          const display = list.filter(sq => activeCodes.includes(sq.code));
-          if (display.length === 0) return null;
-          
-          return (
-            <div className={`mt-1.5 space-y-0.5 ${contentStartOffsetClass}`}>
-              {display.map((sq, idx) => (
-                <div key={sq.code} className="flex items-center gap-1.5 text-sm text-black dark:text-gray-300">
-                  <span className="font-bold min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
-                  <span>{sq.text}</span>
-                  {sq.alwaysChecked && <span className="text-[8px] text-gray-500">✓</span>}
-                </div>
-              ))}
+      {is200 && level === 0 && ownSubQuestionList.length > 0 && (
+        <div className={`mt-1.5 space-y-0.5 ${contentStartOffsetClass}`}>
+          {ownSubQuestionList.map((sq, idx) => (
+            <div key={sq.code} className="flex items-center gap-1.5 text-sm text-black dark:text-gray-300">
+              <span className="font-bold min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+              <span>{sq.text}</span>
+              {sq.alwaysChecked && <span className="text-[8px] text-gray-500">✓</span>}
             </div>
-          );
-        } catch { return null; }
-      })()}
+          ))}
+        </div>
+      )}
 
       {/* Answer Key Box — always shown, no repeated question, no checkboxes */}
       {answerKeys && Object.keys(answerKeys).length > 0 ? (
@@ -437,18 +428,11 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         >
           {question.children!.map((child, childIdx) => {
             // Pass parentSubQuestionList to children if available
-            // สำหรับ 200 L1 ที่มี useSubQuestions ให้ส่ง subQuestionList ต่อไปให้ลูกๆ
-            // แต่ต้องกรองเอาเฉพาะอันที่ active (ที่มีอยู่จริง) เท่านั้น
-            let ownSubQuestionList: SubQuestionItem[] | undefined = undefined;
-            if (is200L1 && meta.useSubQuestions && Array.isArray(meta.subQuestionList)) {
-               const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-               ownSubQuestionList = meta.subQuestionList.filter((sq: SubQuestionItem) => activeCodes.includes(sq.code));
-            }
-            const inheritedSubQuestionList = ownSubQuestionList || parentSubQuestionList;
+            const inheritedSubQuestionList = ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList;
 
             // For L1 (2xx.x.x), only render children (sub-questions) that are selected
             let shouldRender = true;
-            if (is200L1 && meta.useSubQuestions && Array.isArray(meta.activeSubQuestions)) {
+            if (is200L1 && ownSubQuestionList.length > 0 && Array.isArray(meta.activeSubQuestions)) {
               // Try to get code from child metadata
               let childCode = "";
               try {
@@ -462,7 +446,6 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
                 // If it's a managed sub-question, check if it's active
                 shouldRender = meta.activeSubQuestions.includes(childCode);
               }
-              // If it doesn't have a code, it might be a normal child, so we still show it (shouldRender remains true)
             }
             if (!shouldRender) return null;
 
