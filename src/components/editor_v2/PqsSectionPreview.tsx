@@ -228,14 +228,13 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   const hasChildren = question.children && question.children.length > 0;
 
   // Extract parentSubQuestionList from this question's metadata (for passing to children)
+  // เราส่ง list แบบเต็มไปให้ (ไม่กรอง) เพื่อรักษาระดับ index แท้จริงไว้ใช้คำนวณ ก. ข. ค.
   const ownSubQuestionList = useMemo((): SubQuestionItem[] => {
     if (!question.metadata) return [];
     try {
       const meta = JSON.parse(question.metadata);
       if (meta.useSubQuestions && Array.isArray(meta.subQuestionList)) {
-        // กรองเอาเฉพาะอันที่ active
-        const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-        return meta.subQuestionList.filter((sq: SubQuestionItem) => activeCodes.includes(sq.code));
+        return meta.subQuestionList;
       }
       return [];
     } catch { return []; }
@@ -297,7 +296,6 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
     } catch { return null; }
   }, [is200, level, parentSubQuestionList, meta]);
 
-  const is200L1 = is200 && level === 0;
   const is200L2 = is200 && level === 1;
   const is200L3 = is200 && level >= 2;
   const contentStartOffsetClass = (level === 0 || is200L2) ? 'ml-[9ch]' : 'ml-[2ch]';
@@ -357,17 +355,27 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
       )}
 
       {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 (เหมือนใน PqsQuestionSection) */}
-      {is200 && level === 0 && ownSubQuestionList.length > 0 && (
-        <div className={`mt-1.5 space-y-0.5 ${contentStartOffsetClass}`}>
-          {ownSubQuestionList.map((sq, idx) => (
-            <div key={sq.code} className="flex items-center gap-1.5 text-sm text-black dark:text-gray-300">
-              <span className="font-bold min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
-              <span>{sq.text}</span>
-              {sq.alwaysChecked && <span className="text-[8px] text-gray-500">✓</span>}
+      {is200 && level === 0 && ownSubQuestionList.length > 0 && (() => {
+        try {
+          const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+          if (activeCodes.length === 0) return null;
+          
+          return (
+            <div className={`mt-1.5 space-y-0.5 ${contentStartOffsetClass}`}>
+              {ownSubQuestionList.map((sq, idx) => {
+                // กรองเฉพาะอันที่ active (แต่ต้อง map ตาม list เต็มเพื่อรักษาลำดับ index แท้จริงไว้ใช้คำนวณ ก. ข. ค.)
+                if (!activeCodes.includes(sq.code)) return null;
+                return (
+                  <div key={sq.code} className="flex items-center gap-1.5 text-sm text-black dark:text-gray-300">
+                    <span className="min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                    <span>{sq.text}</span>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      )}
+          );
+        } catch { return null; }
+      })()}
 
       {/* Answer Key Box — always shown, no repeated question, no checkboxes */}
       {answerKeys && Object.keys(answerKeys).length > 0 ? (
@@ -428,11 +436,18 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         >
           {question.children!.map((child, childIdx) => {
             // Pass parentSubQuestionList to children if available
-            const inheritedSubQuestionList = ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList;
+            let inheritedSubQuestionList: SubQuestionItem[] | undefined = undefined;
+            if (is200 && level === 0 && ownSubQuestionList.length > 0 && Array.isArray(meta.activeSubQuestions)) {
+               const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+               // กรองเฉพาะอันที่ active และรีเซ็ตลำดับใหม่ (ลูกจะเอาไป map ตัวที่ 0 = ก.)
+               inheritedSubQuestionList = ownSubQuestionList.filter((sq: SubQuestionItem) => activeCodes.includes(sq.code));
+            } else {
+               inheritedSubQuestionList = parentSubQuestionList;
+            }
 
             // For L1 (2xx.x.x), only render children (sub-questions) that are selected
             let shouldRender = true;
-            if (is200L1 && ownSubQuestionList.length > 0 && Array.isArray(meta.activeSubQuestions)) {
+            if (is200 && level === 0 && ownSubQuestionList.length > 0 && Array.isArray(meta.activeSubQuestions)) {
               // Try to get code from child metadata
               let childCode = "";
               try {
