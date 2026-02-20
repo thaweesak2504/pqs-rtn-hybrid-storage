@@ -34,12 +34,6 @@ interface PqsSectionPreviewProps {
   sectionGroup?: 100 | 200 | 300;
 }
 
-interface SubQuestionItem {
-  code: string;
-  text: string;
-  alwaysChecked?: boolean;
-}
-
 // ============ Main Component ============
 
 const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
@@ -60,15 +54,14 @@ const PqsSectionPreview: React.FC<PqsSectionPreviewProps> = ({
         setLoading(true);
         const data = await invoke<QuestionDetail[]>('get_document_questions_with_details', { docId });
         // Filter by sectionId (same logic as PqsQuestionSection)
-        const sectionIdNum = Number(sectionId);
         const filtered = data.filter(
           (q) =>
-            Number(q.section_id) === sectionIdNum ||
-            (Number(q.section_id) === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100)
+            q.section_id === sectionId ||
+            (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
         );
         setQuestions(filtered);
-      } catch (err) {
-        console.error('Failed to fetch questions for preview:', err);
+      } catch (error) {
+        console.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }
@@ -172,7 +165,6 @@ interface PreviewQuestionNodeProps {
   parentPath: string;
   sectionNumber: number;
   sectionGroup: 100 | 200 | 300;
-  parentSubQuestionList?: SubQuestionItem[];
 }
 
 const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
@@ -182,7 +174,6 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   parentPath,
   sectionNumber,
   sectionGroup,
-  parentSubQuestionList,
 }) => {
   const is200 = sectionGroup === 200;
 
@@ -224,21 +215,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   }, [question.metadata]);
 
   const answerKey = meta.answerKey || '';
-  const answerKeys = (meta.answerKeys && typeof meta.answerKeys === "object") ? meta.answerKeys as Record<string, string> : null;
   const hasChildren = question.children && question.children.length > 0;
-
-  // Extract parentSubQuestionList from this question's metadata (for passing to children)
-  // เราส่ง list แบบเต็มไปให้ (ไม่กรอง) เพื่อรักษาระดับ index แท้จริงไว้ใช้คำนวณ ก. ข. ค.
-  const ownSubQuestionList = useMemo((): SubQuestionItem[] => {
-    if (!question.metadata) return [];
-    try {
-      const meta = JSON.parse(question.metadata);
-      if (meta.useSubQuestions && Array.isArray(meta.subQuestionList)) {
-        return meta.subQuestionList;
-      }
-      return [];
-    } catch { return []; }
-  }, [question.metadata]);
 
   const formatAnswerKeyForDisplay = (raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
@@ -284,18 +261,6 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
     return out.join("\n");
   };
 
-  // Compute inline sub-question checkboxes for L2/L3 (200Template only)
-  const inlineSubQItems = useMemo(() => {
-    if (!is200) return null;
-    if (level === 0) return null; // ไม่แสดงใน L1
-    if (!parentSubQuestionList || parentSubQuestionList.length === 0) return null;
-    
-    try {
-      const selected: string[] = Array.isArray(meta.selectedSubQuestions) ? meta.selectedSubQuestions : [];
-      return parentSubQuestionList.map(sq => ({ sq, checked: selected.includes(sq.code) }));
-    } catch { return null; }
-  }, [is200, level, parentSubQuestionList, meta]);
-
   const is200L2 = is200 && level === 1;
   const is200L3 = is200 && level >= 2;
   const contentStartOffsetClass = (level === 0 || is200L2) ? 'ml-[9ch]' : 'ml-[2ch]';
@@ -310,41 +275,21 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   return (
     <div className="flex flex-col">
       {/* Question Row */}
-      <div className={`flex flex-col sm:flex-row sm:items-baseline ${is200L3 ? "text-black dark:text-gray-300" : ""}`}>
-        <div className="flex items-baseline flex-1 min-w-0 pr-2">
-          <span
-            className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header || is200L3 ? 'font-bold' : 'font-normal'} shrink-0`}
-          >
-            {displayNumber}
+      <div className={`flex items-baseline ${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
+        <span
+          className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} ${is200L3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}
+        >
+          {displayNumber}
+        </span>
+
+        <div className="flex-1">
+          <span className={question.is_header ? 'font-bold' : ''}>
+            {question.content}
           </span>
-
-          <div className="flex-1">
-            <span className={question.is_header ? 'font-bold' : ''}>
-              {question.content}
-            </span>
-            {refText && (
-              <span className="ml-1">{refText}</span>
-            )}
-          </div>
+          {refText && (
+            <span className="ml-1">{refText}</span>
+          )}
         </div>
-
-        {/* Inline SubQ checkboxes — ชิดขวา */}
-        {inlineSubQItems && (
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-start sm:justify-end mt-1 sm:mt-0 ml-[2ch] sm:ml-0">
-            {inlineSubQItems.map(({ sq, checked }, idx) => (
-              <span key={sq.code} className="inline-flex items-center gap-0.5 text-xs whitespace-nowrap">
-                <span className="font-bold">{toThaiAlphabet(idx + 1)}.</span>
-                <span className={`w-4 h-4 inline-flex items-center justify-center rounded border text-[10px] font-bold shrink-0
-                  ${checked
-                    ? "border-black dark:border-white text-black dark:text-white"
-                    : "border-gray-400 dark:border-gray-500 text-transparent"
-                  }`}>
-                  {checked ? "✓" : ""}
-                </span>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Description (if any, L0 only) */}
@@ -354,56 +299,8 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         </div>
       )}
 
-      {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 (เหมือนใน PqsQuestionSection) */}
-      {is200 && level === 0 && ownSubQuestionList.length > 0 && (() => {
-        try {
-          const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-          if (activeCodes.length === 0) return null;
-          
-          return (
-            <div className={`mt-1.5 space-y-0.5 ${contentStartOffsetClass}`}>
-              {ownSubQuestionList.map((sq, idx) => {
-                // กรองเฉพาะอันที่ active (แต่ต้อง map ตาม list เต็มเพื่อรักษาลำดับ index แท้จริงไว้ใช้คำนวณ ก. ข. ค.)
-                if (!activeCodes.includes(sq.code)) return null;
-                return (
-                  <div key={sq.code} className="flex items-center gap-1.5 text-sm text-black dark:text-gray-300">
-                    <span className="min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
-                    <span>{sq.text}</span>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        } catch { return null; }
-      })()}
-
       {/* Answer Key Box — always shown, no repeated question, no checkboxes */}
-      {answerKeys && Object.keys(answerKeys).length > 0 ? (
-        <div className={`mt-2 ${contentStartOffsetClass} space-y-1.5`}>
-          {((): [string, string][] => {
-            const keys = answerKeys;
-            const ordered: string[] = parentSubQuestionList
-              ? parentSubQuestionList.map(s => s.code).filter(c => c in keys)
-              : Array.isArray(meta.selectedSubQuestions)
-                ? (meta.selectedSubQuestions as string[]).filter(c => c in keys)
-                : Object.keys(keys);
-            return ordered.map(c => [c, keys[c]]);
-          })().map(([code, text]) => {
-            const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
-            const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
-            return (
-              <div key={code} className="flex items-start gap-2 text-sm font-normal text-black dark:text-gray-100 bg-white dark:bg-black px-2 py-1.5 rounded-md border border-gray-400 dark:border-gray-600">
-                <span className="text-black dark:text-gray-100 shrink-0">เฉลย: <strong>{label}.</strong></span>
-                <div className="answer-key-markdown min-w-0 flex-1">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                    {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
-                  </ReactMarkdown>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : answerKey ? (
+      {answerKey && (
         <div className={`mt-2 ${contentStartOffsetClass}`}>
           <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
             <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
@@ -417,7 +314,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
             </div>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* Children (sub-questions) */}
       {hasChildren && (
@@ -434,37 +331,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
               }`
           }
         >
-          {question.children!.map((child, childIdx) => {
-            // Pass parentSubQuestionList to children if available
-            let inheritedSubQuestionList: SubQuestionItem[] | undefined = undefined;
-            if (is200 && level === 0 && ownSubQuestionList.length > 0 && Array.isArray(meta.activeSubQuestions)) {
-               const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-               // กรองเฉพาะอันที่ active และรีเซ็ตลำดับใหม่ (ลูกจะเอาไป map ตัวที่ 0 = ก.)
-               inheritedSubQuestionList = ownSubQuestionList.filter((sq: SubQuestionItem) => activeCodes.includes(sq.code));
-            } else {
-               inheritedSubQuestionList = parentSubQuestionList;
-            }
-
-            // For L1 (2xx.x.x), only render children (sub-questions) that are selected
-            let shouldRender = true;
-            if (is200 && level === 0 && ownSubQuestionList.length > 0 && Array.isArray(meta.activeSubQuestions)) {
-              // Try to get code from child metadata
-              let childCode = "";
-              try {
-                if (child.metadata) {
-                  const cm = JSON.parse(child.metadata);
-                  childCode = cm.code || "";
-                }
-              } catch { }
-              
-              if (childCode) {
-                // If it's a managed sub-question, check if it's active
-                shouldRender = meta.activeSubQuestions.includes(childCode);
-              }
-            }
-            if (!shouldRender) return null;
-
-            return (
+          {question.children!.map((child, childIdx) => (
             <div key={child.id} className="break-inside-avoid">
               <PreviewQuestionNode
                 question={child}
@@ -473,11 +340,9 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
                 parentPath={fullPath}
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
-                parentSubQuestionList={inheritedSubQuestionList}
               />
             </div>
-            );
-          })}
+          ))}
         </div>
       )}
     </div>
