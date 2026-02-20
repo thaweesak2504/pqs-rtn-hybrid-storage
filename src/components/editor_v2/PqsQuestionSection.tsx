@@ -2380,7 +2380,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
             : level === 1 && is200
               ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
-              : "min-w-[24px] text-sm font-bold text-orange-600 dark:text-orange-400" // L3: Bold orange (amber-like)
+              : "min-w-[24px] text-sm font-normal text-orange-600 dark:text-orange-400" // L3: Normal orange (amber-like)
           }
       `}
       >
