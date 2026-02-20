@@ -1113,6 +1113,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return "";
     }
   });
+  // answerKeys: per-subQ answer key map {code: text} — used when hasParentSubQ
+  const [answerKeys, setAnswerKeys] = useState<Record<string, string>>(() => {
+    if (!initialMetadata) return {};
+    try {
+      const meta = JSON.parse(initialMetadata);
+      return (meta.answerKeys && typeof meta.answerKeys === "object") ? meta.answerKeys : {};
+    } catch { return {}; }
+  });
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
@@ -1349,9 +1357,15 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       newErrors.content = true;
       hasError = true;
     }
-    if (!isDefault200L1 && requireAnswerKey && !answerKey.trim()) {
-      newErrors.answerKey = true;
-      hasError = true;
+    if (!isDefault200L1 && requireAnswerKey) {
+      if (hasParentSubQ && selectedSubQCodes.length > 0) {
+        // ตรวจว่าทุก subQ ที่เลือกมี answer key
+        const missingAny = selectedSubQCodes.some(c => !(answerKeys[c] || "").trim());
+        if (missingAny) { newErrors.answerKey = true; hasError = true; }
+      } else if (!answerKey.trim()) {
+        newErrors.answerKey = true;
+        hasError = true;
+      }
     }
     if (!isDefault200L1 && requireRef && linkedRefs.length === 0) {
       newErrors.refs = true;
@@ -1388,10 +1402,27 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!requireAnswerKey) newMeta.requireAnswerKey = false;
     else delete newMeta.requireAnswerKey;
     // Save answer key
-    if (requireAnswerKey && answerKey.trim()) {
-      newMeta.answerKey = answerKey.trim();
+    if (requireAnswerKey) {
+      if (hasParentSubQ && selectedSubQCodes.length > 0) {
+        // save per-subQ answer keys
+        const filtered: Record<string, string> = {};
+        for (const code of selectedSubQCodes) {
+          const v = (answerKeys[code] || "").trim();
+          if (v) filtered[code] = v;
+        }
+        if (Object.keys(filtered).length > 0) newMeta.answerKeys = filtered;
+        else delete newMeta.answerKeys;
+        delete newMeta.answerKey;
+      } else if (answerKey.trim()) {
+        newMeta.answerKey = answerKey.trim();
+        delete newMeta.answerKeys;
+      } else {
+        delete newMeta.answerKey;
+        delete newMeta.answerKeys;
+      }
     } else {
       delete newMeta.answerKey;
+      delete newMeta.answerKeys;
     }
     // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
     if (showSubQuestionEditor) {
@@ -2099,18 +2130,46 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
         {/* Answer Key (conditional on toggle — hidden for default 200 L1) */}
         {!isDefault200L1 && requireAnswerKey && (
-          <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
-            <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-              เฉลย (Answer Key)
-            </label>
-            <AnswerKeyEditor
-              value={answerKey}
-              onChange={(val: string) => {
-                setAnswerKey(val);
-                if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
-              }}
-              hasError={!!errors.answerKey}
-            />
+          <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50 space-y-2">
+            {hasParentSubQ && selectedSubQCodes.length > 0 ? (
+              /* Per-subQ answer keys */
+              selectedSubQCodes.map((code) => {
+                const sq = parentSubQuestionList!.find(s => s.code === code);
+                const sqIdx = parentSubQuestionList!.findIndex(s => s.code === code);
+                const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
+                const hasErr = !!errors.answerKey && !(answerKeys[code] || "").trim();
+                return (
+                  <div key={code}>
+                    <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                      เฉลย: {label}. {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
+                    </label>
+                    <AnswerKeyEditor
+                      value={answerKeys[code] || ""}
+                      onChange={(val: string) => {
+                        setAnswerKeys(prev => ({ ...prev, [code]: val }));
+                        if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
+                      }}
+                      hasError={hasErr}
+                    />
+                  </div>
+                );
+              })
+            ) : (
+              /* Single answer key (no subQ selected) */
+              <div>
+                <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                  เฉลย (Answer Key)
+                </label>
+                <AnswerKeyEditor
+                  value={answerKey}
+                  onChange={(val: string) => {
+                    setAnswerKey(val);
+                    if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
+                  }}
+                  hasError={!!errors.answerKey}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -2409,16 +2468,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           } catch { return null; }
         })()}
         {question.metadata && (
-          <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} />
+          <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} parentSubQuestionList={parentSubQuestionList} />
         )}
       </div>
 
-      {/* Subtask count badge */}
-      {hasChildren && (
-        <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-full shrink-0">
-          {question.children?.length} sub
-        </span>
-      )}
 
       {/* Actions */}
       {!readOnly && (
@@ -2498,7 +2551,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 const QuestionMetadataDisplay: React.FC<{
   metadata: string;
   onImageClick?: (src: string) => void;
-}> = ({ metadata, onImageClick }) => {
+  parentSubQuestionList?: SubQuestionItem[];
+}> = ({ metadata, onImageClick, parentSubQuestionList }) => {
   const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
     const out: string[] = [];
@@ -2551,7 +2605,7 @@ const QuestionMetadataDisplay: React.FC<{
     }
   }, [metadata]);
 
-  if (!data.image && !data.answerKey) return null;
+  if (!data.image && !data.answerKey && !data.answerKeys) return null;
 
   return (
     <div className="mt-2 ml-4 space-y-2">
@@ -2565,7 +2619,37 @@ const QuestionMetadataDisplay: React.FC<{
       )}
 
       {/* Answer Key Display (Last) — render as markdown */}
-      {data.answerKey && (
+      {data.answerKeys && typeof data.answerKeys === "object" && Object.keys(data.answerKeys).length > 0 ? (
+        /* Per-subQ answer keys — เรียงตาม selectedSubQuestions หรือ parentSubQuestionList */
+        <div className="space-y-1.5">
+          {((): [string, string][] => {
+            const keys = data.answerKeys as Record<string, string>;
+            // เรียงตาม parentSubQuestionList ถ้ามี ไม่งั้นเรียงตาม selectedSubQuestions ใน metadata
+            const ordered: string[] = parentSubQuestionList
+              ? parentSubQuestionList.map(s => s.code).filter(c => c in keys)
+              : Array.isArray(data.selectedSubQuestions)
+                ? (data.selectedSubQuestions as string[]).filter(c => c in keys)
+                : Object.keys(keys);
+            return ordered.map(c => [c, keys[c]]);
+          })().map(([code, text]) => {
+            const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
+            const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
+            return (
+            <div key={code} className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+              <div className="flex items-start gap-2">
+                <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400 font-bold">{label}.</span></span>
+                <div className="answer-key-markdown min-w-0 flex-1">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                    {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </div>
+            );
+          })}
+        </div>
+      ) : data.answerKey ? (
+        /* Single answer key */
         <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
           <div className="flex items-start gap-2">
             <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
@@ -2579,7 +2663,7 @@ const QuestionMetadataDisplay: React.FC<{
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 };
