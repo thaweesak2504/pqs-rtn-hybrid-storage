@@ -2378,7 +2378,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         shrink-0 inline-flex items-center justify-center
         ${isL1
             ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
-            : "min-w-[24px] text-sm font-normal text-blue-600 dark:text-blue-400" // L2: No box, just text
+            : level === 1 && is200
+              ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
+              : "min-w-[24px] text-sm font-bold text-orange-600 dark:text-orange-400" // L3: Bold orange (amber-like)
           }
       `}
       >
@@ -2390,14 +2392,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         className={`flex-1 flex flex-col min-w-0 select-text
         ${isL1
             ? "text-sm text-slate-900 dark:text-slate-100" // L1: Stronger emphasis
-            : "text-sm text-slate-700 dark:text-slate-300" // L2: Normal weight as requested
+            : level === 1 && is200
+              ? "text-sm font-medium text-slate-800 dark:text-slate-200" // L2: Medium weight, slightly darker
+              : "text-sm font-normal text-slate-600 dark:text-slate-400" // L3: Normal weight, slightly lighter
           }
       `}
       >
         {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
         <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : "pr-8"}`}>
           <div className="flex-1 truncate min-w-0" title={question.content}>
-            <span className={isL1 ? "font-semibold" : "font-normal"}>{question.content}</span>
+            <span className={isL1 ? "font-semibold" : ""}>{question.content}</span>
             {question.references && question.references.length > 0 && (
               <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
                 (
