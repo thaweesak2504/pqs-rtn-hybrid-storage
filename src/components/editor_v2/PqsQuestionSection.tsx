@@ -943,7 +943,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       {isExpanded && hasChildren && (
         <div className="relative">
           {childLayout !== "grid" && parentLayout !== "grid" && (
-            <div className="absolute left-[30px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent" />
+            <div className={`absolute ${level === 0 ? "left-[30px]" : "left-[62px]"} top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent`} />
           )}
           <div className={childLayout === "grid" ? "grid grid-cols-1 md:grid-cols-2 ml-12" : ""}>
             {question.children!.map((child, idx) => (
@@ -2546,15 +2546,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         </div>
       )}
       
-      {/* L3 vertical line with dot */}
+      {/* L3 connector dot only */}
       {!(isL1 || (level === 1 && is200)) && parentLayout !== "grid" && (
-        <>
-          <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
-            <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
-          </div>
-          <div className="absolute left-[-18px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent" />
-        </>
+        <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
+          <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
+          <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
+        </div>
       )}
 
       {/* Toggle */}
