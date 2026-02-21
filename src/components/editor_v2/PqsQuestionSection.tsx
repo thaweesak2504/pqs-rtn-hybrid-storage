@@ -2547,7 +2547,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       {/* Toggle */}
       <button
         onClick={onToggle}
-        className={`w-5 h-5 mt-1 flex items-center justify-center rounded transition-all shrink-0
+        className={`w-5 h-5 mt-0.5 flex items-center justify-center rounded transition-all shrink-0
+          ${!isL1 ? "ml-2" : ""}
           ${hasChildren
             ? "text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
             : "invisible"
