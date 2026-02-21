@@ -2530,18 +2530,31 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           ? "bg-white dark:bg-slate-800"
           : parentLayout === "grid"
             ? "bg-slate-50/80 dark:bg-slate-800/80 m-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm"
-            : "bg-slate-50/50 dark:bg-slate-800/50 ml-12"
+            : level === 1 && is200
+              ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent
+              : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent
         }
       ${!isLast && parentLayout !== "grid" ? "border-b border-gray-100 dark:border-slate-700/50" : ""}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
     `}
     >
       {/* L2 connector dot */}
-      {!isL1 && parentLayout !== "grid" && (
+      {level === 1 && is200 && parentLayout !== "grid" && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
         </div>
+      )}
+      
+      {/* L3 vertical line with dot */}
+      {!(isL1 || (level === 1 && is200)) && parentLayout !== "grid" && (
+        <>
+          <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
+            <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
+          </div>
+          <div className="absolute left-[-18px] top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent" />
+        </>
       )}
 
       {/* Toggle */}
