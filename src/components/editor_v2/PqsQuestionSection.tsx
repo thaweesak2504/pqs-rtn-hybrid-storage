@@ -1031,7 +1031,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4 only) ----
-  type OccBranchMap = Record<string, { name: string; subs: Record<string, string> }>;
   const showSubQuestionEditor = is200 && level === 0 && (questionSequence === 2 || questionSequence === 4);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
@@ -1051,11 +1050,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!initialMetadata) return [];
     try { const m = JSON.parse(initialMetadata); return Array.isArray(m.subQuestionList) ? m.subQuestionList : []; } catch { return []; }
   });
-
-  // Legacy occupationBranches kept for 2xx.4 read-only display (from sectionOccupationBranches)
-  const occupationBranches: OccBranchMap = useMemo(() => {
-    return { ...(sectionOccupationBranches || {}) };
-  }, [sectionOccupationBranches]);
 
   const [selMainBranch, setSelMainBranch] = useState<string>(() => {
     if (sectionSelectedBranch) return sectionSelectedBranch.main;
@@ -1085,47 +1079,80 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [editingSubName, setEditingSubName] = useState("");
   const [newSqText, setNewSqText] = useState("");
 
-  // Fetch branches from DB on mount
+  // Fetch branches from DB on mount (both normal and 2xx.4)
   useEffect(() => {
-    if (!showSubQuestionEditor || sectionOccupationBranches) return;
+    if (!showSubQuestionEditor) return;
     invoke<DbBranch[]>('get_occupation_branches').then(setDbBranches).catch(console.error);
-  }, [showSubQuestionEditor, sectionOccupationBranches]);
+  }, [showSubQuestionEditor]);
 
-  // Fetch sub-branches when main branch changes
+  // Fetch sub-branches when main branch changes (both normal and 2xx.4)
   useEffect(() => {
-    if (!showSubQuestionEditor || sectionOccupationBranches || !selMainBranch) { setDbSubBranches([]); return; }
+    if (!showSubQuestionEditor || !selMainBranch) { setDbSubBranches([]); return; }
     invoke<DbSubBranch[]>('get_occupation_sub_branches', { branchCode: selMainBranch }).then(setDbSubBranches).catch(console.error);
-  }, [showSubQuestionEditor, sectionOccupationBranches, selMainBranch]);
+  }, [showSubQuestionEditor, selMainBranch]);
 
   // Fetch sub-questions when branch+sub-branch changes
   useEffect(() => {
     if (!showSubQuestionEditor || !selMainBranch || !selSubBranch) { setDbSubQuestions([]); return; }
-    invoke<DbSubQuestion[]>('get_occupation_sub_questions', { branchCode: selMainBranch, subBranchCode: selSubBranch })
-      .then(sqs => {
-        setDbSubQuestions(sqs);
-        // Auto-include always_checked items into activeSubQCodes
-        const alwaysCodes = sqs.filter(sq => sq.always_checked).map(sq => sq.code);
-        if (alwaysCodes.length > 0) {
-          setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
-        }
-      })
-      .catch(console.error);
-  }, [showSubQuestionEditor, selMainBranch, selSubBranch]);
+    
+    // For 2xx.4 (inherited branches), fetch all sub-questions for the main branch
+    if (sectionOccupationBranches) {
+      invoke<DbSubQuestion[]>('get_all_sub_questions_for_branch', { branchCode: selMainBranch })
+        .then(sqs => {
+          setDbSubQuestions(sqs);
+          // Auto-include always_checked items into activeSubQCodes
+          const alwaysCodes = sqs.filter(sq => sq.always_checked).map(sq => sq.code);
+          if (alwaysCodes.length > 0) {
+            setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
+          }
+        })
+        .catch(console.error);
+    } else {
+      // Normal case: fetch by specific sub-branch
+      invoke<DbSubQuestion[]>('get_occupation_sub_questions', { branchCode: selMainBranch, subBranchCode: selSubBranch })
+        .then(sqs => {
+          setDbSubQuestions(sqs);
+          // Auto-include always_checked items into activeSubQCodes
+          const alwaysCodes = sqs.filter(sq => sq.always_checked).map(sq => sq.code);
+          if (alwaysCodes.length > 0) {
+            setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [showSubQuestionEditor, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
   // Auto-generate code: S + L + X + Y + Z
-  const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
-  const lCode = questionSequence?.toString() || "0";
-  const autoCodePrefix = selMainBranch && selSubBranch ? `${sCode}${lCode}${selMainBranch}${selSubBranch}` : "";
+  // For 2xx.4, use '24' prefix instead of '2' + questionSequence
+  const autoCodePrefix = useMemo(() => {
+    if (!selMainBranch || !selSubBranch) return "";
+    if (sectionOccupationBranches) {
+      // 2xx.4: use '24' prefix with inherited branches
+      return `24${selMainBranch}${selSubBranch}`;
+    }
+    // Normal case: S + L + X + Y
+    const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
+    const lCode = questionSequence?.toString() || "0";
+    return `${sCode}${lCode}${selMainBranch}${selSubBranch}`;
+  }, [sectionGroup, questionSequence, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
   // Use DB sub-questions as the source of truth for filtered items
   const filteredItems: SubQuestionItem[] = useMemo(() => {
     if (dbSubQuestions.length > 0) {
-      return dbSubQuestions.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
+      // For 2xx.4, filter by 24XXX prefix; for normal case, filter by autoCodePrefix
+      const items = dbSubQuestions.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
+      if (sectionOccupationBranches) {
+        // 2xx.4: show only sub-questions with 24XXX prefix (not 22XXX from 2xx.2)
+        return autoCodePrefix ? items.filter(sq => sq.code.startsWith(autoCodePrefix)) : [];
+      }
+      // Normal case: filter by specific prefix
+      if (!autoCodePrefix) return [];
+      return items.filter(sq => sq.code.startsWith(autoCodePrefix));
     }
     // Fallback to legacy subQuestionList for backward compat
     if (!autoCodePrefix) return [];
     return subQuestionList.filter(sq => sq.code.startsWith(autoCodePrefix));
-  }, [dbSubQuestions, autoCodePrefix, subQuestionList]);
+  }, [dbSubQuestions, autoCodePrefix, subQuestionList, sectionOccupationBranches]);
 
   const nextZ = useMemo(() => {
     if (!autoCodePrefix) return "";
@@ -1709,11 +1736,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
                       ) : (
-                        /* 2xx.4: disabled select แสดงค่าจาก 2xx.2 */
+                        /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
                         <select value={selMainBranch} disabled
                           className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
                           <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
-                          {Object.entries(occupationBranches).map(([code, b]) => <option key={code} value={code}>{code} - {b.name}</option>)}
+                          {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
                         </select>
                       )}
                     </div>
@@ -1754,11 +1781,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
                         ) : (
-                          /* 2xx.4: disabled select แสดงค่าจาก 2xx.2 */
+                          /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
                           <select value={selSubBranch} disabled
                             className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
                             <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
-                            {occupationBranches[selMainBranch] && Object.entries(occupationBranches[selMainBranch].subs).map(([code, name]) => <option key={code} value={code}>{code} - {name}</option>)}
+                            {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
                           </select>
                         )}
                       </div>
@@ -1807,9 +1834,43 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
                         <input type="text" value={newSqText} onChange={e => setNewSqText(e.target.value)} placeholder="พิมพ์คำถามย่อย..."
                           className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
-                          onKeyDown={async (e) => { if (e.key === "Enter" && newSqText.trim()) { try { const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { req: { branch_code: selMainBranch, sub_branch_code: selSubBranch, code: autoCode, text: newSqText.trim() } }); setDbSubQuestions(prev => [...prev, created]); } catch (err: any) { console.error(err); } setNewSqText(""); } }} />
+                          onKeyDown={async (e) => { if (e.key === "Enter" && newSqText.trim()) { 
+                            try { 
+                              // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
+                              let subBranchCode = selSubBranch;
+                              if (sectionOccupationBranches && dbSubQuestions.length > 0) {
+                                // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
+                                const firstCode = dbSubQuestions[0].code;
+                                if (firstCode.length >= 4) {
+                                  subBranchCode = firstCode.substring(3, 4); // Y position
+                                }
+                              }
+                              const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { 
+                                req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() } 
+                              }); 
+                              setDbSubQuestions(prev => [...prev, created]); 
+                            } catch (err: any) { console.error(err); } 
+                            setNewSqText(""); 
+                          } }} />
                       </div>
-                      <button onClick={async () => { if (!newSqText.trim()) return; try { const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { req: { branch_code: selMainBranch, sub_branch_code: selSubBranch, code: autoCode, text: newSqText.trim() } }); setDbSubQuestions(prev => [...prev, created]); } catch (err: any) { console.error(err); } setNewSqText(""); }}
+                      <button onClick={async () => { if (!newSqText.trim()) return; 
+                          try { 
+                            // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
+                            let subBranchCode = selSubBranch;
+                            if (sectionOccupationBranches && dbSubQuestions.length > 0) {
+                              // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
+                              const firstCode = dbSubQuestions[0].code;
+                              if (firstCode.length >= 4) {
+                                subBranchCode = firstCode.substring(3, 4); // Y position
+                              }
+                            }
+                            const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { 
+                              req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() } 
+                            }); 
+                            setDbSubQuestions(prev => [...prev, created]); 
+                          } catch (err: any) { console.error(err); } 
+                          setNewSqText(""); 
+                        }}
                         disabled={!newSqText.trim()}
                         className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
                         <Plus className="w-3 h-3" /> เพิ่ม
