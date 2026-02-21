@@ -2249,8 +2249,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
         </div>
 
-        {/* Answer Key (conditional on toggle — hidden for default 200 L1) */}
-        {!isDefault200L1 && requireAnswerKey && (
+        {/* Answer Key (conditional on toggle — hidden for default 200 L1, and hidden when useSubQuestions=true but none selected) */}
+        {!isDefault200L1 && requireAnswerKey && !(showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0) && (
           <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50 space-y-2">
             {hasParentSubQ && selectedSubQCodes.length > 0 ? (
               /* Per-subQ answer keys */
