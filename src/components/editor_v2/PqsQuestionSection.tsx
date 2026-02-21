@@ -766,25 +766,23 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   // Extract parentSubQuestionList from DB (for passing to children)
   const [ownSubQuestionList, setOwnSubQuestionList] = useState<SubQuestionItem[]>([]);
   useEffect(() => {
-    console.log('[ownSubQuestionList] metadata:', question.metadata);
     if (!question.metadata) { setOwnSubQuestionList([]); return; }
     try {
       const meta = JSON.parse(question.metadata);
-      console.log('[ownSubQuestionList] parsed meta:', meta);
       if (!meta.useSubQuestions) { setOwnSubQuestionList([]); return; }
       const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
       const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
-      console.log('[ownSubQuestionList] activeCodes:', activeCodes, 'selectedBranch:', selectedBranch);
       if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        console.log('[ownSubQuestionList] dbSqs from DB:', dbSqs);
-        const filtered = dbSqs
+        // Derive prefix from activeCodes (S+L+X+Y = 4 chars) to separate 22XXX from 24XXX
+        const prefix = activeCodes.length > 0 ? activeCodes[0].substring(0, 4) : "";
+        const prefixFiltered = prefix ? dbSqs.filter(sq => sq.code.startsWith(prefix)) : dbSqs;
+        const filtered = prefixFiltered
           .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
           .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
-        console.log('[ownSubQuestionList] filtered result:', filtered);
         setOwnSubQuestionList(filtered);
       }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
     } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
@@ -1512,12 +1510,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         // Branches and sub-questions are now stored in DB tables, not metadata
         delete newMeta.subQuestionList;
         delete newMeta.occupationBranches;
-        if (!sectionOccupationBranches) {
-          if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
-          else delete newMeta.selectedBranch;
-        } else {
-          delete newMeta.selectedBranch;
-        }
+        // Always save selectedBranch for both 2xx.2 and 2xx.4 (needed for display)
+        if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
+        else delete newMeta.selectedBranch;
         newMeta.activeSubQuestions = activeSubQCodes;
       } else {
         delete newMeta.useSubQuestions;
@@ -1533,6 +1528,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       else delete newMeta.selectedSubQuestions;
     }
     const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
+
+    // Validation: warn if useSubQuestions=true but no active items selected
+    if (showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0) {
+      const ok = window.confirm('⚠ ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน\nต้องการบันทึกโดยไม่มีคำถามย่อยหรือไม่?');
+      if (!ok) return;
+    }
 
     onSave({
       content,
@@ -2441,7 +2442,20 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        setDisplaySubQList(dbSqs.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
+        // Determine the prefix from activeCodes (e.g. "2411" from "24111") to filter correctly
+        // This ensures 2xx.4 (24XXX) doesn't show 2xx.2 (22XXX) items and vice versa
+        let prefix = "";
+        if (activeCodes.length > 0) {
+          // All active codes share the same prefix (S+L+X+Y = 4 chars)
+          prefix = activeCodes[0].substring(0, 4);
+        } else if (selectedBranch.sub) {
+          // Derive prefix from selectedBranch: need to know S+L — check question sequence from code pattern
+          // Use activeCodes prefix if available, otherwise show all for this branch
+        }
+        const filtered = prefix
+          ? dbSqs.filter(sq => sq.code.startsWith(prefix))
+          : dbSqs;
+        setDisplaySubQList(filtered.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
       }).catch(() => setDisplaySubQList([]));
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
   }, [is200, isL1, question.metadata]);
