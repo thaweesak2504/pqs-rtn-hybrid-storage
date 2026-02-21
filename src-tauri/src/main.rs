@@ -1153,6 +1153,7 @@ fn get_question_image_base64(path: String) -> Result<String, String> {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_window_state::Builder::default().build())
         .invoke_handler(tauri::generate_handler![
             greet,
             get_all_users,
