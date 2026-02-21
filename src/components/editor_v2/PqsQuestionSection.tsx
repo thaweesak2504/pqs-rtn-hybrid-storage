@@ -171,6 +171,14 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const handleToggleCollapse = (id: string) => {
+    setCollapsedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -571,6 +579,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 sectionGroup={sectionGroup}
                 sectionOccupationBranches={is200 && question.sequence === 4 ? seq2OccupationBranches : undefined}
                 sectionSelectedBranch={is200 && question.sequence === 4 ? seq2SelectedBranch : undefined}
+                collapsedIds={collapsedIds}
+                onToggleCollapse={handleToggleCollapse}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -708,6 +718,8 @@ interface QuestionTreeNodeProps {
   parentSubQuestionList?: SubQuestionItem[];
   sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
   sectionSelectedBranch?: { main: string; sub: string };
+  collapsedIds: Set<string>;
+  onToggleCollapse: (id: string) => void;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -716,6 +728,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   sectionNumber,
   sectionGroup,
   parentSequence,
+  collapsedIds,
+  onToggleCollapse,
   parentSubQuestionList,
   sectionOccupationBranches,
   sectionSelectedBranch,
@@ -743,7 +757,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   parentLayout = "list",
 }) => {
   const is200 = sectionGroup === 200;
-  const [isExpanded, setIsExpanded] = useState(true);
+  const isExpanded = !collapsedIds.has(question.id);
   const prefix = is200
     ? buildPrefix200(level, question.sequence, sectionNumber, parentSequence)
     : buildPrefix(level, question.sequence, sectionNumber);
@@ -865,7 +879,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         isFirst={isFirst}
         isLast={isLast}
         isDefault200L1={isDefault200L1}
-        onToggle={() => setIsExpanded(!isExpanded)}
+        onToggle={() => onToggleCollapse(question.id)}
         onEdit={() => onStartEdit(question.id)}
         onDelete={() => onDelete(question)}
         onAddSub={() => onStartCreate(question.id)}
@@ -911,6 +925,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionGroup={sectionGroup}
                 parentSequence={question.sequence}
                 parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
+                collapsedIds={collapsedIds}
+                onToggleCollapse={onToggleCollapse}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
