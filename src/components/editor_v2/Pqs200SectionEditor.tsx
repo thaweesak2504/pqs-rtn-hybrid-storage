@@ -26,7 +26,6 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   subTitle,
   viewMode = 'edit'
 }) => {
-  console.log(`%c[Pqs200SectionEditor] ✅ RENDERING section ${sectionNumber} (200 Template)`, 'color: lime; font-weight: bold; font-size: 14px');
   const readOnly = viewMode !== 'edit';
   const isCompact = viewMode === 'normal';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
