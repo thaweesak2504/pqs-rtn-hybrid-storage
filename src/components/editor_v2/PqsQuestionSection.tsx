@@ -1531,8 +1531,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
     // Validation: warn if useSubQuestions=true but no active items selected
     if (showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0) {
-      const ok = window.confirm('⚠ ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน\nต้องการบันทึกโดยไม่มีคำถามย่อยหรือไม่?');
-      if (!ok) return;
+      alert('⚠ ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน\nต้องเลือกคำถามย่อยอย่างน้อย 1 ข้อก่อนบันทึก');
+      return;
     }
 
     onSave({
