@@ -26,7 +26,7 @@ import {
   Shield,
   Trash2,
   Video,
-  X,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
@@ -179,7 +179,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       return next;
     });
   };
-
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -225,6 +224,9 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId, sectionId, refreshTrigger]);
 
+  const getAllIds = (nodes: QuestionDetail[]): string[] =>
+    nodes.flatMap(n => [n.id, ...(n.children ? getAllIds(n.children) : [])]);
+
   const questionTree = useMemo(() => {
     const tree: QuestionDetail[] = [];
     const map = new Map<string, QuestionDetail>();
@@ -246,6 +248,16 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     sortNodes(tree);
     return tree;
   }, [questions]);
+
+  const allIds = getAllIds(questionTree);
+  const allCollapsed = allIds.length > 0 && allIds.every(id => collapsedIds.has(id));
+  const handleToggleAll = () => {
+    if (allCollapsed) {
+      setCollapsedIds(new Set());
+    } else {
+      setCollapsedIds(new Set(allIds));
+    }
+  };
 
   // อ่าน occupationBranches และ selectedBranch จาก L1 seq=2 เพื่อส่งให้ L1 seq=4 (บังคับใช้สาขาเดียวกัน)
   type OccBranchMap = Record<string, { name: string; subs: Record<string, string> }>;
@@ -541,16 +553,34 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           </div>
         </div>
 
-        {!readOnly && !isCreating && !editingId && !is200 && (
-          <Button
-            variant="primary"
-            size="small"
-            icon={<Plus className="w-4 h-4" />}
-            onClick={() => handleStartCreate(null)}
-          >
-            เพิ่มคำถาม (ท้ายสุด)
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {questionTree.length > 0 && (
+            <button
+              onClick={handleToggleAll}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all
+                bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700
+                text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200
+                hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
+              title={allCollapsed ? "ขยายทั้งหมด" : "ยุบทั้งหมด"}
+            >
+              {allCollapsed ? (
+                <><ChevronDown className="w-3.5 h-3.5" /><ChevronDown className="w-3.5 h-3.5 -mt-2" /><span>ขยายทั้งหมด</span></>
+              ) : (
+                <><ChevronDown className="w-3.5 h-3.5 rotate-180" /><ChevronDown className="w-3.5 h-3.5 -mt-2 rotate-180" /><span>ยุบทั้งหมด</span></>
+              )}
+            </button>
+          )}
+          {!readOnly && !isCreating && !editingId && !is200 && (
+            <Button
+              variant="primary"
+              size="small"
+              icon={<Plus className="w-4 h-4" />}
+              onClick={() => handleStartCreate(null)}
+            >
+              เพิ่มคำถาม (ท้ายสุด)
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Content ── */}
