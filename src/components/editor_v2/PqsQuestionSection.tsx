@@ -1858,7 +1858,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         return (
                           <div key={item.code} className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 border border-orange-100 dark:border-orange-900/30 rounded-md group/sq-item">
                             <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
-                            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 min-w-[1ch]">{toThaiAlphabet(localIdx + 1)}.</span>
+                            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
                             <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
                             {item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
@@ -1952,7 +1952,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? 'bg-amber-50 dark:bg-amber-900/20 text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
                                 <input type="checkbox" checked={isActive} onChange={() => setActiveSubQCodes(prev => isActive ? prev.filter(c => c !== sq.code) : [...prev, sq.code])}
                                   className="w-3 h-3 rounded border-amber-400 text-amber-600 focus:ring-amber-500" />
-                                <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1ch]">{toThaiAlphabet(idx + 1)}.</span>
+                                <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
                                 <span className="flex-1 truncate">{sq.text}</span>
                                 <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{sq.code}</span>
                               </label>
@@ -1984,7 +1984,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <input type="checkbox" checked={isChecked} disabled={isForced}
                         onChange={() => { if (isForced) return; setSelectedSubQCodes(prev => isChecked ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
                         className="w-3 h-3 rounded border-amber-400 text-amber-600 focus:ring-amber-500" />
-                      <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1ch]">{toThaiAlphabet(idx + 1)}.</span>
+                      <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
                       <span className="flex-1">{sq.text}</span>
                       {isForced && <span className="text-[9px] text-emerald-500 font-bold">Auto ✓</span>}
                     </label>
@@ -2568,7 +2568,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
             : level === 1 && is200
               ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
-              : "min-w-[24px] text-sm font-normal text-orange-600 dark:text-orange-400" // L3: Normal orange (amber-like)
+              : "min-w-[20px] text-sm font-normal text-orange-600 dark:text-orange-400" // L3: Normal orange (amber-like)
           }
       `}
       >
@@ -2645,7 +2645,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             <div className="mt-1.5 space-y-0.5">
               {display.map((sq, idx) => (
                 <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
-                  <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1ch]">{toThaiAlphabet(idx + 1)}.</span>
+                  <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
                   <span>{sq.text}</span>
                   {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
                 </div>
