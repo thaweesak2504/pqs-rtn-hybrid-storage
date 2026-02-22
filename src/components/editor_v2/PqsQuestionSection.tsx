@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-  ArrowDown,
-  ArrowUp,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  Edit,
-  FileDigit,
-  FileQuestion,
-  FileText,
-  Globe,
-  GripVertical,
-  Image,
-  ImageIcon,
-  Layers,
-  ListChecks,
-  Lock,
-  MessageSquarePlus,
-  Mic,
-  MoreVertical,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    ArrowDown,
+    ArrowUp,
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    Edit,
+    FileDigit,
+    FileQuestion,
+    FileText,
+    Globe,
+    GripVertical,
+    Image,
+    ImageIcon,
+    Layers,
+    ListChecks,
+    Lock,
+    MessageSquarePlus,
+    Mic,
+    MoreVertical,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
@@ -36,9 +36,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import {
-  QuestionDetail,
-  QuestionReferenceDetail,
-  SectionReferenceDetail,
+    QuestionDetail,
+    QuestionReferenceDetail,
+    SectionReferenceDetail,
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
@@ -161,6 +161,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   onReferencesUpdated,
 }) => {
   const is200 = sectionGroup === 200;
+  const is300 = sectionGroup === 300;
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -570,7 +571,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
               )}
             </button>
           )}
-          {!readOnly && !isCreating && !editingId && !is200 && (
+          {!readOnly && !isCreating && !editingId && (!is200 && !is300) && (
             <Button
               variant="primary"
               size="small"
@@ -586,7 +587,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       {/* ── Content ── */}
       <div className="space-y-1">
         {/* Create Form (Top-Level - Append) */}
-        {isCreating && creatingAtParent === null && insertingAfterId === null && !is200 && (
+        {isCreating && creatingAtParent === null && insertingAfterId === null && (!is200 && !is300) && (
           <QuestionFormCard
             prefix={buildPrefix(0, questionTree.length + 1, sectionNumber)}
             level={0}
@@ -750,6 +751,7 @@ interface QuestionTreeNodeProps {
   sectionSelectedBranch?: { main: string; sub: string };
   collapsedIds: Set<string>;
   onToggleCollapse: (id: string) => void;
+  isParentDefault300L1?: boolean;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -785,6 +787,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   onImageClick,
   onAlert,
   parentLayout = "list",
+  isParentDefault300L1 = false,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -799,6 +802,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const isDefault200L1 = is200 && level === 0;
   const isDefault300L1 = is300 && level === 0;
   const isDefaultL1 = isDefault200L1 || isDefault300L1;
+  const isDefault300L2 = is300 && level === 1 && isParentDefault300L1;
 
   const [childLayout, setChildLayout] = useState<"list" | "grid">("list");
 
@@ -858,6 +862,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           level={level}
           sectionGroup={sectionGroup}
           isDefaultL1={isDefaultL1}
+          isDefault300L2={isDefault300L2}
           initialContent={question.content}
           initialDescription={question.description || undefined}
           initialImage={initialImage}
@@ -916,6 +921,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         isFirst={isFirst}
         isLast={isLast}
         isDefaultL1={isDefaultL1}
+        isDefault300L2={isDefault300L2}
         onToggle={() => onToggleCollapse(question.id)}
         onEdit={() => onStartEdit(question.id)}
         onDelete={() => onDelete(question)}
@@ -964,6 +970,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
                 collapsedIds={collapsedIds}
                 onToggleCollapse={onToggleCollapse}
+                isParentDefault300L1={isDefault300L1}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
@@ -1023,6 +1030,7 @@ interface QuestionFormCardProps {
   level: number; // New prop to determine if L1
   sectionGroup?: 100 | 200 | 300;
   isDefaultL1?: boolean; // Flag for default L1 questions (restricted editing)
+  isDefault300L2?: boolean; // Flag for default L2 questions in 300Template (lock text)
   initialContent?: string;
   initialDescription?: string;
   initialImage?: string;
@@ -1056,6 +1064,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   level,
   sectionGroup = 100,
   isDefaultL1 = false,
+  isDefault300L2 = false,
   initialContent = "",
   initialDescription = "",
   initialImage = "",
@@ -1689,7 +1698,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <ImageIcon className="w-3.5 h-3.5" />
                 </button>
               )}
-              {!isDefaultL1 && (
+              {!isDefaultL1 && !is300 && (
                 <button
                   type="button"
                   onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
@@ -1744,9 +1753,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder="พิมพ์คำถาม..."
-            disabled={isDefaultL1}
+            disabled={isDefaultL1 || isDefault300L2}
             className={`w-full p-2 border rounded-md text-sm font-semibold resize-none min-h-[36px] overflow-hidden leading-relaxed
-              ${isDefaultL1 ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed" : ""}
+              ${(isDefaultL1 || isDefault300L2) ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed" : ""}
               ${errors.content
                 ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300"
                 : "border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
@@ -2538,6 +2547,7 @@ interface QuestionDisplayCardProps {
   isFirst: boolean;
   isLast: boolean;
   isDefaultL1?: boolean;
+  isDefault300L2?: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -2562,6 +2572,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   isFirst,
   isLast,
   isDefaultL1 = false,
+  isDefault300L2 = false,
   onToggle,
   onEdit,
   onDelete,
@@ -2778,7 +2789,15 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               </button>
             }
             items={
-              isDefaultL1
+              isDefault300L2
+                ? ([
+                  {
+                    label: "แก้ไข (Edit)",
+                    icon: <Edit />,
+                    onClick: onEdit,
+                  },
+                ] as DropdownMenuItem[])
+                : isDefaultL1
                 ? ([
                   ...(canAddSub
                     ? [{
