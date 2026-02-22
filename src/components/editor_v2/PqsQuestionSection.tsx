@@ -826,9 +826,13 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
         // Derive prefix from activeCodes (200: 4 chars, 300: 5 chars)
-        const prefix = activeCodes.length > 0 
-          ? (is300 ? activeCodes[0].substring(0, 5) : activeCodes[0].substring(0, 4))
-          : "";
+        let prefix = "";
+        if (activeCodes.length > 0) {
+          prefix = is300 ? activeCodes[0].substring(0, 5) : activeCodes[0].substring(0, 4);
+        } else if (dbSqs.length > 0) {
+          prefix = is300 ? dbSqs[0].code.substring(0, 5) : dbSqs[0].code.substring(0, 4);
+        }
+        
         const prefixFiltered = prefix ? dbSqs.filter(sq => sq.code.startsWith(prefix)) : dbSqs;
         const filtered = prefixFiltered
           .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
@@ -2601,6 +2605,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           // Derive prefix from selectedBranch: need to know S+L — check question sequence from code pattern
           // Use activeCodes prefix if available, otherwise show all for this branch
         }
+        
+        // If we still don't have a prefix, try to get it from the first dbSqs item that matches the branch
+        if (!prefix && dbSqs.length > 0) {
+          prefix = is300 ? dbSqs[0].code.substring(0, 5) : dbSqs[0].code.substring(0, 4);
+        }
+
         const filtered = prefix
           ? dbSqs.filter(sq => sq.code.startsWith(prefix))
           : dbSqs;
