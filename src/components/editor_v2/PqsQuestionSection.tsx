@@ -797,12 +797,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     ? buildPrefix200_300(level, question.sequence, sectionNumber, parentSequence)
     : buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
-  // 300Template: 3xx.1.1-3xx.1.3 (L2, parentSeq=1, seq=1-3) can add L3
+  // 300Template: 3xx.1.1-3xx.1.3 (L2, parentSeq=1, seq=1-3) can add L3; others cannot
   const is300L2AllowL3 = is300 && level === 1 && isParentDefault300L1 && question.sequence >= 1 && question.sequence <= 3;
   const maxSubLevel = is300L2AllowL3 ? 3 : is200or300 ? 2 : 1;
-  // 300Template: 3xx.1 (seq=1) and 3xx.7 (seq=7) cannot add L2 sub-questions
+  // 300Template: 3xx.1 (seq=1) and 3xx.7 (seq=7) L1 cannot add L2 sub-questions
   const is300LockedL1 = is300 && level === 0 && (question.sequence === 1 || question.sequence === 7);
   const canAddSub = level < maxSubLevel && !readOnly && !is300LockedL1;
+  // 300Template: default L2 cannot insert sibling (no "แทรกคำถามต่อท้าย")
+  const canInsertSibling = !(is300 && level === 1 && isParentDefault300L1);
   const isDefault200L1 = is200 && level === 0;
   const isDefault300L1 = is300 && level === 0;
   const isDefaultL1 = isDefault200L1 || isDefault300L1;
@@ -922,6 +924,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         isExpanded={isExpanded}
         hasChildren={!!hasChildren}
         canAddSub={canAddSub}
+        canInsertSibling={canInsertSibling}
         isFirst={isFirst}
         isLast={isLast}
         isDefaultL1={isDefaultL1}
@@ -2548,6 +2551,7 @@ interface QuestionDisplayCardProps {
   isExpanded: boolean;
   hasChildren: boolean;
   canAddSub: boolean;
+  canInsertSibling?: boolean;
   isFirst: boolean;
   isLast: boolean;
   isDefaultL1?: boolean;
@@ -2573,6 +2577,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   isExpanded,
   hasChildren,
   canAddSub,
+  canInsertSibling = true,
   isFirst,
   isLast,
   isDefaultL1 = false,
@@ -2817,12 +2822,14 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   },
                 ] as DropdownMenuItem[])
                 : ([
-                  {
-                    label: "แทรกคำถามต่อท้าย (Insert After)",
-                    icon: <Plus />,
-                    onClick: onInsertAfter,
-                  },
-                  { label: "separator", onClick: () => { }, separator: true },
+                  ...(canInsertSibling ? [
+                    {
+                      label: "แทรกคำถามต่อท้าย (Insert After)",
+                      icon: <Plus />,
+                      onClick: onInsertAfter,
+                    },
+                    { label: "separator", onClick: () => { }, separator: true },
+                  ] : []),
                   {
                     label: "เลื่อนขึ้น (Move Up)",
                     icon: <ArrowUp />,
