@@ -1299,6 +1299,9 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
     // Auto-seed template for Section 200 series (201-299)
     if request.section_group == 200 && request.section_number >= 200 && request.section_number <= 299 {
        seed_section_200_template(&conn, &request.document_id, id, request.section_number)?;
+    // Auto-seed template for Section 300 series (301-399)
+    } else if request.section_group == 300 && request.section_number >= 300 && request.section_number <= 399 {
+       seed_section_300_template(&conn, &request.document_id, id, request.section_number)?;
     } else if request.section_group == 100 && request.section_number == 102 {
        seed_section_102_template(&conn, &request.document_id, id, request.section_number)?;
     // } else if request.section_group == 100 && request.section_number == 101 {
@@ -1319,6 +1322,47 @@ fn to_thai_digit(n: i32) -> String {
             c.to_string()
         }
     }).collect()
+}
+
+/// Seed Section 300 Template (3xx.1 - 3xx.7)
+fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
+    // Prefix is handled dynamically by the frontend component
+    
+    // Helper closure to insert question
+    let insert_q = |parent: Option<&str>, seq: i32, content: String, desc: Option<String>| -> Result<String, String> {
+        let q_id = generate_uuid();
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none')",
+            params![q_id, doc_id, section_id, parent, seq, content, desc]
+        ).map_err(|e| e.to_string())?;
+        Ok(q_id)
+    };
+
+    // 3xx.1
+    let q1_desc = "เพื่อให้การทดสอบตาม มาตรฐานการทดสอบกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้".to_string();
+    let q1_id = insert_q(None, 1, "คุณสมบัติก่อนการทดสอบ".to_string(), Some(q1_desc))?;
+    
+    insert_q(Some(&q1_id), 1, "ผ่านการอบรม".to_string(), None)?;
+    insert_q(Some(&q1_id), 2, "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(), None)?;
+    insert_q(Some(&q1_id), 3, "ผ่านการปฏิบัติหน้าที่".to_string(), None)?;
+    insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None)?;
+    insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None)?;
+
+    // 3xx.2 - 3xx.5
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None)?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None)?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None)?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None)?;
+
+    // 3xx.6 - 3xx.7
+    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None)?;
+    
+    let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None)?;
+    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), None)?;
+    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), None)?;
+
+    Ok(())
 }
 
 /// Seed Section 200 Template (2xx.1 - 2xx.6)

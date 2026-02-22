@@ -40,6 +40,7 @@ import Section300View from '../views/Section300View';
 
 import { Edit2, Edit3, Eye, FileText } from 'lucide-react';
 import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
+import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
 import ConfirmModal from '../modals/ConfirmModal';
@@ -378,7 +379,7 @@ const ActiveDocumentPage: React.FC = () => {
           {/* Dynamic Sections (301-399) - 300 Template */}
           {activeSection !== '300' &&
             parseInt(activeSection) >= 301 && parseInt(activeSection) < 400 && docId && (
-              <PqsSectionEditor
+              <Pqs300SectionEditor
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}

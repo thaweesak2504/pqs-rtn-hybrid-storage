@@ -9,6 +9,7 @@ interface PqsHeaderProps {
   subTitle?: string;
   onTitleChange?: (newTitle: string) => void;
   readOnly?: boolean;
+  prefix?: string;
   metadata?: {
     id: string;
     unit_code: string;
@@ -23,6 +24,7 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
   subTitle,
   onTitleChange,
   readOnly = false,
+  prefix = "",
   metadata,
   className = ''
 }) => {
@@ -156,7 +158,7 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
                   onClick={!readOnly ? () => setIsEditing(true) : undefined}
                 >
                   <h1 className="text-lg md:text-xl font-bold font-sarabun tracking-tight leading-tight truncate text-white drop-shadow-md">
-                    {title || "Untitled Document"}
+                    {prefix}{title || "Untitled Document"}
                   </h1>
                   {!readOnly && <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-70 transition-opacity text-white/80 shrink-0 self-center" />}
                 </div>

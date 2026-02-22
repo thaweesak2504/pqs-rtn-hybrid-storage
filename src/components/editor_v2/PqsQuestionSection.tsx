@@ -127,7 +127,7 @@ const buildPrefix = (level: number, sequence: number, sectionNumber: number) => 
   return `${toThaiAlphabet(sequence)}.`;
 };
 
-const buildPrefix200 = (level: number, sequence: number, sectionNumber: number, parentSequence?: number) => {
+const buildPrefix200_300 = (level: number, sequence: number, sectionNumber: number, parentSequence?: number) => {
   if (level === 0) return `${toThaiNumber(sectionNumber)}.${toThaiNumber(sequence)}`;
   if (level === 1 && parentSequence !== undefined) {
     return `${toThaiNumber(sectionNumber)}.${toThaiNumber(parentSequence)}.${toThaiNumber(sequence)}`;
@@ -787,12 +787,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   parentLayout = "list",
 }) => {
   const is200 = sectionGroup === 200;
+  const is300 = sectionGroup === 300;
+  const is200or300 = is200 || is300;
   const isExpanded = !collapsedIds.has(question.id);
-  const prefix = is200
-    ? buildPrefix200(level, question.sequence, sectionNumber, parentSequence)
+  const prefix = is200or300
+    ? buildPrefix200_300(level, question.sequence, sectionNumber, parentSequence)
     : buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
-  const maxSubLevel = is200 ? 2 : 1;
+  const maxSubLevel = is200or300 ? 2 : 1;
   const canAddSub = level < maxSubLevel && !readOnly;
   const isDefault200L1 = is200 && level === 0;
 
@@ -925,7 +927,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       {isCreating && insertingAfterId === question.id && (
         <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
           <QuestionFormCard
-            prefix={is200 ? buildPrefix200(level, question.sequence + 1, sectionNumber, parentSequence) : buildPrefix(level, question.sequence + 1, sectionNumber)}
+            prefix={is200or300 ? buildPrefix200_300(level, question.sequence + 1, sectionNumber, parentSequence) : buildPrefix(level, question.sequence + 1, sectionNumber)}
             level={level}
             sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
@@ -991,7 +993,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       {isCreating && creatingAtParent === question.id && (
         <div className={childLayout === "grid" ? "m-1" : "ml-12 mt-1 mb-1"}>
           <QuestionFormCard
-            prefix={is200 ? buildPrefix200(level + 1, (question.children?.length || 0) + 1, sectionNumber, question.sequence) : buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
+            prefix={is200or300 ? buildPrefix200_300(level + 1, (question.children?.length || 0) + 1, sectionNumber, question.sequence) : buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
             level={level + 1}
             sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.id)}
@@ -1067,6 +1069,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   sectionSelectedBranch,
 }) => {
   const is200 = sectionGroup === 200;
+  const is300 = sectionGroup === 300;
+  const is200or300 = is200 || is300;
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
@@ -1074,8 +1078,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
-  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4 only) ----
-  const showSubQuestionEditor = is200 && level === 0 && (questionSequence === 2 || questionSequence === 4);
+  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2, 3xx.4 only) ----
+  const showSubQuestionEditor = is200or300 && level === 0 && (questionSequence === 2 || questionSequence === 4 || questionSequence === 3 || questionSequence === 5);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
@@ -1482,7 +1486,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       newErrors.content = true;
       hasError = true;
     }
-    if (!isDefault200L1 && requireAnswerKey) {
+    const is300 = sectionGroup === 300;
+    const showAnswerKey = !is300 && (!isDefault200L1 && requireAnswerKey && !useSubQuestions && (!hasParentSubQ || activeSubQCodes.length > 0));
+    if (showAnswerKey) {
       if (hasParentSubQ && selectedSubQCodes.length > 0) {
         // ตรวจว่าทุก subQ ที่เลือกมี answer key
         const missingAny = selectedSubQCodes.some(c => !(answerKeys[c] || "").trim());
@@ -2332,7 +2338,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>
 
         {/* Answer Key (conditional on toggle — hidden for default 200 L1, hidden when useSubQuestions=true but none selected, hidden when hasParentSubQ but none selected) */}
-        {!isDefault200L1 && requireAnswerKey
+        {!is300 && !isDefault200L1 && requireAnswerKey
           && !(showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0)
           && !(hasParentSubQ && selectedSubQCodes.length === 0)
           && (
@@ -2527,12 +2533,14 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 }) => {
   const isL1 = level === 0;
   const is200 = sectionGroup === 200;
+  const is300 = sectionGroup === 300;
+  const is200or300 = is200 || is300;
 
-  // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4)
+  // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
   const [displayActiveCodes, setDisplayActiveCodes] = useState<string[]>([]);
   useEffect(() => {
-    if (!is200 || !isL1 || !question.metadata) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
+    if (!is200or300 || !isL1 || !question.metadata) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
     try {
       const meta = JSON.parse(question.metadata);
       if (!meta.useSubQuestions) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
@@ -2560,7 +2568,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         setDisplaySubQList(filtered.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
       }).catch(() => setDisplaySubQList([]));
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
-  }, [is200, isL1, question.metadata]);
+  }, [is200or300, isL1, question.metadata]);
   const showDescriptionImage = is200 ? (level === 0 || level === 1) : isL1;
 
   // Compute inline sub-question checkboxes for L2/L3
