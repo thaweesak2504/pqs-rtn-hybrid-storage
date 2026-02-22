@@ -1261,14 +1261,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     return subQuestionList.filter(sq => sq.code.startsWith(autoCodePrefix));
   }, [dbSubQuestions, subQuestionList, autoCodePrefix, sectionOccupationBranches]);
 
-  // Enforce always-checked items when SubQuestion mode is enabled.
+  // Enforce always-checked items when SubQuestion mode is enabled (300Template only).
   // These items must always remain active in the current branch.
   useEffect(() => {
-    if (!useSubQuestions || filteredItems.length === 0) return;
+    if (!is300 || !useSubQuestions || filteredItems.length === 0) return;
     const alwaysCodes = filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code);
     if (alwaysCodes.length === 0) return;
     setActiveSubQCodes((prev) => Array.from(new Set([...prev, ...alwaysCodes])));
-  }, [useSubQuestions, filteredItems]);
+  }, [is300, useSubQuestions, filteredItems]);
 
   const nextZ = useMemo(() => {
     if (!autoCodePrefix) return "";
@@ -1627,7 +1627,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       delete newMeta.answerKeys;
     }
     // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
-    const alwaysCodesInBranch = filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code);
+    const alwaysCodesInBranch = is300 ? filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code) : [];
     const effectiveActiveSubQCodes = Array.from(new Set([...activeSubQCodes, ...alwaysCodesInBranch]));
     if (showSubQuestionEditor) {
       if (useSubQuestions) {
@@ -1974,12 +1974,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
                             <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
-                            {item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
+                            {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
-                              <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
+                              {is300 && <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
                                 className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`} title={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
                                 <CheckCircle className="w-3 h-3" />
-                              </button>
+                              </button>}
                               <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded" title="ลบ"><Trash2 className="w-3 h-3" /></button>
                             </div>
                           </div>
@@ -2079,7 +2079,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         </div>
                         <div className="grid grid-cols-1 gap-0.5">
                           {filteredItems.map((sq, idx) => {
-                            const isForced = sq.alwaysChecked === true;
+                            const isForced = is300 && sq.alwaysChecked === true;
                             const isActive = isForced || activeSubQCodes.includes(sq.code);
                             return (
                               <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-80' : ''}`}>
