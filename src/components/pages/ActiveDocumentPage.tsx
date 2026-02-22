@@ -1,5 +1,5 @@
 import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../ui/Button';
 
@@ -65,21 +65,21 @@ const ActiveDocumentPage: React.FC = () => {
   const [selectedSectionGroup, setSelectedSectionGroup] = useState<100 | 200 | 300>(100);
   const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
 
-  const fetchDocData = () => {
+  const fetchDocData = useCallback(() => {
     if (docId) {
       invoke<DocumentHierarchy>('get_document_with_hierarchy', { id: docId })
         .then(data => setDocData(data))
         .catch(err => console.error("Failed to fetch doc:", err));
     }
-  };
+  }, [docId]);
 
-  const fetchSections = () => {
+  const fetchSections = useCallback(() => {
     if (docId) {
       invoke<Section[]>('get_sections_by_document', { documentId: docId })
         .then(data => setSections(data))
         .catch(err => console.error("Failed to fetch sections:", err));
     }
-  };
+  }, [docId]);
 
   const handleAddSection = (sectionGroup: 100 | 200 | 300) => {
     setSelectedSectionGroup(sectionGroup);
@@ -112,7 +112,7 @@ const ActiveDocumentPage: React.FC = () => {
       fetchDocData();
       fetchSections();
     }
-  }, [docId]);
+  }, [docId, fetchDocData, fetchSections]);
 
   if (!docId) return <div>Invalid Document ID</div>;
 
