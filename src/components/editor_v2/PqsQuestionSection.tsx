@@ -2625,9 +2625,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       const meta = JSON.parse(question.metadata);
       if (!meta.useSubQuestions) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
       const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-      setDisplayActiveCodes(activeCodes);
       const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
-      if (!selectedBranch?.main) { setDisplaySubQList([]); return; }
+      if (!selectedBranch?.main) { setDisplaySubQList([]); setDisplayActiveCodes(activeCodes); return; }
       // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
       // This is the reliable way — activeCodes[0] may be from a different prefix
       const sCode = is300 ? "3" : "2";
@@ -2640,8 +2639,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         const filtered = derivedPrefix
           ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix))
           : dbSqs;
-        setDisplaySubQList(filtered.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
-      }).catch(() => setDisplaySubQList([]));
+        const items = filtered.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
+        setDisplaySubQList(items);
+        // For 300Template: merge always_checked codes into displayActiveCodes so Auto items always show
+        if (is300) {
+          const alwaysCodes = items.filter(sq => sq.alwaysChecked).map(sq => sq.code);
+          setDisplayActiveCodes(Array.from(new Set([...activeCodes, ...alwaysCodes])));
+        } else {
+          setDisplayActiveCodes(activeCodes);
+        }
+      }).catch(() => { setDisplaySubQList([]); setDisplayActiveCodes(activeCodes); });
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
   }, [is200or300, is300, isL1, question.metadata, question.sequence]);
   const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
