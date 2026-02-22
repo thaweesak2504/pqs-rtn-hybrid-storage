@@ -1215,8 +1215,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const autoCodePrefix = useMemo(() => {
     if (!selMainBranch || !selSubBranch) return "";
     if (sectionOccupationBranches) {
-      // 2xx.4: use '24' prefix with inherited branches
-      return `24${selMainBranch}${selSubBranch}`;
+      // 2xx.4 / 3xx.4: use 'S4' prefix with inherited branches
+      const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
+      return `${sCode}4${selMainBranch}${selSubBranch}`;
     }
     // Normal case: S + L + X + Y
     const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
