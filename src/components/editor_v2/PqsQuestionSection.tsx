@@ -2080,11 +2080,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             const isForced = sq.alwaysChecked === true;
                             const isActive = isForced || activeSubQCodes.includes(sq.code);
                             return (
-                              <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                              <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-80' : ''}`}>
                                 <input type="checkbox" checked={isActive} disabled={isForced} onChange={() => { if (isForced) return; setActiveSubQCodes(prev => isActive ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
                                   className={`w-3 h-3 rounded ${sqClr.check}`} />
                                 <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
                                 <span className="flex-1 truncate">{sq.text}</span>
+                                {isForced && <span className="text-[9px] font-bold text-emerald-500">Auto ✓</span>}
                                 <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{sq.code}</span>
                               </label>
                             );
