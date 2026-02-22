@@ -977,7 +977,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
                 collapsedIds={collapsedIds}
                 onToggleCollapse={onToggleCollapse}
-                isParentDefault300L1={isDefault300L1}
+                isParentDefault300L1={is300 && level === 0 && (question.sequence === 1 || question.sequence === 7)}
                 readOnly={readOnly}
                 editingId={editingId}
                 isCreating={isCreating}
