@@ -1172,8 +1172,15 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     try { const m = JSON.parse(initialMetadata); return Array.isArray(m.activeSubQuestions) ? m.activeSubQuestions : []; } catch { return []; }
   });
   const [selectedSubQCodes, setSelectedSubQCodes] = useState<string[]>(() => {
-    if (!initialMetadata) return [];
-    try { const m = JSON.parse(initialMetadata); return Array.isArray(m.selectedSubQuestions) ? m.selectedSubQuestions : []; } catch { return []; }
+    const saved: string[] = (() => {
+      if (!initialMetadata) return [];
+      try { const m = JSON.parse(initialMetadata); return Array.isArray(m.selectedSubQuestions) ? m.selectedSubQuestions : []; } catch { return []; }
+    })();
+    // For 300Template: auto-include alwaysChecked items from parentSubQuestionList
+    const alwaysCodes = (sectionGroup === 300 && parentSubQuestionList)
+      ? parentSubQuestionList.filter(sq => sq.alwaysChecked).map(sq => sq.code)
+      : [];
+    return Array.from(new Set([...saved, ...alwaysCodes]));
   });
   const [newMainName, setNewMainName] = useState("");
   const [newSubName, setNewSubName] = useState("");
@@ -1290,11 +1297,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const hasParentSubQ = !!(parentSubQuestionList && parentSubQuestionList.length > 0);
 
   // Sync selectedSubQCodes เมื่อ parentSubQuestionList เปลี่ยน (reorder/delete)
+  // For 300Template: also inject alwaysChecked codes
   useEffect(() => {
     if (!parentSubQuestionList || parentSubQuestionList.length === 0) return;
     const validCodes = new Set(parentSubQuestionList.map(sq => sq.code));
-    setSelectedSubQCodes(prev => prev.filter(c => validCodes.has(c)));
-  }, [parentSubQuestionList]);
+    const alwaysCodes = sectionGroup === 300
+      ? parentSubQuestionList.filter(sq => sq.alwaysChecked).map(sq => sq.code)
+      : [];
+    setSelectedSubQCodes(prev => {
+      const filtered = prev.filter(c => validCodes.has(c));
+      return Array.from(new Set([...filtered, ...alwaysCodes]));
+    });
+  }, [parentSubQuestionList, sectionGroup]);
 
   // Reference Linking State
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
@@ -1649,7 +1663,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
     // Save selectedSubQuestions (for child questions of L1 with SubQuestionList)
     if (hasParentSubQ) {
-      if (selectedSubQCodes.length > 0) newMeta.selectedSubQuestions = selectedSubQCodes;
+      const forcedCodes = (sectionGroup === 300 && parentSubQuestionList)
+        ? parentSubQuestionList.filter(sq => sq.alwaysChecked).map(sq => sq.code)
+        : [];
+      const effectiveSelected = Array.from(new Set([...selectedSubQCodes, ...forcedCodes]));
+      if (effectiveSelected.length > 0) newMeta.selectedSubQuestions = effectiveSelected;
       else delete newMeta.selectedSubQuestions;
     }
     const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
@@ -2111,8 +2129,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               </div>
               <div className="grid grid-cols-1 gap-1">
                 {parentSubQuestionList!.map((sq, idx) => {
-                  const isChecked = selectedSubQCodes.includes(sq.code);
-                  const isForced = sq.alwaysChecked === true;
+                  const isForced = is300 && sq.alwaysChecked === true;
+                  const isChecked = isForced || selectedSubQCodes.includes(sq.code);
                   return (
                     <label key={sq.code} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
                       <input type="checkbox" checked={isChecked} disabled={isForced}
