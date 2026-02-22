@@ -821,26 +821,23 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
       const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
       if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
+      // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
+      // This is the reliable way — activeCodes[0] may be from a different prefix
+      const sCode = is300 ? "3" : "2";
+      const lCode = question.sequence?.toString() || "0";
+      const derivedPrefix = `${sCode}${lCode}${selectedBranch.main}${selectedBranch.sub}`;
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        // Derive prefix from activeCodes or dbSqs (S + L + X + Y = 4 chars)
-        let prefix = "";
-        if (activeCodes.length > 0) {
-          prefix = activeCodes[0].substring(0, 4);
-        } else if (dbSqs.length > 0) {
-          prefix = dbSqs[0].code.substring(0, 4);
-        }
-        
-        const prefixFiltered = prefix ? dbSqs.filter(sq => sq.code.startsWith(prefix)) : dbSqs;
+        const prefixFiltered = derivedPrefix ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix)) : dbSqs;
         const filtered = prefixFiltered
           .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
           .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
         setOwnSubQuestionList(filtered);
       }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
     } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
-  }, [question.metadata, is300]);
+  }, [question.metadata, is300, question.sequence]);
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
@@ -2592,32 +2589,22 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       setDisplayActiveCodes(activeCodes);
       const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
       if (!selectedBranch?.main) { setDisplaySubQList([]); return; }
+      // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
+      // This is the reliable way — activeCodes[0] may be from a different prefix
+      const sCode = is300 ? "3" : "2";
+      const lCode = question.sequence?.toString() || "0";
+      const derivedPrefix = `${sCode}${lCode}${selectedBranch.main}${selectedBranch.sub}`;
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        // Determine the prefix from activeCodes to filter correctly
-        // Prefix is S + L + X + Y (4 chars)
-        let prefix = "";
-        if (activeCodes.length > 0) {
-          prefix = activeCodes[0].substring(0, 4);
-        } else if (selectedBranch.sub) {
-          // Derive prefix from selectedBranch: need to know S+L — check question sequence from code pattern
-          // Use activeCodes prefix if available, otherwise show all for this branch
-        }
-        
-        // If we still don't have a prefix, try to get it from the first dbSqs item that matches the branch
-        if (!prefix && dbSqs.length > 0) {
-          prefix = dbSqs[0].code.substring(0, 4);
-        }
-
-        const filtered = prefix
-          ? dbSqs.filter(sq => sq.code.startsWith(prefix))
+        const filtered = derivedPrefix
+          ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix))
           : dbSqs;
         setDisplaySubQList(filtered.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
       }).catch(() => setDisplaySubQList([]));
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
-  }, [is200or300, is300, isL1, question.metadata]);
+  }, [is200or300, is300, isL1, question.metadata, question.sequence]);
   const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
 
   // Compute inline sub-question checkboxes for L2/L3
