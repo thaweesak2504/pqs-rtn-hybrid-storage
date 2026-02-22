@@ -797,8 +797,12 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     ? buildPrefix200_300(level, question.sequence, sectionNumber, parentSequence)
     : buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
-  const maxSubLevel = is200or300 ? 2 : 1;
-  const canAddSub = level < maxSubLevel && !readOnly;
+  // 300Template: 3xx.1.1-3xx.1.3 (L2, parentSeq=1, seq=1-3) can add L3
+  const is300L2AllowL3 = is300 && level === 1 && isParentDefault300L1 && question.sequence >= 1 && question.sequence <= 3;
+  const maxSubLevel = is300L2AllowL3 ? 3 : is200or300 ? 2 : 1;
+  // 300Template: 3xx.1 (seq=1) and 3xx.7 (seq=7) cannot add L2 sub-questions
+  const is300LockedL1 = is300 && level === 0 && (question.sequence === 1 || question.sequence === 7);
+  const canAddSub = level < maxSubLevel && !readOnly && !is300LockedL1;
   const isDefault200L1 = is200 && level === 0;
   const isDefault300L1 = is300 && level === 0;
   const isDefaultL1 = isDefault200L1 || isDefault300L1;
@@ -1551,7 +1555,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         hasError = true;
       }
     }
-    if (!isDefaultL1 && requireRef && linkedRefs.length === 0) {
+    if (!is300 && !isDefaultL1 && requireRef && linkedRefs.length === 0) {
       newErrors.refs = true;
       hasError = true;
     }
@@ -2103,8 +2107,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </div>
           )}
 
-          {/* Toggle Options: Reference + Answer Key (Hidden for default 200 L1) */}
-          {!isDefaultL1 && (
+          {/* Toggle Options: Reference + Answer Key (Hidden for default 200/300 L1, hidden for 300Template entirely) */}
+          {!isDefaultL1 && !is300 && (
             <div className="flex items-center gap-4 py-1">
               <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                 <div className="relative inline-flex items-center">
@@ -2157,8 +2161,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
           )}
 
-          {/* References Section (Both L1 & L2, conditional on toggle — hidden for default 200 L1) */}
-          {!isDefaultL1 && requireRef && (
+          {/* References Section (Both L1 & L2, conditional on toggle — hidden for default 200/300 L1, hidden for 300Template) */}
+          {!isDefaultL1 && !is300 && requireRef && (
             <>
               <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
                 <span>เอกสารอ้างอิง (References)</span>

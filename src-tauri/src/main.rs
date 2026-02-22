@@ -1313,9 +1313,10 @@ fn main() {
                 match window.show() {
                     Ok(_) => {
                         logger::success("Main window shown successfully");
-
-                        // Window is now maximized in tauri.conf.json
-                        // No need to maximize here to prevent transition visibility
+                        // Force maximize to override any saved state from window-state plugin
+                        if let Err(e) = window.maximize() {
+                            logger::warn(&format!("Failed to maximize window: {}", e));
+                        }
                     }
                     Err(e) => logger::error(&format!("Failed to show main window: {}", e)),
                 }
