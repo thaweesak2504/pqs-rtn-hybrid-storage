@@ -825,12 +825,12 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        // Derive prefix from activeCodes (200: 4 chars, 300: 5 chars)
+        // Derive prefix from activeCodes or dbSqs (S + L + X + Y = 4 chars)
         let prefix = "";
         if (activeCodes.length > 0) {
-          prefix = is300 ? activeCodes[0].substring(0, 5) : activeCodes[0].substring(0, 4);
+          prefix = activeCodes[0].substring(0, 4);
         } else if (dbSqs.length > 0) {
-          prefix = is300 ? dbSqs[0].code.substring(0, 5) : dbSqs[0].code.substring(0, 4);
+          prefix = dbSqs[0].code.substring(0, 4);
         }
         
         const prefixFiltered = prefix ? dbSqs.filter(sq => sq.code.startsWith(prefix)) : dbSqs;
@@ -2597,11 +2597,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
         // Determine the prefix from activeCodes to filter correctly
-        // 200 series uses 4 chars (e.g. "2411" from "24111")
-        // 300 series uses 5 chars (e.g. "3311A" from "3311A1")
+        // Prefix is S + L + X + Y (4 chars)
         let prefix = "";
         if (activeCodes.length > 0) {
-          prefix = is300 ? activeCodes[0].substring(0, 5) : activeCodes[0].substring(0, 4);
+          prefix = activeCodes[0].substring(0, 4);
         } else if (selectedBranch.sub) {
           // Derive prefix from selectedBranch: need to know S+L — check question sequence from code pattern
           // Use activeCodes prefix if available, otherwise show all for this branch
@@ -2609,7 +2608,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         
         // If we still don't have a prefix, try to get it from the first dbSqs item that matches the branch
         if (!prefix && dbSqs.length > 0) {
-          prefix = is300 ? dbSqs[0].code.substring(0, 5) : dbSqs[0].code.substring(0, 4);
+          prefix = dbSqs[0].code.substring(0, 4);
         }
 
         const filtered = prefix
