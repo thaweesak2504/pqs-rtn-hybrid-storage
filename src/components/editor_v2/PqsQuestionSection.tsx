@@ -802,7 +802,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const maxSubLevel = is300L2AllowL3 ? 3 : is200or300 ? 2 : 1;
   // 300Template: 3xx.1 (seq=1) and 3xx.7 (seq=7) L1 cannot add L2 sub-questions
   const is300LockedL1 = is300 && level === 0 && (question.sequence === 1 || question.sequence === 7);
-  const canAddSub = level < maxSubLevel && !readOnly && !is300LockedL1;
+  // 300Template: default L2 that CANNOT add L3 (3xx.1.4-1.5, 3xx.7.1-7.2)
+  const is300L2NoL3 = is300 && level === 1 && isParentDefault300L1 && !is300L2AllowL3;
+  const canAddSub = level < maxSubLevel && !readOnly && !is300LockedL1 && !is300L2NoL3;
   // 300Template: default L2 cannot insert sibling (no "แทรกคำถามต่อท้าย")
   const canInsertSibling = !(is300 && level === 1 && isParentDefault300L1);
   const isDefault200L1 = is200 && level === 0;
@@ -2800,6 +2802,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             items={
               isDefault300L2
                 ? ([
+                  ...(canAddSub
+                    ? [{
+                        label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                        icon: <MessageSquarePlus />,
+                        onClick: onAddSub,
+                      }]
+                    : []),
                   {
                     label: "แก้ไข (Edit)",
                     icon: <Edit />,
