@@ -1108,7 +1108,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     selectBd: 'border-purple-200 dark:border-purple-800 focus:ring-1 focus:ring-purple-400',
     code: 'text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800',
     itemBd: 'border-purple-100 dark:border-purple-900/30', itemText: 'text-purple-600 dark:text-purple-400',
-    activeBg: 'bg-purple-50 dark:bg-purple-900/20', check: 'border-purple-400 text-purple-600 focus:ring-purple-500',
+    activeBg: 'bg-purple-50 dark:bg-purple-900/20', check: 'accent-purple-600 border-purple-400 text-purple-600 focus:ring-purple-500',
     activeAll: 'border-purple-500 bg-purple-500 text-white',
     bindWrap: 'border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20',
   } : {
@@ -1122,7 +1122,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     selectBd: 'border-orange-200 dark:border-orange-800 focus:ring-1 focus:ring-orange-400',
     code: 'text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800',
     itemBd: 'border-orange-100 dark:border-orange-900/30', itemText: 'text-orange-600 dark:text-orange-400',
-    activeBg: 'bg-amber-50 dark:bg-amber-900/20', check: 'border-amber-400 text-amber-600 focus:ring-amber-500',
+    activeBg: 'bg-amber-50 dark:bg-amber-900/20', check: 'accent-amber-600 border-amber-400 text-amber-600 focus:ring-amber-500',
     activeAll: 'border-amber-500 bg-amber-500 text-white',
     bindWrap: 'border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20',
   };
