@@ -1627,6 +1627,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       delete newMeta.answerKeys;
     }
     // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
+    const alwaysCodesInBranch = filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code);
+    const effectiveActiveSubQCodes = Array.from(new Set([...activeSubQCodes, ...alwaysCodesInBranch]));
     if (showSubQuestionEditor) {
       if (useSubQuestions) {
         newMeta.useSubQuestions = true;
@@ -1636,7 +1638,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         // Always save selectedBranch for both 2xx.2 and 2xx.4 (needed for display)
         if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
         else delete newMeta.selectedBranch;
-        newMeta.activeSubQuestions = activeSubQCodes;
+        newMeta.activeSubQuestions = effectiveActiveSubQCodes;
       } else {
         delete newMeta.useSubQuestions;
         delete newMeta.subQuestionList;
@@ -1653,7 +1655,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
 
     // Validation: warn if useSubQuestions=true but no active items selected
-    if (showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0) {
+    if (showSubQuestionEditor && useSubQuestions && effectiveActiveSubQCodes.length === 0) {
       setAlertMessage('ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน\nต้องเลือกคำถามย่อยอย่างน้อย 1 ข้อก่อนบันทึก');
       setIsAlertOpen(true);
       return;
