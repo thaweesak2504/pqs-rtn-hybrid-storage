@@ -92,6 +92,11 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         onTitleChange={handleTitleChange}
         readOnly={readOnly}
         prefix={titlePrefix}
+        metadata={{
+          id: docId,
+          unit_code: '',
+          updated_at: new Date().toISOString()
+        }}
       />
 
       {/* 2. Content Area */}

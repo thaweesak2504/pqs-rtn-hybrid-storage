@@ -825,8 +825,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        // Derive prefix from activeCodes (S+L+X+Y = 4 chars) to separate 22XXX from 24XXX
-        const prefix = activeCodes.length > 0 ? activeCodes[0].substring(0, 4) : "";
+        // Derive prefix from activeCodes (200: 4 chars, 300: 5 chars)
+        const prefix = activeCodes.length > 0 
+          ? (is300 ? activeCodes[0].substring(0, 5) : activeCodes[0].substring(0, 4))
+          : "";
         const prefixFiltered = prefix ? dbSqs.filter(sq => sq.code.startsWith(prefix)) : dbSqs;
         const filtered = prefixFiltered
           .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
@@ -834,7 +836,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         setOwnSubQuestionList(filtered);
       }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
     } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
-  }, [question.metadata]);
+  }, [question.metadata, is300]);
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
@@ -1075,6 +1077,36 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
   const isEdit = !!existingId;
+  // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
+  const sqClr = is300 ? {
+    border: 'border-purple-200 dark:border-purple-800/50', bg: 'bg-purple-50/50 dark:bg-purple-950/20',
+    text: 'text-purple-600 dark:text-purple-400', textBold: 'text-purple-700 dark:text-purple-300',
+    textDim: 'text-purple-600/70 dark:text-purple-400/50', count: 'text-purple-500',
+    toggle: 'peer-checked:bg-purple-500', btn: 'bg-purple-500 text-white hover:bg-purple-600',
+    editBtn: 'border-purple-200 dark:border-purple-700 text-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/30',
+    addBtn: 'border-purple-300 dark:border-purple-700 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200',
+    inputBd: 'border-purple-300 dark:border-purple-700 focus:ring-1 focus:ring-purple-400',
+    selectBd: 'border-purple-200 dark:border-purple-800 focus:ring-1 focus:ring-purple-400',
+    code: 'text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800',
+    itemBd: 'border-purple-100 dark:border-purple-900/30', itemText: 'text-purple-600 dark:text-purple-400',
+    activeBg: 'bg-purple-50 dark:bg-purple-900/20', check: 'border-purple-400 text-purple-600 focus:ring-purple-500',
+    activeAll: 'border-purple-500 bg-purple-500 text-white',
+    bindWrap: 'border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20',
+  } : {
+    border: 'border-orange-200 dark:border-orange-800/50', bg: 'bg-orange-50/50 dark:bg-orange-950/20',
+    text: 'text-orange-600 dark:text-orange-400', textBold: 'text-orange-700 dark:text-orange-300',
+    textDim: 'text-orange-600/70 dark:text-orange-400/50', count: 'text-orange-500',
+    toggle: 'peer-checked:bg-orange-500', btn: 'bg-orange-500 text-white hover:bg-orange-600',
+    editBtn: 'border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30',
+    addBtn: 'border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200',
+    inputBd: 'border-orange-300 dark:border-orange-700 focus:ring-1 focus:ring-orange-400',
+    selectBd: 'border-orange-200 dark:border-orange-800 focus:ring-1 focus:ring-orange-400',
+    code: 'text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800',
+    itemBd: 'border-orange-100 dark:border-orange-900/30', itemText: 'text-orange-600 dark:text-orange-400',
+    activeBg: 'bg-amber-50 dark:bg-amber-900/20', check: 'border-amber-400 text-amber-600 focus:ring-amber-500',
+    activeAll: 'border-amber-500 bg-amber-500 text-white',
+    bindWrap: 'border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20',
+  };
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
@@ -1770,11 +1802,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
           {/* ── SubQuestionList Editor (2xx.2 and 2xx.4 L1 headers only) ── */}
           {showSubQuestionEditor && (
-            <div className="rounded-lg border border-orange-200 dark:border-orange-800/50 bg-orange-50/50 dark:bg-orange-950/20 p-3 space-y-2">
+            <div className={`rounded-lg border ${sqClr.border} ${sqClr.bg} p-3 space-y-2`}>
               {/* Header + Opt-in Toggle */}
               <div className="flex items-center gap-2">
-                <ListChecks className="w-4 h-4 text-orange-600 dark:text-orange-400 shrink-0" />
-                <span className="text-xs font-bold text-orange-700 dark:text-orange-300 uppercase tracking-wider flex-1">
+                <ListChecks className={`w-4 h-4 ${sqClr.text} shrink-0`} />
+                <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider flex-1`}>
                   รายการคำถามย่อย (SubQuestion List)
                 </span>
                 <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
@@ -1782,10 +1814,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     <input type="checkbox" checked={useSubQuestions}
                       onChange={(e) => { setUseSubQuestions(e.target.checked); if (!e.target.checked) setActiveSubQCodes([]); }}
                       className="sr-only peer" />
-                    <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-orange-500 transition-colors"></div>
+                    <div className={`w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 ${sqClr.toggle} transition-colors`}></div>
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
                   </div>
-                  <span className={`text-[10px] font-semibold ${useSubQuestions ? "text-orange-600 dark:text-orange-400" : "text-slate-400 dark:text-slate-500"}`}>
+                  <span className={`text-[10px] font-semibold ${useSubQuestions ? sqClr.text : "text-slate-400 dark:text-slate-500"}`}>
                     {useSubQuestions ? "ใช้งาน" : "ไม่ใช้"}
                   </span>
                 </label>
@@ -1797,39 +1829,39 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <div className="flex flex-wrap gap-2 items-end">
                     {/* Main Branch */}
                     <div className="min-w-[140px] max-w-[280px] w-fit">
-                      <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">
+                      <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>
                         สาขาอาชีพหลัก{sectionOccupationBranches && <span className="ml-1 text-[9px] text-slate-400">(จาก 2xx.2)</span>}
                       </label>
                       {!sectionOccupationBranches && editingMainCode ? (
                         <div className="flex gap-1">
                           <input type="text" maxLength={50} value={editingMainName} onChange={e => setEditingMainName(e.target.value)}
-                            className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
                           <button onClick={async () => { if (!editingMainName.trim()) return; await invoke('update_occupation_branch', { code: editingMainCode, name: editingMainName.trim() }); setDbBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b)); setEditingMainCode(null); setEditingMainName(""); }}
-                            className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                            className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
                           <button onClick={() => { setEditingMainCode(null); setEditingMainName(""); }}
                             className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
                       ) : !sectionOccupationBranches && !isAddingMain ? (
                         <div className="flex gap-1">
                           <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
-                            className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
+                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}>
                             <option value="">-- เลือก --</option>
                             {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
                           </select>
                           {selMainBranch && <>
                             <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
-                              className="px-1.5 py-1 text-[10px] rounded border border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30" title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
+                              className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
                             <button onClick={async () => { const br = dbBranches.find(b => b.code === selMainBranch); if (!window.confirm(`ลบสาขา "${br?.name}"?`)) return; await invoke('delete_occupation_branch', { code: selMainBranch }); setDbBranches(prev => prev.filter(b => b.code !== selMainBranch)); setSelMainBranch(""); setSelSubBranch(""); }}
                               className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขา"><Trash2 className="w-3 h-3" /></button>
                           </>}
-                          <button onClick={() => setIsAddingMain(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>
+                          <button onClick={() => setIsAddingMain(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>
                         </div>
                       ) : !sectionOccupationBranches ? (
                         <div className="flex gap-1">
                           <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
-                            className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
                           <button onClick={async () => { if (!newMainName.trim()) return; const nc = (dbBranches.length + 1).toString(); try { const created = await invoke<{code:string;name:string}>('create_occupation_branch', { code: nc, name: newMainName.trim() }); setDbBranches(prev => [...prev, created]); setSelMainBranch(nc); setSelSubBranch(""); } catch (e: any) { console.error(e); } setNewMainName(""); setIsAddingMain(false); }}
-                            className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                            className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
                           <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
                       ) : (
@@ -1845,36 +1877,36 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     {/* Sub Branch */}
                     {selMainBranch && (
                       <div className="min-w-[140px] max-w-[280px] w-fit">
-                        <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">สาขาย่อย</label>
+                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>สาขาย่อย</label>
                         {!sectionOccupationBranches && editingSubCode ? (
                           <div className="flex gap-1">
                             <input type="text" maxLength={50} value={editingSubName} onChange={e => setEditingSubName(e.target.value)}
-                              className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
                             <button onClick={async () => { if (!editingSubName.trim()) return; await invoke('update_occupation_sub_branch', { code: editingSubCode, branchCode: selMainBranch, name: editingSubName.trim() }); setDbSubBranches(prev => prev.map(sb => sb.code === editingSubCode ? { ...sb, name: editingSubName.trim() } : sb)); setEditingSubCode(null); setEditingSubName(""); }}
-                              className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                              className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setEditingSubCode(null); setEditingSubName(""); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
                         ) : !sectionOccupationBranches && !isAddingSub ? (
                           <div className="flex gap-1">
                             <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                              className="flex-1 px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none">
+                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}>
                               <option value="">-- เลือก --</option>
                               {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
                             </select>
                             {selSubBranch && <>
                               <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
-                                className="px-1.5 py-1 text-[10px] rounded border border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30" title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
+                                className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
                               <button onClick={async () => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (!window.confirm(`ลบสาขาย่อย "${sb?.name}"?`)) return; await invoke('delete_occupation_sub_branch', { code: selSubBranch, branchCode: selMainBranch }); setDbSubBranches(prev => prev.filter(s => s.code !== selSubBranch)); setSelSubBranch(""); }}
                                 className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขาย่อย"><Trash2 className="w-3 h-3" /></button>
                             </>}
-                            <button onClick={() => setIsAddingSub(true)} className="px-1.5 py-1 text-[10px] font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200" title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>
+                            <button onClick={() => setIsAddingSub(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>
                           </div>
                         ) : !sectionOccupationBranches ? (
                           <div className="flex gap-1">
                             <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
-                              className="flex-1 px-2 py-1.5 text-xs border border-orange-300 dark:border-orange-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none focus:ring-1 focus:ring-orange-400" autoFocus />
+                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
                             <button onClick={async () => { if (!newSubName.trim()) return; const nc = (dbSubBranches.length + 1).toString(); try { const created = await invoke<{code:string;branch_code:string;name:string}>('create_occupation_sub_branch', { code: nc, branchCode: selMainBranch, name: newSubName.trim() }); setDbSubBranches(prev => [...prev, created]); setSelSubBranch(nc); } catch (e: any) { console.error(e); } setNewSubName(""); setIsAddingSub(false); }}
-                              className="px-1.5 py-1 text-[10px] font-bold rounded bg-orange-500 text-white hover:bg-orange-600"><CheckCircle className="w-3 h-3" /></button>
+                              className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
                         ) : (
@@ -1891,8 +1923,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     {/* Auto code display */}
                     {autoCodePrefix && (
                       <div className="shrink-0">
-                        <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">รหัส (Auto)</label>
-                        <div className="px-2 py-1.5 text-xs font-mono font-bold text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800 rounded">
+                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>รหัส (Auto)</label>
+                        <div className={`px-2 py-1.5 text-xs font-mono font-bold ${sqClr.code} rounded`}>
                           {autoCode || <span className="text-slate-400">เต็ม</span>}
                         </div>
                       </div>
@@ -1905,9 +1937,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       {filteredItems.map((item, localIdx) => {
                         const dbSq = dbSubQuestions.find(sq => sq.code === item.code);
                         return (
-                          <div key={item.code} className="flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 border border-orange-100 dark:border-orange-900/30 rounded-md group/sq-item">
+                          <div key={item.code} className={`flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 border ${sqClr.itemBd} rounded-md group/sq-item`}>
                             <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
-                            <span className="text-xs font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(localIdx + 1)}.</span>
+                            <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
                             <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
                             {item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
@@ -1928,7 +1960,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   {autoCode && (
                     <div className="flex gap-1.5 items-end">
                       <div className="flex-1">
-                        <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
+                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
                         <input type="text" value={newSqText} 
                           onChange={e => setNewSqText(e.target.value)} 
                           onPaste={e => {
@@ -1946,7 +1978,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             });
                           }}
                           placeholder="พิมพ์คำถามย่อย..."
-                          className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                          className={`w-full px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600`}
                           onKeyDown={async (e) => { if (e.key === "Enter" && newSqText.trim()) { 
                             try { 
                               // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
@@ -1985,7 +2017,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           setNewSqText(""); 
                         }}
                         disabled={!newSqText.trim()}
-                        className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed shrink-0">
+                        className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border ${sqClr.addBtn} disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}>
                         <Plus className="w-3 h-3" /> เพิ่ม
                       </button>
                     </div>
@@ -1998,14 +2030,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     const allActive = activeInBranch.length === filteredItems.length;
                     const alwaysCodes = filteredItems.filter(sq => sq.alwaysChecked).map(sq => sq.code);
                     return (
-                      <div className="pt-2 border-t border-orange-200 dark:border-orange-800/50">
+                      <div className={`pt-2 border-t ${sqClr.border}`}>
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <CheckCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider flex-1">เลือกข้อย่อยที่ใช้งาน</span>
-                          <span className="text-[10px] text-amber-500">{activeInBranch.length}/{filteredItems.length}</span>
+                          <CheckCircle className={`w-3.5 h-3.5 ${sqClr.text}`} />
+                          <span className={`text-[10px] font-bold ${sqClr.textBold} uppercase tracking-wider flex-1`}>เลือกข้อย่อยที่ใช้งาน</span>
+                          <span className={`text-[10px] ${sqClr.count}`}>{activeInBranch.length}/{filteredItems.length}</span>
                           <div className="flex gap-1 ml-auto">
                             <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...branchCodes])}
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-colors ${allActive ? 'border-amber-500 bg-amber-500 text-white' : 'border-amber-300 dark:border-amber-700 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200'}`}>เลือกทั้งหมด</button>
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-colors ${allActive ? sqClr.activeAll : sqClr.addBtn}`}>เลือกทั้งหมด</button>
                             <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...alwaysCodes])}
                               className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100">ยกเลิกทั้งหมด</button>
                           </div>
@@ -2014,10 +2046,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           {filteredItems.map((sq, idx) => {
                             const isActive = activeSubQCodes.includes(sq.code);
                             return (
-                              <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? 'bg-amber-50 dark:bg-amber-900/20 text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
+                              <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}>
                                 <input type="checkbox" checked={isActive} onChange={() => setActiveSubQCodes(prev => isActive ? prev.filter(c => c !== sq.code) : [...prev, sq.code])}
-                                  className="w-3 h-3 rounded border-amber-400 text-amber-600 focus:ring-amber-500" />
-                                <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                                  className={`w-3 h-3 rounded ${sqClr.check}`} />
+                                <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
                                 <span className="flex-1 truncate">{sq.text}</span>
                                 <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{sq.code}</span>
                               </label>
@@ -2034,22 +2066,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
           {/* ── SubQuestion Binding (children of L1 with SubQuestionList) ── */}
           {hasParentSubQ && (
-            <div className="rounded-lg border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-3">
+            <div className={`rounded-lg border ${sqClr.bindWrap} p-3`}>
               <div className="flex items-center gap-2 mb-2">
-                <ListChecks className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">เลือกคำถามย่อย (Select Sub-Questions)</span>
-                <span className="text-[10px] text-amber-500">{selectedSubQCodes.length}/{parentSubQuestionList!.length}</span>
+                <ListChecks className={`w-4 h-4 ${sqClr.text}`} />
+                <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider`}>เลือกคำถามย่อย (Select Sub-Questions)</span>
+                <span className={`text-[10px] ${sqClr.count}`}>{selectedSubQCodes.length}/{parentSubQuestionList!.length}</span>
               </div>
               <div className="grid grid-cols-1 gap-1">
                 {parentSubQuestionList!.map((sq, idx) => {
                   const isChecked = selectedSubQCodes.includes(sq.code);
                   const isForced = sq.alwaysChecked === true;
                   return (
-                    <label key={sq.code} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? 'bg-amber-50 dark:bg-amber-900/20 text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
+                    <label key={sq.code} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
                       <input type="checkbox" checked={isChecked} disabled={isForced}
                         onChange={() => { if (isForced) return; setSelectedSubQCodes(prev => isChecked ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
-                        className="w-3 h-3 rounded border-amber-400 text-amber-600 focus:ring-amber-500" />
-                      <span className="font-bold text-amber-700 dark:text-amber-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                        className={`w-3 h-3 rounded ${sqClr.check}`} />
+                      <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
                       <span className="flex-1">{sq.text}</span>
                       {isForced && <span className="text-[9px] text-emerald-500 font-bold">Auto ✓</span>}
                     </label>
@@ -2559,12 +2591,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
       ).then(dbSqs => {
-        // Determine the prefix from activeCodes (e.g. "2411" from "24111") to filter correctly
-        // This ensures 2xx.4 (24XXX) doesn't show 2xx.2 (22XXX) items and vice versa
+        // Determine the prefix from activeCodes to filter correctly
+        // 200 series uses 4 chars (e.g. "2411" from "24111")
+        // 300 series uses 5 chars (e.g. "3311A" from "3311A1")
         let prefix = "";
         if (activeCodes.length > 0) {
-          // All active codes share the same prefix (S+L+X+Y = 4 chars)
-          prefix = activeCodes[0].substring(0, 4);
+          prefix = is300 ? activeCodes[0].substring(0, 5) : activeCodes[0].substring(0, 4);
         } else if (selectedBranch.sub) {
           // Derive prefix from selectedBranch: need to know S+L — check question sequence from code pattern
           // Use activeCodes prefix if available, otherwise show all for this branch
@@ -2575,7 +2607,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         setDisplaySubQList(filtered.map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked })));
       }).catch(() => setDisplaySubQList([]));
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
-  }, [is200or300, isL1, question.metadata]);
+  }, [is200or300, is300, isL1, question.metadata]);
   const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
 
   // Compute inline sub-question checkboxes for L2/L3
@@ -2597,9 +2629,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           ? "bg-white dark:bg-slate-800"
           : parentLayout === "grid"
             ? "bg-slate-50/80 dark:bg-slate-800/80 m-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm"
-            : level === 1 && is200
-              ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent
-              : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent
+            : level === 1 && is200or300
+            ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent
+            : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent
         }
       ${!isLast && parentLayout !== "grid" ? "border-b border-gray-100 dark:border-slate-700/50" : ""}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
@@ -2646,7 +2678,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
             : level === 1 && is200or300
               ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
-              : "min-w-[24px] text-sm font-normal text-orange-600 dark:text-orange-400" // L3: Normal orange (amber-like)
+              : "min-w-[24px] text-sm font-normal " + (is300 ? "text-purple-600 dark:text-purple-400" : "text-orange-600 dark:text-orange-400") // L3: Normal color
           }
       `}
       >
@@ -2723,7 +2755,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             <div className="mt-1.5 space-y-0.5">
               {display.map((sq, idx) => (
                 <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
-                  <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[1.5ch]">{toThaiAlphabet(idx + 1)}.</span>
+                  <span className={`font-bold min-w-[1.5ch] ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
                   <span>{sq.text}</span>
                   {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
                 </div>
