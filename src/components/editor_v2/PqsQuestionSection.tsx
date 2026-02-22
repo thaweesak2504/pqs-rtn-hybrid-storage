@@ -1675,6 +1675,25 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               setContent(e.target.value);
               if (errors.content) setErrors((prev) => ({ ...prev, content: false }));
             }}
+            onPaste={(e) => {
+              e.preventDefault();
+              const pastedText = e.clipboardData.getData("text");
+              const trimmedText = pastedText.trim();
+              
+              const target = e.target as HTMLTextAreaElement;
+              const start = target.selectionStart || 0;
+              const end = target.selectionEnd || 0;
+              const currentValue = target.value;
+              
+              const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
+              setContent(newValue);
+              
+              requestAnimationFrame(() => {
+                target.selectionStart = target.selectionEnd = start + trimmedText.length;
+              });
+              
+              if (errors.content) setErrors((prev) => ({ ...prev, content: false }));
+            }}
             onKeyDown={handleKeyDown}
             placeholder="พิมพ์คำถาม..."
             disabled={isDefault200L1}
@@ -1701,6 +1720,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   ref={descriptionRef}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const pastedText = e.clipboardData.getData("text");
+                    const trimmedText = pastedText.trim();
+                    
+                    const target = e.target as HTMLTextAreaElement;
+                    const start = target.selectionStart || 0;
+                    const end = target.selectionEnd || 0;
+                    const currentValue = target.value;
+                    
+                    const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
+                    setDescription(newValue);
+                    
+                    requestAnimationFrame(() => {
+                      target.selectionStart = target.selectionEnd = start + trimmedText.length;
+                    });
+                  }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
                   className="w-full p-2 pr-7 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-sm min-h-[34px] overflow-hidden"
                   rows={1}
@@ -1880,7 +1916,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     <div className="flex gap-1.5 items-end">
                       <div className="flex-1">
                         <label className="block text-[10px] text-orange-600/70 dark:text-orange-400/50 mb-0.5">ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
-                        <input type="text" value={newSqText} onChange={e => setNewSqText(e.target.value)} placeholder="พิมพ์คำถามย่อย..."
+                        <input type="text" value={newSqText} 
+                          onChange={e => setNewSqText(e.target.value)} 
+                          onPaste={e => {
+                            e.preventDefault();
+                            const pastedText = e.clipboardData.getData("text");
+                            const trimmedText = pastedText.trim();
+                            const target = e.target as HTMLInputElement;
+                            const start = target.selectionStart || 0;
+                            const end = target.selectionEnd || 0;
+                            const currentValue = target.value;
+                            const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
+                            setNewSqText(newValue);
+                            requestAnimationFrame(() => {
+                              target.selectionStart = target.selectionEnd = start + trimmedText.length;
+                            });
+                          }}
+                          placeholder="พิมพ์คำถามย่อย..."
                           className="w-full px-2 py-1.5 text-xs border border-orange-200 dark:border-orange-800 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-1 focus:ring-orange-400 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600"
                           onKeyDown={async (e) => { if (e.key === "Enter" && newSqText.trim()) { 
                             try { 

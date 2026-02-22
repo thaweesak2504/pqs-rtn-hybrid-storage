@@ -38,6 +38,32 @@ const AnswerKeyEditor: React.FC<AnswerKeyEditorProps> = ({
     [onChange],
   );
 
+  // Helper for trimming pasted text to prevent accidental newlines
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      e.preventDefault();
+      const pastedText = e.clipboardData.getData("text");
+      // Trim leading/trailing whitespace including newlines
+      const trimmedText = pastedText.trim();
+      
+      const el = textareaRef.current;
+      if (!el) return;
+
+      const selectionStart = el.selectionStart ?? 0;
+      const selectionEnd = el.selectionEnd ?? 0;
+      const currentValue = el.value;
+
+      const newValue = currentValue.substring(0, selectionStart) + trimmedText + currentValue.substring(selectionEnd);
+      onChange(newValue);
+
+      // Move cursor after pasted text
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = selectionStart + trimmedText.length;
+      });
+    },
+    [onChange]
+  );
+
   const applyAction = useCallback(
     (action: ToolbarAction) => {
       const el = textareaRef.current;
@@ -168,6 +194,7 @@ const AnswerKeyEditor: React.FC<AnswerKeyEditorProps> = ({
         ref={textareaRef}
         value={value}
         onChange={(e) => handleChange(e.target.value)}
+        onPaste={handlePaste}
         placeholder="เฉลยคำตอบ (Answer Key)..."
         className={`w-full p-2 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif]
           ${hasError
