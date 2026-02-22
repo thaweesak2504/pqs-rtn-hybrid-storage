@@ -1115,8 +1115,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
-  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2, 3xx.4 only) ----
-  const showSubQuestionEditor = is200or300 && level === 0 && (questionSequence === 2 || questionSequence === 4 || questionSequence === 3 || questionSequence === 5);
+  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
+  const showSubQuestionEditor = level === 0 && (
+    (is200 && (questionSequence === 2 || questionSequence === 4)) ||
+    (is300 && (questionSequence === 2 || questionSequence === 3 || questionSequence === 4 || questionSequence === 5))
+  );
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
@@ -1668,16 +1671,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           {/* Optional Toggles (L1 Only for 100/300, L0+L1 for 200) */}
           {showExtraButtons && (
             <div className="flex items-center gap-1">
-              {!isDefaultL1 && (
-                <button
-                  type="button"
-                  onClick={() => setShowDescription(true)}
-                  className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                  title="เพิ่มคำอธิบาย"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setShowDescription(true)}
+                className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                title="เพิ่มคำอธิบาย"
+              >
+                <FileText className="w-3.5 h-3.5" />
+              </button>
               {!imagePath && (
                 <button
                   type="button"
@@ -2712,13 +2713,14 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               {inlineSubQItems.map(({ sq, checked }, idx) => (
                 <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                  <span className="text-amber-600 dark:text-amber-400 font-bold">{toThaiAlphabet(idx + 1)}.</span>
+                  <span className={`font-bold ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
                   <span className={`w-3.5 h-3.5 inline-flex items-center justify-center rounded border text-[9px] font-bold shrink-0
                     ${checked
-                      ? "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
-                      : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-transparent"
-                    }`}>
-                    {checked ? "✓" : ""}
+                      ? is300 ? "border-purple-400 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" : "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
+                    }`}
+                  >
+                    {checked && "✔"}
                   </span>
                 </span>
               ))}

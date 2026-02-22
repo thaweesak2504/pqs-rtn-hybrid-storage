@@ -41,7 +41,7 @@ Implement the generation of the following fixed default questions (Read-only str
 
 #### 3xx.2 to 3xx.5 (Sub-question branches like 2xx.2)
 
-*(These use the same occupation branches as 200Template, but with '3' prefix)*
+(These use the same occupation branches as 200Template, but with '3' prefix)
 
 - **3xx.2**: "การทดสอบปฏิบัติงานปกติ"
 - **3xx.3**: "การทดสอบการปฏิบัติงานกรณีพิเศษ"
