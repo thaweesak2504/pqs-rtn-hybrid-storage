@@ -1073,6 +1073,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
+  const isL1 = level === 0;
+  const isEdit = !!existingId;
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
@@ -1250,26 +1252,31 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     try {
       const meta = JSON.parse(initialMetadata);
       return (meta.answerKeys && typeof meta.answerKeys === "object") ? meta.answerKeys : {};
-    } catch { return {}; }
+    } catch {
+      return {};
+    }
   });
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
-    if (!initialMetadata) return is200 ? false : true; // Default: Unrequired for 200, Required for others
+    if (!initialMetadata) return is200or300 ? false : true; // Default: Unrequired for 200/300, Required for others
     try {
       const meta = JSON.parse(initialMetadata);
-      return meta.requireRef !== false;
+      if (meta.requireRef !== undefined) return meta.requireRef;
+      return is200or300 ? false : true;
     } catch {
-      return is200 ? false : true;
+      return is200or300 ? false : true;
     }
   });
+
   const [requireAnswerKey, setRequireAnswerKey] = useState<boolean>(() => {
-    if (!initialMetadata) return true;
+    if (!initialMetadata) return is300 ? false : true; // Default: Unrequired for 300, Required for others
     try {
       const meta = JSON.parse(initialMetadata);
-      return meta.requireAnswerKey !== false;
+      if (meta.requireAnswerKey !== undefined) return meta.requireAnswerKey;
+      return is300 ? false : true;
     } catch {
-      return true;
+      return is300 ? false : true;
     }
   });
 
@@ -1280,9 +1287,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     {},
   ); // Inline Validation State
 
-  const isEdit = !!initialContent;
-  const isL1 = level === 0;
-  const showExtraButtons = is200 ? (level === 0 || level === 1) : isL1; // 200: show for L0 & L1, others: L0 only
+  const showExtraButtons = is200or300 ? (level === 0 || level === 1) : isL1; // 200/300: show for L0 & L1, others: L0 only
 
   // Refs for auto-resizing
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -2571,7 +2576,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       }).catch(() => setDisplaySubQList([]));
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
   }, [is200or300, isL1, question.metadata]);
-  const showDescriptionImage = is200 ? (level === 0 || level === 1) : isL1;
+  const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
 
   // Compute inline sub-question checkboxes for L2/L3
   const inlineSubQItems = useMemo(() => {
