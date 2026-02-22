@@ -797,6 +797,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const maxSubLevel = is200or300 ? 2 : 1;
   const canAddSub = level < maxSubLevel && !readOnly;
   const isDefault200L1 = is200 && level === 0;
+  const isDefault300L1 = is300 && level === 0;
+  const isDefaultL1 = isDefault200L1 || isDefault300L1;
 
   const [childLayout, setChildLayout] = useState<"list" | "grid">("list");
 
@@ -852,7 +854,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           prefix={prefix}
           level={level}
           sectionGroup={sectionGroup}
-          isDefault200L1={isDefault200L1}
+          isDefaultL1={isDefaultL1}
           initialContent={question.content}
           initialDescription={question.description || undefined}
           initialImage={initialImage}
@@ -910,7 +912,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         canAddSub={canAddSub}
         isFirst={isFirst}
         isLast={isLast}
-        isDefault200L1={isDefault200L1}
+        isDefaultL1={isDefaultL1}
         onToggle={() => onToggleCollapse(question.id)}
         onEdit={() => onStartEdit(question.id)}
         onDelete={() => onDelete(question)}
@@ -1017,7 +1019,7 @@ interface QuestionFormCardProps {
   prefix: string;
   level: number; // New prop to determine if L1
   sectionGroup?: 100 | 200 | 300;
-  isDefault200L1?: boolean; // Flag for default 200 L1 questions (restricted editing)
+  isDefaultL1?: boolean; // Flag for default L1 questions (restricted editing)
   initialContent?: string;
   initialDescription?: string;
   initialImage?: string;
@@ -1050,7 +1052,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   prefix,
   level,
   sectionGroup = 100,
-  isDefault200L1 = false,
+  isDefaultL1 = false,
   initialContent = "",
   initialDescription = "",
   initialImage = "",
@@ -1487,7 +1489,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       hasError = true;
     }
     const is300 = sectionGroup === 300;
-    const showAnswerKey = !is300 && (!isDefault200L1 && requireAnswerKey && !useSubQuestions && (!hasParentSubQ || activeSubQCodes.length > 0));
+    const showAnswerKey = !is300 && (!isDefaultL1 && requireAnswerKey && !useSubQuestions && (!hasParentSubQ || activeSubQCodes.length > 0));
     if (showAnswerKey) {
       if (hasParentSubQ && selectedSubQCodes.length > 0) {
         // ตรวจว่าทุก subQ ที่เลือกมี answer key
@@ -1498,7 +1500,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         hasError = true;
       }
     }
-    if (!isDefault200L1 && requireRef && linkedRefs.length === 0) {
+    if (!isDefaultL1 && requireRef && linkedRefs.length === 0) {
       newErrors.refs = true;
       hasError = true;
     }
@@ -1627,7 +1629,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           {/* Optional Toggles (L1 Only for 100/300, L0+L1 for 200) */}
           {showExtraButtons && (
             <div className="flex items-center gap-1">
-              {!showDescription && (
+              {!isDefaultL1 && (
                 <button
                   type="button"
                   onClick={() => setShowDescription(true)}
@@ -1647,7 +1649,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <ImageIcon className="w-3.5 h-3.5" />
                 </button>
               )}
-              {!isDefault200L1 && (
+              {!isDefaultL1 && (
                 <button
                   type="button"
                   onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
@@ -1675,7 +1677,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </label>
           <textarea
             ref={contentRef}
-            autoFocus={!isDefault200L1}
+            autoFocus={!isDefaultL1}
             value={content}
             onChange={(e) => {
               setContent(e.target.value);
@@ -1702,9 +1704,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }}
             onKeyDown={handleKeyDown}
             placeholder="พิมพ์คำถาม..."
-            disabled={isDefault200L1}
+            disabled={isDefaultL1}
             className={`w-full p-2 border rounded-md text-sm font-semibold resize-none min-h-[36px] overflow-hidden leading-relaxed
-              ${isDefault200L1 ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed" : ""}
+              ${isDefaultL1 ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed" : ""}
               ${errors.content
                 ? "border-red-500 bg-red-50 dark:bg-red-900/10 focus:ring-red-500 placeholder:text-red-300"
                 : "border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-900/80 dark:text-slate-100 focus:ring-blue-500/50 focus:border-blue-400 dark:focus:border-blue-500 placeholder:text-slate-300 dark:placeholder:text-slate-600"
@@ -2053,7 +2055,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
           {/* Toggle Options: Reference + Answer Key (Hidden for default 200 L1) */}
-          {!isDefault200L1 && (
+          {!isDefaultL1 && (
             <div className="flex items-center gap-4 py-1">
               <label className="inline-flex items-center gap-2 cursor-pointer select-none">
                 <div className="relative inline-flex items-center">
@@ -2107,7 +2109,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
           {/* References Section (Both L1 & L2, conditional on toggle — hidden for default 200 L1) */}
-          {!isDefault200L1 && requireRef && (
+          {!isDefaultL1 && requireRef && (
             <>
               <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
                 <span>เอกสารอ้างอิง (References)</span>
@@ -2338,7 +2340,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>
 
         {/* Answer Key (conditional on toggle — hidden for default 200 L1, hidden when useSubQuestions=true but none selected, hidden when hasParentSubQ but none selected) */}
-        {!is300 && !isDefault200L1 && requireAnswerKey
+        {!is300 && !isDefaultL1 && requireAnswerKey
           && !(showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0)
           && !(hasParentSubQ && selectedSubQCodes.length === 0)
           && (
@@ -2495,7 +2497,7 @@ interface QuestionDisplayCardProps {
   canAddSub: boolean;
   isFirst: boolean;
   isLast: boolean;
-  isDefault200L1?: boolean;
+  isDefaultL1?: boolean;
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -2519,7 +2521,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   canAddSub,
   isFirst,
   isLast,
-  isDefault200L1 = false,
+  isDefaultL1 = false,
   onToggle,
   onEdit,
   onDelete,
@@ -2599,7 +2601,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     `}
     >
       {/* L2 connector dot */}
-      {level === 1 && is200 && parentLayout !== "grid" && (
+      {level === 1 && is200or300 && parentLayout !== "grid" && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
@@ -2607,7 +2609,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       )}
       
       {/* L3 connector dot only */}
-      {!(isL1 || (level === 1 && is200)) && parentLayout !== "grid" && (
+      {!(isL1 || (level === 1 && is200or300)) && parentLayout !== "grid" && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
@@ -2637,7 +2639,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         shrink-0 inline-flex items-center justify-center
         ${isL1
             ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
-            : level === 1 && is200
+            : level === 1 && is200or300
               ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
               : "min-w-[24px] text-sm font-normal text-orange-600 dark:text-orange-400" // L3: Normal orange (amber-like)
           }
@@ -2651,7 +2653,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         className={`flex-1 flex flex-col min-w-0 select-text
         ${isL1
             ? "text-sm text-slate-900 dark:text-slate-100" // L1: Stronger emphasis
-            : level === 1 && is200
+            : level === 1 && is200or300
               ? "text-sm font-medium text-slate-800 dark:text-slate-200" // L2: Medium weight, slightly darker
               : "text-sm font-normal text-slate-600 dark:text-slate-400" // L3: Normal weight, slightly lighter
           }
@@ -2695,8 +2697,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             {question.description}
           </div> // Description: Match L2 style
         )}
-        {/* SubQuestionList display for 2xx.2 / 2xx.4 L1 — DB-backed */}
-        {is200 && isL1 && displaySubQList.length > 0 && (() => {
+        {/* SubQuestionList display for 2xx.2 / 2xx.4 / 3xx.2 / 3xx.4 L1 — DB-backed */}
+        {is200or300 && isL1 && displaySubQList.length > 0 && (() => {
           if (displayActiveCodes.length === 0) {
             return (
               <div className="mt-1.5 flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400">
@@ -2740,7 +2742,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               </button>
             }
             items={
-              isDefault200L1
+              isDefaultL1
                 ? ([
                   ...(canAddSub
                     ? [{
