@@ -1114,10 +1114,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isEdit = !!existingId;
 
   // Special question type detection for Section 300
-  const isPrerequisiteQuestion = is300 && questionSequence && (
-    (isL1 && questionSequence === 1) || // 3xx.1
-    (!isL1 && questionSequence >= 1 && questionSequence <= 3) // 3xx.1.1 - 3xx.1.3
-  );
+  const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
 
     // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
