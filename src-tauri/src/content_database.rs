@@ -113,6 +113,9 @@ pub fn initialize_content_database() -> Result<String, String> {
             menu_label TEXT NOT NULL,
             display_order INTEGER,
             is_system_defined BOOLEAN DEFAULT 0,
+            duration_value INTEGER,
+            duration_unit VARCHAR(20) DEFAULT 'weeks',
+            total_score INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(document_id, section_number),
@@ -120,6 +123,11 @@ pub fn initialize_content_database() -> Result<String, String> {
         )",
         [],
     ).map_err(|e| format!("Failed to create Sections table: {}", e))?;
+
+    // Migration: Add scoring columns to Sections if missing
+    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_value INTEGER", []);
+    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_unit VARCHAR(20) DEFAULT 'weeks'", []);
+    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN total_score INTEGER", []);
 
     // Create indexes for Sections
     conn.execute(
@@ -517,6 +525,12 @@ pub struct Question {
     pub description: Option<String>,
     pub answer_type: Option<String>,
     pub metadata: Option<String>, // JSON string
+    pub score: Option<i32>,
+    pub question_type: Option<String>,   // 'normal', 'performance', 'exempted'
+    pub group_score: Option<i32>,
+    pub display_text: Option<String>,    // e.g. "(ไม่ต้องปฏิบัติ)"
+    pub is_group_header: Option<bool>,
+    pub is_scored: Option<bool>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -588,7 +602,7 @@ fn generate_uuid() -> String {
 // Use this to EXTEND existing initialization
 pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // Questions Table
-    // Updated to include section_id and answer_type
+    // Updated to include section_id, answer_type, and scoring columns
     conn.execute(
         "CREATE TABLE IF NOT EXISTS Questions (
             id TEXT PRIMARY KEY,
@@ -601,6 +615,12 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             description TEXT,
             answer_type VARCHAR(20) DEFAULT 'text',
             metadata TEXT,
+            score INTEGER DEFAULT 0,
+            question_type VARCHAR(20) DEFAULT 'normal',
+            group_score INTEGER DEFAULT 0,
+            display_text TEXT,
+            is_group_header BOOLEAN DEFAULT 0,
+            is_scored BOOLEAN DEFAULT 0,
             FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
             FOREIGN KEY(parent_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
@@ -610,6 +630,12 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // Migration: Add new columns if missing (swallow errors if they exist)
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN section_id INTEGER", []);
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN answer_type VARCHAR(20) DEFAULT 'text'", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN score INTEGER DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN question_type VARCHAR(20) DEFAULT 'normal'", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN group_score INTEGER DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN display_text TEXT", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_group_header BOOLEAN DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_scored BOOLEAN DEFAULT 0", []);
 
     // QuestionChoices Table
     conn.execute(
@@ -655,6 +681,36 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         )",
         [],
     ).map_err(|e| format!("Failed to create UserAnswers table: {}", e))?;
+
+    // UserProgress Table - Track trainee scoring progress per section
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS UserProgress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            document_id VARCHAR(11) NOT NULL,
+            section_id INTEGER,
+            earned_score INTEGER DEFAULT 0,
+            max_score INTEGER DEFAULT 0,
+            completion_percentage REAL DEFAULT 0.0,
+            is_passed BOOLEAN DEFAULT 0,
+            passing_score INTEGER DEFAULT 70,
+            last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, document_id, section_id),
+            FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
+            FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create UserProgress table: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_progress_user ON UserProgress(user_id)",
+        [],
+    ).map_err(|e| format!("Failed to create index on UserProgress.user_id: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_progress_doc ON UserProgress(user_id, document_id)",
+        [],
+    ).map_err(|e| format!("Failed to create index on UserProgress: {}", e))?;
 
     // References Table - Reusable reference documents
     // Updated Schema 2026-02-09: Added classification, file_path. Removed usage of is_common/short_name
@@ -786,7 +842,8 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
     let mut stmt = conn.prepare(
-        "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata 
+        "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata,
+                score, question_type, group_score, display_text, is_group_header, is_scored
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
@@ -802,6 +859,12 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
             description: row.get(7)?,
             answer_type: row.get(8)?,
             metadata: row.get(9)?,
+            score: row.get(10)?,
+            question_type: row.get(11)?,
+            group_score: row.get(12)?,
+            display_text: row.get(13)?,
+            is_group_header: row.get(14)?,
+            is_scored: row.get(15)?,
         })
     }).map_err(|e| format!("Query map failed: {}", e))?;
 
@@ -836,7 +899,8 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
     
     // 1. Get Questions
     let mut stmt = conn.prepare(
-        "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata 
+        "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata,
+                score, question_type, group_score, display_text, is_group_header, is_scored
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
@@ -852,6 +916,12 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
             description: row.get(7)?,
             answer_type: row.get(8)?,
             metadata: row.get(9)?,
+            score: row.get(10)?,
+            question_type: row.get(11)?,
+            group_score: row.get(12)?,
+            display_text: row.get(13)?,
+            is_group_header: row.get(14)?,
+            is_scored: row.get(15)?,
         })
     }).map_err(|e| format!("Query map failed: {}", e))?;
 
@@ -952,6 +1022,12 @@ pub struct CreateQuestionArgs {
     pub sequence: Option<i32>,
     pub answer_type: Option<String>,
     pub metadata: Option<String>,
+    pub score: Option<i32>,
+    pub question_type: Option<String>,
+    pub group_score: Option<i32>,
+    pub display_text: Option<String>,
+    pub is_group_header: Option<bool>,
+    pub is_scored: Option<bool>,
 }
 
 // fn sync_question_references(conn: &Connection, question_id: &str, metadata_json: Option<&str>) -> Result<(), String> {
@@ -1022,8 +1098,8 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     };
 
     conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored) 
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         params![
             id, 
             args.document_id, 
@@ -1034,7 +1110,13 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
             args.is_header, 
             args.description,
             args.answer_type.unwrap_or("text".to_string()),
-            args.metadata
+            args.metadata,
+            args.score.unwrap_or(0),
+            args.question_type.unwrap_or("normal".to_string()),
+            args.group_score.unwrap_or(0),
+            args.display_text,
+            args.is_group_header.unwrap_or(false),
+            args.is_scored.unwrap_or(false)
         ]
     )
     .map_err(|e| e.to_string())?;
@@ -1052,6 +1134,12 @@ pub struct UpdateQuestionArgs {
     pub content: String,
     pub description: Option<String>,
     pub metadata: Option<String>,
+    pub score: Option<i32>,
+    pub question_type: Option<String>,
+    pub group_score: Option<i32>,
+    pub display_text: Option<String>,
+    pub is_group_header: Option<bool>,
+    pub is_scored: Option<bool>,
 }
 
 pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
@@ -1059,13 +1147,19 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
 
     conn.execute(
         "UPDATE Questions 
-         SET content = ?2, description = ?3, metadata = ?4 
+         SET content = ?2, description = ?3, metadata = ?4, score = ?5, question_type = ?6, group_score = ?7, display_text = ?8, is_group_header = ?9, is_scored = ?10
          WHERE id = ?1",
         params![
             args.id, 
             args.content, 
             args.description,
-            args.metadata
+            args.metadata,
+            args.score.unwrap_or(0),
+            args.question_type.unwrap_or("normal".to_string()),
+            args.group_score.unwrap_or(0),
+            args.display_text,
+            args.is_group_header.unwrap_or(false),
+            args.is_scored.unwrap_or(false)
         ]
     )
     .map_err(|e| e.to_string())?;
@@ -1223,6 +1317,9 @@ pub struct Section {
     pub menu_label: String,
     pub display_order: i32,
     pub is_system_defined: bool,
+    pub duration_value: Option<i32>,
+    pub duration_unit: Option<String>,
+    pub total_score: Option<i32>,
     pub created_at: String,
     pub updated_at: Option<String>,
 }
@@ -1452,19 +1549,18 @@ pub struct UpdateSectionArgs {
     pub id: i64,
     pub title_th: String,
     pub menu_label: String,
+    pub duration_value: Option<i32>,
+    pub duration_unit: Option<String>,
+    pub total_score: Option<i32>,
 }
 
-/// Update a section (Title, Menu Label)
+/// Update a section (Title, Menu Label, Duration, Score)
 pub fn update_section(args: UpdateSectionArgs) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Check if system defined (still allow title edit? verify requirement. Usually system defined structure is fixed, but maybe title is editable?)
-    // User wants to edit "101 Precautions" title. 101 IS system defined.
-    // So we should ALLOW editing title but maybe NOT deletion or number change.
-    
     conn.execute(
-        "UPDATE Sections SET title_th = ?1, menu_label = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
-        params![args.title_th, args.menu_label, args.id],
+        "UPDATE Sections SET title_th = ?1, menu_label = ?2, duration_value = ?3, duration_unit = ?4, total_score = ?5, updated_at = CURRENT_TIMESTAMP WHERE id = ?6",
+        params![args.title_th, args.menu_label, args.duration_value, args.duration_unit, args.total_score, args.id],
     )
     .map_err(|e| e.to_string())?;
 
@@ -1478,7 +1574,8 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
     let mut stmt = conn
         .prepare(
             "SELECT id, document_id, section_group, section_number, title_th, menu_label, 
-                    display_order, is_system_defined, created_at, updated_at
+                    display_order, is_system_defined, duration_value, duration_unit, total_score,
+                    created_at, updated_at
              FROM Sections
              WHERE document_id = ?1
              ORDER BY section_group, section_number"
@@ -1496,8 +1593,11 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
                 menu_label: row.get(5)?,
                 display_order: row.get(6)?,
                 is_system_defined: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                duration_value: row.get(8)?,
+                duration_unit: row.get(9)?,
+                total_score: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         })
         .map_err(|e| e.to_string())?
@@ -1552,7 +1652,8 @@ pub fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
 fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
     conn.query_row(
         "SELECT id, document_id, section_group, section_number, title_th, menu_label, 
-                display_order, is_system_defined, created_at, updated_at
+                display_order, is_system_defined, duration_value, duration_unit, total_score,
+                created_at, updated_at
          FROM Sections WHERE id = ?1",
         params![id],
         |row| {
@@ -1565,8 +1666,11 @@ fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
                 menu_label: row.get(5)?,
                 display_order: row.get(6)?,
                 is_system_defined: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                duration_value: row.get(8)?,
+                duration_unit: row.get(9)?,
+                total_score: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         }
     )
@@ -2618,4 +2722,122 @@ pub fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
     conn.execute("DELETE FROM OccupationSubQuestions WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// ===== User Progress & Scoring =====
+
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub struct UserProgress {
+    pub id: i64,
+    pub user_id: String,
+    pub document_id: String,
+    pub section_id: Option<i64>,
+    pub earned_score: i32,
+    pub max_score: i32,
+    pub completion_percentage: f64,
+    pub is_passed: bool,
+    pub passing_score: i32,
+    pub last_updated: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct UpsertUserProgressArgs {
+    pub user_id: String,
+    pub document_id: String,
+    pub section_id: Option<i64>,
+    pub earned_score: i32,
+    pub max_score: i32,
+    pub passing_score: Option<i32>,
+}
+
+/// Upsert (insert or update) user progress for a section
+pub fn upsert_user_progress(args: UpsertUserProgressArgs) -> Result<UserProgress, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let passing = args.passing_score.unwrap_or(70);
+    let pct = if args.max_score > 0 {
+        (args.earned_score as f64 / args.max_score as f64) * 100.0
+    } else {
+        0.0
+    };
+    let is_passed = pct >= passing as f64;
+
+    conn.execute(
+        "INSERT INTO UserProgress (user_id, document_id, section_id, earned_score, max_score, completion_percentage, is_passed, passing_score, last_updated)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, CURRENT_TIMESTAMP)
+         ON CONFLICT(user_id, document_id, section_id) DO UPDATE SET
+            earned_score = ?4, max_score = ?5, completion_percentage = ?6, is_passed = ?7, passing_score = ?8, last_updated = CURRENT_TIMESTAMP",
+        params![args.user_id, args.document_id, args.section_id, args.earned_score, args.max_score, pct, is_passed, passing],
+    ).map_err(|e| e.to_string())?;
+
+    // Return the upserted row
+    let progress = conn.query_row(
+        "SELECT id, user_id, document_id, section_id, earned_score, max_score, completion_percentage, is_passed, passing_score, last_updated
+         FROM UserProgress WHERE user_id = ?1 AND document_id = ?2 AND section_id IS ?3",
+        params![args.user_id, args.document_id, args.section_id],
+        |row| {
+            Ok(UserProgress {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                document_id: row.get(2)?,
+                section_id: row.get(3)?,
+                earned_score: row.get(4)?,
+                max_score: row.get(5)?,
+                completion_percentage: row.get(6)?,
+                is_passed: row.get(7)?,
+                passing_score: row.get(8)?,
+                last_updated: row.get(9)?,
+            })
+        }
+    ).map_err(|e| e.to_string())?;
+
+    Ok(progress)
+}
+
+/// Get all progress entries for a user in a document
+pub fn get_user_progress(user_id: String, document_id: String) -> Result<Vec<UserProgress>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, user_id, document_id, section_id, earned_score, max_score, completion_percentage, is_passed, passing_score, last_updated
+         FROM UserProgress WHERE user_id = ?1 AND document_id = ?2"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(params![user_id, document_id], |row| {
+        Ok(UserProgress {
+            id: row.get(0)?,
+            user_id: row.get(1)?,
+            document_id: row.get(2)?,
+            section_id: row.get(3)?,
+            earned_score: row.get(4)?,
+            max_score: row.get(5)?,
+            completion_percentage: row.get(6)?,
+            is_passed: row.get(7)?,
+            passing_score: row.get(8)?,
+            last_updated: row.get(9)?,
+        })
+    }).map_err(|e| e.to_string())?
+      .collect::<Result<Vec<_>, _>>()
+      .map_err(|e| e.to_string())?;
+
+    Ok(rows)
+}
+
+/// Calculate total score for a section by summing scored questions
+pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let total: i32 = conn.query_row(
+        "SELECT COALESCE(SUM(score), 0) FROM Questions WHERE section_id = ?1 AND is_scored = 1",
+        params![section_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    // Auto-update the section's total_score
+    conn.execute(
+        "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+        params![total, section_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(total)
 }

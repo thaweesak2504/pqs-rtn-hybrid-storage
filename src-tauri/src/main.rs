@@ -838,6 +838,28 @@ fn migrate_section_101() -> Result<usize, String> {
     migration_helper::migrate_create_section_101()
 }
 
+// ===== Scoring & User Progress Commands =====
+
+#[tauri::command]
+fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
+    content_database::calculate_section_total_score(section_id)
+}
+
+#[tauri::command]
+fn upsert_user_progress(
+    args: content_database::UpsertUserProgressArgs,
+) -> Result<content_database::UserProgress, String> {
+    content_database::upsert_user_progress(args)
+}
+
+#[tauri::command]
+fn get_user_progress(
+    user_id: String,
+    document_id: String,
+) -> Result<Vec<content_database::UserProgress>, String> {
+    content_database::get_user_progress(user_id, document_id)
+}
+
 // ===== Reference Management Commands =====
 
 #[tauri::command]
@@ -1284,6 +1306,10 @@ fn main() {
             create_occupation_sub_question,
             update_occupation_sub_question,
             delete_occupation_sub_question,
+            // Scoring & User Progress
+            calculate_section_total_score,
+            upsert_user_progress,
+            get_user_progress,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
