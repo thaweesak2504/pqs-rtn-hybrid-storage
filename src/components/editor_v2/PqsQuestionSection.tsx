@@ -2729,7 +2729,6 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               <div className="space-y-0.5">
                 {sectionLinks.map(link => (
                   <div key={link.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
-                    <span className="text-blue-400">✓</span>
                     <span className="font-medium">{toThaiNumber(link.section_number)}</span>
                     <span className="flex-1">{link.section_title}</span>
                     {isEdit && (
@@ -3201,7 +3200,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           <div className="mt-1.5 space-y-0.5">
             {displaySectionLinks.map(link => (
               <div key={link.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
-                <span className="text-blue-400">✓</span>
                 <span className="font-bold">{toThaiNumber(link.section_number)}</span>
                 <span className="flex-1">{link.section_title}</span>
                 {link.score > 0 && (
