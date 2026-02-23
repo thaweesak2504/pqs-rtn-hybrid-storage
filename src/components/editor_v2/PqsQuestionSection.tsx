@@ -1118,20 +1118,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     (isL1 && questionSequence === 1) || // 3xx.1
     (!isL1 && questionSequence >= 1 && questionSequence <= 3) // 3xx.1.1 - 3xx.1.3
   );
-  const isKnowledgeTestQuestion = is300 && questionSequence && (
-    (isL1 && questionSequence === 7) || // 3xx.7
-    (!isL1 && (questionSequence === 1 || questionSequence === 2)) // 3xx.7.1 - 3xx.7.2
-  );
-  const isSpecialNoScoreQuestion = isPrerequisiteQuestion || isKnowledgeTestQuestion;
 
-  // Check if parent is a special no-score question (for L3 children)
-  const parentIsSpecialNoScore = is300 && parentSubQuestionList && (
-    // Check if this is an L3 child of a prerequisite question (3xx.1)
-    parentSubQuestionList.some(sq => sq.alwaysChecked) ||
-    // Check if this is an L3 child of a knowledge test question (3xx.7)
-    false // TODO: Add logic for knowledge test children if needed
-  );
-  // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
+    // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
     border: 'border-purple-200 dark:border-purple-800/50', bg: 'bg-purple-50/50 dark:bg-purple-950/20',
     text: 'text-purple-600 dark:text-purple-400', textBold: 'text-purple-700 dark:text-purple-300',
@@ -2546,8 +2534,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Score Editing (Section 300 only) - hide for group headers, special no-score questions, and their children */}
-        {is300 && !initialIsGroupHeader && !isSpecialNoScoreQuestion && !parentIsSpecialNoScore && (
+        {/* Score Editing (Section 300 only) - hide for group headers and prerequisite questions */}
+        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2595,54 +2583,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Special Question Type Info (Section 300 only) */}
-        {is300 && isSpecialNoScoreQuestion && (
+        {/* Special handling for 3xx.1 (Prerequisites) */}
+        {is300 && isPrerequisiteQuestion && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                {isKnowledgeTestQuestion ? 'Knowledge Test' : 'Prerequisite'}
-              </span>
-              {isPrerequisiteQuestion && (
-                <>
-                  <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      disabled={true}
-                      className="accent-gray-400 w-3.5 h-3.5 opacity-50"
-                    />
-                    มีคะแนน (is_scored) - ไม่อนุญาตสำหรับข้อนี้
-                  </label>
-                  <select
-                    value={formScoreType}
-                    onChange={(e) => {
-                      setFormScoreType(e.target.value);
-                      if (e.target.value === 'exempted') {
-                        setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
-                      }
-                    }}
-                    className="text-xs px-2 py-0.5 border border-amber-300 dark:border-amber-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-amber-400"
-                  >
-                    <option value="normal">ปกติ (normal)</option>
-                    <option value="performance">ปฏิบัติ (performance)</option>
-                    <option value="exempted">ไม่ต้องปฏิบัติ (exempted)</option>
-                  </select>
-                  {formScoreType === 'exempted' && (
-                    <input
-                      type="text"
-                      value={formScoreDisplayText}
-                      disabled={true}
-                      className="flex-1 min-w-[120px] px-2 py-0.5 text-xs border border-amber-300 dark:border-amber-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                      placeholder="(ไม่ต้องปฏิบัติ)"
-                    />
-                  )}
-                </>
-              )}
-              {isKnowledgeTestQuestion && (
-                <span className="text-xs text-amber-600 dark:text-amber-400">
-                  ไม่เกี่ยวกับการให้คะแนน
-                </span>
-              )}
+            <div className="text-xs text-amber-600 dark:text-amber-400">
+              <div className="font-medium mb-1">หมายเหตุ: ข้อนี้ไม่มีการให้คะแนน</div>
+              <div className="text-amber-600/70 dark:text-amber-400/70">
+                คำอธิบาย: "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้" (ห้ามแก้ไข)
+              </div>
             </div>
           </div>
         )}
@@ -2812,17 +2760,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
 
-  // Special question type detection for Section 300
-  const isPrerequisiteQuestion = is300 && (
-    (isL1 && question.sequence === 1) || // 3xx.1
-    (!isL1 && question.sequence >= 1 && question.sequence <= 3) // 3xx.1.1 - 3xx.1.3
-  );
-  const isKnowledgeTestQuestion = is300 && (
-    (isL1 && question.sequence === 7) || // 3xx.7
-    (!isL1 && (question.sequence === 1 || question.sequence === 2)) // 3xx.7.1 - 3xx.7.2
-  );
-  const isSpecialNoScoreQuestion = isPrerequisiteQuestion || isKnowledgeTestQuestion;
-
+  
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
   const [displayActiveCodes, setDisplayActiveCodes] = useState<string[]>([]);
@@ -2965,13 +2903,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 {question.display_text || "(ไม่ต้องปฏิบัติ)"}
               </span>
             )}
-            {/* Special question type badges */}
-            {isSpecialNoScoreQuestion && (
-              <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
-                {isKnowledgeTestQuestion ? 'Knowledge Test' : 'Prerequisite'}
-              </span>
-            )}
-          </div>
+                      </div>
           {/* Score badges — aligned right */}
           {is300 && (
             <div className="flex items-center gap-2 shrink-0">
