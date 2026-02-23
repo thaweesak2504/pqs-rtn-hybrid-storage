@@ -704,6 +704,25 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     );
 
+    // DEBUG: Ensure 301.6 specifically is set as group header
+    let _ = conn.execute(
+        "UPDATE Questions SET is_group_header = 1, is_scored = 0
+         WHERE parent_id IS NULL
+           AND sequence = 6
+           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
+        [],
+    );
+
+    // DEBUG: Ensure 301.6 children are scored
+    let _ = conn.execute(
+        "UPDATE Questions SET is_scored = 1, question_type = 'performance'
+         WHERE parent_id IN (
+             SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 6
+             AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+         )",
+        [],
+    );
+
     // Recalculate group_score for all L1 group headers in section 300
     let _ = conn.execute(
         "UPDATE Questions SET group_score = (
@@ -717,12 +736,14 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     );
 
     // Calculate and update total_score for all Section 300
+    // Only count: individual scored questions (non-headers) + group headers' group_score
+    // Avoid double-counting children of group headers
     let _ = conn.execute(
         "UPDATE Sections SET total_score = (
              SELECT COALESCE(SUM(
                  CASE 
-                     WHEN q.is_scored = 1 AND q.is_group_header = 0 THEN q.score
                      WHEN q.is_group_header = 1 THEN q.group_score
+                     WHEN q.is_scored = 1 AND q.is_group_header = 0 AND q.parent_id IS NULL THEN q.score
                      ELSE 0
                  END
              ), 0)
