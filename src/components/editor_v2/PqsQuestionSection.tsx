@@ -1119,7 +1119,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialQuestionType = 'normal',
   initialDisplayText = '',
   initialIsGroupHeader = false,
-  onRefresh,
+  onRefresh: _onRefresh,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1190,18 +1190,17 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
 
   // ---- Section Selector State (for 3xx.1.4 and 3xx.1.5) ----
+  // NEW: Link-based approach using QuestionSectionLinks table (no content copying, no sync needed)
   interface SectionItem { id: number; section_number: number; title_th: string; menu_label: string; }
-  interface ChildSectionRef { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; sectionNumber?: number; }
+  interface SectionLink { id: number; question_id: string; section_id: number; score: number; display_order: number; section_number: number; section_title: string; section_group: number; }
   const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
-  const [childSectionRefs, setChildSectionRefs] = useState<ChildSectionRef[]>([]);
+  const [sectionLinks, setSectionLinks] = useState<SectionLink[]>([]);
   const [showSectionPicker, setShowSectionPicker] = useState(false);
-  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
 
-  // Fetch available sections and existing children for section picker
+  // Fetch available sections (master data from Sections table)
   useEffect(() => {
     if (!(isSection100Selector || isSection200Selector) || !documentId) return;
     const targetGroup = isSection100Selector ? 100 : 200;
-    // Fetch available sections
     invoke<{ id: number; document_id: string; section_group: number; section_number: number; title_th: string; menu_label: string; display_order: number; is_system_defined: number; duration_value: number | null; duration_unit: string | null; total_score: number | null; created_at: string; updated_at: string; }[]>('get_sections_by_document', { documentId })
       .then(sections => {
         const filtered = sections
@@ -1212,53 +1211,15 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       .catch(() => setAvailableSections([]));
   }, [isSection100Selector, isSection200Selector, documentId]);
 
-  // Sync childSectionRefs from question's children (passed via existingId context)
-  // We read from initialMetadata to get existing refSectionIds on mount
-  useEffect(() => {
-    if (!(isSection100Selector || isSection200Selector)) return;
-    // Children are managed externally; we track them via a separate fetch
-    if (!existingId) { setChildSectionRefs([]); return; }
-    invoke<QuestionDetail[]>('get_document_questions_with_details', { docId: documentId })
-      .then(all => {
-        const children = all
-          .filter(q => q.parent_id === existingId)
-          .map(q => {
-            let refSectionId = 0; let sectionNumber: number | undefined;
-            try { const m = JSON.parse(q.metadata || '{}'); refSectionId = m.refSectionId || 0; sectionNumber = m.sectionNumber; } catch { }
-            return { id: q.id, refSectionId, content: q.content, score: q.score ?? 0, is_scored: !!q.is_scored, sectionNumber };
-          })
-          .filter(c => c.refSectionId > 0);
-        // Sync titles: if section title_th changed, update child question content
-        // (done lazily when picker is opened)
-        setChildSectionRefs(children);
-      })
-      .catch(() => setChildSectionRefs([]));
-  }, [isSection100Selector, isSection200Selector, existingId, documentId]);
-
-  // Auto-sync titles when availableSections change (e.g., section title edited elsewhere)
-  useEffect(() => {
-    if (!(isSection100Selector || isSection200Selector) || !existingId || availableSections.length === 0 || childSectionRefs.length === 0) return;
-    const updates = childSectionRefs.map(async (child) => {
-      const sec = availableSections.find(s => s.id === child.refSectionId);
-      if (sec && sec.title_th !== child.content) {
-        try {
-          await invoke('update_question', { args: { id: child.id, content: sec.title_th, description: null, metadata: JSON.stringify({ refSectionId: child.refSectionId, sectionNumber: sec.section_number }) } });
-          return { id: child.id, content: sec.title_th, sectionNumber: sec.section_number };
-        } catch (e) { console.error('Failed to auto-sync section title:', e); return null; }
-      }
-      return null;
-    });
-    Promise.all(updates).then(results => {
-      const updated = results.filter(Boolean) as { id: string; content: string; sectionNumber: number }[];
-      if (updated.length > 0) {
-        setChildSectionRefs(prev => {
-          const map = new Map(updated.map(u => [u.id, u]));
-          return prev.map(c => map.get(c.id) ? { ...c, ...map.get(c.id) } : c);
-        });
-        setTimeout(() => onRefresh?.(), 100);
-      }
-    });
-  }, [availableSections, isSection100Selector, isSection200Selector, existingId, childSectionRefs, onRefresh]);
+  // Fetch existing links (from QuestionSectionLinks — JOIN gives live titles)
+  const fetchSectionLinks = useCallback(async () => {
+    if (!(isSection100Selector || isSection200Selector) || !existingId) { setSectionLinks([]); return; }
+    try {
+      const links = await invoke<SectionLink[]>('get_question_section_links', { questionId: existingId });
+      setSectionLinks(links);
+    } catch { setSectionLinks([]); }
+  }, [isSection100Selector, isSection200Selector, existingId]);
+  useEffect(() => { fetchSectionLinks(); }, [fetchSectionLinks]);
 
   // Update question score when formScoreType changes for prerequisite children
   useEffect(() => {
@@ -2742,42 +2703,20 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           </div>
         )}
 
-        {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) */}
+        {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — Link-based */}
         {is300 && (isSection100Selector || isSection200Selector) && (
           <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/30 dark:bg-blue-950/20 p-2 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
               </span>
-              {isEdit && (
+              {isEdit && existingId && (
                 <button
                   type="button"
-                  onClick={async () => {
+                  onClick={() => {
                     const opening = !showSectionPicker;
                     setShowSectionPicker(opening);
-                    // Sync titles when opening picker
-                    if (opening && childSectionRefs.length > 0 && availableSections.length > 0) {
-                      const updates = childSectionRefs.map(async (child) => {
-                        const sec = availableSections.find(s => s.id === child.refSectionId);
-                        if (sec && sec.title_th !== child.content) {
-                          try {
-                            await invoke('update_question', { args: { id: child.id, content: sec.title_th, description: null, metadata: JSON.stringify({ refSectionId: child.refSectionId, sectionNumber: sec.section_number }) } });
-                            return { id: child.id, content: sec.title_th, sectionNumber: sec.section_number };
-                          } catch (e) { console.error('Failed to sync section title:', e); return null; }
-                        }
-                        return null;
-                      });
-                      const results = await Promise.all(updates);
-                      const updated = results.filter(Boolean) as { id: string; content: string; sectionNumber: number }[];
-                      if (updated.length > 0) {
-                        setChildSectionRefs(prev => {
-                          const map = new Map(updated.map(u => [u.id, u]));
-                          return prev.map(c => map.get(c.id) ? { ...c, ...map.get(c.id) } : c);
-                        });
-                        // Delay refresh slightly to avoid race conditions
-                        setTimeout(() => onRefresh?.(), 100);
-                      }
-                    }
+                    if (opening) fetchSectionLinks(); // Refresh links (live titles from JOIN)
                   }}
                   className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
                 >
@@ -2786,29 +2725,54 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               )}
             </div>
 
-            {/* Current children summary */}
-            {childSectionRefs.length > 0 && (
+            {/* Current linked sections summary with score */}
+            {sectionLinks.length > 0 && (
               <div className="space-y-0.5">
-                {childSectionRefs.map(c => {
-                  const sec = availableSections.find(s => s.id === c.refSectionId);
-                  return (
-                    <div key={c.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
-                      <span className="text-blue-400">✓</span>
-                      <span className="font-medium">{sec ? toThaiNumber(sec.section_number) : '?'}</span>
-                      <span>{c.content}</span>
-                    </div>
-                  );
-                })}
+                {sectionLinks.map(link => (
+                  <div key={link.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                    <span className="text-blue-400">✓</span>
+                    <span className="font-medium">{toThaiNumber(link.section_number)}</span>
+                    <span className="flex-1">{link.section_title}</span>
+                    {isEdit && (
+                      <input
+                        type="number"
+                        min={0}
+                        value={link.score}
+                        onChange={async (e) => {
+                          const newScore = parseInt(e.target.value) || 0;
+                          try {
+                            await invoke('update_section_link_score', { args: { id: link.id, score: newScore } });
+                            await invoke('recalculate_section_link_scores', { questionId: existingId });
+                            setSectionLinks(prev => prev.map(l => l.id === link.id ? { ...l, score: newScore } : l));
+                          } catch (err) { console.error('Failed to update link score:', err); }
+                        }}
+                        className="w-12 text-center text-xs px-1 py-0.5 border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+                        title="คะแนน"
+                      />
+                    )}
+                    {!isEdit && link.score > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                        {link.score} คะแนน
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {sectionLinks.length > 0 && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-200 border-t border-blue-200 dark:border-blue-700 pt-1 mt-1">
+                    <span>รวม</span>
+                    <span className="ml-auto">{sectionLinks.reduce((sum, l) => sum + l.score, 0)} คะแนน</span>
+                  </div>
+                )}
               </div>
             )}
-            {childSectionRefs.length === 0 && !showSectionPicker && (
+            {sectionLinks.length === 0 && !showSectionPicker && (
               <div className="text-xs text-blue-400 dark:text-blue-500 italic">
-                {isEdit ? 'ยังไม่ได้เลือก Section' : 'บันทึกก่อน แล้วค่อยเลือก Section'}
+                {isEdit && existingId ? 'ยังไม่ได้เลือก Section' : 'บันทึกก่อน แล้วค่อยเลือก Section'}
               </div>
             )}
 
             {/* Picker dropdown — edit mode only */}
-            {showSectionPicker && isEdit && (
+            {showSectionPicker && isEdit && existingId && (
               <div className="border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
                 {availableSections.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
@@ -2816,121 +2780,42 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                   {/* Select all / Deselect all */}
                   <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-800/50">
                     <button type="button" onClick={async () => {
-                      const unchecked = availableSections.filter(s => !childSectionRefs.find(c => c.refSectionId === s.id));
-                      if (unchecked.length === 0) return;
-                      const creates = unchecked.map(async s => {
-                        try {
-                          const newId = await invoke<string>('create_question', { args: { id: null, document_id: documentId, section_id: sectionId, parent_id: existingId, content: s.title_th, description: null, is_header: false, sequence: null, answer_type: 'text', metadata: JSON.stringify({ refSectionId: s.id, sectionNumber: s.section_number }), score: 0, question_type: 'normal', is_scored: true, is_group_header: false } });
-                          return { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number };
-                        } catch (e) { console.error(e); return null; }
-                      });
-                      const results = await Promise.all(creates);
-                      const created = results.filter(Boolean) as { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; sectionNumber: number }[];
-                      if (created.length > 0) {
-                        setChildSectionRefs(prev => [...prev, ...created]);
-                        setTimeout(() => onRefresh?.(), 100);
-                      }
+                      const uncheckedIds = availableSections
+                        .filter(s => !sectionLinks.find(l => l.section_id === s.id))
+                        .map(s => s.id);
+                      if (uncheckedIds.length === 0) return;
+                      try {
+                        const links = await invoke<SectionLink[]>('batch_add_question_section_links', { req: { question_id: existingId, section_ids: uncheckedIds } });
+                        setSectionLinks(links);
+                      } catch (e) { console.error('Failed to select all:', e); }
                     }} className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700">เลือกทั้งหมด</button>
                     <button type="button" onClick={async () => {
-                      const deletes = childSectionRefs.map(async c => {
-                        try { await invoke('delete_question', { id: c.id }); return true; } catch (e) { console.error(e); return false; }
-                      });
-                      await Promise.all(deletes);
-                      setChildSectionRefs([]);
-                      setTimeout(() => onRefresh?.(), 100);
+                      try {
+                        await invoke('remove_all_question_section_links', { questionId: existingId });
+                        setSectionLinks([]);
+                      } catch (e) { console.error('Failed to deselect all:', e); }
                     }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
                   </div>
                   <div className="divide-y divide-blue-100 dark:divide-blue-800/50">
                     {availableSections.map(s => {
-                      const existing = childSectionRefs.find(c => c.refSectionId === s.id);
-                      const checked = !!existing;
+                      const existingLink = sectionLinks.find(l => l.section_id === s.id);
+                      const checked = !!existingLink;
                       return (
                         <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20">
                           <input
                             type="checkbox"
                             checked={checked}
-                            onClick={(e) => {
-                              const currentIndex = availableSections.findIndex(sec => sec.id === s.id);
-                              if (e.ctrlKey || e.metaKey) {
-                                // Ctrl+click: toggle without affecting others (default behavior)
-                                setLastClickedIndex(currentIndex);
-                              } else if (e.shiftKey && lastClickedIndex !== null) {
-                                // Shift+click: select range
-                                e.preventDefault();
-                                const start = Math.min(lastClickedIndex, currentIndex);
-                                const end = Math.max(lastClickedIndex, currentIndex);
-                                const rangeSections = availableSections.slice(start, end + 1);
-                                const operations = rangeSections.map(async (rangeSec) => {
-                                  const existing = childSectionRefs.find(c => c.refSectionId === rangeSec.id);
-                                  if (!existing) {
-                                    try {
-                                      const newId = await invoke<string>('create_question', {
-                                        args: {
-                                          id: null,
-                                          document_id: documentId,
-                                          section_id: sectionId,
-                                          parent_id: existingId,
-                                          content: rangeSec.title_th,
-                                          description: null,
-                                          is_header: false,
-                                          sequence: null,
-                                          answer_type: 'text',
-                                          metadata: JSON.stringify({ refSectionId: rangeSec.id, sectionNumber: rangeSec.section_number }),
-                                          score: 0,
-                                          question_type: 'normal',
-                                          is_scored: true,
-                                          is_group_header: false,
-                                        }
-                                      });
-                                      return { id: newId, refSectionId: rangeSec.id, content: rangeSec.title_th, score: 0, is_scored: true, sectionNumber: rangeSec.section_number };
-                                    } catch (e) { console.error('Failed to create range section ref child:', e); return null; }
-                                  }
-                                  return null;
-                                });
-                                Promise.all(operations).then(results => {
-                                  const created = results.filter(Boolean) as { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; sectionNumber: number }[];
-                                  if (created.length > 0) {
-                                    setChildSectionRefs(prev => [...prev, ...created]);
-                                    setTimeout(() => onRefresh?.(), 100);
-                                  }
-                                });
-                                setLastClickedIndex(currentIndex);
-                              } else {
-                                // Normal click: toggle this item
-                                setLastClickedIndex(currentIndex);
-                              }
-                            }}
                             onChange={async () => {
-                              // Only handle normal clicks (not Ctrl or Shift)
-                              if (checked && existing) {
+                              if (checked && existingLink) {
                                 try {
-                                  await invoke('delete_question', { id: existing.id });
-                                  setChildSectionRefs(prev => prev.filter(c => c.id !== existing.id));
-                                  setTimeout(() => onRefresh?.(), 100);
-                                } catch (e) { console.error('Failed to delete section ref child:', e); }
+                                  await invoke('remove_question_section_link', { id: existingLink.id });
+                                  setSectionLinks(prev => prev.filter(l => l.id !== existingLink.id));
+                                } catch (e) { console.error('Failed to remove section link:', e); }
                               } else {
                                 try {
-                                  const newId = await invoke<string>('create_question', {
-                                    args: {
-                                      id: null,
-                                      document_id: documentId,
-                                      section_id: sectionId,
-                                      parent_id: existingId,
-                                      content: s.title_th,
-                                      description: null,
-                                      is_header: false,
-                                      sequence: null,
-                                      answer_type: 'text',
-                                      metadata: JSON.stringify({ refSectionId: s.id, sectionNumber: s.section_number }),
-                                      score: 0,
-                                      question_type: 'normal',
-                                      is_scored: true,
-                                      is_group_header: false,
-                                    }
-                                  });
-                                  setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number }]);
-                                  setTimeout(() => onRefresh?.(), 100);
-                                } catch (e) { console.error('Failed to create section ref child:', e); }
+                                  const newLink = await invoke<SectionLink>('add_question_section_link', { req: { question_id: existingId, section_id: s.id, score: 0 } });
+                                  setSectionLinks(prev => [...prev, newLink].sort((a, b) => a.section_number - b.section_number));
+                                } catch (e) { console.error('Failed to add section link:', e); }
                               }
                             }}
                             className="accent-blue-600 w-3.5 h-3.5 shrink-0"

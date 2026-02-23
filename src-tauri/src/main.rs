@@ -943,6 +943,58 @@ fn update_question_reference_location(
     content_database::update_question_reference_location(id, location_text)
 }
 
+// ==========================================
+// QuestionSectionLinks Commands (3xx.1.4/1.5)
+// ==========================================
+
+#[tauri::command]
+fn add_question_section_link(
+    req: content_database::AddQuestionSectionLinkRequest,
+) -> Result<content_database::QuestionSectionLink, String> {
+    content_database::add_question_section_link(req)
+}
+
+#[tauri::command]
+fn batch_add_question_section_links(
+    req: content_database::BatchAddQuestionSectionLinksRequest,
+) -> Result<Vec<content_database::QuestionSectionLink>, String> {
+    content_database::batch_add_question_section_links(req)
+}
+
+#[tauri::command]
+fn remove_question_section_link(id: i64) -> Result<(), String> {
+    content_database::remove_question_section_link(id)
+}
+
+#[tauri::command]
+fn remove_all_question_section_links(question_id: String) -> Result<(), String> {
+    content_database::remove_all_question_section_links(question_id)
+}
+
+#[tauri::command]
+fn get_question_section_links(
+    question_id: String,
+) -> Result<Vec<content_database::QuestionSectionLink>, String> {
+    content_database::get_question_section_links(question_id)
+}
+
+#[tauri::command]
+fn update_section_link_score(
+    args: content_database::UpdateSectionLinkScoreArgs,
+) -> Result<(), String> {
+    content_database::update_section_link_score(args)
+}
+
+#[tauri::command]
+fn recalculate_section_link_scores(question_id: String) -> Result<i32, String> {
+    content_database::recalculate_section_link_scores(question_id)
+}
+
+#[tauri::command]
+fn migrate_question_children_to_section_links() -> Result<usize, String> {
+    content_database::migrate_question_children_to_section_links()
+}
+
 #[tauri::command]
 fn seed_section_104_references(section_id: i64) -> Result<String, String> {
     use rusqlite::params;
@@ -1299,6 +1351,15 @@ fn main() {
             add_question_reference,
             remove_question_reference,
             update_question_reference_location,
+            // QuestionSectionLinks (3xx.1.4/1.5 → 100/200 Sections)
+            add_question_section_link,
+            batch_add_question_section_links,
+            remove_question_section_link,
+            remove_all_question_section_links,
+            get_question_section_links,
+            update_section_link_score,
+            recalculate_section_link_scores,
+            migrate_question_children_to_section_links,
             get_document_stats,
             open_path,
             show_in_folder,
