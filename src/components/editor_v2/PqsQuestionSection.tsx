@@ -1115,6 +1115,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Special question type detection for Section 300
   const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
+  const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
 
     // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
@@ -1180,15 +1181,15 @@ useEffect(() => {
   
   // Disable for exempted prerequisite questions (3xx.1 when question_type = 'exempted')
   const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() => 
-    baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted')
+    baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted') && !(isPrerequisiteChild && formScoreType === 'exempted')
   );
 
   // Re-evaluate when formScoreType changes
   useEffect(() => {
     setShowSubQuestionEditor(
-      baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted')
+      baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted') && !(isPrerequisiteChild && formScoreType === 'exempted')
     );
-  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, formScoreType]);
+  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, formScoreType]);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
@@ -2550,8 +2551,8 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Score Editing (Section 300 only) - hide for group headers and prerequisite questions */}
-        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && (
+        {/* Score Editing (Section 300 only) - hide for group headers, prerequisite questions, and prerequisite children */}
+        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && !isPrerequisiteChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2604,6 +2605,35 @@ useEffect(() => {
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
             <div className="text-xs text-amber-600 dark:text-amber-400">
               <div className="font-medium">หมายเหตุ: ข้อนี้ไม่มีการให้คะแนน</div>
+            </div>
+          </div>
+        )}
+
+        {/* Special handling for 3xx.1.1-3xx.1.3 (Prerequisite Children) */}
+        {is300 && isPrerequisiteChild && (
+          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={formScoreType === 'exempted'}
+                  onChange={(e) => {
+                    const newType = e.target.checked ? 'exempted' : 'normal';
+                    setFormScoreType(newType);
+                    if (newType === 'exempted') {
+                      setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
+                    }
+                  }}
+                  className="accent-amber-600 w-3.5 h-3.5"
+                />
+                ไม่ต้องปฏิบัติ
+              </label>
+              {formScoreType === 'exempted' && (
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                  (ไม่ต้องปฏิบัติ)
+                </span>
+              )}
             </div>
           </div>
         )}
