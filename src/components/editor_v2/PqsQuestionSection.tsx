@@ -2731,16 +2731,26 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                     setShowSectionPicker(opening);
                     // Sync titles when opening picker
                     if (opening && childSectionRefs.length > 0 && availableSections.length > 0) {
-                      for (const child of childSectionRefs) {
+                      const updates = childSectionRefs.map(async (child) => {
                         const sec = availableSections.find(s => s.id === child.refSectionId);
                         if (sec && sec.title_th !== child.content) {
                           try {
                             await invoke('update_question', { args: { id: child.id, content: sec.title_th, description: null, metadata: JSON.stringify({ refSectionId: child.refSectionId, sectionNumber: sec.section_number }) } });
-                            setChildSectionRefs(prev => prev.map(c => c.id === child.id ? { ...c, content: sec.title_th, sectionNumber: sec.section_number } : c));
-                          } catch (e) { console.error('Failed to sync section title:', e); }
+                            return { id: child.id, content: sec.title_th, sectionNumber: sec.section_number };
+                          } catch (e) { console.error('Failed to sync section title:', e); return null; }
                         }
+                        return null;
+                      });
+                      const results = await Promise.all(updates);
+                      const updated = results.filter(Boolean) as { id: string; content: string; sectionNumber: number }[];
+                      if (updated.length > 0) {
+                        setChildSectionRefs(prev => {
+                          const map = new Map(updated.map(u => [u.id, u]));
+                          return prev.map(c => map.get(c.id) ? { ...c, ...map.get(c.id) } : c);
+                        });
+                        // Delay refresh slightly to avoid race conditions
+                        setTimeout(() => onRefresh?.(), 100);
                       }
-                      onRefresh?.();
                     }
                   }}
                   className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
@@ -2781,20 +2791,27 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                   <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-800/50">
                     <button type="button" onClick={async () => {
                       const unchecked = availableSections.filter(s => !childSectionRefs.find(c => c.refSectionId === s.id));
-                      for (const s of unchecked) {
+                      if (unchecked.length === 0) return;
+                      const creates = unchecked.map(async s => {
                         try {
                           const newId = await invoke<string>('create_question', { args: { id: null, document_id: documentId, section_id: sectionId, parent_id: existingId, content: s.title_th, description: null, is_header: false, sequence: null, answer_type: 'text', metadata: JSON.stringify({ refSectionId: s.id, sectionNumber: s.section_number }), score: 0, question_type: 'normal', is_scored: true, is_group_header: false } });
-                          setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number }]);
-                        } catch (e) { console.error(e); }
+                          return { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number };
+                        } catch (e) { console.error(e); return null; }
+                      });
+                      const results = await Promise.all(creates);
+                      const created = results.filter(Boolean) as { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; sectionNumber: number }[];
+                      if (created.length > 0) {
+                        setChildSectionRefs(prev => [...prev, ...created]);
+                        setTimeout(() => onRefresh?.(), 100);
                       }
-                      if (unchecked.length > 0) onRefresh?.();
                     }} className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700">เลือกทั้งหมด</button>
                     <button type="button" onClick={async () => {
-                      for (const c of [...childSectionRefs]) {
-                        try { await invoke('delete_question', { id: c.id }); } catch (e) { console.error(e); }
-                      }
+                      const deletes = childSectionRefs.map(async c => {
+                        try { await invoke('delete_question', { id: c.id }); return true; } catch (e) { console.error(e); return false; }
+                      });
+                      await Promise.all(deletes);
                       setChildSectionRefs([]);
-                      onRefresh?.();
+                      setTimeout(() => onRefresh?.(), 100);
                     }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
                   </div>
                   <div className="divide-y divide-blue-100 dark:divide-blue-800/50">
@@ -2811,7 +2828,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                                 try {
                                   await invoke('delete_question', { id: existing.id });
                                   setChildSectionRefs(prev => prev.filter(c => c.id !== existing.id));
-                                  onRefresh?.();
+                                  setTimeout(() => onRefresh?.(), 100);
                                 } catch (e) { console.error('Failed to delete section ref child:', e); }
                               } else {
                                 try {
@@ -2834,7 +2851,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                                     }
                                   });
                                   setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number }]);
-                                  onRefresh?.();
+                                  setTimeout(() => onRefresh?.(), 100);
                                 } catch (e) { console.error('Failed to create section ref child:', e); }
                               }
                             }}
