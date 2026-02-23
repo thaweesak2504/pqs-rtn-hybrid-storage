@@ -914,6 +914,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialIsScored={!!question.is_scored}
           initialQuestionType={question.question_type || 'normal'}
           initialDisplayText={question.display_text || ''}
+          initialIsGroupHeader={!!question.is_group_header}
         />
       </div>
     );
@@ -1073,6 +1074,7 @@ interface QuestionFormCardProps {
   initialIsScored?: boolean;
   initialQuestionType?: string;
   initialDisplayText?: string;
+  initialIsGroupHeader?: boolean;
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -1103,6 +1105,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialIsScored = false,
   initialQuestionType = 'normal',
   initialDisplayText = '',
+  initialIsGroupHeader = false,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -2511,8 +2514,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Score Editing (Section 300 only) */}
-        {is300 && (
+        {/* Score Editing (Section 300 only) - hide for group headers */}
+        {is300 && !initialIsGroupHeader && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2556,6 +2559,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   placeholder="ข้อความแสดง เช่น (ไม่ต้องปฏิบัติ)"
                 />
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Group Header Info (Section 300 only) - auto-calc info */}
+        {is300 && initialIsGroupHeader && (
+          <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
+            <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
+              <span className="font-bold uppercase tracking-wider">Group Header</span>
+              <span>• คะแนนรวมคำนวณอัตโนมัติจากคำถามย่อย (auto-calc)</span>
             </div>
           </div>
         )}

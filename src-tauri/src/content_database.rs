@@ -1451,14 +1451,14 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
     insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "normal")?;
     insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "normal")?;
 
-    // 3xx.2 - 3xx.5: SCORED group headers (score = sum of children)
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, true, true, "performance")?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, true, true, "performance")?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, true, true, "performance")?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, true, true, "performance")?;
+    // 3xx.2 - 3xx.5: GROUP headers (auto-calc from children, not manually scored)
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "performance")?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "performance")?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "performance")?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "performance")?;
 
-    // 3xx.6: SCORED group header
-    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, true, true, "performance")?;
+    // 3xx.6: GROUP header (auto-calc from children, not manually scored)
+    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "performance")?;
     
     // 3xx.7: สอบความรู้ (group header, children NOT scored)
     let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal")?;
