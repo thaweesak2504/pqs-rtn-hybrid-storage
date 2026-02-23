@@ -648,6 +648,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                     cancelText: "",
                   })
                 }
+                onRefresh={fetchQuestions}
               />
             ))}
           </div>
@@ -752,6 +753,7 @@ interface QuestionTreeNodeProps {
   collapsedIds: Set<string>;
   onToggleCollapse: (id: string) => void;
   isParentDefault300L1?: boolean;
+  onRefresh?: () => void;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -788,6 +790,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   onAlert,
   parentLayout = "list",
   isParentDefault300L1 = false,
+  onRefresh,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -915,6 +918,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialQuestionType={question.question_type || 'normal'}
           initialDisplayText={question.display_text || ''}
           initialIsGroupHeader={!!question.is_group_header}
+          onRefresh={onRefresh}
         />
       </div>
     );
@@ -1009,6 +1013,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 parentLayout={childLayout}
                 sectionOccupationBranches={sectionOccupationBranches}
                 sectionSelectedBranch={sectionSelectedBranch}
+                onRefresh={onRefresh}
               />
             ))}
           </div>
@@ -1075,6 +1080,7 @@ interface QuestionFormCardProps {
   initialQuestionType?: string;
   initialDisplayText?: string;
   initialIsGroupHeader?: boolean;
+  onRefresh?: () => void; // Callback to refresh question tree after DB changes
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -1106,6 +1112,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialQuestionType = 'normal',
   initialDisplayText = '',
   initialIsGroupHeader = false,
+  onRefresh,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1177,17 +1184,16 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
 
   // ---- Section Selector State (for 3xx.1.4 and 3xx.1.5) ----
   interface SectionItem { id: number; section_number: number; title_th: string; menu_label: string; }
+  interface ChildSectionRef { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; }
   const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
-  const [selectedSectionIds, setSelectedSectionIds] = useState<number[]>(() => {
-    if (!initialMetadata) return [];
-    try { return JSON.parse(initialMetadata).selectedSectionIds || []; } catch { return []; }
-  });
+  const [childSectionRefs, setChildSectionRefs] = useState<ChildSectionRef[]>([]);
   const [showSectionPicker, setShowSectionPicker] = useState(false);
 
-  // Fetch available sections when section picker is needed
+  // Fetch available sections and existing children for section picker
   useEffect(() => {
     if (!(isSection100Selector || isSection200Selector) || !documentId) return;
     const targetGroup = isSection100Selector ? 100 : 200;
+    // Fetch available sections
     invoke<{ id: number; document_id: string; section_group: number; section_number: number; title_th: string; menu_label: string; display_order: number; is_system_defined: number; duration_value: number | null; duration_unit: string | null; total_score: number | null; created_at: string; updated_at: string; }[]>('get_sections_by_document', { documentId })
       .then(sections => {
         const filtered = sections
@@ -1197,6 +1203,27 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       })
       .catch(() => setAvailableSections([]));
   }, [isSection100Selector, isSection200Selector, documentId]);
+
+  // Sync childSectionRefs from question's children (passed via existingId context)
+  // We read from initialMetadata to get existing refSectionIds on mount
+  useEffect(() => {
+    if (!(isSection100Selector || isSection200Selector)) return;
+    // Children are managed externally; we track them via a separate fetch
+    if (!existingId) { setChildSectionRefs([]); return; }
+    invoke<QuestionDetail[]>('get_document_questions_with_details', { docId: documentId })
+      .then(all => {
+        const children = all
+          .filter(q => q.parent_id === existingId)
+          .map(q => {
+            let refSectionId = 0;
+            try { refSectionId = JSON.parse(q.metadata || '{}').refSectionId || 0; } catch { }
+            return { id: q.id, refSectionId, content: q.content, score: q.score ?? 0, is_scored: !!q.is_scored };
+          })
+          .filter(c => c.refSectionId > 0);
+        setChildSectionRefs(children);
+      })
+      .catch(() => setChildSectionRefs([]));
+  }, [isSection100Selector, isSection200Selector, existingId, documentId]);
 
   // Update question score when formScoreType changes for prerequisite children
   useEffect(() => {
@@ -1771,11 +1798,6 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       const effectiveSelected = Array.from(new Set([...selectedSubQCodes, ...forcedCodes]));
       if (effectiveSelected.length > 0) newMeta.selectedSubQuestions = effectiveSelected;
       else delete newMeta.selectedSubQuestions;
-    }
-    // Save selectedSectionIds for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections)
-    if (isSection100Selector || isSection200Selector) {
-      if (selectedSectionIds.length > 0) newMeta.selectedSectionIds = selectedSectionIds;
-      else delete newMeta.selectedSectionIds;
     }
     const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
 
@@ -2692,51 +2714,85 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
                 {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
               </span>
-              <button
-                type="button"
-                onClick={() => setShowSectionPicker(v => !v)}
-                className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
-              >
-                {showSectionPicker ? 'ซ่อนรายการ' : 'เลือก / แก้ไข'}
-              </button>
+              {isEdit && (
+                <button
+                  type="button"
+                  onClick={() => setShowSectionPicker(v => !v)}
+                  className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                >
+                  {showSectionPicker ? 'ซ่อนรายการ' : 'เลือก / แก้ไข'}
+                </button>
+              )}
             </div>
 
-            {/* Selected sections summary */}
-            {selectedSectionIds.length > 0 && (
+            {/* Current children summary */}
+            {childSectionRefs.length > 0 && (
               <div className="space-y-0.5">
-                {availableSections
-                  .filter(s => selectedSectionIds.includes(s.id))
-                  .map(s => (
-                    <div key={s.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                {childSectionRefs.map(c => {
+                  const sec = availableSections.find(s => s.id === c.refSectionId);
+                  return (
+                    <div key={c.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
                       <span className="text-blue-400">✓</span>
-                      <span className="font-medium">{toThaiNumber(s.section_number)}</span>
-                      <span>{s.title_th}</span>
+                      <span className="font-medium">{sec ? toThaiNumber(sec.section_number) : '?'}</span>
+                      <span>{c.content}</span>
                     </div>
-                  ))
-                }
+                  );
+                })}
               </div>
             )}
-            {selectedSectionIds.length === 0 && !showSectionPicker && (
-              <div className="text-xs text-blue-400 dark:text-blue-500 italic">ยังไม่ได้เลือก Section</div>
+            {childSectionRefs.length === 0 && !showSectionPicker && (
+              <div className="text-xs text-blue-400 dark:text-blue-500 italic">
+                {isEdit ? 'ยังไม่ได้เลือก Section' : 'บันทึกก่อน แล้วค่อยเลือก Section'}
+              </div>
             )}
 
-            {/* Picker dropdown */}
-            {showSectionPicker && (
+            {/* Picker dropdown — edit mode only */}
+            {showSectionPicker && isEdit && (
               <div className="border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-800 divide-y divide-blue-100 dark:divide-blue-800/50 max-h-48 overflow-y-auto">
                 {availableSections.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
                 ) : (
                   availableSections.map(s => {
-                    const checked = selectedSectionIds.includes(s.id);
+                    const existing = childSectionRefs.find(c => c.refSectionId === s.id);
+                    const checked = !!existing;
                     return (
                       <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20">
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() => {
-                            setSelectedSectionIds(prev =>
-                              checked ? prev.filter(id => id !== s.id) : [...prev, s.id]
-                            );
+                          onChange={async () => {
+                            if (checked && existing) {
+                              // Uncheck → delete child question
+                              try {
+                                await invoke('delete_question', { id: existing.id });
+                                setChildSectionRefs(prev => prev.filter(c => c.id !== existing.id));
+                                onRefresh?.();
+                              } catch (e) { console.error('Failed to delete section ref child:', e); }
+                            } else {
+                              // Check → create child question
+                              try {
+                                const newId = await invoke<string>('create_question', {
+                                  args: {
+                                    id: null,
+                                    document_id: documentId,
+                                    section_id: sectionId,
+                                    parent_id: existingId,
+                                    content: s.title_th,
+                                    description: null,
+                                    is_header: false,
+                                    sequence: null,
+                                    answer_type: 'text',
+                                    metadata: JSON.stringify({ refSectionId: s.id }),
+                                    score: 0,
+                                    question_type: 'normal',
+                                    is_scored: true,
+                                    is_group_header: false,
+                                  }
+                                });
+                                setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true }]);
+                                onRefresh?.();
+                              } catch (e) { console.error('Failed to create section ref child:', e); }
+                            }
                           }}
                           className="accent-blue-600 w-3.5 h-3.5 shrink-0"
                         />
@@ -2919,32 +2975,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
   const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
-  const isSection100Selector = is300 && questionSequence && !isL1 && questionSequence === 4; // 3xx.1.4
-  const isSection200Selector = is300 && questionSequence && !isL1 && questionSequence === 5; // 3xx.1.5
 
-  // Fetch section names for display (3xx.1.4 and 3xx.1.5)
-  const [displaySections, setDisplaySections] = useState<{ id: number; section_number: number; title_th: string }[]>([]);
-  const selectedSectionIds: number[] = useMemo(() => {
-    if (!question.metadata) return [];
-    try { return JSON.parse(question.metadata).selectedSectionIds || []; } catch { return []; }
-  }, [question.metadata]);
-
-  useEffect(() => {
-    if (!(isSection100Selector || isSection200Selector) || selectedSectionIds.length === 0) {
-      setDisplaySections([]); return;
-    }
-    const targetGroup = isSection100Selector ? 100 : 200;
-    invoke<{ id: number; document_id: string; section_group: number; section_number: number; title_th: string; menu_label: string; display_order: number; is_system_defined: number; duration_value: number | null; duration_unit: string | null; total_score: number | null; created_at: string; updated_at: string; }[]>(
-      'get_sections_by_document', { documentId: question.document_id }
-    ).then(sections => {
-      const filtered = sections
-        .filter(s => s.section_group === targetGroup && selectedSectionIds.includes(s.id))
-        .map(s => ({ id: s.id, section_number: s.section_number, title_th: s.title_th }));
-      setDisplaySections(filtered);
-    }).catch(() => setDisplaySections([]));
-  }, [isSection100Selector, isSection200Selector, question.document_id, selectedSectionIds]);
-
-  
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
   const [displayActiveCodes, setDisplayActiveCodes] = useState<string[]>([]);
@@ -3129,17 +3160,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
-        )}
-        {/* Selected Sections display for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) */}
-        {(isSection100Selector || isSection200Selector) && displaySections.length > 0 && (
-          <div className="mt-1 space-y-0.5">
-            {displaySections.map(s => (
-              <div key={s.id} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
-                <span className="font-medium text-blue-600 dark:text-blue-400">{toThaiNumber(s.section_number)}</span>
-                <span>{s.title_th}</span>
-              </div>
-            ))}
-          </div>
         )}
         {/* SubQuestionList display for 2xx.2 / 2xx.4 / 3xx.2 / 3xx.4 L1 — DB-backed */}
         {is200or300 && isL1 && displaySubQList.length > 0 && (() => {
