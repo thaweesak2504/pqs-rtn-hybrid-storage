@@ -1162,7 +1162,8 @@ useEffect(() => {
     setDescription(defaultDesc);
   }
 }, [isPrerequisiteQuestion, description]);
-  const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
+
+const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
@@ -1171,6 +1172,30 @@ useEffect(() => {
   const [formScoreValue, setFormScoreValue] = useState<string>(initialScore.toString());
   const [formScoreType, setFormScoreType] = useState<string>(initialQuestionType);
   const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
+
+  // Update question score when formScoreType changes for prerequisite children
+  useEffect(() => {
+    if (isPrerequisiteChild && existingId) {
+      // This will be called when checkbox is toggled
+      const updateScore = async () => {
+        try {
+          await invoke('update_question_score', {
+            args: {
+              questionId: existingId,
+              score: 0, // Always 0 for prerequisite children
+              questionType: formScoreType,
+              displayText: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
+            }
+          });
+        } catch (error) {
+          console.error("Failed to update question score:", error);
+        }
+      };
+      
+      // Call immediately when formScoreType changes
+      updateScore();
+    }
+  }, [isPrerequisiteChild, existingId, formScoreType]);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
   // Base condition for showing sub-question editor
