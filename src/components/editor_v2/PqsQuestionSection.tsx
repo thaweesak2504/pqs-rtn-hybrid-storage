@@ -2828,6 +2828,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
 
+  // Special question type detection for Section 300
+  const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
+  const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
+
   
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
@@ -3061,7 +3065,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             items={
               isDefault300L2
                 ? ([
-                  ...(canAddSub
+                  ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
                     ? [{
                         label: "เพิ่มคำถามย่อย (Add Sub-Question)",
                         icon: <MessageSquarePlus />,
@@ -3076,7 +3080,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 ] as DropdownMenuItem[])
                 : isDefaultL1
                 ? ([
-                  ...(canAddSub
+                  ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
                     ? [{
                         label: "เพิ่มคำถามย่อย (Add Sub-Question)",
                         icon: <MessageSquarePlus />,
