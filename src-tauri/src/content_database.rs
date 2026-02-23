@@ -716,6 +716,23 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     );
 
+    // Calculate and update total_score for all Section 300
+    let _ = conn.execute(
+        "UPDATE Sections SET total_score = (
+             SELECT COALESCE(SUM(
+                 CASE 
+                     WHEN q.is_scored = 1 AND q.is_group_header = 0 THEN q.score
+                     WHEN q.is_group_header = 1 THEN q.group_score
+                     ELSE 0
+                 END
+             ), 0)
+             FROM Questions q
+             WHERE q.section_id = Sections.id
+        )
+        WHERE section_group = 300",
+        [],
+    );
+
     // QuestionChoices Table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS QuestionChoices (
