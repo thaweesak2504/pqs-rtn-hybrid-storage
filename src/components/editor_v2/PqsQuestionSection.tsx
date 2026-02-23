@@ -3000,6 +3000,17 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
   const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
+  const isSection100or200Selector = is300 && questionSequence && !isL1 && (questionSequence === 4 || questionSequence === 5);
+
+  // Fetch linked sections for 3xx.1.4/1.5 display (read-only, live titles from JOIN)
+  interface DisplaySectionLink { id: number; score: number; section_number: number; section_title: string; }
+  const [displaySectionLinks, setDisplaySectionLinks] = useState<DisplaySectionLink[]>([]);
+  useEffect(() => {
+    if (!isSection100or200Selector || !question.id) { setDisplaySectionLinks([]); return; }
+    invoke<DisplaySectionLink[]>('get_question_section_links', { questionId: question.id })
+      .then(links => setDisplaySectionLinks(links))
+      .catch(() => setDisplaySectionLinks([]));
+  }, [isSection100or200Selector, question.id]);
 
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
@@ -3185,6 +3196,30 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
+        )}
+        {/* Linked Sections display for 3xx.1.4/1.5 (read-only, live from JOIN) */}
+        {isSection100or200Selector && displaySectionLinks.length > 0 && (
+          <div className="mt-1.5 space-y-0.5">
+            {displaySectionLinks.map(link => (
+              <div key={link.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                <span className="text-blue-400">✓</span>
+                <span className="font-bold">{toThaiNumber(link.section_number)}</span>
+                <span className="flex-1">{link.section_title}</span>
+                {link.score > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                    {link.score} คะแนน
+                  </span>
+                )}
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-200 border-t border-blue-200/50 dark:border-blue-700/50 pt-0.5 mt-0.5">
+              <span>รวม</span>
+              <span className="ml-auto">{displaySectionLinks.reduce((sum, l) => sum + l.score, 0)} คะแนน</span>
+            </div>
+          </div>
+        )}
+        {isSection100or200Selector && displaySectionLinks.length === 0 && (
+          <div className="mt-1 text-xs text-blue-400 dark:text-blue-500 italic">ยังไม่ได้เลือก Section</div>
         )}
         {/* SubQuestionList display for 2xx.2 / 2xx.4 / 3xx.2 / 3xx.4 L1 — DB-backed */}
         {is200or300 && isL1 && displaySubQList.length > 0 && (() => {
