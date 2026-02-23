@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-    ArrowDown,
-    ArrowUp,
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    Edit,
-    FileDigit,
-    FileQuestion,
-    FileText,
-    Globe,
-    GripVertical,
-    Image,
-    ImageIcon,
-    Layers,
-    ListChecks,
-    Lock,
-    MessageSquarePlus,
-    Mic,
-    MoreVertical,
-    Pencil,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  ArrowDown,
+  ArrowUp,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Edit,
+  FileDigit,
+  FileQuestion,
+  FileText,
+  Globe,
+  GripVertical,
+  Image,
+  ImageIcon,
+  Layers,
+  ListChecks,
+  Lock,
+  MessageSquarePlus,
+  Mic,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
@@ -36,9 +36,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import {
-    QuestionDetail,
-    QuestionReferenceDetail,
-    SectionReferenceDetail,
+  QuestionDetail,
+  QuestionReferenceDetail,
+  SectionReferenceDetail,
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
@@ -1119,7 +1119,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialQuestionType = 'normal',
   initialDisplayText = '',
   initialIsGroupHeader = false,
-  onRefresh: _onRefresh,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
