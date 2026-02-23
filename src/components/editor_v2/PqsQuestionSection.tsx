@@ -1151,7 +1151,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
-  const [showDescription, setShowDescription] = useState(!!initialDescription); // State for optional description
+  const [showDescription, setShowDescription] = useState(() => {
+  // Auto-show description for 3xx.1 prerequisite questions
+  if (isPrerequisiteQuestion) return true;
+  return !!initialDescription;
+});
+
+// Auto-set default description for 3xx.1
+useEffect(() => {
+  if (isPrerequisiteQuestion && !description) {
+    const defaultDesc = "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้";
+    setDescription(defaultDesc);
+  }
+}, [isPrerequisiteQuestion, description]);
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
@@ -1888,19 +1900,26 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     });
                   }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                  className="w-full p-2 pr-7 border border-gray-200 dark:border-gray-700 rounded-md bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none text-sm min-h-[34px] overflow-hidden"
+                  disabled={!!isPrerequisiteQuestion}
+                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${
+                    isPrerequisiteQuestion
+                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
+                      : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
+                  }`}
                   rows={1}
                 />
-                <button
-                  onClick={() => {
-                    setDescription("");
-                    setShowDescription(false);
-                  }}
-                  className="absolute top-1.5 right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded opacity-0 group-hover/desc:opacity-100 transition-opacity"
-                  title="ลบคำอธิบาย"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                {!isPrerequisiteQuestion && (
+                  <button
+                    onClick={() => {
+                      setDescription("");
+                      setShowDescription(false);
+                    }}
+                    className="absolute top-1.5 right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded opacity-0 group-hover/desc:opacity-100 transition-opacity"
+                    title="ลบคำอธิบาย"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -2587,10 +2606,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         {is300 && isPrerequisiteQuestion && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
             <div className="text-xs text-amber-600 dark:text-amber-400">
-              <div className="font-medium mb-1">หมายเหตุ: ข้อนี้ไม่มีการให้คะแนน</div>
-              <div className="text-amber-600/70 dark:text-amber-400/70">
-                คำอธิบาย: "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้" (ห้ามแก้ไข)
-              </div>
+              <div className="font-medium">หมายเหตุ: ข้อนี้ไม่มีการให้คะแนน</div>
             </div>
           </div>
         )}
