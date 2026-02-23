@@ -53,8 +53,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [tempDuration, setTempDuration] = useState<string>('');
   const [tempUnit, setTempUnit] = useState<DurationUnit>('weeks');
-  const [tempScore, setTempScore] = useState<string>('');
-
+  
   const handleTitleChange = async (newTitle: string) => {
     try {
       await invoke('update_section', {
@@ -76,7 +75,6 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
 
   const handleSaveMeta = async () => {
     const dv = tempDuration ? parseInt(tempDuration) : null;
-    const ts = tempScore ? parseInt(tempScore) : null;
     try {
       await invoke('update_section', {
         args: {
@@ -85,12 +83,11 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
           menu_label: `${sectionNumber} ${subTitle || ''}`.trim(),
           duration_value: dv,
           duration_unit: tempUnit,
-          total_score: ts,
+          total_score: totalScore, // Keep existing auto-calculated score
         }
       });
       setDurationValue(dv);
       setDurationUnit(tempUnit);
-      setTotalScore(ts);
       setIsEditingMeta(false);
     } catch (error) {
       console.error("Failed to update section meta:", error);
@@ -98,17 +95,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
     }
   };
 
-  const handleRecalculateScore = async () => {
-    if (!sectionId) return;
-    try {
-      const newTotal = await invoke<number>('calculate_section_total_score', { sectionId });
-      setTotalScore(newTotal);
-      setTempScore(newTotal.toString());
-    } catch (error) {
-      console.error("Failed to recalculate score:", error);
-    }
-  };
-
+  
   // Fetch Section ID on mount or when sectionNumber changes
   useEffect(() => {
     const fetchData = async () => {
@@ -192,22 +179,13 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-yellow-500" />
                 <span className="text-sm text-gray-600 dark:text-gray-300">คะแนนรวม:</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={tempScore}
-                  onChange={(e) => setTempScore(e.target.value)}
-                  className="w-20 px-2 py-1 text-sm border rounded focus:ring-2 focus:ring-purple-300 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  placeholder="..."
-                />
-                <span className="text-sm text-gray-500">คะแนน</span>
-                <button
-                  onClick={handleRecalculateScore}
-                  className="text-xs px-2 py-1 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-200 rounded"
-                  title="คำนวณคะแนนรวมจากข้อย่อยอัตโนมัติ"
-                >
-                  คำนวณอัตโนมัติ
-                </button>
+                <span className="text-lg font-bold text-purple-700 dark:text-purple-300 font-sarabun">
+                  {totalScore != null ? toThaiNumerals(totalScore) : '–'}
+                </span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">คะแนน</span>
+                <span className="text-xs text-purple-600 dark:text-purple-400 ml-2">
+                  (คำนวณอัตโนมัติ)
+                </span>
               </div>
               <div className="flex gap-2 ml-auto">
                 <button
@@ -231,7 +209,6 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
               onClick={!readOnly ? () => {
                 setTempDuration(durationValue?.toString() || '');
                 setTempUnit(durationUnit);
-                setTempScore(totalScore?.toString() || '');
                 setIsEditingMeta(true);
               } : undefined}
             >
