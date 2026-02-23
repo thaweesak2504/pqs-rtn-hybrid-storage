@@ -2625,15 +2625,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           </div>
         )}
 
-        {/* Special handling for 3xx.1 (Prerequisites) */}
-        {is300 && isPrerequisiteQuestion && (
-          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
-            <div className="text-xs text-amber-600 dark:text-amber-400">
-              <div className="font-medium">หมายเหตุ: ข้อนี้ไม่มีการให้คะแนน</div>
-            </div>
-          </div>
-        )}
-
+        
         {/* Special handling for 3xx.1.1-3xx.1.3 (Prerequisite Children) */}
         {is300 && isPrerequisiteChild && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
