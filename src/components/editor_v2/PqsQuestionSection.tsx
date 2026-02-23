@@ -1195,6 +1195,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
   const [childSectionRefs, setChildSectionRefs] = useState<ChildSectionRef[]>([]);
   const [showSectionPicker, setShowSectionPicker] = useState(false);
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
 
   // Fetch available sections and existing children for section picker
   useEffect(() => {
@@ -1233,6 +1234,31 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       })
       .catch(() => setChildSectionRefs([]));
   }, [isSection100Selector, isSection200Selector, existingId, documentId]);
+
+  // Auto-sync titles when availableSections change (e.g., section title edited elsewhere)
+  useEffect(() => {
+    if (!(isSection100Selector || isSection200Selector) || !existingId || availableSections.length === 0 || childSectionRefs.length === 0) return;
+    const updates = childSectionRefs.map(async (child) => {
+      const sec = availableSections.find(s => s.id === child.refSectionId);
+      if (sec && sec.title_th !== child.content) {
+        try {
+          await invoke('update_question', { args: { id: child.id, content: sec.title_th, description: null, metadata: JSON.stringify({ refSectionId: child.refSectionId, sectionNumber: sec.section_number }) } });
+          return { id: child.id, content: sec.title_th, sectionNumber: sec.section_number };
+        } catch (e) { console.error('Failed to auto-sync section title:', e); return null; }
+      }
+      return null;
+    });
+    Promise.all(updates).then(results => {
+      const updated = results.filter(Boolean) as { id: string; content: string; sectionNumber: number }[];
+      if (updated.length > 0) {
+        setChildSectionRefs(prev => {
+          const map = new Map(updated.map(u => [u.id, u]));
+          return prev.map(c => map.get(c.id) ? { ...c, ...map.get(c.id) } : c);
+        });
+        setTimeout(() => onRefresh?.(), 100);
+      }
+    });
+  }, [availableSections, isSection100Selector, isSection200Selector, existingId, childSectionRefs, onRefresh]);
 
   // Update question score when formScoreType changes for prerequisite children
   useEffect(() => {
@@ -2823,7 +2849,59 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                           <input
                             type="checkbox"
                             checked={checked}
+                            onClick={(e) => {
+                              const currentIndex = availableSections.findIndex(sec => sec.id === s.id);
+                              if (e.ctrlKey || e.metaKey) {
+                                // Ctrl+click: toggle without affecting others (default behavior)
+                                setLastClickedIndex(currentIndex);
+                              } else if (e.shiftKey && lastClickedIndex !== null) {
+                                // Shift+click: select range
+                                e.preventDefault();
+                                const start = Math.min(lastClickedIndex, currentIndex);
+                                const end = Math.max(lastClickedIndex, currentIndex);
+                                const rangeSections = availableSections.slice(start, end + 1);
+                                const operations = rangeSections.map(async (rangeSec) => {
+                                  const existing = childSectionRefs.find(c => c.refSectionId === rangeSec.id);
+                                  if (!existing) {
+                                    try {
+                                      const newId = await invoke<string>('create_question', {
+                                        args: {
+                                          id: null,
+                                          document_id: documentId,
+                                          section_id: sectionId,
+                                          parent_id: existingId,
+                                          content: rangeSec.title_th,
+                                          description: null,
+                                          is_header: false,
+                                          sequence: null,
+                                          answer_type: 'text',
+                                          metadata: JSON.stringify({ refSectionId: rangeSec.id, sectionNumber: rangeSec.section_number }),
+                                          score: 0,
+                                          question_type: 'normal',
+                                          is_scored: true,
+                                          is_group_header: false,
+                                        }
+                                      });
+                                      return { id: newId, refSectionId: rangeSec.id, content: rangeSec.title_th, score: 0, is_scored: true, sectionNumber: rangeSec.section_number };
+                                    } catch (e) { console.error('Failed to create range section ref child:', e); return null; }
+                                  }
+                                  return null;
+                                });
+                                Promise.all(operations).then(results => {
+                                  const created = results.filter(Boolean) as { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; sectionNumber: number }[];
+                                  if (created.length > 0) {
+                                    setChildSectionRefs(prev => [...prev, ...created]);
+                                    setTimeout(() => onRefresh?.(), 100);
+                                  }
+                                });
+                                setLastClickedIndex(currentIndex);
+                              } else {
+                                // Normal click: toggle this item
+                                setLastClickedIndex(currentIndex);
+                              }
+                            }}
                             onChange={async () => {
+                              // Only handle normal clicks (not Ctrl or Shift)
                               if (checked && existing) {
                                 try {
                                   await invoke('delete_question', { id: existing.id });
