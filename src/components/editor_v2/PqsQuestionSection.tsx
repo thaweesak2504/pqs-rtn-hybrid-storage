@@ -1116,6 +1116,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // Special question type detection for Section 300
   const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
   const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
+  const isSection100Selector = is300 && questionSequence && !isL1 && questionSequence === 4; // 3xx.1.4 → select 100Sections
+  const isSection200Selector = is300 && questionSequence && !isL1 && questionSequence === 5; // 3xx.1.5 → select 200Sections
 
     // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
@@ -1172,6 +1174,29 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [formScoreValue, setFormScoreValue] = useState<string>(initialScore.toString());
   const [formScoreType, setFormScoreType] = useState<string>(initialQuestionType);
   const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
+
+  // ---- Section Selector State (for 3xx.1.4 and 3xx.1.5) ----
+  interface SectionItem { id: number; section_number: number; title_th: string; menu_label: string; }
+  const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<number[]>(() => {
+    if (!initialMetadata) return [];
+    try { return JSON.parse(initialMetadata).selectedSectionIds || []; } catch { return []; }
+  });
+  const [showSectionPicker, setShowSectionPicker] = useState(false);
+
+  // Fetch available sections when section picker is needed
+  useEffect(() => {
+    if (!(isSection100Selector || isSection200Selector) || !documentId) return;
+    const targetGroup = isSection100Selector ? 100 : 200;
+    invoke<{ id: number; document_id: string; section_group: number; section_number: number; title_th: string; menu_label: string; display_order: number; is_system_defined: number; duration_value: number | null; duration_unit: string | null; total_score: number | null; created_at: string; updated_at: string; }[]>('get_sections_by_document', { documentId })
+      .then(sections => {
+        const filtered = sections
+          .filter(s => s.section_group === targetGroup)
+          .map(s => ({ id: s.id, section_number: s.section_number, title_th: s.title_th, menu_label: s.menu_label }));
+        setAvailableSections(filtered);
+      })
+      .catch(() => setAvailableSections([]));
+  }, [isSection100Selector, isSection200Selector, documentId]);
 
   // Update question score when formScoreType changes for prerequisite children
   useEffect(() => {
@@ -1746,6 +1771,11 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       const effectiveSelected = Array.from(new Set([...selectedSubQCodes, ...forcedCodes]));
       if (effectiveSelected.length > 0) newMeta.selectedSubQuestions = effectiveSelected;
       else delete newMeta.selectedSubQuestions;
+    }
+    // Save selectedSectionIds for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections)
+    if (isSection100Selector || isSection200Selector) {
+      if (selectedSectionIds.length > 0) newMeta.selectedSectionIds = selectedSectionIds;
+      else delete newMeta.selectedSectionIds;
     }
     const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
 
@@ -2655,6 +2685,72 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           </div>
         )}
 
+        {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) */}
+        {is300 && (isSection100Selector || isSection200Selector) && (
+          <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/30 dark:bg-blue-950/20 p-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowSectionPicker(v => !v)}
+                className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+              >
+                {showSectionPicker ? 'ซ่อนรายการ' : 'เลือก / แก้ไข'}
+              </button>
+            </div>
+
+            {/* Selected sections summary */}
+            {selectedSectionIds.length > 0 && (
+              <div className="space-y-0.5">
+                {availableSections
+                  .filter(s => selectedSectionIds.includes(s.id))
+                  .map(s => (
+                    <div key={s.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                      <span className="text-blue-400">✓</span>
+                      <span className="font-medium">{toThaiNumber(s.section_number)}</span>
+                      <span>{s.title_th}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+            {selectedSectionIds.length === 0 && !showSectionPicker && (
+              <div className="text-xs text-blue-400 dark:text-blue-500 italic">ยังไม่ได้เลือก Section</div>
+            )}
+
+            {/* Picker dropdown */}
+            {showSectionPicker && (
+              <div className="border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-800 divide-y divide-blue-100 dark:divide-blue-800/50 max-h-48 overflow-y-auto">
+                {availableSections.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
+                ) : (
+                  availableSections.map(s => {
+                    const checked = selectedSectionIds.includes(s.id);
+                    return (
+                      <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setSelectedSectionIds(prev =>
+                              checked ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                            );
+                          }}
+                          className="accent-blue-600 w-3.5 h-3.5 shrink-0"
+                        />
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">{toThaiNumber(s.section_number)}</span>
+                        <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Group Header Info (Section 300 only) - auto-calc info */}
         {is300 && initialIsGroupHeader && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
@@ -2823,6 +2919,30 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
   const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
+  const isSection100Selector = is300 && questionSequence && !isL1 && questionSequence === 4; // 3xx.1.4
+  const isSection200Selector = is300 && questionSequence && !isL1 && questionSequence === 5; // 3xx.1.5
+
+  // Fetch section names for display (3xx.1.4 and 3xx.1.5)
+  const [displaySections, setDisplaySections] = useState<{ id: number; section_number: number; title_th: string }[]>([]);
+  const selectedSectionIds: number[] = useMemo(() => {
+    if (!question.metadata) return [];
+    try { return JSON.parse(question.metadata).selectedSectionIds || []; } catch { return []; }
+  }, [question.metadata]);
+
+  useEffect(() => {
+    if (!(isSection100Selector || isSection200Selector) || selectedSectionIds.length === 0) {
+      setDisplaySections([]); return;
+    }
+    const targetGroup = isSection100Selector ? 100 : 200;
+    invoke<{ id: number; document_id: string; section_group: number; section_number: number; title_th: string; menu_label: string; display_order: number; is_system_defined: number; duration_value: number | null; duration_unit: string | null; total_score: number | null; created_at: string; updated_at: string; }[]>(
+      'get_sections_by_document', { documentId: question.document_id }
+    ).then(sections => {
+      const filtered = sections
+        .filter(s => s.section_group === targetGroup && selectedSectionIds.includes(s.id))
+        .map(s => ({ id: s.id, section_number: s.section_number, title_th: s.title_th }));
+      setDisplaySections(filtered);
+    }).catch(() => setDisplaySections([]));
+  }, [isSection100Selector, isSection200Selector, question.document_id, selectedSectionIds]);
 
   
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
@@ -3009,6 +3129,17 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
+        )}
+        {/* Selected Sections display for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) */}
+        {(isSection100Selector || isSection200Selector) && displaySections.length > 0 && (
+          <div className="mt-1 space-y-0.5">
+            {displaySections.map(s => (
+              <div key={s.id} className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
+                <span className="font-medium text-blue-600 dark:text-blue-400">{toThaiNumber(s.section_number)}</span>
+                <span>{s.title_th}</span>
+              </div>
+            ))}
+          </div>
         )}
         {/* SubQuestionList display for 2xx.2 / 2xx.4 / 3xx.2 / 3xx.4 L1 — DB-backed */}
         {is200or300 && isL1 && displaySubQList.length > 0 && (() => {
