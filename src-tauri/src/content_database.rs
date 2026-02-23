@@ -637,6 +637,85 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_group_header BOOLEAN DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_scored BOOLEAN DEFAULT 0", []);
 
+    // Data migration: Fix existing Section 300 questions with correct scoring flags
+    // Rule: L1 questions (parent_id IS NULL) with sequence 2-6 in section 300 docs → group headers
+    // Rule: L2 questions (parent_id IS NOT NULL) with sequence 1-3 under seq=1 parent → not scored
+    // Rule: L2 questions with sequence 4-5 under seq=1 parent → scored
+    // Rule: L1 seq=7 children (seq 1-2) → not scored
+
+    // Set is_group_header=1 for L1 questions (seq 2-6) in 300-series sections
+    let _ = conn.execute(
+        "UPDATE Questions SET is_group_header = 1, is_scored = 0
+         WHERE parent_id IS NULL
+           AND sequence BETWEEN 2 AND 6
+           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
+        [],
+    );
+
+    // Set is_group_header=1, is_scored=0 for L1 seq=1 and seq=7 (non-scoring group headers)
+    let _ = conn.execute(
+        "UPDATE Questions SET is_group_header = 1, is_scored = 0
+         WHERE parent_id IS NULL
+           AND sequence IN (1, 7)
+           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
+        [],
+    );
+
+    // Set is_scored=0 for L2 seq 1-3 under L1 seq=1 (prerequisites: 3xx.1.1-3xx.1.3)
+    let _ = conn.execute(
+        "UPDATE Questions SET is_scored = 0
+         WHERE parent_id IN (
+             SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 1
+             AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+         )
+         AND sequence BETWEEN 1 AND 3",
+        [],
+    );
+
+    // Set is_scored=1 for L2 seq 4-5 under L1 seq=1 (3xx.1.4-3xx.1.5)
+    let _ = conn.execute(
+        "UPDATE Questions SET is_scored = 1
+         WHERE parent_id IN (
+             SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 1
+             AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+         )
+         AND sequence BETWEEN 4 AND 5",
+        [],
+    );
+
+    // Set is_scored=0 for L2 children of L1 seq=7 (3xx.7.1-3xx.7.2)
+    let _ = conn.execute(
+        "UPDATE Questions SET is_scored = 0
+         WHERE parent_id IN (
+             SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 7
+             AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+         )",
+        [],
+    );
+
+    // Set is_scored=1, question_type='performance' for L2 children of L1 seq 2-6
+    let _ = conn.execute(
+        "UPDATE Questions SET is_scored = 1, question_type = 'performance'
+         WHERE parent_id IN (
+             SELECT id FROM Questions WHERE parent_id IS NULL AND sequence BETWEEN 2 AND 6
+             AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+         )
+         AND is_scored = 0 AND question_type = 'normal'",
+        [],
+    );
+
+    // Recalculate group_score for all L1 group headers in section 300
+    let _ = conn.execute(
+        "UPDATE Questions SET group_score = (
+             SELECT COALESCE(SUM(c.score), 0)
+             FROM Questions c
+             WHERE c.parent_id = Questions.id AND c.is_scored = 1
+         )
+         WHERE is_group_header = 1
+           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
+        [],
+    );
+
     // QuestionChoices Table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS QuestionChoices (
