@@ -10,6 +10,12 @@ export interface Question {
   description: string | null;
   answer_type: string | null; // 'text', 'choice', 'none'
   metadata: string | null;
+  score: number | null;
+  question_type: string | null;   // 'normal', 'performance', 'exempted'
+  group_score: number | null;
+  display_text: string | null;    // e.g. "(ไม่ต้องปฏิบัติ)"
+  is_group_header: boolean | null;
+  is_scored: boolean | null;
 }
 
 export interface QuestionChoice {

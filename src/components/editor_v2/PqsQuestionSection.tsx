@@ -910,6 +910,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           parentSubQuestionList={parentSubQuestionList}
           sectionOccupationBranches={sectionOccupationBranches}
           sectionSelectedBranch={sectionSelectedBranch}
+          initialScore={question.score ?? 0}
+          initialIsScored={!!question.is_scored}
+          initialQuestionType={question.question_type || 'normal'}
+          initialDisplayText={question.display_text || ''}
         />
       </div>
     );
@@ -1064,6 +1068,11 @@ interface QuestionFormCardProps {
   parentSubQuestionList?: SubQuestionItem[];
   sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
   sectionSelectedBranch?: { main: string; sub: string };
+  // Scoring props (Section 300)
+  initialScore?: number;
+  initialIsScored?: boolean;
+  initialQuestionType?: string;
+  initialDisplayText?: string;
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -1090,6 +1099,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   parentSubQuestionList,
   sectionOccupationBranches,
   sectionSelectedBranch,
+  initialScore = 0,
+  initialIsScored = false,
+  initialQuestionType = 'normal',
+  initialDisplayText = '',
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1132,6 +1145,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
+
+  // ---- Score Editor State (Section 300 only) ----
+  const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
+  const [formScoreValue, setFormScoreValue] = useState<string>(initialScore.toString());
+  const [formScoreType, setFormScoreType] = useState<string>(initialQuestionType);
+  const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
   const showSubQuestionEditor = level === 0 && (
@@ -1688,6 +1707,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       metadata: metadataString,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
+
+    // Save scoring fields separately for Section 300 (fire-and-forget)
+    if (is300 && isEdit && existingId) {
+      invoke('update_question_score', {
+        args: {
+          id: existingId,
+          score: formScoreIsScored ? parseInt(formScoreValue) || 0 : 0,
+          is_scored: formScoreIsScored,
+          question_type: formScoreType,
+          display_text: formScoreType === 'exempted' ? (formScoreDisplayText || '(ไม่ต้องปฏิบัติ)') : null,
+        }
+      }).catch(err => console.error('Failed to save question score:', err));
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -2479,6 +2511,55 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
+        {/* Score Editing (Section 300 only) */}
+        {is300 && (
+          <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={formScoreIsScored}
+                  onChange={(e) => setFormScoreIsScored(e.target.checked)}
+                  className="accent-purple-600 w-3.5 h-3.5"
+                />
+                มีคะแนน (is_scored)
+              </label>
+              {formScoreIsScored && (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    value={formScoreValue}
+                    onChange={(e) => setFormScoreValue(e.target.value)}
+                    className="w-16 px-2 py-0.5 text-xs border border-purple-300 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
+                    placeholder="0"
+                  />
+                  <span className="text-xs text-slate-500">คะแนน</span>
+                </div>
+              )}
+              <select
+                value={formScoreType}
+                onChange={(e) => setFormScoreType(e.target.value)}
+                className="text-xs px-2 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
+              >
+                <option value="normal">ปกติ (normal)</option>
+                <option value="performance">ปฏิบัติ (performance)</option>
+                <option value="exempted">ไม่ต้องปฏิบัติ (exempted)</option>
+              </select>
+              {formScoreType === 'exempted' && (
+                <input
+                  type="text"
+                  value={formScoreDisplayText}
+                  onChange={(e) => setFormScoreDisplayText(e.target.value)}
+                  className="flex-1 min-w-[120px] px-2 py-0.5 text-xs border border-amber-300 dark:border-amber-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-amber-400"
+                  placeholder="ข้อความแสดง เช่น (ไม่ต้องปฏิบัติ)"
+                />
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center justify-between pt-1">
           <span className="text-[10px] text-slate-300 dark:text-slate-600 select-none"></span>
@@ -2770,7 +2851,30 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 )
               </span>
             )}
+            {/* Exempted badge */}
+            {question.question_type === 'exempted' && (
+              <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                {question.display_text || "(ไม่ต้องปฏิบัติ)"}
+              </span>
+            )}
           </div>
+          {/* Score badges — aligned right */}
+          {is300 && (
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Group header: show group_score total */}
+              {question.is_group_header && (question.group_score != null && question.group_score > 0) && (
+                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                  {toThaiNumber(question.group_score)} คะแนน
+                </span>
+              )}
+              {/* Individual scored item: show score */}
+              {!question.is_group_header && question.is_scored && (question.score != null && question.score > 0) && (
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded whitespace-nowrap">
+                  {toThaiNumber(question.score)} คะแนน
+                </span>
+              )}
+            </div>
+          )}
           {/* Inline SubQ checkboxes — ชิดขวา */}
           {inlineSubQItems && (
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">

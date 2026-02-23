@@ -860,6 +860,16 @@ fn get_user_progress(
     content_database::get_user_progress(user_id, document_id)
 }
 
+#[tauri::command]
+fn calculate_group_score(parent_id: String) -> Result<i32, String> {
+    content_database::calculate_group_score(parent_id)
+}
+
+#[tauri::command]
+fn update_question_score(args: content_database::UpdateQuestionScoreArgs) -> Result<(), String> {
+    content_database::update_question_score(args)
+}
+
 // ===== Reference Management Commands =====
 
 #[tauri::command]
@@ -1310,6 +1320,8 @@ fn main() {
             calculate_section_total_score,
             upsert_user_progress,
             get_user_progress,
+            calculate_group_score,
+            update_question_score,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

@@ -1422,42 +1422,48 @@ fn to_thai_digit(n: i32) -> String {
 }
 
 /// Seed Section 300 Template (3xx.1 - 3xx.7)
+/// Scoring rules:
+///   3xx.1.1 - 3xx.1.3 → is_scored = false (prerequisites, no score)
+///   3xx.1.4 - 3xx.1.5 → is_scored = true  (can have score)
+///   3xx.2 - 3xx.6     → is_scored = true, is_group_header = true (score = sum of children)
+///   3xx.7.1 - 3xx.7.2 → is_scored = false (knowledge test, separate evaluation)
 fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
-    // Prefix is handled dynamically by the frontend component
-    
-    // Helper closure to insert question
-    let insert_q = |parent: Option<&str>, seq: i32, content: String, desc: Option<String>| -> Result<String, String> {
+    // Helper closure with scoring fields
+    let insert_q = |parent: Option<&str>, seq: i32, content: String, desc: Option<String>, is_scored: bool, is_group_header: bool, question_type: &str| -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none')",
-            params![q_id, doc_id, section_id, parent, seq, content, desc]
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type, score, question_type, group_score, is_group_header, is_scored) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none', 0, ?8, 0, ?9, ?10)",
+            params![q_id, doc_id, section_id, parent, seq, content, desc, question_type, is_group_header, is_scored]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
     };
 
-    // 3xx.1
+    // 3xx.1 - คุณสมบัติก่อนการทดสอบ (group header, may have score from 1.4-1.5)
     let q1_desc = "เพื่อให้การทดสอบตาม มาตรฐานการทดสอบกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้".to_string();
-    let q1_id = insert_q(None, 1, "คุณสมบัติก่อนการทดสอบ".to_string(), Some(q1_desc))?;
+    let q1_id = insert_q(None, 1, "คุณสมบัติก่อนการทดสอบ".to_string(), Some(q1_desc), false, true, "normal")?;
     
-    insert_q(Some(&q1_id), 1, "ผ่านการอบรม".to_string(), None)?;
-    insert_q(Some(&q1_id), 2, "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(), None)?;
-    insert_q(Some(&q1_id), 3, "ผ่านการปฏิบัติหน้าที่".to_string(), None)?;
-    insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None)?;
-    insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None)?;
+    // 3xx.1.1 - 3xx.1.3: NOT scored (prerequisites)
+    insert_q(Some(&q1_id), 1, "ผ่านการอบรม".to_string(), None, false, false, "normal")?;
+    insert_q(Some(&q1_id), 2, "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(), None, false, false, "normal")?;
+    insert_q(Some(&q1_id), 3, "ผ่านการปฏิบัติหน้าที่".to_string(), None, false, false, "normal")?;
+    // 3xx.1.4 - 3xx.1.5: SCORED (can assign score)
+    insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "normal")?;
+    insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "normal")?;
 
-    // 3xx.2 - 3xx.5
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None)?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None)?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None)?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None)?;
+    // 3xx.2 - 3xx.5: SCORED group headers (score = sum of children)
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, true, true, "performance")?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, true, true, "performance")?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, true, true, "performance")?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, true, true, "performance")?;
 
-    // 3xx.6 - 3xx.7
-    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None)?;
+    // 3xx.6: SCORED group header
+    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, true, true, "performance")?;
     
-    let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None)?;
-    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), None)?;
-    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), None)?;
+    // 3xx.7: สอบความรู้ (group header, children NOT scored)
+    let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal")?;
+    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), None, false, false, "normal")?;
+    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), None, false, false, "normal")?;
 
     Ok(())
 }
@@ -2840,4 +2846,64 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
     ).map_err(|e| e.to_string())?;
 
     Ok(total)
+}
+
+/// Calculate group_score for a parent question by summing scored children's scores
+/// Returns the computed group_score and auto-updates the parent's group_score field
+pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let total: i32 = conn.query_row(
+        "SELECT COALESCE(SUM(score), 0) FROM Questions WHERE parent_id = ?1 AND is_scored = 1",
+        params![parent_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    // Auto-update the parent's group_score
+    conn.execute(
+        "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
+        params![total, parent_id],
+    ).map_err(|e| e.to_string())?;
+
+    Ok(total)
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct UpdateQuestionScoreArgs {
+    pub id: String,
+    pub score: i32,
+    pub is_scored: bool,
+    pub question_type: String,
+    pub display_text: Option<String>,
+}
+
+/// Update scoring fields for a single question
+pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    conn.execute(
+        "UPDATE Questions SET score = ?2, is_scored = ?3, question_type = ?4, display_text = ?5 WHERE id = ?1",
+        params![args.id, args.score, args.is_scored, args.question_type, args.display_text],
+    ).map_err(|e| e.to_string())?;
+
+    // If this question has a parent, recalculate parent's group_score
+    let parent_id: Option<String> = conn.query_row(
+        "SELECT parent_id FROM Questions WHERE id = ?1",
+        params![args.id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    if let Some(pid) = parent_id {
+        let group_total: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(score), 0) FROM Questions WHERE parent_id = ?1 AND is_scored = 1",
+            params![pid],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
+            params![group_total, pid],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
