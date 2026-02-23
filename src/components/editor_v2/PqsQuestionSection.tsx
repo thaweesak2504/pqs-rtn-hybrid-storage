@@ -1123,6 +1123,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     (!isL1 && (questionSequence === 1 || questionSequence === 2)) // 3xx.7.1 - 3xx.7.2
   );
   const isSpecialNoScoreQuestion = isPrerequisiteQuestion || isKnowledgeTestQuestion;
+
+  // Check if parent is a special no-score question (for L3 children)
+  const parentIsSpecialNoScore = is300 && parentSubQuestionList && (
+    // Check if this is an L3 child of a prerequisite question (3xx.1)
+    parentSubQuestionList.some(sq => sq.alwaysChecked) ||
+    // Check if this is an L3 child of a knowledge test question (3xx.7)
+    false // TODO: Add logic for knowledge test children if needed
+  );
   // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
     border: 'border-purple-200 dark:border-purple-800/50', bg: 'bg-purple-50/50 dark:bg-purple-950/20',
@@ -1167,11 +1175,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
-  // Disable for exempted prerequisite questions (3xx.1 when question_type = 'exempted')
-  const showSubQuestionEditor = level === 0 && (
+  // Base condition for showing sub-question editor
+  const baseShowSubQuestionEditor = level === 0 && (
     (is200 && (questionSequence === 2 || questionSequence === 4)) ||
     (is300 && (questionSequence === 2 || questionSequence === 3 || questionSequence === 4 || questionSequence === 5))
-  ) && !(isPrerequisiteQuestion && formScoreType === 'exempted');
+  );
+  
+  // Disable for exempted prerequisite questions (3xx.1 when question_type = 'exempted')
+  const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() => 
+    baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted')
+  );
+
+  // Re-evaluate when formScoreType changes
+  useEffect(() => {
+    setShowSubQuestionEditor(
+      baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted')
+    );
+  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, formScoreType]);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
@@ -2526,8 +2546,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Score Editing (Section 300 only) - hide for group headers and special no-score questions */}
-        {is300 && !initialIsGroupHeader && !isSpecialNoScoreQuestion && (
+        {/* Score Editing (Section 300 only) - hide for group headers, special no-score questions, and their children */}
+        {is300 && !initialIsGroupHeader && !isSpecialNoScoreQuestion && !parentIsSpecialNoScore && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2787,10 +2807,21 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   parentLayout = "list",
   parentSubQuestionList,
 }) => {
-  const isL1 = level === 0;
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
+  const isL1 = level === 0;
+
+  // Special question type detection for Section 300
+  const isPrerequisiteQuestion = is300 && (
+    (isL1 && question.sequence === 1) || // 3xx.1
+    (!isL1 && question.sequence >= 1 && question.sequence <= 3) // 3xx.1.1 - 3xx.1.3
+  );
+  const isKnowledgeTestQuestion = is300 && (
+    (isL1 && question.sequence === 7) || // 3xx.7
+    (!isL1 && (question.sequence === 1 || question.sequence === 2)) // 3xx.7.1 - 3xx.7.2
+  );
+  const isSpecialNoScoreQuestion = isPrerequisiteQuestion || isKnowledgeTestQuestion;
 
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
@@ -2932,6 +2963,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             {question.question_type === 'exempted' && (
               <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
                 {question.display_text || "(ไม่ต้องปฏิบัติ)"}
+              </span>
+            )}
+            {/* Special question type badges */}
+            {isSpecialNoScoreQuestion && (
+              <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                {isKnowledgeTestQuestion ? 'Knowledge Test' : 'Prerequisite'}
               </span>
             )}
           </div>
