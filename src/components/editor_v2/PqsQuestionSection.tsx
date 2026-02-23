@@ -1112,6 +1112,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
   const isEdit = !!existingId;
+
+  // Special question type detection for Section 300
+  const isPrerequisiteQuestion = is300 && questionSequence && (
+    (isL1 && questionSequence === 1) || // 3xx.1
+    (!isL1 && questionSequence >= 1 && questionSequence <= 3) // 3xx.1.1 - 3xx.1.3
+  );
+  const isKnowledgeTestQuestion = is300 && questionSequence && (
+    (isL1 && questionSequence === 7) || // 3xx.7
+    (!isL1 && (questionSequence === 1 || questionSequence === 2)) // 3xx.7.1 - 3xx.7.2
+  );
+  const isSpecialNoScoreQuestion = isPrerequisiteQuestion || isKnowledgeTestQuestion;
   // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
     border: 'border-purple-200 dark:border-purple-800/50', bg: 'bg-purple-50/50 dark:bg-purple-950/20',
@@ -1156,10 +1167,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
+  // Disable for exempted prerequisite questions (3xx.1 when question_type = 'exempted')
   const showSubQuestionEditor = level === 0 && (
     (is200 && (questionSequence === 2 || questionSequence === 4)) ||
     (is300 && (questionSequence === 2 || questionSequence === 3 || questionSequence === 4 || questionSequence === 5))
-  );
+  ) && !(isPrerequisiteQuestion && formScoreType === 'exempted');
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
@@ -2514,8 +2526,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Score Editing (Section 300 only) - hide for group headers */}
-        {is300 && !initialIsGroupHeader && (
+        {/* Score Editing (Section 300 only) - hide for group headers and special no-score questions */}
+        {is300 && !initialIsGroupHeader && !isSpecialNoScoreQuestion && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2558,6 +2570,58 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   className="flex-1 min-w-[120px] px-2 py-0.5 text-xs border border-amber-300 dark:border-amber-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-amber-400"
                   placeholder="ข้อความแสดง เช่น (ไม่ต้องปฏิบัติ)"
                 />
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Special Question Type Info (Section 300 only) */}
+        {is300 && isSpecialNoScoreQuestion && (
+          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">
+                {isKnowledgeTestQuestion ? 'Knowledge Test' : 'Prerequisite'}
+              </span>
+              {isPrerequisiteQuestion && (
+                <>
+                  <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={false}
+                      disabled={true}
+                      className="accent-gray-400 w-3.5 h-3.5 opacity-50"
+                    />
+                    มีคะแนน (is_scored) - ไม่อนุญาตสำหรับข้อนี้
+                  </label>
+                  <select
+                    value={formScoreType}
+                    onChange={(e) => {
+                      setFormScoreType(e.target.value);
+                      if (e.target.value === 'exempted') {
+                        setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
+                      }
+                    }}
+                    className="text-xs px-2 py-0.5 border border-amber-300 dark:border-amber-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-amber-400"
+                  >
+                    <option value="normal">ปกติ (normal)</option>
+                    <option value="performance">ปฏิบัติ (performance)</option>
+                    <option value="exempted">ไม่ต้องปฏิบัติ (exempted)</option>
+                  </select>
+                  {formScoreType === 'exempted' && (
+                    <input
+                      type="text"
+                      value={formScoreDisplayText}
+                      disabled={true}
+                      className="flex-1 min-w-[120px] px-2 py-0.5 text-xs border border-amber-300 dark:border-amber-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                      placeholder="(ไม่ต้องปฏิบัติ)"
+                    />
+                  )}
+                </>
+              )}
+              {isKnowledgeTestQuestion && (
+                <span className="text-xs text-amber-600 dark:text-amber-400">
+                  ไม่เกี่ยวกับการให้คะแนน
+                </span>
               )}
             </div>
           </div>
