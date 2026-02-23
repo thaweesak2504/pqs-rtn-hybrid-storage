@@ -796,9 +796,16 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
   const isExpanded = !collapsedIds.has(question.id);
-  const prefix = is200or300
-    ? buildPrefix200_300(level, question.sequence, sectionNumber, parentSequence)
-    : buildPrefix(level, question.sequence, sectionNumber);
+  // Section-ref children (3xx.1.4/1.5 children) use section_number as prefix instead of ก.ข.ค.
+  const refSectionMeta = useMemo(() => {
+    if (!is300 || !question.metadata) return null;
+    try { const m = JSON.parse(question.metadata); return m.refSectionId ? m : null; } catch { return null; }
+  }, [is300, question.metadata]);
+  const prefix = refSectionMeta?.sectionNumber
+    ? `${toThaiNumber(refSectionMeta.sectionNumber)}.`
+    : is200or300
+      ? buildPrefix200_300(level, question.sequence, sectionNumber, parentSequence)
+      : buildPrefix(level, question.sequence, sectionNumber);
   const hasChildren = question.children && question.children.length > 0;
   // 300Template: 3xx.1.1-3xx.1.3 (L2, parentSeq=1, seq=1-3) can add L3; others cannot
   const is300L2AllowL3 = is300 && level === 1 && isParentDefault300L1 && parentSequence === 1 && question.sequence >= 1 && question.sequence <= 3;
@@ -1184,7 +1191,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
 
   // ---- Section Selector State (for 3xx.1.4 and 3xx.1.5) ----
   interface SectionItem { id: number; section_number: number; title_th: string; menu_label: string; }
-  interface ChildSectionRef { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; }
+  interface ChildSectionRef { id: string; refSectionId: number; content: string; score: number; is_scored: boolean; sectionNumber?: number; }
   const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
   const [childSectionRefs, setChildSectionRefs] = useState<ChildSectionRef[]>([]);
   const [showSectionPicker, setShowSectionPicker] = useState(false);
@@ -1215,11 +1222,13 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
         const children = all
           .filter(q => q.parent_id === existingId)
           .map(q => {
-            let refSectionId = 0;
-            try { refSectionId = JSON.parse(q.metadata || '{}').refSectionId || 0; } catch { }
-            return { id: q.id, refSectionId, content: q.content, score: q.score ?? 0, is_scored: !!q.is_scored };
+            let refSectionId = 0; let sectionNumber: number | undefined;
+            try { const m = JSON.parse(q.metadata || '{}'); refSectionId = m.refSectionId || 0; sectionNumber = m.sectionNumber; } catch { }
+            return { id: q.id, refSectionId, content: q.content, score: q.score ?? 0, is_scored: !!q.is_scored, sectionNumber };
           })
           .filter(c => c.refSectionId > 0);
+        // Sync titles: if section title_th changed, update child question content
+        // (done lazily when picker is opened)
         setChildSectionRefs(children);
       })
       .catch(() => setChildSectionRefs([]));
@@ -2717,7 +2726,23 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               {isEdit && (
                 <button
                   type="button"
-                  onClick={() => setShowSectionPicker(v => !v)}
+                  onClick={async () => {
+                    const opening = !showSectionPicker;
+                    setShowSectionPicker(opening);
+                    // Sync titles when opening picker
+                    if (opening && childSectionRefs.length > 0 && availableSections.length > 0) {
+                      for (const child of childSectionRefs) {
+                        const sec = availableSections.find(s => s.id === child.refSectionId);
+                        if (sec && sec.title_th !== child.content) {
+                          try {
+                            await invoke('update_question', { args: { id: child.id, content: sec.title_th, description: null, metadata: JSON.stringify({ refSectionId: child.refSectionId, sectionNumber: sec.section_number }) } });
+                            setChildSectionRefs(prev => prev.map(c => c.id === child.id ? { ...c, content: sec.title_th, sectionNumber: sec.section_number } : c));
+                          } catch (e) { console.error('Failed to sync section title:', e); }
+                        }
+                      }
+                      onRefresh?.();
+                    }
+                  }}
                   className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
                 >
                   {showSectionPicker ? 'ซ่อนรายการ' : 'เลือก / แก้ไข'}
@@ -2748,60 +2773,80 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
 
             {/* Picker dropdown — edit mode only */}
             {showSectionPicker && isEdit && (
-              <div className="border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-800 divide-y divide-blue-100 dark:divide-blue-800/50 max-h-48 overflow-y-auto">
+              <div className="border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
                 {availableSections.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
-                ) : (
-                  availableSections.map(s => {
-                    const existing = childSectionRefs.find(c => c.refSectionId === s.id);
-                    const checked = !!existing;
-                    return (
-                      <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={async () => {
-                            if (checked && existing) {
-                              // Uncheck → delete child question
-                              try {
-                                await invoke('delete_question', { id: existing.id });
-                                setChildSectionRefs(prev => prev.filter(c => c.id !== existing.id));
-                                onRefresh?.();
-                              } catch (e) { console.error('Failed to delete section ref child:', e); }
-                            } else {
-                              // Check → create child question
-                              try {
-                                const newId = await invoke<string>('create_question', {
-                                  args: {
-                                    id: null,
-                                    document_id: documentId,
-                                    section_id: sectionId,
-                                    parent_id: existingId,
-                                    content: s.title_th,
-                                    description: null,
-                                    is_header: false,
-                                    sequence: null,
-                                    answer_type: 'text',
-                                    metadata: JSON.stringify({ refSectionId: s.id }),
-                                    score: 0,
-                                    question_type: 'normal',
-                                    is_scored: true,
-                                    is_group_header: false,
-                                  }
-                                });
-                                setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true }]);
-                                onRefresh?.();
-                              } catch (e) { console.error('Failed to create section ref child:', e); }
-                            }
-                          }}
-                          className="accent-blue-600 w-3.5 h-3.5 shrink-0"
-                        />
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">{toThaiNumber(s.section_number)}</span>
-                        <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
-                      </label>
-                    );
-                  })
-                )}
+                ) : (<>
+                  {/* Select all / Deselect all */}
+                  <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-800/50">
+                    <button type="button" onClick={async () => {
+                      const unchecked = availableSections.filter(s => !childSectionRefs.find(c => c.refSectionId === s.id));
+                      for (const s of unchecked) {
+                        try {
+                          const newId = await invoke<string>('create_question', { args: { id: null, document_id: documentId, section_id: sectionId, parent_id: existingId, content: s.title_th, description: null, is_header: false, sequence: null, answer_type: 'text', metadata: JSON.stringify({ refSectionId: s.id, sectionNumber: s.section_number }), score: 0, question_type: 'normal', is_scored: true, is_group_header: false } });
+                          setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number }]);
+                        } catch (e) { console.error(e); }
+                      }
+                      if (unchecked.length > 0) onRefresh?.();
+                    }} className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700">เลือกทั้งหมด</button>
+                    <button type="button" onClick={async () => {
+                      for (const c of [...childSectionRefs]) {
+                        try { await invoke('delete_question', { id: c.id }); } catch (e) { console.error(e); }
+                      }
+                      setChildSectionRefs([]);
+                      onRefresh?.();
+                    }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
+                  </div>
+                  <div className="divide-y divide-blue-100 dark:divide-blue-800/50">
+                    {availableSections.map(s => {
+                      const existing = childSectionRefs.find(c => c.refSectionId === s.id);
+                      const checked = !!existing;
+                      return (
+                        <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={async () => {
+                              if (checked && existing) {
+                                try {
+                                  await invoke('delete_question', { id: existing.id });
+                                  setChildSectionRefs(prev => prev.filter(c => c.id !== existing.id));
+                                  onRefresh?.();
+                                } catch (e) { console.error('Failed to delete section ref child:', e); }
+                              } else {
+                                try {
+                                  const newId = await invoke<string>('create_question', {
+                                    args: {
+                                      id: null,
+                                      document_id: documentId,
+                                      section_id: sectionId,
+                                      parent_id: existingId,
+                                      content: s.title_th,
+                                      description: null,
+                                      is_header: false,
+                                      sequence: null,
+                                      answer_type: 'text',
+                                      metadata: JSON.stringify({ refSectionId: s.id, sectionNumber: s.section_number }),
+                                      score: 0,
+                                      question_type: 'normal',
+                                      is_scored: true,
+                                      is_group_header: false,
+                                    }
+                                  });
+                                  setChildSectionRefs(prev => [...prev, { id: newId, refSectionId: s.id, content: s.title_th, score: 0, is_scored: true, sectionNumber: s.section_number }]);
+                                  onRefresh?.();
+                                } catch (e) { console.error('Failed to create section ref child:', e); }
+                              }
+                            }}
+                            className="accent-blue-600 w-3.5 h-3.5 shrink-0"
+                          />
+                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">{toThaiNumber(s.section_number)}</span>
+                          <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>)}
               </div>
             )}
           </div>
