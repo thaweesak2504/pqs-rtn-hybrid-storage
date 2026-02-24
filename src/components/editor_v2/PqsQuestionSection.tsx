@@ -1267,6 +1267,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [requiredCountChildren, setRequiredCountChildren] = useState<RequiredCountChild[]>([]);
   const [requiredCount, setRequiredCount] = useState<number>(0);
   const [scorePerInstance, setScorePerInstance] = useState<number>(initialScore);
+  // Dynamic group header flag — may be reverted when L3 children are all deleted
+  const [effectiveIsGroupHeader, setEffectiveIsGroupHeader] = useState<boolean>(initialIsGroupHeader);
 
   const fetchRequiredCountChildren = useCallback(async () => {
     if (!isPerformanceL2 || !existingId) { setRequiredCountChildren([]); return; }
@@ -1274,7 +1276,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       const children = await invoke<RequiredCountChild[]>('get_required_count_children', { parentId: existingId });
       setRequiredCountChildren(children);
       setRequiredCount(children.length);
-      if (children.length > 0) setScorePerInstance(children[0].score);
+      if (children.length > 0) {
+        setScorePerInstance(children[0].score);
+        setEffectiveIsGroupHeader(true);
+      } else {
+        // No children but was group_header → stale state, revert
+        setEffectiveIsGroupHeader(false);
+      }
     } catch { setRequiredCountChildren([]); }
   }, [isPerformanceL2, existingId]);
   useEffect(() => { fetchRequiredCountChildren(); }, [fetchRequiredCountChildren]);
@@ -1292,6 +1300,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
       });
       setRequiredCountChildren(children);
+      setEffectiveIsGroupHeader(children.length > 0);
     } catch (error) {
       console.error("Failed to sync required count children:", error);
     }
@@ -2763,7 +2772,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
         {/* Score Editing (Section 300 only) - hide for group headers, prerequisite questions, prerequisite children, and section selectors */}
-        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+        {is300 && !(isPerformanceL2 ? effectiveIsGroupHeader : initialIsGroupHeader) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -3052,7 +3061,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         )}
 
         {/* Group Header Info (Section 300 only) - auto-calc info */}
-        {is300 && initialIsGroupHeader && (
+        {is300 && (isPerformanceL2 ? effectiveIsGroupHeader : initialIsGroupHeader) && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
             <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
               <span className="font-bold uppercase tracking-wider">Group Header</span>

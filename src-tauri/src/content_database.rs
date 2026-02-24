@@ -1349,7 +1349,7 @@ pub fn delete_question(id: String) -> Result<(), String> {
     // 3. Re-index siblings (Shift Left)
     // Logic depends on whether parent_id exists
     match parent_id {
-        Some(pid) => {
+        Some(ref pid) => {
             // Sibling check by parent_id
              tx.execute(
                 "UPDATE Questions 
@@ -1369,7 +1369,30 @@ pub fn delete_question(id: String) -> Result<(), String> {
         }
     }
     
+    // 4. If this question had a parent, check if parent now has 0 children
+    //    → revert parent's is_group_header=0, is_scored=1 and recalculate scores
+    if let Some(ref pid) = parent_id {
+        let child_count: i32 = tx.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+            params![pid],
+            |row| row.get(0),
+        ).unwrap_or(0);
+
+        if child_count == 0 {
+            tx.execute(
+                "UPDATE Questions SET is_group_header = 0, group_score = 0, is_scored = 1 WHERE id = ?1",
+                params![pid],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
     tx.commit().map_err(|e| e.to_string())?;
+
+    // Recalculate scores after commit (needs its own connection)
+    if let Some(ref pid) = parent_id {
+        let conn2 = get_content_connection().map_err(|e| e.to_string())?;
+        let _ = recalculate_group_score_chain(&conn2, pid);
+    }
     
     Ok(())
 }
@@ -3872,11 +3895,11 @@ pub struct SyncRequiredCountArgs {
 pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<RequiredCountChild>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Get parent question content
-    let parent_content: String = conn.query_row(
-        "SELECT content FROM Questions WHERE id = ?1",
+    // Get parent question content, metadata, and answer_type to inherit
+    let (parent_content, parent_metadata, parent_answer_type): (String, Option<String>, String) = conn.query_row(
+        "SELECT content, metadata, COALESCE(answer_type, 'text') FROM Questions WHERE id = ?1",
         params![args.parent_id],
-        |row| row.get(0),
+        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     ).map_err(|e| e.to_string())?;
 
     // Get existing required_instance children
@@ -3884,16 +3907,16 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
     let current_count = existing.len() as i32;
 
     if args.desired_count > current_count {
-        // Add new children
+        // Add new children (inherit parent's metadata and answer_type)
         for i in (current_count + 1)..=(args.desired_count) {
             let id = generate_uuid();
             let letter = thai_alpha(i);
             let content = format!("{}. {} ครั้งที่ {}", letter, parent_content, i);
 
             conn.execute(
-                "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, score, question_type, group_score, is_group_header, is_scored)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 'text', ?7, 'required_instance', 0, 0, 1)",
-                params![id, args.document_id, args.section_id, args.parent_id, i, content, args.score_per_instance],
+                "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, ?9, 'required_instance', 0, 0, 1)",
+                params![id, args.document_id, args.section_id, args.parent_id, i, content, parent_answer_type, parent_metadata, args.score_per_instance],
             ).map_err(|e| e.to_string())?;
         }
     } else if args.desired_count < current_count {
