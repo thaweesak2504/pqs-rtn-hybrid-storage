@@ -1293,21 +1293,28 @@ pub struct UpdateQuestionArgs {
 pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| e.to_string())?;
 
+    // Use COALESCE so scoring fields are preserved when not explicitly provided (None → keep DB value)
     conn.execute(
         "UPDATE Questions 
-         SET content = ?2, description = ?3, metadata = ?4, score = ?5, question_type = ?6, group_score = ?7, display_text = ?8, is_group_header = ?9, is_scored = ?10
+         SET content = ?2, description = ?3, metadata = ?4,
+             score = COALESCE(?5, score),
+             question_type = COALESCE(?6, question_type),
+             group_score = COALESCE(?7, group_score),
+             display_text = COALESCE(?8, display_text),
+             is_group_header = COALESCE(?9, is_group_header),
+             is_scored = COALESCE(?10, is_scored)
          WHERE id = ?1",
         params![
             args.id, 
             args.content, 
             args.description,
             args.metadata,
-            args.score.unwrap_or(0),
-            args.question_type.unwrap_or("normal".to_string()),
-            args.group_score.unwrap_or(0),
+            args.score,
+            args.question_type,
+            args.group_score,
             args.display_text,
-            args.is_group_header.unwrap_or(false),
-            args.is_scored.unwrap_or(false)
+            args.is_group_header,
+            args.is_scored
         ]
     )
     .map_err(|e| e.to_string())?;
@@ -2986,6 +2993,7 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
     let total: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE 
+                WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN group_score
                 WHEN is_scored = 1 AND parent_id IS NULL THEN score
                 ELSE 0
@@ -3013,6 +3021,7 @@ pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
     let total: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE 
+                WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN group_score
                 WHEN is_scored = 1 THEN score
                 ELSE 0
@@ -3061,6 +3070,7 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
         let group_total: i32 = conn.query_row(
             "SELECT COALESCE(SUM(
                 CASE 
+                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
@@ -3085,6 +3095,7 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
             let gp_total: i32 = conn.query_row(
                 "SELECT COALESCE(SUM(
                     CASE 
+                        WHEN question_type = 'exempted' THEN 0
                         WHEN is_group_header = 1 THEN group_score
                         WHEN is_scored = 1 THEN score
                         ELSE 0
@@ -3110,6 +3121,7 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
             let section_total: i32 = conn.query_row(
                 "SELECT COALESCE(SUM(
                     CASE 
+                        WHEN question_type = 'exempted' THEN 0
                         WHEN is_group_header = 1 THEN group_score
                         WHEN is_scored = 1 AND parent_id IS NULL THEN score
                         ELSE 0
@@ -3347,6 +3359,7 @@ pub fn recalculate_section_link_scores(question_id: String) -> Result<i32, Strin
         let parent_total: i32 = conn.query_row(
             "SELECT COALESCE(SUM(
                 CASE 
+                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
@@ -3372,6 +3385,7 @@ pub fn recalculate_section_link_scores(question_id: String) -> Result<i32, Strin
             let section_total: i32 = conn.query_row(
                 "SELECT COALESCE(SUM(
                     CASE 
+                        WHEN question_type = 'exempted' THEN 0
                         WHEN is_group_header = 1 THEN group_score
                         WHEN is_scored = 1 AND is_group_header = 0 AND parent_id IS NULL THEN score
                         ELSE 0
@@ -3403,6 +3417,7 @@ fn recalculate_group_score_chain(conn: &Connection, parent_id: &str) -> Result<(
     let parent_total: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE 
+                WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN group_score
                 WHEN is_scored = 1 THEN score
                 ELSE 0
@@ -3428,6 +3443,7 @@ fn recalculate_group_score_chain(conn: &Connection, parent_id: &str) -> Result<(
         let gp_total: i32 = conn.query_row(
             "SELECT COALESCE(SUM(
                 CASE 
+                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
@@ -3454,6 +3470,7 @@ fn recalculate_group_score_chain(conn: &Connection, parent_id: &str) -> Result<(
         let section_total: i32 = conn.query_row(
             "SELECT COALESCE(SUM(
                 CASE 
+                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 AND parent_id IS NULL THEN score
                     ELSE 0

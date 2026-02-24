@@ -1167,18 +1167,25 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(() => {
-  // Auto-show description for 3xx.1 prerequisite questions
+  // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.4/1.5 section selectors
   if (isPrerequisiteQuestion) return true;
+  if ((isSection100Selector || isSection200Selector) && initialQuestionType !== 'exempted') return true;
   return !!initialDescription;
 });
 
-// Auto-set default description for 3xx.1
+// Auto-set default description for 3xx.1 and 3xx.1.4/1.5
 useEffect(() => {
   if (isPrerequisiteQuestion && !description) {
     const defaultDesc = "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้";
     setDescription(defaultDesc);
   }
-}, [isPrerequisiteQuestion, description]);
+  if (isSection100Selector && !description) {
+    setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบความรู้พื้นฐาน ที่กำหนด ดังนี้");
+  }
+  if (isSection200Selector && !description) {
+    setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
+  }
+}, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, description]);
 
 const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
@@ -1222,29 +1229,53 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   }, [isSection100Selector, isSection200Selector, existingId]);
   useEffect(() => { fetchSectionRefChildren(); }, [fetchSectionRefChildren]);
 
-  // Update question score when formScoreType changes for prerequisite children
+  // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
     if (isPrerequisiteChild && existingId) {
-      // This will be called when checkbox is toggled
       const updateScore = async () => {
         try {
           await invoke('update_question_score', {
             args: {
-              questionId: existingId,
-              score: 0, // Always 0 for prerequisite children
-              questionType: formScoreType,
-              displayText: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
+              id: existingId,
+              score: 0,
+              question_type: formScoreType,
+              display_text: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
             }
           });
         } catch (error) {
           console.error("Failed to update question score:", error);
         }
       };
-      
-      // Call immediately when formScoreType changes
       updateScore();
     }
   }, [isPrerequisiteChild, existingId, formScoreType]);
+
+  // Update question score when formScoreType changes for section selectors (3xx.1.4/1.5)
+  useEffect(() => {
+    if ((isSection100Selector || isSection200Selector) && existingId) {
+      const updateScore = async () => {
+        try {
+          await invoke('update_question_score', {
+            args: {
+              id: existingId,
+              score: 0,
+              question_type: formScoreType,
+              display_text: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
+            }
+          });
+        } catch (error) {
+          console.error("Failed to update question score:", error);
+        }
+      };
+      updateScore();
+      // Toggle description visibility based on exempted status
+      if (formScoreType === 'exempted') {
+        setShowDescription(false);
+      } else {
+        setShowDescription(true);
+      }
+    }
+  }, [isSection100Selector, isSection200Selector, existingId, formScoreType]);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
   // Base condition for showing sub-question editor
@@ -1972,15 +2003,15 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                     });
                   }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                  disabled={!!isPrerequisiteQuestion}
+                  disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector}
                   className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${
-                    isPrerequisiteQuestion
+                    (isPrerequisiteQuestion || isSection100Selector || isSection200Selector)
                       ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
                       : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
                   }`}
                   rows={1}
                 />
-                {!isPrerequisiteQuestion && (
+                {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && (
                   <button
                     onClick={() => {
                       setDescription("");
@@ -2625,8 +2656,8 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           </div>
         )}
 
-        {/* Score Editing (Section 300 only) - hide for group headers, prerequisite questions, and prerequisite children */}
-        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && !isPrerequisiteChild && (
+        {/* Score Editing (Section 300 only) - hide for group headers, prerequisite questions, prerequisite children, and section selectors */}
+        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2706,7 +2737,35 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
 
         {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — L3 section_ref children */}
         {is300 && (isSection100Selector || isSection200Selector) && (
-          <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
+          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2 space-y-2">
+            {/* Exempted checkbox (same as 3xx.1.1-1.3) */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={formScoreType === 'exempted'}
+                  onChange={(e) => {
+                    const newType = e.target.checked ? 'exempted' : 'normal';
+                    setFormScoreType(newType);
+                    if (newType === 'exempted') {
+                      setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
+                    }
+                  }}
+                  className="accent-amber-600 w-3.5 h-3.5"
+                />
+                ไม่ต้องปฏิบัติ
+              </label>
+              {formScoreType === 'exempted' && (
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                  (ไม่ต้องปฏิบัติ)
+                </span>
+              )}
+            </div>
+
+            {/* Section picker content — only show when NOT exempted */}
+            {formScoreType !== 'exempted' && (
+            <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
                 {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
@@ -2834,6 +2893,8 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                 </>)}
               </div>
             )}
+          </div>
+          )}
           </div>
         )}
 
