@@ -654,6 +654,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                   })
                 }
                 onRefresh={fetchQuestions}
+                onQuestionsUpdated={onQuestionsUpdated}
               />
             ))}
           </div>
@@ -759,6 +760,7 @@ interface QuestionTreeNodeProps {
   onToggleCollapse: (id: string) => void;
   isParentDefault300L1?: boolean;
   onRefresh?: () => void;
+  onQuestionsUpdated?: () => void;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -796,6 +798,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   parentLayout = "list",
   isParentDefault300L1 = false,
   onRefresh,
+  onQuestionsUpdated,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -931,6 +934,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialDisplayText={question.display_text || ''}
           initialIsGroupHeader={!!question.is_group_header}
           onRefresh={onRefresh}
+          onQuestionsUpdated={onQuestionsUpdated}
         />
       </div>
     );
@@ -983,7 +987,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         </div>
       )}
 
-      {isExpanded && hasChildren && (
+      {isExpanded && hasChildren && !(is300 && level === 1 && (question.sequence === 4 || question.sequence === 5) && question.question_type === 'exempted') && (
         <div className="relative">
           {childLayout !== "grid" && parentLayout !== "grid" && (
             <div className={`absolute ${level === 0 ? "left-[30px]" : "left-[62px]"} top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent`} />
@@ -1026,6 +1030,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionOccupationBranches={sectionOccupationBranches}
                 sectionSelectedBranch={sectionSelectedBranch}
                 onRefresh={onRefresh}
+                onQuestionsUpdated={onQuestionsUpdated}
               />
             ))}
           </div>
@@ -1093,6 +1098,7 @@ interface QuestionFormCardProps {
   initialDisplayText?: string;
   initialIsGroupHeader?: boolean;
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
+  onQuestionsUpdated?: () => void;
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -1124,6 +1130,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialQuestionType = 'normal',
   initialDisplayText = '',
   initialIsGroupHeader = false,
+  onRefresh,
+  onQuestionsUpdated,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1266,6 +1274,12 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               display_text: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
             }
           });
+          // When switching to exempted: clear all section-ref children
+          if (formScoreType === 'exempted') {
+            await invoke('remove_all_section_ref_children', { parentId: existingId });
+          }
+          onRefresh?.();
+          onQuestionsUpdated?.();
         } catch (error) {
           console.error("Failed to update question score:", error);
         }
@@ -1720,7 +1734,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
     setImagePath(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     // Reset errors
     setErrors({});
     const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
@@ -1839,6 +1853,23 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       return;
     }
 
+    // Save scoring fields BEFORE onSave so DB has fresh scores when fetchQuestions runs
+    if (is300 && isEdit && existingId) {
+      try {
+        await invoke('update_question_score', {
+          args: {
+            id: existingId,
+            score: formScoreIsScored ? parseInt(formScoreValue) || 0 : 0,
+            is_scored: formScoreIsScored,
+            question_type: formScoreType,
+            display_text: formScoreType === 'exempted' ? (formScoreDisplayText || '(ไม่ต้องปฏิบัติ)') : null,
+          }
+        });
+      } catch (err) {
+        console.error('Failed to save question score:', err);
+      }
+    }
+
     onSave({
       content,
       description: showExtraButtons ? description : undefined,
@@ -1848,19 +1879,6 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
       metadata: metadataString,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
-
-    // Save scoring fields separately for Section 300 (fire-and-forget)
-    if (is300 && isEdit && existingId) {
-      invoke('update_question_score', {
-        args: {
-          id: existingId,
-          score: formScoreIsScored ? parseInt(formScoreValue) || 0 : 0,
-          is_scored: formScoreIsScored,
-          question_type: formScoreType,
-          display_text: formScoreType === 'exempted' ? (formScoreDisplayText || '(ไม่ต้องปฏิบัติ)') : null,
-        }
-      }).catch(err => console.error('Failed to save question score:', err));
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
