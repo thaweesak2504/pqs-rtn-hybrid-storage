@@ -2977,12 +2977,20 @@ pub fn get_user_progress(user_id: String, document_id: String) -> Result<Vec<Use
     Ok(rows)
 }
 
-/// Calculate total score for a section by summing scored questions
+/// Calculate total score for a section by summing L1 group_scores + standalone scored questions
 pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
+    // Sum L1 questions: group headers use group_score, others use score if is_scored
+    // Only count top-level questions (parent_id IS NULL) to avoid double-counting
     let total: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(score), 0) FROM Questions WHERE section_id = ?1 AND is_scored = 1",
+        "SELECT COALESCE(SUM(
+            CASE 
+                WHEN is_group_header = 1 THEN group_score
+                WHEN is_scored = 1 AND parent_id IS NULL THEN score
+                ELSE 0
+            END
+        ), 0) FROM Questions WHERE section_id = ?1",
         params![section_id],
         |row| row.get(0)
     ).map_err(|e| e.to_string())?;
@@ -2996,13 +3004,20 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
     Ok(total)
 }
 
-/// Calculate group_score for a parent question by summing scored children's scores
+/// Calculate group_score for a parent question by summing children's scores
+/// Children that are group headers contribute group_score; scored children contribute score
 /// Returns the computed group_score and auto-updates the parent's group_score field
 pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     let total: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(score), 0) FROM Questions WHERE parent_id = ?1 AND is_scored = 1",
+        "SELECT COALESCE(SUM(
+            CASE 
+                WHEN is_group_header = 1 THEN group_score
+                WHEN is_scored = 1 THEN score
+                ELSE 0
+            END
+        ), 0) FROM Questions WHERE parent_id = ?1",
         params![parent_id],
         |row| row.get(0)
     ).map_err(|e| e.to_string())?;
@@ -3034,16 +3049,23 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
         params![args.id, args.score, args.is_scored, args.question_type, args.display_text],
     ).map_err(|e| e.to_string())?;
 
-    // If this question has a parent, recalculate parent's group_score
+    // If this question has a parent, recalculate parent's group_score (L2 → L1)
     let parent_id: Option<String> = conn.query_row(
         "SELECT parent_id FROM Questions WHERE id = ?1",
         params![args.id],
         |row| row.get(0)
     ).map_err(|e| e.to_string())?;
 
-    if let Some(pid) = parent_id {
+    if let Some(ref pid) = parent_id {
+        // Sum children: group headers contribute group_score, scored items contribute score
         let group_total: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(score), 0) FROM Questions WHERE parent_id = ?1 AND is_scored = 1",
+            "SELECT COALESCE(SUM(
+                CASE 
+                    WHEN is_group_header = 1 THEN group_score
+                    WHEN is_scored = 1 THEN score
+                    ELSE 0
+                END
+            ), 0) FROM Questions WHERE parent_id = ?1",
             params![pid],
             |row| row.get(0)
         ).map_err(|e| e.to_string())?;
@@ -3051,6 +3073,57 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
             "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
             params![group_total, pid],
         ).map_err(|e| e.to_string())?;
+
+        // Also propagate up: if parent has a grandparent, recalculate grandparent's group_score (L1 → section)
+        let grandparent_id: Option<String> = conn.query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1",
+            params![pid],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        if let Some(ref gpid) = grandparent_id {
+            let gp_total: i32 = conn.query_row(
+                "SELECT COALESCE(SUM(
+                    CASE 
+                        WHEN is_group_header = 1 THEN group_score
+                        WHEN is_scored = 1 THEN score
+                        ELSE 0
+                    END
+                ), 0) FROM Questions WHERE parent_id = ?1",
+                params![gpid],
+                |row| row.get(0)
+            ).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
+                params![gp_total, gpid],
+            ).map_err(|e| e.to_string())?;
+        }
+
+        // Propagate to section total_score
+        let section_id: Option<i64> = conn.query_row(
+            "SELECT section_id FROM Questions WHERE id = ?1",
+            params![pid],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        if let Some(sid) = section_id {
+            let section_total: i32 = conn.query_row(
+                "SELECT COALESCE(SUM(
+                    CASE 
+                        WHEN is_group_header = 1 THEN group_score
+                        WHEN is_scored = 1 AND parent_id IS NULL THEN score
+                        ELSE 0
+                    END
+                ), 0) FROM Questions WHERE section_id = ?1",
+                params![sid],
+                |row| row.get(0)
+            ).map_err(|e| e.to_string())?;
+
+            conn.execute(
+                "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+                params![section_total, sid],
+            ).map_err(|e| e.to_string())?;
+        }
     }
 
     Ok(())

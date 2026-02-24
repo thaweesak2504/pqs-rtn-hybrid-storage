@@ -2702,11 +2702,11 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           </div>
         )}
 
-        {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — Link-based */}
+        {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — Link-based, purple theme */}
         {is300 && (isSection100Selector || isSection200Selector) && (
-          <div className="rounded-md border border-blue-200 dark:border-blue-800/50 bg-blue-50/30 dark:bg-blue-950/20 p-2 space-y-2">
+          <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
                 {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
               </span>
               {isEdit && existingId && (
@@ -2717,7 +2717,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                     setShowSectionPicker(opening);
                     if (opening) fetchSectionLinks(); // Refresh links (live titles from JOIN)
                   }}
-                  className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors"
+                  className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors"
                 >
                   {showSectionPicker ? 'ซ่อนรายการ' : 'เลือก / แก้ไข'}
                 </button>
@@ -2728,7 +2728,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
             {sectionLinks.length > 0 && (
               <div className="space-y-0.5">
                 {sectionLinks.map(link => (
-                  <div key={link.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                  <div key={link.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
                     <span className="font-medium">{toThaiNumber(link.section_number)}</span>
                     <span className="flex-1">{link.section_title}</span>
                     {isEdit && (
@@ -2744,19 +2744,19 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                             setSectionLinks(prev => prev.map(l => l.id === link.id ? { ...l, score: newScore } : l));
                           } catch (err) { console.error('Failed to update link score:', err); }
                         }}
-                        className="w-12 text-center text-xs px-1 py-0.5 border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+                        className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
                         title="คะแนน"
                       />
                     )}
                     {!isEdit && link.score > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
                         {link.score} คะแนน
                       </span>
                     )}
                   </div>
                 ))}
                 {sectionLinks.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-200 border-t border-blue-200 dark:border-blue-700 pt-1 mt-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
                     <span>รวม</span>
                     <span className="ml-auto">{sectionLinks.reduce((sum, l) => sum + l.score, 0)} คะแนน</span>
                   </div>
@@ -2764,19 +2764,19 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               </div>
             )}
             {sectionLinks.length === 0 && !showSectionPicker && (
-              <div className="text-xs text-blue-400 dark:text-blue-500 italic">
+              <div className="text-xs text-purple-400 dark:text-purple-500 italic">
                 {isEdit && existingId ? 'ยังไม่ได้เลือก Section' : 'บันทึกก่อน แล้วค่อยเลือก Section'}
               </div>
             )}
 
             {/* Picker dropdown — edit mode only */}
             {showSectionPicker && isEdit && existingId && (
-              <div className="border border-blue-200 dark:border-blue-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
+              <div className="border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
                 {availableSections.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
                 ) : (<>
                   {/* Select all / Deselect all */}
-                  <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-800/50">
+                  <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-800/50">
                     <button type="button" onClick={async () => {
                       const uncheckedIds = availableSections
                         .filter(s => !sectionLinks.find(l => l.section_id === s.id))
@@ -2786,7 +2786,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                         const links = await invoke<SectionLink[]>('batch_add_question_section_links', { req: { question_id: existingId, section_ids: uncheckedIds } });
                         setSectionLinks(links);
                       } catch (e) { console.error('Failed to select all:', e); }
-                    }} className="text-[10px] px-2 py-0.5 rounded bg-blue-600 text-white hover:bg-blue-700">เลือกทั้งหมด</button>
+                    }} className="text-[10px] px-2 py-0.5 rounded bg-purple-600 text-white hover:bg-purple-700">เลือกทั้งหมด</button>
                     <button type="button" onClick={async () => {
                       try {
                         await invoke('remove_all_question_section_links', { questionId: existingId });
@@ -2794,12 +2794,12 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                       } catch (e) { console.error('Failed to deselect all:', e); }
                     }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
                   </div>
-                  <div className="divide-y divide-blue-100 dark:divide-blue-800/50">
+                  <div className="divide-y divide-purple-100 dark:divide-purple-800/50">
                     {availableSections.map(s => {
                       const existingLink = sectionLinks.find(l => l.section_id === s.id);
                       const checked = !!existingLink;
                       return (
-                        <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                        <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20">
                           <input
                             type="checkbox"
                             checked={checked}
@@ -2816,9 +2816,9 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                                 } catch (e) { console.error('Failed to add section link:', e); }
                               }
                             }}
-                            className="accent-blue-600 w-3.5 h-3.5 shrink-0"
+                            className="accent-purple-600 w-3.5 h-3.5 shrink-0"
                           />
-                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400 shrink-0">{toThaiNumber(s.section_number)}</span>
+                          <span className="text-xs font-medium text-purple-600 dark:text-purple-400 shrink-0">{toThaiNumber(s.section_number)}</span>
                           <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
                         </label>
                       );
@@ -3153,18 +3153,18 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               </span>
             )}
                       </div>
-          {/* Score badges — aligned right */}
+          {/* Score badges — aligned right, purple theme for 300 */}
           {is300 && (
             <div className="flex items-center gap-2 shrink-0">
-              {/* Group header: show group_score total */}
+              {/* Group header (L1/L2 with children): show group_score */}
               {question.is_group_header && (question.group_score != null && question.group_score > 0) && (
-                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded whitespace-nowrap">
                   {toThaiNumber(question.group_score)} คะแนน
                 </span>
               )}
-              {/* Individual scored item: show score */}
+              {/* Individual scored item (L2/L3): show score */}
               {!question.is_group_header && question.is_scored && (question.score != null && question.score > 0) && (
-                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded whitespace-nowrap">
+                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded whitespace-nowrap">
                   {toThaiNumber(question.score)} คะแนน
                 </span>
               )}
@@ -3195,28 +3195,28 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             {question.description}
           </div> // Description: Match L2 style
         )}
-        {/* Linked Sections display for 3xx.1.4/1.5 (read-only, live from JOIN) */}
+        {/* Linked Sections display for 3xx.1.4/1.5 (read-only, live from JOIN, purple theme) */}
         {isSection100or200Selector && displaySectionLinks.length > 0 && (
           <div className="mt-1.5 space-y-0.5">
             {displaySectionLinks.map(link => (
-              <div key={link.id} className="flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+              <div key={link.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
                 <span className="font-bold">{toThaiNumber(link.section_number)}</span>
                 <span className="flex-1">{link.section_title}</span>
                 {link.score > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
                     {link.score} คะแนน
                   </span>
                 )}
               </div>
             ))}
-            <div className="flex items-center gap-1.5 text-xs font-bold text-blue-800 dark:text-blue-200 border-t border-blue-200/50 dark:border-blue-700/50 pt-0.5 mt-0.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200/50 dark:border-purple-700/50 pt-0.5 mt-0.5">
               <span>รวม</span>
               <span className="ml-auto">{displaySectionLinks.reduce((sum, l) => sum + l.score, 0)} คะแนน</span>
             </div>
           </div>
         )}
         {isSection100or200Selector && displaySectionLinks.length === 0 && (
-          <div className="mt-1 text-xs text-blue-400 dark:text-blue-500 italic">ยังไม่ได้เลือก Section</div>
+          <div className="mt-1 text-xs text-purple-400 dark:text-purple-500 italic">ยังไม่ได้เลือก Section</div>
         )}
         {/* SubQuestionList display for 2xx.2 / 2xx.4 / 3xx.2 / 3xx.4 L1 — DB-backed */}
         {is200or300 && isL1 && displaySubQList.length > 0 && (() => {
