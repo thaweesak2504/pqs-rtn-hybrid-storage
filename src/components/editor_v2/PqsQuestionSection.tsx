@@ -1203,8 +1203,6 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   interface SectionRefChild { id: string; parent_id: string; sequence: number; content: string; score: number; ref_section_id: number; ref_section_number: number; }
   const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
   const [sectionRefChildren, setSectionRefChildren] = useState<SectionRefChild[]>([]);
-  const [showSectionPicker, setShowSectionPicker] = useState(false);
-
   // Fetch available sections (master data from Sections table)
   useEffect(() => {
     if (!(isSection100Selector || isSection200Selector) || !documentId) return;
@@ -2738,7 +2736,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
         {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — L3 section_ref children */}
         {is300 && (isSection100Selector || isSection200Selector) && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2 space-y-2">
-            {/* Exempted checkbox (same as 3xx.1.1-1.3) */}
+            {/* Single checkbox: ปฏิบัติ / ไม่ต้องปฏิบัติ */}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
               <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
@@ -2763,138 +2761,122 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               )}
             </div>
 
-            {/* Section picker content — only show when NOT exempted */}
+            {/* When NOT exempted: show section list directly */}
             {formScoreType !== 'exempted' && (
-            <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
-              </span>
-              {isEdit && existingId && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const opening = !showSectionPicker;
-                    setShowSectionPicker(opening);
-                    if (opening) fetchSectionRefChildren();
-                  }}
-                  className="text-xs px-2 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 hover:bg-purple-200 dark:hover:bg-purple-800/50 transition-colors"
-                >
-                  {showSectionPicker ? 'ซ่อนรายการ' : 'เลือก / แก้ไข'}
-                </button>
-              )}
-            </div>
+              <div className="space-y-2">
+                {/* Section header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
+                    {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
+                  </span>
+                </div>
 
-            {/* Current L3 section-ref children summary with score */}
-            {sectionRefChildren.length > 0 && (
-              <div className="space-y-0.5">
-                {sectionRefChildren.map(child => (
-                  <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
-                    <span className="font-medium">{toThaiNumber(child.ref_section_number)}</span>
-                    <span className="flex-1">{child.content}</span>
-                    {isEdit && (
-                      <input
-                        type="number"
-                        min={0}
-                        value={child.score}
-                        onChange={async (e) => {
-                          const newScore = parseInt(e.target.value) || 0;
-                          try {
-                            await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
-                            setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
-                          } catch (err) { console.error('Failed to update section ref score:', err); }
-                        }}
-                        className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                        title="คะแนน"
-                      />
-                    )}
-                    {!isEdit && child.score > 0 && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
-                        {child.score} คะแนน
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {/* Current L3 section-ref children summary with score */}
                 {sectionRefChildren.length > 0 && (
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
-                    <span>รวม</span>
-                    <span className="ml-auto">{sectionRefChildren.reduce((sum, c) => sum + c.score, 0)} คะแนน</span>
+                  <div className="space-y-0.5">
+                    {sectionRefChildren.map(child => (
+                      <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
+                        <span className="font-medium">{toThaiNumber(child.ref_section_number)}</span>
+                        <span className="flex-1">{child.content}</span>
+                        {isEdit && (
+                          <input
+                            type="number"
+                            min={0}
+                            value={child.score}
+                            onChange={async (e) => {
+                              const newScore = parseInt(e.target.value) || 0;
+                              try {
+                                await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
+                                setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
+                              } catch (err) { console.error('Failed to update section ref score:', err); }
+                            }}
+                            className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+                            title="คะแนน"
+                          />
+                        )}
+                        {!isEdit && child.score > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
+                            {child.score} คะแนน
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
+                      <span>รวม</span>
+                      <span className="ml-auto">{sectionRefChildren.reduce((sum, c) => sum + c.score, 0)} คะแนน</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Section checkboxes — always visible when ต้องปฏิบัติ, edit mode + saved only */}
+                {isEdit && existingId && sectionId ? (
+                  <div className="border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
+                    {availableSections.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
+                    ) : (<>
+                      <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-800/50">
+                        <button type="button" onClick={async () => {
+                          const unchecked = availableSections
+                            .filter(s => !sectionRefChildren.find(c => c.ref_section_id === s.id));
+                          if (unchecked.length === 0) return;
+                          try {
+                            const children = await invoke<SectionRefChild[]>('batch_add_section_ref_children', {
+                              args: {
+                                parent_id: existingId, document_id: documentId, section_id: sectionId,
+                                sections: unchecked.map(s => ({ linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th })),
+                              }
+                            });
+                            setSectionRefChildren(children);
+                          } catch (e) { console.error('Failed to select all:', e); }
+                        }} className="text-[10px] px-2 py-0.5 rounded bg-purple-600 text-white hover:bg-purple-700">เลือกทั้งหมด</button>
+                        <button type="button" onClick={async () => {
+                          try {
+                            await invoke('remove_all_section_ref_children', { parentId: existingId });
+                            setSectionRefChildren([]);
+                          } catch (e) { console.error('Failed to deselect all:', e); }
+                        }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
+                      </div>
+                      <div className="divide-y divide-purple-100 dark:divide-purple-800/50">
+                        {availableSections.map(s => {
+                          const existingChild = sectionRefChildren.find(c => c.ref_section_id === s.id);
+                          const checked = !!existingChild;
+                          return (
+                            <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={async () => {
+                                  if (checked && existingChild) {
+                                    try {
+                                      await invoke('remove_section_ref_child', { questionId: existingChild.id });
+                                      setSectionRefChildren(prev => prev.filter(c => c.id !== existingChild.id));
+                                    } catch (e) { console.error('Failed to remove section ref child:', e); }
+                                  } else {
+                                    try {
+                                      const newChild = await invoke<SectionRefChild>('add_section_ref_child', {
+                                        args: { parent_id: existingId, document_id: documentId, section_id: sectionId, linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th }
+                                      });
+                                      setSectionRefChildren(prev => [...prev, newChild].sort((a, b) => a.ref_section_number - b.ref_section_number));
+                                    } catch (e) { console.error('Failed to add section ref child:', e); }
+                                  }
+                                }}
+                                className="accent-purple-600 w-3.5 h-3.5 shrink-0"
+                              />
+                              <span className="text-xs font-medium text-purple-600 dark:text-purple-400 shrink-0">{toThaiNumber(s.section_number)}</span>
+                              <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </>)}
+                  </div>
+                ) : (
+                  <div className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
+                    ⚠ บันทึกก่อน แล้วค่อยเลือก Section
                   </div>
                 )}
               </div>
             )}
-            {sectionRefChildren.length === 0 && !showSectionPicker && (
-              <div className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
-                {isEdit && existingId ? '⚠ ยังไม่ได้เลือก Section' : '⚠ บันทึกก่อน แล้วค่อยเลือก Section'}
-              </div>
-            )}
-
-            {/* Picker dropdown — edit mode only */}
-            {showSectionPicker && isEdit && existingId && sectionId && (
-              <div className="border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
-                {availableSections.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
-                ) : (<>
-                  {/* Select all / Deselect all */}
-                  <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-800/50">
-                    <button type="button" onClick={async () => {
-                      const unchecked = availableSections
-                        .filter(s => !sectionRefChildren.find(c => c.ref_section_id === s.id));
-                      if (unchecked.length === 0) return;
-                      try {
-                        const children = await invoke<SectionRefChild[]>('batch_add_section_ref_children', {
-                          args: {
-                            parent_id: existingId, document_id: documentId, section_id: sectionId,
-                            sections: unchecked.map(s => ({ linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th })),
-                          }
-                        });
-                        setSectionRefChildren(children);
-                      } catch (e) { console.error('Failed to select all:', e); }
-                    }} className="text-[10px] px-2 py-0.5 rounded bg-purple-600 text-white hover:bg-purple-700">เลือกทั้งหมด</button>
-                    <button type="button" onClick={async () => {
-                      try {
-                        await invoke('remove_all_section_ref_children', { parentId: existingId });
-                        setSectionRefChildren([]);
-                      } catch (e) { console.error('Failed to deselect all:', e); }
-                    }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
-                  </div>
-                  <div className="divide-y divide-purple-100 dark:divide-purple-800/50">
-                    {availableSections.map(s => {
-                      const existingChild = sectionRefChildren.find(c => c.ref_section_id === s.id);
-                      const checked = !!existingChild;
-                      return (
-                        <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={async () => {
-                              if (checked && existingChild) {
-                                try {
-                                  await invoke('remove_section_ref_child', { questionId: existingChild.id });
-                                  setSectionRefChildren(prev => prev.filter(c => c.id !== existingChild.id));
-                                } catch (e) { console.error('Failed to remove section ref child:', e); }
-                              } else {
-                                try {
-                                  const newChild = await invoke<SectionRefChild>('add_section_ref_child', {
-                                    args: { parent_id: existingId, document_id: documentId, section_id: sectionId, linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th }
-                                  });
-                                  setSectionRefChildren(prev => [...prev, newChild].sort((a, b) => a.ref_section_number - b.ref_section_number));
-                                } catch (e) { console.error('Failed to add section ref child:', e); }
-                              }
-                            }}
-                            className="accent-purple-600 w-3.5 h-3.5 shrink-0"
-                          />
-                          <span className="text-xs font-medium text-purple-600 dark:text-purple-400 shrink-0">{toThaiNumber(s.section_number)}</span>
-                          <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </>)}
-              </div>
-            )}
-          </div>
-          )}
           </div>
         )}
 
