@@ -1263,8 +1263,14 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   }, [isPrerequisiteChild, existingId, formScoreType]);
 
   // Update question score when formScoreType changes for section selectors (3xx.1.4/1.5)
+  // Skip initial mount to avoid infinite loop (onRefresh re-fetches tree → remount → loop)
+  const sectionSelectorMountRef = useRef(true);
   useEffect(() => {
     if ((isSection100Selector || isSection200Selector) && existingId) {
+      if (sectionSelectorMountRef.current) {
+        sectionSelectorMountRef.current = false;
+        return; // Skip initial mount — score is already saved in DB
+      }
       const updateScore = async () => {
         try {
           await invoke('update_question_score', {
