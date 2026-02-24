@@ -3384,7 +3384,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${
                   !question.parent_id
                     ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
-                    : 'text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/50'
+                    : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
                 }`}>
                   {toThaiNumber(question.group_score)} คะแนน
                 </span>
