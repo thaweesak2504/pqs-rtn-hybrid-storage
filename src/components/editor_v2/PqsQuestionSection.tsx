@@ -207,6 +207,27 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           q.section_id === sectionId ||
           (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
       );
+
+      // For Section 300: recalculate group_score bottom-up (L2 → L1) so badges are always fresh
+      if (sectionGroup === 300) {
+        // First recalculate L2+ group headers (children with is_group_header)
+        const l2GroupHeaders = filtered.filter(q => q.parent_id && q.is_group_header);
+        for (const gh of l2GroupHeaders) {
+          try {
+            const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
+            gh.group_score = freshScore;
+          } catch { /* keep existing value */ }
+        }
+        // Then recalculate L1 group headers (top-level)
+        const l1GroupHeaders = filtered.filter(q => !q.parent_id && q.is_group_header);
+        for (const gh of l1GroupHeaders) {
+          try {
+            const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
+            gh.group_score = freshScore;
+          } catch { /* keep existing value */ }
+        }
+      }
+
       setQuestions(filtered);
     } catch (error) {
       console.error("Failed to fetch questions:", error);
@@ -541,9 +562,9 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
             </div>
             {questionTree.length > 0 && (
               <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-sm backdrop-blur-sm ${sectionNumber.toString().startsWith('2') ? 'bg-orange-50/80 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' :
-                  sectionNumber.toString().startsWith('3') ? 'bg-indigo-50/80 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800' :
-                    sectionNumber.toString().startsWith('1') ? 'bg-green-50/80 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
-                      'bg-blue-50/80 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
+                sectionNumber.toString().startsWith('3') ? 'bg-indigo-50/80 text-indigo-700 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300 dark:border-indigo-800' :
+                  sectionNumber.toString().startsWith('1') ? 'bg-green-50/80 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
+                    'bg-blue-50/80 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
                 }`}>
                 {questionTree.length}
               </div>
@@ -1144,8 +1165,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 3 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.3
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
+  const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
 
-    // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
+  // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
     border: 'border-purple-200 dark:border-purple-800/50', bg: 'bg-purple-50/50 dark:bg-purple-950/20',
     text: 'text-purple-600 dark:text-purple-400', textBold: 'text-purple-700 dark:text-purple-300',
@@ -1178,27 +1200,27 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(() => {
-  // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.4/1.5 section selectors
-  if (isPrerequisiteQuestion) return true;
-  if ((isSection100Selector || isSection200Selector) && initialQuestionType !== 'exempted') return true;
-  return !!initialDescription;
-});
+    // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.4/1.5 section selectors
+    if (isPrerequisiteQuestion) return true;
+    if ((isSection100Selector || isSection200Selector) && initialQuestionType !== 'exempted') return true;
+    return !!initialDescription;
+  });
 
-// Auto-set default description for 3xx.1 and 3xx.1.4/1.5
-useEffect(() => {
-  if (isPrerequisiteQuestion && !description) {
-    const defaultDesc = "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้";
-    setDescription(defaultDesc);
-  }
-  if (isSection100Selector && !description) {
-    setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบความรู้พื้นฐาน ที่กำหนด ดังนี้");
-  }
-  if (isSection200Selector && !description) {
-    setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
-  }
-}, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, description]);
+  // Auto-set default description for 3xx.1 and 3xx.1.4/1.5
+  useEffect(() => {
+    if (isPrerequisiteQuestion && !description) {
+      const defaultDesc = "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้";
+      setDescription(defaultDesc);
+    }
+    if (isSection100Selector && !description) {
+      setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบความรู้พื้นฐาน ที่กำหนด ดังนี้");
+    }
+    if (isSection200Selector && !description) {
+      setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
+    }
+  }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, description]);
 
-const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
+  const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
 
@@ -1307,9 +1329,9 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
     (is200 && (questionSequence === 2 || questionSequence === 4)) ||
     (is300 && (questionSequence === 2 || questionSequence === 3 || questionSequence === 4 || questionSequence === 5))
   );
-  
+
   // Disable for exempted prerequisite questions (3xx.1 when question_type = 'exempted')
-  const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() => 
+  const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() =>
     baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted') && !(isPrerequisiteChild && formScoreType === 'exempted')
   );
 
@@ -1388,7 +1410,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   // Fetch sub-questions when branch+sub-branch changes
   useEffect(() => {
     if (!showSubQuestionEditor || !selMainBranch || !selSubBranch) { setDbSubQuestions([]); return; }
-    
+
     // For 2xx.4 (inherited branches), fetch all sub-questions for the main branch
     if (sectionOccupationBranches) {
       invoke<DbSubQuestion[]>('get_all_sub_questions_for_branch', { branchCode: selMainBranch })
@@ -1461,7 +1483,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const nextZ = useMemo(() => {
     if (!autoCodePrefix) return "";
     const used = filteredItems.map(sq => sq.code.replace(autoCodePrefix, ""));
-    for (const z of ["1","2","3","4","5","6","7","8","9","A"]) { if (!used.includes(z)) return z; }
+    for (const z of ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A"]) { if (!used.includes(z)) return z; }
     return "";
   }, [autoCodePrefix, filteredItems]);
   const autoCode = autoCodePrefix && nextZ ? `${autoCodePrefix}${nextZ}` : "";
@@ -1972,19 +1994,19 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               e.preventDefault();
               const pastedText = e.clipboardData.getData("text");
               const trimmedText = pastedText.trim();
-              
+
               const target = e.target as HTMLTextAreaElement;
               const start = target.selectionStart || 0;
               const end = target.selectionEnd || 0;
               const currentValue = target.value;
-              
+
               const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
               setContent(newValue);
-              
+
               requestAnimationFrame(() => {
                 target.selectionStart = target.selectionEnd = start + trimmedText.length;
               });
-              
+
               if (errors.content) setErrors((prev) => ({ ...prev, content: false }));
             }}
             onKeyDown={handleKeyDown}
@@ -2017,26 +2039,25 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                     e.preventDefault();
                     const pastedText = e.clipboardData.getData("text");
                     const trimmedText = pastedText.trim();
-                    
+
                     const target = e.target as HTMLTextAreaElement;
                     const start = target.selectionStart || 0;
                     const end = target.selectionEnd || 0;
                     const currentValue = target.value;
-                    
+
                     const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
                     setDescription(newValue);
-                    
+
                     requestAnimationFrame(() => {
                       target.selectionStart = target.selectionEnd = start + trimmedText.length;
                     });
                   }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
                   disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector}
-                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${
-                    (isPrerequisiteQuestion || isSection100Selector || isSection200Selector)
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
-                      : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
-                  }`}
+                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector)
+                    ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
+                    : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
+                    }`}
                   rows={1}
                 />
                 {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && (
@@ -2115,7 +2136,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                         <div className="flex gap-1">
                           <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
                             className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
-                          <button onClick={async () => { if (!newMainName.trim()) return; const nc = (dbBranches.length + 1).toString(); try { const created = await invoke<{code:string;name:string}>('create_occupation_branch', { code: nc, name: newMainName.trim() }); setDbBranches(prev => [...prev, created]); setSelMainBranch(nc); setSelSubBranch(""); } catch (e: any) { console.error(e); } setNewMainName(""); setIsAddingMain(false); }}
+                          <button onClick={async () => { if (!newMainName.trim()) return; const nc = (dbBranches.length + 1).toString(); try { const created = await invoke<{ code: string; name: string }>('create_occupation_branch', { code: nc, name: newMainName.trim() }); setDbBranches(prev => [...prev, created]); setSelMainBranch(nc); setSelSubBranch(""); } catch (e: any) { console.error(e); } setNewMainName(""); setIsAddingMain(false); }}
                             className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
                           <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                         </div>
@@ -2160,7 +2181,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                           <div className="flex gap-1">
                             <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
                               className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
-                            <button onClick={async () => { if (!newSubName.trim()) return; const nc = (dbSubBranches.length + 1).toString(); try { const created = await invoke<{code:string;branch_code:string;name:string}>('create_occupation_sub_branch', { code: nc, branchCode: selMainBranch, name: newSubName.trim() }); setDbSubBranches(prev => [...prev, created]); setSelSubBranch(nc); } catch (e: any) { console.error(e); } setNewSubName(""); setIsAddingSub(false); }}
+                            <button onClick={async () => { if (!newSubName.trim()) return; const nc = (dbSubBranches.length + 1).toString(); try { const created = await invoke<{ code: string; branch_code: string; name: string }>('create_occupation_sub_branch', { code: nc, branchCode: selMainBranch, name: newSubName.trim() }); setDbSubBranches(prev => [...prev, created]); setSelSubBranch(nc); } catch (e: any) { console.error(e); } setNewSubName(""); setIsAddingSub(false); }}
                               className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
                             <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
                           </div>
@@ -2216,8 +2237,8 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                     <div className="flex gap-1.5 items-end">
                       <div className="flex-1">
                         <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
-                        <input type="text" value={newSqText} 
-                          onChange={e => setNewSqText(e.target.value)} 
+                        <input type="text" value={newSqText}
+                          onChange={e => setNewSqText(e.target.value)}
                           onPaste={e => {
                             e.preventDefault();
                             const pastedText = e.clipboardData.getData("text");
@@ -2234,43 +2255,46 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                           }}
                           placeholder="พิมพ์คำถามย่อย..."
                           className={`w-full px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600`}
-                          onKeyDown={async (e) => { if (e.key === "Enter" && newSqText.trim()) { 
-                            try { 
-                              // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
-                              let subBranchCode = selSubBranch;
-                              if (sectionOccupationBranches && dbSubQuestions.length > 0) {
-                                // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
-                                const firstCode = dbSubQuestions[0].code;
-                                if (firstCode.length >= 4) {
-                                  subBranchCode = firstCode.substring(3, 4); // Y position
+                          onKeyDown={async (e) => {
+                            if (e.key === "Enter" && newSqText.trim()) {
+                              try {
+                                // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
+                                let subBranchCode = selSubBranch;
+                                if (sectionOccupationBranches && dbSubQuestions.length > 0) {
+                                  // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
+                                  const firstCode = dbSubQuestions[0].code;
+                                  if (firstCode.length >= 4) {
+                                    subBranchCode = firstCode.substring(3, 4); // Y position
+                                  }
                                 }
-                              }
-                              const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { 
-                                req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() } 
-                              }); 
-                              setDbSubQuestions(prev => [...prev, created]); 
-                            } catch (err: any) { console.error(err); } 
-                            setNewSqText(""); 
-                          } }} />
-                      </div>
-                      <button onClick={async () => { if (!newSqText.trim()) return; 
-                          try { 
-                            // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
-                            let subBranchCode = selSubBranch;
-                            if (sectionOccupationBranches && dbSubQuestions.length > 0) {
-                              // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
-                              const firstCode = dbSubQuestions[0].code;
-                              if (firstCode.length >= 4) {
-                                subBranchCode = firstCode.substring(3, 4); // Y position
-                              }
+                                const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
+                                  req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
+                                });
+                                setDbSubQuestions(prev => [...prev, created]);
+                              } catch (err: any) { console.error(err); }
+                              setNewSqText("");
                             }
-                            const created = await invoke<DbSubQuestion>('create_occupation_sub_question', { 
-                              req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() } 
-                            }); 
-                            setDbSubQuestions(prev => [...prev, created]); 
-                          } catch (err: any) { console.error(err); } 
-                          setNewSqText(""); 
-                        }}
+                          }} />
+                      </div>
+                      <button onClick={async () => {
+                        if (!newSqText.trim()) return;
+                        try {
+                          // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
+                          let subBranchCode = selSubBranch;
+                          if (sectionOccupationBranches && dbSubQuestions.length > 0) {
+                            // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
+                            const firstCode = dbSubQuestions[0].code;
+                            if (firstCode.length >= 4) {
+                              subBranchCode = firstCode.substring(3, 4); // Y position
+                            }
+                          }
+                          const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
+                            req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
+                          });
+                          setDbSubQuestions(prev => [...prev, created]);
+                        } catch (err: any) { console.error(err); }
+                        setNewSqText("");
+                      }}
                         disabled={!newSqText.trim()}
                         className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border ${sqClr.addBtn} disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}>
                         <Plus className="w-3 h-3" /> เพิ่ม
@@ -2391,18 +2415,18 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
                         setErrors((prev) => ({ ...prev, answerKey: false }));
                       }
                     }}
-                  className="sr-only peer"
-                />
-                <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-emerald-500 transition-colors"></div>
-                <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
-              </div>
-              <span
-                className={`text-xs font-semibold transition-colors ${requireAnswerKey ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500 line-through"}`}
-              >
-                คำเฉลย (Answer Key) {requireAnswerKey && <span className="text-red-500">*</span>}
-              </span>
-            </label>
-          </div>
+                    className="sr-only peer"
+                  />
+                  <div className="w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 peer-checked:bg-emerald-500 transition-colors"></div>
+                  <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
+                </div>
+                <span
+                  className={`text-xs font-semibold transition-colors ${requireAnswerKey ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500 line-through"}`}
+                >
+                  คำเฉลย (Answer Key) {requireAnswerKey && <span className="text-red-500">*</span>}
+                </span>
+              </label>
+            </div>
           )}
 
           {/* References Section (Both L1 & L2, conditional on toggle — hidden for default 200/300 L1, hidden for 300Template) */}
@@ -2641,51 +2665,51 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           && !(showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0)
           && !(hasParentSubQ && selectedSubQCodes.length === 0)
           && (
-          <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50 space-y-2">
-            {hasParentSubQ && selectedSubQCodes.length > 0 ? (
-              /* Per-subQ answer keys */
-              selectedSubQCodes.map((code) => {
-                const sq = parentSubQuestionList!.find(s => s.code === code);
-                const sqIdx = parentSubQuestionList!.findIndex(s => s.code === code);
-                const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
-                const hasErr = !!errors.answerKey && !(answerKeys[code] || "").trim();
-                return (
-                  <div key={code}>
-                    <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                      เฉลย: {label}. {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
-                    </label>
-                    <AnswerKeyEditor
-                      value={answerKeys[code] || ""}
-                      onChange={(val: string) => {
-                        setAnswerKeys(prev => ({ ...prev, [code]: val }));
-                        if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
-                      }}
-                      hasError={hasErr}
-                    />
-                  </div>
-                );
-              })
-            ) : (
-              /* Single answer key (no subQ selected) */
-              <div>
-                <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                  เฉลย (Answer Key)
-                </label>
-                <AnswerKeyEditor
-                  value={answerKey}
-                  onChange={(val: string) => {
-                    setAnswerKey(val);
-                    if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
-                  }}
-                  hasError={!!errors.answerKey}
-                />
-              </div>
-            )}
-          </div>
-        )}
+            <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50 space-y-2">
+              {hasParentSubQ && selectedSubQCodes.length > 0 ? (
+                /* Per-subQ answer keys */
+                selectedSubQCodes.map((code) => {
+                  const sq = parentSubQuestionList!.find(s => s.code === code);
+                  const sqIdx = parentSubQuestionList!.findIndex(s => s.code === code);
+                  const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
+                  const hasErr = !!errors.answerKey && !(answerKeys[code] || "").trim();
+                  return (
+                    <div key={code}>
+                      <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                        เฉลย: {label}. {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
+                      </label>
+                      <AnswerKeyEditor
+                        value={answerKeys[code] || ""}
+                        onChange={(val: string) => {
+                          setAnswerKeys(prev => ({ ...prev, [code]: val }));
+                          if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
+                        }}
+                        hasError={hasErr}
+                      />
+                    </div>
+                  );
+                })
+              ) : (
+                /* Single answer key (no subQ selected) */
+                <div>
+                  <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                    เฉลย (Answer Key)
+                  </label>
+                  <AnswerKeyEditor
+                    value={answerKey}
+                    onChange={(val: string) => {
+                      setAnswerKey(val);
+                      if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
+                    }}
+                    hasError={!!errors.answerKey}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
         {/* Score Editing (Section 300 only) - hide for group headers, prerequisite questions, prerequisite children, and section selectors */}
-        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && (
+        {is300 && !initialIsGroupHeader && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2733,7 +2757,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
           </div>
         )}
 
-        
+
         {/* Special handling for 3xx.1.1-3xx.1.3 (Prerequisite Children) */}
         {is300 && isPrerequisiteChild && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
@@ -3140,8 +3164,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           : parentLayout === "grid"
             ? "bg-slate-50/80 dark:bg-slate-800/80 m-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm"
             : level === 1 && is200or300
-            ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent
-            : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent
+              ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent
+              : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent
         }
       ${!isLast && parentLayout !== "grid" ? "border-b border-gray-100 dark:border-slate-700/50" : ""}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
@@ -3154,7 +3178,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
         </div>
       )}
-      
+
       {/* L3 connector dot only */}
       {!(isL1 || (level === 1 && is200or300)) && parentLayout !== "grid" && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
@@ -3225,7 +3249,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 {question.display_text || "(ไม่ต้องปฏิบัติ)"}
               </span>
             )}
-                      </div>
+          </div>
           {/* Score badges — aligned right, purple theme for 300 */}
           {is300 && (
             <div className="flex items-center gap-2 shrink-0">
@@ -3323,10 +3347,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 ? ([
                   ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
                     ? [{
-                        label: "เพิ่มคำถามย่อย (Add Sub-Question)",
-                        icon: <MessageSquarePlus />,
-                        onClick: onAddSub,
-                      }]
+                      label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                      icon: <MessageSquarePlus />,
+                      onClick: onAddSub,
+                    }]
                     : []),
                   {
                     label: "แก้ไข (Edit)",
@@ -3335,63 +3359,63 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   },
                 ] as DropdownMenuItem[])
                 : isDefaultL1
-                ? ([
-                  ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
-                    ? [{
+                  ? ([
+                    ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
+                      ? [{
                         label: "เพิ่มคำถามย่อย (Add Sub-Question)",
                         icon: <MessageSquarePlus />,
                         onClick: onAddSub,
                       }]
-                    : []),
-                  {
-                    label: "แก้ไข (Edit)",
-                    icon: <Edit />,
-                    onClick: onEdit,
-                  },
-                ] as DropdownMenuItem[])
-                : ([
-                  ...(canInsertSibling ? [
+                      : []),
                     {
-                      label: "แทรกคำถามต่อท้าย (Insert After)",
-                      icon: <Plus />,
-                      onClick: onInsertAfter,
+                      label: "แก้ไข (Edit)",
+                      icon: <Edit />,
+                      onClick: onEdit,
+                    },
+                  ] as DropdownMenuItem[])
+                  : ([
+                    ...(canInsertSibling ? [
+                      {
+                        label: "แทรกคำถามต่อท้าย (Insert After)",
+                        icon: <Plus />,
+                        onClick: onInsertAfter,
+                      },
+                      { label: "separator", onClick: () => { }, separator: true },
+                    ] : []),
+                    {
+                      label: "เลื่อนขึ้น (Move Up)",
+                      icon: <ArrowUp />,
+                      onClick: onMoveUp,
+                      disabled: isFirst,
+                    },
+                    {
+                      label: "เลื่อนลง (Move Down)",
+                      icon: <ArrowDown />,
+                      onClick: onMoveDown,
+                      disabled: isLast,
                     },
                     { label: "separator", onClick: () => { }, separator: true },
-                  ] : []),
-                  {
-                    label: "เลื่อนขึ้น (Move Up)",
-                    icon: <ArrowUp />,
-                    onClick: onMoveUp,
-                    disabled: isFirst,
-                  },
-                  {
-                    label: "เลื่อนลง (Move Down)",
-                    icon: <ArrowDown />,
-                    onClick: onMoveDown,
-                    disabled: isLast,
-                  },
-                  { label: "separator", onClick: () => { }, separator: true },
-                  ...(canAddSub
-                    ? [
-                      {
-                        label: "เพิ่มคำถามย่อย (Add Sub-Question)",
-                        icon: <MessageSquarePlus />,
-                        onClick: onAddSub,
-                      },
-                    ]
-                    : []),
-                  {
-                    label: "แก้ไข (Edit)",
-                    icon: <Edit />,
-                    onClick: onEdit,
-                  },
-                  {
-                    label: "ลบ (Delete)",
-                    icon: <Trash2 />,
-                    onClick: onDelete,
-                    danger: true,
-                  },
-                ] as DropdownMenuItem[])
+                    ...(canAddSub
+                      ? [
+                        {
+                          label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                          icon: <MessageSquarePlus />,
+                          onClick: onAddSub,
+                        },
+                      ]
+                      : []),
+                    {
+                      label: "แก้ไข (Edit)",
+                      icon: <Edit />,
+                      onClick: onEdit,
+                    },
+                    {
+                      label: "ลบ (Delete)",
+                      icon: <Trash2 />,
+                      onClick: onDelete,
+                      danger: true,
+                    },
+                  ] as DropdownMenuItem[])
             }
           />
         </div>
@@ -3488,16 +3512,16 @@ const QuestionMetadataDisplay: React.FC<{
             const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
             const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
             return (
-            <div key={code} className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
-              <div className="flex items-start gap-2">
-                <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
-                <div className="answer-key-markdown min-w-0 flex-1">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                    {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
-                  </ReactMarkdown>
+              <div key={code} className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+                <div className="flex items-start gap-2">
+                  <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
+                  <div className="answer-key-markdown min-w-0 flex-1">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                      {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
-            </div>
             );
           })}
         </div>
