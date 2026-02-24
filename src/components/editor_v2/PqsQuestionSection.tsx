@@ -3381,7 +3381,11 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             <div className="flex items-center gap-2 shrink-0">
               {/* Group header (L1/L2 with children): show group_score */}
               {question.is_group_header && (question.group_score != null && question.group_score > 0) && (
-                <span className="text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-2 py-0.5 rounded whitespace-nowrap">
+                <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${
+                  !question.parent_id
+                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+                    : 'text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30'
+                }`}>
                   {toThaiNumber(question.group_score)} คะแนน
                 </span>
               )}
