@@ -1042,6 +1042,20 @@ fn migrate_section_links_to_ref_children() -> Result<usize, String> {
 }
 
 #[tauri::command]
+fn get_required_count_children(
+    parent_id: String,
+) -> Result<Vec<content_database::RequiredCountChild>, String> {
+    content_database::get_required_count_children(parent_id)
+}
+
+#[tauri::command]
+fn sync_required_count_children(
+    args: content_database::SyncRequiredCountArgs,
+) -> Result<Vec<content_database::RequiredCountChild>, String> {
+    content_database::sync_required_count_children(args)
+}
+
+#[tauri::command]
 fn seed_section_104_references(section_id: i64) -> Result<String, String> {
     use rusqlite::params;
 
@@ -1431,6 +1445,9 @@ fn main() {
             remove_all_section_ref_children,
             update_section_ref_score,
             migrate_section_links_to_ref_children,
+            // Required Count Children (3xx.2-3xx.6 L3 "ครั้งที่ X")
+            get_required_count_children,
+            sync_required_count_children,
             // Scoring & User Progress
             calculate_section_total_score,
             upsert_user_progress,

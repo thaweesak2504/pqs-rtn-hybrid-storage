@@ -3800,3 +3800,140 @@ pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
 
     Ok(migrated)
 }
+
+// ============================================================
+// Required Count Children (3xx.2-3xx.6 L3 "ครั้งที่ X")
+// ============================================================
+
+fn thai_alpha(n: i32) -> &'static str {
+    const LETTERS: &[&str] = &[
+        "ก","ข","ค","ง","จ","ฉ","ช","ซ","ฌ","ญ",
+        "ฎ","ฏ","ฐ","ฑ","ฒ","ณ","ด","ต","ถ","ท",
+    ];
+    if n >= 1 && n <= LETTERS.len() as i32 {
+        LETTERS[(n - 1) as usize]
+    } else {
+        "?"
+    }
+}
+
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct RequiredCountChild {
+    pub id: String,
+    pub parent_id: String,
+    pub sequence: i32,
+    pub content: String,
+    pub score: i32,
+    pub is_scored: bool,
+}
+
+/// Get all required_instance L3 children for an L2 question
+pub fn get_required_count_children(parent_id: String) -> Result<Vec<RequiredCountChild>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    get_required_count_children_inner(&conn, &parent_id)
+}
+
+fn get_required_count_children_inner(conn: &Connection, parent_id: &str) -> Result<Vec<RequiredCountChild>, String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, parent_id, sequence, content, score, is_scored
+         FROM Questions
+         WHERE parent_id = ?1 AND question_type = 'required_instance'
+         ORDER BY sequence"
+    ).map_err(|e| e.to_string())?;
+
+    let children = stmt.query_map(params![parent_id], |row| {
+        Ok(RequiredCountChild {
+            id: row.get(0)?,
+            parent_id: row.get(1)?,
+            sequence: row.get(2)?,
+            content: row.get(3)?,
+            score: row.get(4)?,
+            is_scored: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?
+      .collect::<Result<Vec<_>, _>>()
+      .map_err(|e| e.to_string())?;
+
+    Ok(children)
+}
+
+#[derive(serde::Deserialize)]
+pub struct SyncRequiredCountArgs {
+    pub parent_id: String,
+    pub document_id: String,
+    pub section_id: i64,
+    pub desired_count: i32,
+    pub score_per_instance: i32,
+}
+
+/// Sync L3 "ครั้งที่ X" children for an L2 question (3xx.2-3xx.6).
+/// Creates/deletes children to match desired_count.
+/// Each child: content = "{thai_alpha}. {parent_content} ครั้งที่ {N}", score = score_per_instance.
+pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<RequiredCountChild>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Get parent question content
+    let parent_content: String = conn.query_row(
+        "SELECT content FROM Questions WHERE id = ?1",
+        params![args.parent_id],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+
+    // Get existing required_instance children
+    let existing = get_required_count_children_inner(&conn, &args.parent_id)?;
+    let current_count = existing.len() as i32;
+
+    if args.desired_count > current_count {
+        // Add new children
+        for i in (current_count + 1)..=(args.desired_count) {
+            let id = generate_uuid();
+            let letter = thai_alpha(i);
+            let content = format!("{}. {} ครั้งที่ {}", letter, parent_content, i);
+
+            conn.execute(
+                "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, score, question_type, group_score, is_group_header, is_scored)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 'text', ?7, 'required_instance', 0, 0, 1)",
+                params![id, args.document_id, args.section_id, args.parent_id, i, content, args.score_per_instance],
+            ).map_err(|e| e.to_string())?;
+        }
+    } else if args.desired_count < current_count {
+        // Delete excess children (from the end)
+        let ids_to_delete: Vec<String> = existing
+            .iter()
+            .skip(args.desired_count as usize)
+            .map(|c| c.id.clone())
+            .collect();
+
+        for id in &ids_to_delete {
+            conn.execute(
+                "DELETE FROM Questions WHERE id = ?1 AND question_type = 'required_instance'",
+                params![id],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Update score for all remaining children (in case score_per_instance changed)
+    conn.execute(
+        "UPDATE Questions SET score = ?1 WHERE parent_id = ?2 AND question_type = 'required_instance'",
+        params![args.score_per_instance, args.parent_id],
+    ).map_err(|e| e.to_string())?;
+
+    // Mark parent as group_header if it has children, or unmark if count == 0
+    if args.desired_count > 0 {
+        conn.execute(
+            "UPDATE Questions SET is_group_header = 1, is_scored = 0 WHERE id = ?1",
+            params![args.parent_id],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        // No children — revert to scored leaf
+        conn.execute(
+            "UPDATE Questions SET is_group_header = 0, is_scored = 1 WHERE id = ?1",
+            params![args.parent_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // Recalculate scores up the chain
+    recalculate_group_score_chain(&conn, &args.parent_id)?;
+
+    get_required_count_children_inner(&conn, &args.parent_id)
+}

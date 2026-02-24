@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-  ArrowDown,
-  ArrowUp,
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  Edit,
-  FileDigit,
-  FileQuestion,
-  FileText,
-  Globe,
-  GripVertical,
-  Image,
-  ImageIcon,
-  Layers,
-  ListChecks,
-  Lock,
-  MessageSquarePlus,
-  Mic,
-  MoreVertical,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    ArrowDown,
+    ArrowUp,
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    Edit,
+    FileDigit,
+    FileQuestion,
+    FileText,
+    Globe,
+    GripVertical,
+    Image,
+    ImageIcon,
+    Layers,
+    ListChecks,
+    Lock,
+    MessageSquarePlus,
+    Mic,
+    MoreVertical,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
@@ -36,9 +36,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import {
-  QuestionDetail,
-  QuestionReferenceDetail,
-  SectionReferenceDetail,
+    QuestionDetail,
+    QuestionReferenceDetail,
+    SectionReferenceDetail,
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
@@ -1166,6 +1166,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
   const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
+  // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
+  const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild;
 
   // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
@@ -1259,6 +1261,41 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     } catch { setSectionRefChildren([]); }
   }, [isSection100Selector, isSection200Selector, existingId]);
   useEffect(() => { fetchSectionRefChildren(); }, [fetchSectionRefChildren]);
+
+  // ---- Required Count State (for L2 children of 3xx.2-3xx.6) ----
+  interface RequiredCountChild { id: string; parent_id: string; sequence: number; content: string; score: number; is_scored: boolean; }
+  const [requiredCountChildren, setRequiredCountChildren] = useState<RequiredCountChild[]>([]);
+  const [requiredCount, setRequiredCount] = useState<number>(0);
+  const [scorePerInstance, setScorePerInstance] = useState<number>(initialScore);
+
+  const fetchRequiredCountChildren = useCallback(async () => {
+    if (!isPerformanceL2 || !existingId) { setRequiredCountChildren([]); return; }
+    try {
+      const children = await invoke<RequiredCountChild[]>('get_required_count_children', { parentId: existingId });
+      setRequiredCountChildren(children);
+      setRequiredCount(children.length);
+      if (children.length > 0) setScorePerInstance(children[0].score);
+    } catch { setRequiredCountChildren([]); }
+  }, [isPerformanceL2, existingId]);
+  useEffect(() => { fetchRequiredCountChildren(); }, [fetchRequiredCountChildren]);
+
+  const handleSyncRequiredCount = useCallback(async () => {
+    if (!isPerformanceL2 || !existingId || !sectionId) return;
+    try {
+      const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
+        args: {
+          parent_id: existingId,
+          document_id: documentId,
+          section_id: sectionId,
+          desired_count: requiredCount,
+          score_per_instance: scorePerInstance,
+        }
+      });
+      setRequiredCountChildren(children);
+    } catch (error) {
+      console.error("Failed to sync required count children:", error);
+    }
+  }, [isPerformanceL2, existingId, sectionId, documentId, requiredCount, scorePerInstance]);
 
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
@@ -1896,6 +1933,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         });
       } catch (err) {
         console.error('Failed to save question score:', err);
+      }
+
+      // Auto-sync required count children on save (L2 of 3xx.2-3xx.6)
+      if (isPerformanceL2 && sectionId) {
+        try {
+          await invoke('sync_required_count_children', {
+            args: {
+              parent_id: existingId,
+              document_id: documentId,
+              section_id: sectionId,
+              desired_count: requiredCount,
+              score_per_instance: scorePerInstance,
+            }
+          });
+        } catch (err) {
+          console.error('Failed to sync required count children:', err);
+        }
       }
     }
 
@@ -2757,6 +2811,69 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
+
+        {/* Required Count (จำนวนครั้ง) for L2 children of 3xx.2-3xx.6 */}
+        {isPerformanceL2 && isEdit && (
+          <div className="rounded-md border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 p-2 space-y-2">
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">จำนวนครั้งที่ต้องปฏิบัติ</span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-slate-600 dark:text-slate-300">จำนวนครั้ง</label>
+                <button
+                  type="button"
+                  onClick={() => setRequiredCount(prev => Math.max(0, prev - 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-sm font-bold"
+                >−</button>
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={requiredCount}
+                  onChange={(e) => setRequiredCount(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))}
+                  className="w-12 px-1 py-0.5 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-indigo-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setRequiredCount(prev => Math.min(20, prev + 1))}
+                  className="w-6 h-6 flex items-center justify-center rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-sm font-bold"
+                >+</button>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-slate-600 dark:text-slate-300">คะแนน/ครั้ง</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={scorePerInstance}
+                  onChange={(e) => setScorePerInstance(parseInt(e.target.value) || 0)}
+                  className="w-14 px-1 py-0.5 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-indigo-400"
+                />
+              </div>
+              {requiredCount > 0 && (
+                <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
+                  รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleSyncRequiredCount}
+                className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
+              >
+                ✓ อัปเดต
+              </button>
+            </div>
+            {requiredCountChildren.length > 0 && (
+              <div className="mt-1 space-y-0.5">
+                {requiredCountChildren.map((child, idx) => (
+                  <div key={child.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 pl-2">
+                    <span className="text-indigo-500 font-medium">{idx + 1}.</span>
+                    <span className="flex-1 truncate">{child.content}</span>
+                    <span className="text-indigo-500 font-medium">{child.score} คะแนน</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Special handling for 3xx.1.1-3xx.1.3 (Prerequisite Children) */}
         {is300 && isPrerequisiteChild && (
