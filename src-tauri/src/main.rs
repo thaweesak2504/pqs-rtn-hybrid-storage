@@ -992,7 +992,53 @@ fn recalculate_section_link_scores(question_id: String) -> Result<i32, String> {
 
 #[tauri::command]
 fn migrate_question_children_to_section_links() -> Result<usize, String> {
-    content_database::migrate_question_children_to_section_links()
+    // Legacy: now delegates to the new L3 migration
+    content_database::migrate_section_links_to_ref_children()
+}
+
+// ==========================================
+// Section-Ref L3 Children Commands (3xx.1.4/1.5 → real L3 Questions)
+// ==========================================
+
+#[tauri::command]
+fn get_section_ref_children(
+    parent_id: String,
+) -> Result<Vec<content_database::SectionRefChild>, String> {
+    content_database::get_section_ref_children(parent_id)
+}
+
+#[tauri::command]
+fn add_section_ref_child(
+    args: content_database::AddSectionRefChildArgs,
+) -> Result<content_database::SectionRefChild, String> {
+    content_database::add_section_ref_child(args)
+}
+
+#[tauri::command]
+fn batch_add_section_ref_children(
+    args: content_database::BatchAddSectionRefChildrenArgs,
+) -> Result<Vec<content_database::SectionRefChild>, String> {
+    content_database::batch_add_section_ref_children(args)
+}
+
+#[tauri::command]
+fn remove_section_ref_child(question_id: String) -> Result<(), String> {
+    content_database::remove_section_ref_child(question_id)
+}
+
+#[tauri::command]
+fn remove_all_section_ref_children(parent_id: String) -> Result<(), String> {
+    content_database::remove_all_section_ref_children(parent_id)
+}
+
+#[tauri::command]
+fn update_section_ref_score(question_id: String, score: i32) -> Result<(), String> {
+    content_database::update_section_ref_score(question_id, score)
+}
+
+#[tauri::command]
+fn migrate_section_links_to_ref_children() -> Result<usize, String> {
+    content_database::migrate_section_links_to_ref_children()
 }
 
 #[tauri::command]
@@ -1377,6 +1423,14 @@ fn main() {
             create_occupation_sub_question,
             update_occupation_sub_question,
             delete_occupation_sub_question,
+            // Section-Ref L3 Children (3xx.1.4/1.5 → real L3 Questions)
+            get_section_ref_children,
+            add_section_ref_child,
+            batch_add_section_ref_children,
+            remove_section_ref_child,
+            remove_all_section_ref_children,
+            update_section_ref_score,
+            migrate_section_links_to_ref_children,
             // Scoring & User Progress
             calculate_section_total_score,
             upsert_user_progress,

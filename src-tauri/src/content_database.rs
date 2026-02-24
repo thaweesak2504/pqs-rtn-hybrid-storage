@@ -148,14 +148,14 @@ pub fn initialize_content_database() -> Result<String, String> {
     // Initialize Questions, Choices, References tables
     initialize_question_tables(&conn)?;
 
-    // Migrate old child Questions (with refSectionId metadata) to QuestionSectionLinks
-    match migrate_question_children_to_section_links() {
+    // Migrate QuestionSectionLinks → L3 section_ref Questions (one-time)
+    match migrate_section_links_to_ref_children() {
         Ok(count) => {
             if count > 0 {
-                logger::info(&format!("Migrated {} child questions to QuestionSectionLinks", count));
+                logger::info(&format!("Migrated {} section links to L3 section_ref Questions", count));
             }
         },
-        Err(e) => logger::warn(&format!("Section link migration warning: {}", e)),
+        Err(e) => logger::warn(&format!("Section link→L3 migration warning: {}", e)),
     }
 
     // Seed OwnerUnits if empty
@@ -3391,61 +3391,386 @@ pub fn recalculate_section_link_scores(question_id: String) -> Result<i32, Strin
     Ok(link_total)
 }
 
-/// Migrate existing child Questions (with refSectionId metadata) to QuestionSectionLinks
-/// Call once to convert old data to new link-based approach
-pub fn migrate_question_children_to_section_links() -> Result<usize, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+// ============================================================
+// Section-Ref L3 Children — 3xx.1.4/1.5 children as real Questions
+// Each selected section becomes an L3 Question (question_type='section_ref')
+// so the normal scoring chain L3→L2→L1→Section works naturally.
+// ============================================================
 
-    // Find all child questions with refSectionId metadata
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_id, metadata, score FROM Questions WHERE metadata LIKE '%refSectionId%'"
+/// Helper: recalculate group_score chain from a parent upward (parent → grandparent → section total)
+fn recalculate_group_score_chain(conn: &Connection, parent_id: &str) -> Result<(), String> {
+    // 1. Recalculate parent's group_score from its children
+    let parent_total: i32 = conn.query_row(
+        "SELECT COALESCE(SUM(
+            CASE 
+                WHEN is_group_header = 1 THEN group_score
+                WHEN is_scored = 1 THEN score
+                ELSE 0
+            END
+        ), 0) FROM Questions WHERE parent_id = ?1",
+        params![parent_id],
+        |row| row.get(0)
     ).map_err(|e| e.to_string())?;
 
-    let rows: Vec<(String, Option<String>, Option<String>, Option<i32>)> = stmt.query_map([], |row| {
+    conn.execute(
+        "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
+        params![parent_total, parent_id],
+    ).map_err(|e| e.to_string())?;
+
+    // 2. Get grandparent and propagate up
+    let grandparent_id: Option<String> = conn.query_row(
+        "SELECT parent_id FROM Questions WHERE id = ?1",
+        params![parent_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    if let Some(ref gpid) = grandparent_id {
+        let gp_total: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(
+                CASE 
+                    WHEN is_group_header = 1 THEN group_score
+                    WHEN is_scored = 1 THEN score
+                    ELSE 0
+                END
+            ), 0) FROM Questions WHERE parent_id = ?1",
+            params![gpid],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
+            params![gp_total, gpid],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    // 3. Propagate to section total_score
+    let section_id: Option<i64> = conn.query_row(
+        "SELECT section_id FROM Questions WHERE id = ?1",
+        params![parent_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    if let Some(sid) = section_id {
+        let section_total: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(
+                CASE 
+                    WHEN is_group_header = 1 THEN group_score
+                    WHEN is_scored = 1 AND parent_id IS NULL THEN score
+                    ELSE 0
+                END
+            ), 0) FROM Questions WHERE section_id = ?1",
+            params![sid],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+
+        conn.execute(
+            "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            params![section_total, sid],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, serde::Serialize, Clone)]
+pub struct SectionRefChild {
+    pub id: String,
+    pub parent_id: String,
+    pub sequence: i32,
+    pub content: String,
+    pub score: i32,
+    pub ref_section_id: i64,
+    pub ref_section_number: i32,
+}
+
+/// Get all section-ref L3 children for a parent question (3xx.1.4 or 3xx.1.5)
+pub fn get_section_ref_children(parent_id: String) -> Result<Vec<SectionRefChild>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    get_section_ref_children_inner(&conn, &parent_id)
+}
+
+fn get_section_ref_children_inner(conn: &Connection, parent_id: &str) -> Result<Vec<SectionRefChild>, String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, parent_id, sequence, content, score, metadata
+         FROM Questions
+         WHERE parent_id = ?1 AND question_type = 'section_ref'
+         ORDER BY sequence"
+    ).map_err(|e| e.to_string())?;
+
+    let children = stmt.query_map(params![parent_id], |row| {
+        let id: String = row.get(0)?;
+        let parent_id: String = row.get(1)?;
+        let sequence: i32 = row.get(2)?;
+        let content: String = row.get(3)?;
+        let score: i32 = row.get::<_, Option<i32>>(4)?.unwrap_or(0);
+        let metadata: Option<String> = row.get(5)?;
+
+        let (ref_section_id, ref_section_number) = if let Some(meta_str) = metadata {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&meta_str) {
+                let sid = v.get("refSectionId").and_then(|r| r.as_i64()).unwrap_or(0);
+                let snum = v.get("refSectionNumber").and_then(|r| r.as_i64()).unwrap_or(0) as i32;
+                (sid, snum)
+            } else { (0, 0) }
+        } else { (0, 0) };
+
+        Ok(SectionRefChild { id, parent_id, sequence, content, score, ref_section_id, ref_section_number })
+    }).map_err(|e| e.to_string())?
+      .collect::<Result<Vec<_>, _>>()
+      .map_err(|e| e.to_string())?;
+
+    Ok(children)
+}
+
+#[derive(serde::Deserialize)]
+pub struct AddSectionRefChildArgs {
+    pub parent_id: String,
+    pub document_id: String,
+    pub section_id: i64,
+    pub linked_section_id: i64,
+    pub linked_section_number: i32,
+    pub linked_section_title: String,
+    pub score: Option<i32>,
+}
+
+/// Add a single section as an L3 child question under 3xx.1.4 or 3xx.1.5
+pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefChild, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Check if already exists
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
+        params![args.parent_id, format!("%\"refSectionId\":{}%", args.linked_section_id)],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if exists {
+        return Err("This section is already added as a child question".to_string());
+    }
+
+    let max_seq: i32 = conn.query_row(
+        "SELECT COALESCE(MAX(sequence), 0) FROM Questions WHERE parent_id = ?1",
+        params![args.parent_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    let id = generate_uuid();
+    let score = args.score.unwrap_or(0);
+    let sequence = max_seq + 1;
+    let metadata = serde_json::json!({
+        "refSectionId": args.linked_section_id,
+        "refSectionNumber": args.linked_section_number
+    }).to_string();
+
+    conn.execute(
+        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 'text', ?7, ?8, 'section_ref', 0, 0, 1)",
+        params![id, args.document_id, args.section_id, args.parent_id, sequence, args.linked_section_title, metadata, score],
+    ).map_err(|e| e.to_string())?;
+
+    // Mark parent as group_header
+    conn.execute(
+        "UPDATE Questions SET is_group_header = 1 WHERE id = ?1",
+        params![args.parent_id],
+    ).map_err(|e| e.to_string())?;
+
+    // Propagate scores up the chain
+    recalculate_group_score_chain(&conn, &args.parent_id)?;
+
+    Ok(SectionRefChild {
+        id, parent_id: args.parent_id, sequence, content: args.linked_section_title,
+        score, ref_section_id: args.linked_section_id, ref_section_number: args.linked_section_number,
+    })
+}
+
+#[derive(serde::Deserialize)]
+pub struct BatchAddSectionRefChildrenArgs {
+    pub parent_id: String,
+    pub document_id: String,
+    pub section_id: i64,
+    pub sections: Vec<BatchSectionItem>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct BatchSectionItem {
+    pub linked_section_id: i64,
+    pub linked_section_number: i32,
+    pub linked_section_title: String,
+}
+
+/// Batch add multiple sections as L3 children (for "Select All")
+pub fn batch_add_section_ref_children(args: BatchAddSectionRefChildrenArgs) -> Result<Vec<SectionRefChild>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let mut max_seq: i32 = conn.query_row(
+        "SELECT COALESCE(MAX(sequence), 0) FROM Questions WHERE parent_id = ?1",
+        params![args.parent_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    for item in &args.sections {
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
+            params![args.parent_id, format!("%\"refSectionId\":{}%", item.linked_section_id)],
+            |row| row.get(0),
+        ).unwrap_or(true);
+
+        if !exists {
+            max_seq += 1;
+            let id = generate_uuid();
+            let metadata = serde_json::json!({
+                "refSectionId": item.linked_section_id,
+                "refSectionNumber": item.linked_section_number
+            }).to_string();
+
+            conn.execute(
+                "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 'text', ?7, 0, 'section_ref', 0, 0, 1)",
+                params![id, args.document_id, args.section_id, args.parent_id, max_seq, item.linked_section_title, metadata],
+            ).map_err(|e| e.to_string())?;
+        }
+    }
+
+    // Mark parent as group_header
+    conn.execute(
+        "UPDATE Questions SET is_group_header = 1 WHERE id = ?1",
+        params![args.parent_id],
+    ).map_err(|e| e.to_string())?;
+
+    recalculate_group_score_chain(&conn, &args.parent_id)?;
+
+    get_section_ref_children_inner(&conn, &args.parent_id)
+}
+
+/// Remove a single section-ref L3 child question and recalculate scores
+pub fn remove_section_ref_child(question_id: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let parent_id: Option<String> = conn.query_row(
+        "SELECT parent_id FROM Questions WHERE id = ?1",
+        params![question_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    conn.execute("DELETE FROM Questions WHERE id = ?1 AND question_type = 'section_ref'", params![question_id])
+        .map_err(|e| e.to_string())?;
+
+    if let Some(pid) = parent_id {
+        recalculate_group_score_chain(&conn, &pid)?;
+    }
+
+    Ok(())
+}
+
+/// Remove all section-ref L3 children for a parent (for "Deselect All")
+pub fn remove_all_section_ref_children(parent_id: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    conn.execute(
+        "DELETE FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'",
+        params![parent_id],
+    ).map_err(|e| e.to_string())?;
+
+    recalculate_group_score_chain(&conn, &parent_id)?;
+
+    Ok(())
+}
+
+/// Update score for a section-ref L3 child and propagate up
+pub fn update_section_ref_score(question_id: String, score: i32) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    conn.execute(
+        "UPDATE Questions SET score = ?1 WHERE id = ?2 AND question_type = 'section_ref'",
+        params![score, question_id],
+    ).map_err(|e| e.to_string())?;
+
+    let parent_id: Option<String> = conn.query_row(
+        "SELECT parent_id FROM Questions WHERE id = ?1",
+        params![question_id],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    if let Some(pid) = parent_id {
+        recalculate_group_score_chain(&conn, &pid)?;
+    }
+
+    Ok(())
+}
+
+/// Migrate existing QuestionSectionLinks → L3 section_ref Questions
+/// Call once to convert link-based data to proper L3 children
+pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Check if there are any links to migrate
+    let link_count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM QuestionSectionLinks", [],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    if link_count == 0 { return Ok(0); }
+
+    let mut stmt = conn.prepare(
+        "SELECT qsl.id, qsl.question_id, qsl.section_id, qsl.score, qsl.display_order,
+                s.section_number, s.title_th,
+                q.document_id, q.section_id as q_section_id
+         FROM QuestionSectionLinks qsl
+         JOIN Sections s ON qsl.section_id = s.id
+         JOIN Questions q ON qsl.question_id = q.id
+         ORDER BY qsl.question_id, qsl.display_order"
+    ).map_err(|e| e.to_string())?;
+
+    let links: Vec<(i64, String, i64, i32, i32, i32, String, String, Option<i64>)> = stmt.query_map([], |row| {
         Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Option<String>>(1)?,
-            row.get::<_, Option<String>>(2)?,
-            row.get::<_, Option<i32>>(3)?,
+            row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?,
+            row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?,
         ))
     }).map_err(|e| e.to_string())?
       .collect::<Result<Vec<_>, _>>()
       .map_err(|e| e.to_string())?;
 
     let mut migrated = 0;
-    for (child_id, parent_id, metadata, score) in &rows {
-        if let (Some(pid), Some(meta_str)) = (parent_id, metadata) {
-            // Parse metadata JSON to get refSectionId
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(meta_str) {
-                if let Some(ref_section_id) = v.get("refSectionId").and_then(|r| r.as_i64()) {
-                    // Check if link already exists
-                    let exists: bool = conn.query_row(
-                        "SELECT EXISTS(SELECT 1 FROM QuestionSectionLinks WHERE question_id = ?1 AND section_id = ?2)",
-                        params![pid, ref_section_id],
-                        |row| row.get(0),
-                    ).unwrap_or(true);
+    let mut seen_parents: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-                    if !exists {
-                        let max_order: i32 = conn.query_row(
-                            "SELECT COALESCE(MAX(display_order), 0) FROM QuestionSectionLinks WHERE question_id = ?1",
-                            params![pid],
-                            |row| row.get(0),
-                        ).unwrap_or(0);
+    for (_link_id, parent_id, section_id, score, display_order, section_number, section_title, document_id, q_section_id) in &links {
+        // Check if L3 question already exists for this section ref
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
+            params![parent_id, format!("%\"refSectionId\":{}%", section_id)],
+            |row| row.get(0),
+        ).unwrap_or(true);
 
-                        conn.execute(
-                            "INSERT INTO QuestionSectionLinks (question_id, section_id, score, display_order)
-                             VALUES (?1, ?2, ?3, ?4)",
-                            params![pid, ref_section_id, score.unwrap_or(0), max_order + 1],
-                        ).map_err(|e| e.to_string())?;
-                        migrated += 1;
-                    }
+        if !exists {
+            let id = generate_uuid();
+            let metadata = serde_json::json!({
+                "refSectionId": section_id,
+                "refSectionNumber": section_number
+            }).to_string();
 
-                    // Delete old child question
-                    conn.execute("DELETE FROM Questions WHERE id = ?1", params![child_id])
-                        .map_err(|e| e.to_string())?;
-                }
-            }
+            conn.execute(
+                "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, 'text', ?7, ?8, 'section_ref', 0, 0, 1)",
+                params![id, document_id, q_section_id, parent_id, display_order, section_title, metadata, score],
+            ).map_err(|e| e.to_string())?;
+
+            migrated += 1;
         }
+
+        seen_parents.insert(parent_id.clone());
+    }
+
+    // Mark all parents as group_header and recalculate scores
+    for pid in &seen_parents {
+        conn.execute(
+            "UPDATE Questions SET is_group_header = 1 WHERE id = ?1",
+            params![pid],
+        ).map_err(|e| e.to_string())?;
+        recalculate_group_score_chain(&conn, pid)?;
+    }
+
+    // Delete migrated links
+    if migrated > 0 {
+        conn.execute("DELETE FROM QuestionSectionLinks", []).map_err(|e| e.to_string())?;
     }
 
     Ok(migrated)
