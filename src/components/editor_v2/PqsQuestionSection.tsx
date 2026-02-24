@@ -1299,7 +1299,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
         setShowDescription(true);
       }
     }
-  }, [isSection100Selector, isSection200Selector, existingId, formScoreType]);
+  }, [isSection100Selector, isSection200Selector, existingId, formScoreType, fetchSectionRefChildren]);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
   // Base condition for showing sub-question editor

@@ -2998,7 +2998,7 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
                 WHEN is_scored = 1 AND parent_id IS NULL THEN score
                 ELSE 0
             END
-        ), 0) FROM Questions WHERE section_id = ?1",
+        ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
         params![section_id],
         |row| row.get(0)
     ).map_err(|e| e.to_string())?;
@@ -3134,7 +3134,7 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
                         WHEN is_scored = 1 AND parent_id IS NULL THEN score
                         ELSE 0
                     END
-                ), 0) FROM Questions WHERE section_id = ?1",
+                ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
                 params![sid],
                 |row| row.get(0)
             ).map_err(|e| e.to_string())?;
@@ -3398,7 +3398,7 @@ pub fn recalculate_section_link_scores(question_id: String) -> Result<i32, Strin
                         WHEN is_scored = 1 AND is_group_header = 0 AND parent_id IS NULL THEN score
                         ELSE 0
                     END
-                ), 0) FROM Questions WHERE section_id = ?1",
+                ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
                 params![sid],
                 |row| row.get(0)
             ).map_err(|e| e.to_string())?;
@@ -3483,7 +3483,7 @@ fn recalculate_group_score_chain(conn: &Connection, parent_id: &str) -> Result<(
                     WHEN is_scored = 1 AND parent_id IS NULL THEN score
                     ELSE 0
                 END
-            ), 0) FROM Questions WHERE section_id = ?1",
+            ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
             params![sid],
             |row| row.get(0)
         ).map_err(|e| e.to_string())?;
