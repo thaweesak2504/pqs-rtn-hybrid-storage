@@ -2874,7 +2874,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               <div className="mt-1 space-y-0.5">
                 {requiredCountChildren.map((child, idx) => (
                   <div key={child.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 pl-2">
-                    <span className="text-indigo-500 font-medium">{idx + 1}.</span>
+                    <span className="text-indigo-500 font-medium">{toThaiAlphabet(idx + 1)}.</span>
                     <span className="flex-1 truncate">{child.content}</span>
                     <span className="text-indigo-500 font-medium">{child.score} คะแนน</span>
                   </div>

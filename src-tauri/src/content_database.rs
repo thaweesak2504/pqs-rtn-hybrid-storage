@@ -3828,18 +3828,6 @@ pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
 // Required Count Children (3xx.2-3xx.6 L3 "ครั้งที่ X")
 // ============================================================
 
-fn thai_alpha(n: i32) -> &'static str {
-    const LETTERS: &[&str] = &[
-        "ก","ข","ค","ง","จ","ฉ","ช","ซ","ฌ","ญ",
-        "ฎ","ฏ","ฐ","ฑ","ฒ","ณ","ด","ต","ถ","ท",
-    ];
-    if n >= 1 && n <= LETTERS.len() as i32 {
-        LETTERS[(n - 1) as usize]
-    } else {
-        "?"
-    }
-}
-
 #[derive(Debug, serde::Serialize, Clone)]
 pub struct RequiredCountChild {
     pub id: String,
@@ -3910,8 +3898,7 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
         // Add new children (inherit parent's metadata and answer_type)
         for i in (current_count + 1)..=(args.desired_count) {
             let id = generate_uuid();
-            let letter = thai_alpha(i);
-            let content = format!("{}. {} ครั้งที่ {}", letter, parent_content, i);
+            let content = format!("{} ครั้งที่ {}", parent_content, i);
 
             conn.execute(
                 "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
@@ -3935,11 +3922,16 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
         }
     }
 
-    // Update score for all remaining children (in case score_per_instance changed)
-    conn.execute(
-        "UPDATE Questions SET score = ?1 WHERE parent_id = ?2 AND question_type = 'required_instance'",
-        params![args.score_per_instance, args.parent_id],
-    ).map_err(|e| e.to_string())?;
+    // Update score and regenerate content for all remaining children
+    // (fixes any old rows that had "ก. " prefix, and normalises content format)
+    let remaining = get_required_count_children_inner(&conn, &args.parent_id)?;
+    for child in &remaining {
+        let new_content = format!("{} ครั้งที่ {}", parent_content, child.sequence);
+        conn.execute(
+            "UPDATE Questions SET score = ?1, content = ?2 WHERE id = ?3 AND question_type = 'required_instance'",
+            params![args.score_per_instance, new_content, child.id],
+        ).map_err(|e| e.to_string())?;
+    }
 
     // Mark parent as group_header if it has children, or unmark if count == 0
     if args.desired_count > 0 {
