@@ -3233,13 +3233,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           )}
         </div>
 
-        {showDescriptionImage && question.description && (
+        {showDescriptionImage && question.description && !(isSection100or200Selector && question.question_type === 'exempted') && (
           <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
         )}
         {/* Section-ref L3 children for 3xx.1.4/1.5 are rendered via QuestionTreeNode as normal children */}
-        {isSection100or200Selector && !(question.children && question.children.length > 0) && (
+        {isSection100or200Selector && question.question_type !== 'exempted' && !(question.children && question.children.length > 0) && (
           <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded inline-block">
             ⚠ ยังไม่ได้เลือก Section
           </div>
