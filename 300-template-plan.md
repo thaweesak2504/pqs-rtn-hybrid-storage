@@ -1,4 +1,3 @@
-<!-- markdownlint-disable -->
 # 300Template Development Plan
 
 ## Overview

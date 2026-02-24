@@ -57,7 +57,7 @@ Frontend filter เพิ่ม: `sections.filter(s => s.section_group === 100)`
 ```
 [ผู้ใช้ check Section 101 ใน picker]
     ↓
-invoke('create_question', { 
+invoke('create_question', {
     parent_id: "3xx.1.4-id",
     content: "ข้อควรระมัดระวังอันตรายพื้นฐาน",  ← COPY จาก Sections.title_th
     metadata: '{"refSectionId":5,"sectionNumber":101}',
@@ -71,13 +71,13 @@ onRefresh() → fetchQuestions() → re-render ทั้ง tree
 
 ### ปัญหาที่เกิดขึ้น
 
-| # | ปัญหา | สาเหตุรากเหง้า |
-|---|--------|----------------|
-| 1 | **Title ไม่ sync** เมื่อเปลี่ยนชื่อ Section 101 ที่ต้นทาง | `Questions.content` เป็น **สำเนา** (copy) ไม่ใช่ลิงก์ (link) ไม่มีกลไก live update |
-| 2 | **UI กระพริบ / picker ไม่เปิด** | `useEffect` ที่ sync titles มี `childSectionRefs` ในทั้ง dependency array และ setState → **infinite loop** |
-| 3 | **Multi-select ไม่ทำงาน** | onClick handler มี Ctrl/Shift logic ซับซ้อนที่ conflict กับ onChange → checkbox ไม่ toggle |
-| 4 | **onRefresh() ทำลาย picker state** | เมื่อ create/delete child → onRefresh() → fetchQuestions() → re-render ทั้ง tree → QuestionFormCard อาจถูก unmount/remount → สูญเสีย `showSectionPicker` state |
-| 5 | **ข้อมูลซ้ำซ้อน** | title_th อยู่ทั้งใน Sections table และ Questions.content → ต้อง sync ตลอด |
+| #   | ปัญหา                                                     | สาเหตุรากเหง้า                                                                                                                                                 |
+| --- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Title ไม่ sync** เมื่อเปลี่ยนชื่อ Section 101 ที่ต้นทาง | `Questions.content` เป็น **สำเนา** (copy) ไม่ใช่ลิงก์ (link) ไม่มีกลไก live update                                                                             |
+| 2   | **UI กระพริบ / picker ไม่เปิด**                           | `useEffect` ที่ sync titles มี `childSectionRefs` ในทั้ง dependency array และ setState → **infinite loop**                                                     |
+| 3   | **Multi-select ไม่ทำงาน**                                 | onClick handler มี Ctrl/Shift logic ซับซ้อนที่ conflict กับ onChange → checkbox ไม่ toggle                                                                     |
+| 4   | **onRefresh() ทำลาย picker state**                        | เมื่อ create/delete child → onRefresh() → fetchQuestions() → re-render ทั้ง tree → QuestionFormCard อาจถูก unmount/remount → สูญเสีย `showSectionPicker` state |
+| 5   | **ข้อมูลซ้ำซ้อน**                                         | title_th อยู่ทั้งใน Sections table และ Questions.content → ต้อง sync ตลอด                                                                                      |
 
 ---
 
@@ -89,19 +89,19 @@ onRefresh() → fetchQuestions() → re-render ทั้ง tree
 DocumentReferences (master table)     ← แหล่งความจริง (code, title, category)
     ↓ link by ID
 SectionReferences (link table)        ← เชื่อม ref กับ section + display_order
-    ↓ link by ID  
+    ↓ link by ID
 QuestionReferences (link table)       ← เชื่อม ref กับ question + location_text
 ```
 
 ### ทำไมถึงทำงานได้ดี
 
-| คุณสมบัติ | Reference Documents | Section Selector (ปัจจุบัน) |
-|----------|--------------------|-----------------------------|
-| **เก็บข้อมูล** | Link (FK → master) | Copy (คัดลอก content) |
-| **Title update** | อัตโนมัติ (JOIN ดึง live) | ต้อง sync ด้วย useEffect |
-| **CRUD** | INSERT/DELETE ใน link table | CREATE/DELETE ทั้ง Question row |
-| **ความซับซ้อน** | ต่ำ (1 table, simple FK) | สูง (Questions + metadata JSON) |
-| **Score** | ไม่มี (ref ไม่มีคะแนน) | มี (ต้องเก็บ per-link) |
+| คุณสมบัติ        | Reference Documents         | Section Selector (ปัจจุบัน)     |
+| ---------------- | --------------------------- | ------------------------------- |
+| **เก็บข้อมูล**   | Link (FK → master)          | Copy (คัดลอก content)           |
+| **Title update** | อัตโนมัติ (JOIN ดึง live)   | ต้อง sync ด้วย useEffect        |
+| **CRUD**         | INSERT/DELETE ใน link table | CREATE/DELETE ทั้ง Question row |
+| **ความซับซ้อน**  | ต่ำ (1 table, simple FK)    | สูง (Questions + metadata JSON) |
+| **Score**        | ไม่มี (ref ไม่มีคะแนน)      | มี (ต้องเก็บ per-link)          |
 
 ### วิธี Display ของ Reference
 
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS QuestionSectionLinks (
 **วิธี Display:**
 
 ```sql
-SELECT qsl.id, qsl.score, qsl.display_order, 
+SELECT qsl.id, qsl.score, qsl.display_order,
        s.section_number, s.title_th
 FROM QuestionSectionLinks qsl
 JOIN Sections s ON qsl.section_id = s.id
@@ -198,6 +198,7 @@ ORDER BY s.section_number
 ### Option B: แก้ไข approach ปัจจุบัน (ไม่แนะนำ)
 
 แก้ bugs ทีละตัว:
+
 1. แก้ infinite loop ด้วย `useRef` + comparison
 2. แก้ multi-select ด้วย simplification
 3. แก้ title sync ด้วย polling interval
@@ -235,15 +236,15 @@ Sections.title_th ←──[JOIN]── QuestionSectionLinks.section_id
 
 ## 6. แผนงาน (ถ้าเลือก Option A)
 
-| ลำดับ | งาน | ประมาณ |
-|-------|-----|--------|
-| 1 | สร้าง `QuestionSectionLinks` table + migration | Backend |
-| 2 | สร้าง Rust commands (CRUD + batch + score) | Backend |
-| 3 | สร้าง Tauri command bindings ใน `main.rs` | Backend |
-| 4 | สร้าง `get_question_section_links` query (JOIN Sections) | Backend |
-| 5 | ลบ code เก่าใน `QuestionFormCard` (section picker + sync logic) | Frontend |
-| 6 | สร้าง Section Picker component ใหม่ (แบบ Reference picker) | Frontend |
-| 7 | แสดง linked sections ใน display mode (ใช้ข้อมูลจาก JOIN) | Frontend |
-| 8 | เพิ่ม score editor สำหรับแต่ละ link | Frontend |
-| 9 | Data migration: ลบ child Questions เก่า + สร้าง links ใหม่ | Migration |
-| 10 | ทดสอบ scoring chain | Testing |
+| ลำดับ | งาน                                                             | ประมาณ    |
+| ----- | --------------------------------------------------------------- | --------- |
+| 1     | สร้าง `QuestionSectionLinks` table + migration                  | Backend   |
+| 2     | สร้าง Rust commands (CRUD + batch + score)                      | Backend   |
+| 3     | สร้าง Tauri command bindings ใน `main.rs`                       | Backend   |
+| 4     | สร้าง `get_question_section_links` query (JOIN Sections)        | Backend   |
+| 5     | ลบ code เก่าใน `QuestionFormCard` (section picker + sync logic) | Frontend  |
+| 6     | สร้าง Section Picker component ใหม่ (แบบ Reference picker)      | Frontend  |
+| 7     | แสดง linked sections ใน display mode (ใช้ข้อมูลจาก JOIN)        | Frontend  |
+| 8     | เพิ่ม score editor สำหรับแต่ละ link                             | Frontend  |
+| 9     | Data migration: ลบ child Questions เก่า + สร้าง links ใหม่      | Migration |
+| 10    | ทดสอบ scoring chain                                             | Testing   |
