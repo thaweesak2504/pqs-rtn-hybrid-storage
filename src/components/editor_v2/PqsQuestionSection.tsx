@@ -1128,9 +1128,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Special question type detection for Section 300
   const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
-  const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
-  const isSection100Selector = is300 && questionSequence && !isL1 && questionSequence === 4; // 3xx.1.4 → select 100Sections
-  const isSection200Selector = is300 && questionSequence && !isL1 && questionSequence === 5; // 3xx.1.5 → select 200Sections
+  // We need to know if its parent is 3xx.1. We can check prefix!
+  // In Thai numerals: 1 is ๑. So `prefix.includes('.๑.')` works for 3xx.1.x
+  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 3 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.3
+  const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
+  const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
 
     // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
@@ -2764,8 +2766,8 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               </div>
             )}
             {sectionLinks.length === 0 && !showSectionPicker && (
-              <div className="text-xs text-purple-400 dark:text-purple-500 italic">
-                {isEdit && existingId ? 'ยังไม่ได้เลือก Section' : 'บันทึกก่อน แล้วค่อยเลือก Section'}
+              <div className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
+                {isEdit && existingId ? '⚠ ยังไม่ได้เลือก Section' : '⚠ บันทึกก่อน แล้วค่อยเลือก Section'}
               </div>
             )}
 
@@ -2997,8 +2999,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
-  const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3; // 3xx.1.1-3xx.1.3
-  const isSection100or200Selector = is300 && questionSequence && !isL1 && (questionSequence === 4 || questionSequence === 5);
+  const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.3
+  const isSection100or200Selector = is300 && questionSequence && !isL1 && (questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
 
   // Fetch linked sections for 3xx.1.4/1.5 display (read-only, live titles from JOIN)
   interface DisplaySectionLink { id: number; score: number; section_number: number; section_title: string; }
@@ -3162,9 +3164,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   {toThaiNumber(question.group_score)} คะแนน
                 </span>
               )}
-              {/* Individual scored item (L2/L3): show score */}
+              {/* Individual scored item (L2/L3): show score (emerald) */}
               {!question.is_group_header && question.is_scored && (question.score != null && question.score > 0) && (
-                <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 px-1.5 py-0.5 rounded whitespace-nowrap">
+                <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded whitespace-nowrap">
                   {toThaiNumber(question.score)} คะแนน
                 </span>
               )}
@@ -3216,7 +3218,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           </div>
         )}
         {isSection100or200Selector && displaySectionLinks.length === 0 && (
-          <div className="mt-1 text-xs text-purple-400 dark:text-purple-500 italic">ยังไม่ได้เลือก Section</div>
+          <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded inline-block">
+            ⚠ ยังไม่ได้เลือก Section
+          </div>
         )}
         {/* SubQuestionList display for 2xx.2 / 2xx.4 / 3xx.2 / 3xx.4 L1 — DB-backed */}
         {is200or300 && isL1 && displaySubQList.length > 0 && (() => {
