@@ -1130,8 +1130,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialQuestionType = 'normal',
   initialDisplayText = '',
   initialIsGroupHeader = false,
-  onRefresh,
-  onQuestionsUpdated,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1263,7 +1261,9 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   }, [isPrerequisiteChild, existingId, formScoreType]);
 
   // Update question score when formScoreType changes for section selectors (3xx.1.4/1.5)
-  // Skip initial mount to avoid infinite loop (onRefresh re-fetches tree → remount → loop)
+  // NOTE: Do NOT call onRefresh/onQuestionsUpdated here — that causes infinite loop
+  // (fetchQuestions → setLoading → tree unmount → form remount → useEffect fires again)
+  // Tree refresh + total score update happen on Save via handleSave → onSave → handleUpdate
   const sectionSelectorMountRef = useRef(true);
   useEffect(() => {
     if ((isSection100Selector || isSection200Selector) && existingId) {
@@ -1282,12 +1282,11 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
               display_text: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
             }
           });
-          // When switching to exempted: clear all section-ref children
+          // When switching to exempted: clear all section-ref children and refresh local list
           if (formScoreType === 'exempted') {
             await invoke('remove_all_section_ref_children', { parentId: existingId });
+            fetchSectionRefChildren();
           }
-          onRefresh?.();
-          onQuestionsUpdated?.();
         } catch (error) {
           console.error("Failed to update question score:", error);
         }
