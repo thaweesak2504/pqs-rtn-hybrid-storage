@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { Clock, Trophy } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
@@ -97,25 +97,25 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
 
   
   // Fetch Section ID on mount or when sectionNumber changes
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
-        const currentSection = sections.find(s => s.section_number === sectionNumber);
-
-        if (currentSection) {
-          setSectionId(currentSection.id);
-          setCurrentTitle(currentSection.title_th);
-          setDurationValue(currentSection.duration_value);
-          setDurationUnit(currentSection.duration_unit || 'weeks');
-          setTotalScore(currentSection.total_score);
-        }
-      } catch (error) {
-        console.error("Failed to fetch section data:", error);
+  const fetchSectionData = useCallback(async () => {
+    try {
+      const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+      const currentSection = sections.find(s => s.section_number === sectionNumber);
+      if (currentSection) {
+        setSectionId(currentSection.id);
+        setCurrentTitle(currentSection.title_th);
+        setDurationValue(currentSection.duration_value);
+        setDurationUnit(currentSection.duration_unit || 'weeks');
+        setTotalScore(currentSection.total_score);
       }
-    };
-    fetchData();
+    } catch (error) {
+      console.error("Failed to fetch section data:", error);
+    }
   }, [docId, sectionNumber]);
+
+  useEffect(() => {
+    fetchSectionData();
+  }, [fetchSectionData]);
 
   // Preview Mode: Render A4 paper view
   if (viewMode === 'preview') {
@@ -247,6 +247,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
           sectionNumber={sectionNumber}
           sectionGroup={300}
           readOnly={readOnly}
+          onQuestionsUpdated={fetchSectionData}
         />
       </div>
 

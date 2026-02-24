@@ -146,6 +146,7 @@ interface PqsQuestionSectionProps {
   readOnly?: boolean;
   refreshTrigger?: number;
   onReferencesUpdated?: () => void; // Added callback
+  onQuestionsUpdated?: () => void;
 }
 
 // ============ Main Component ============
@@ -159,6 +160,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   readOnly = false,
   refreshTrigger = 0,
   onReferencesUpdated,
+  onQuestionsUpdated,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -382,6 +384,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
       resetForms();
       await fetchQuestions();
+      onQuestionsUpdated?.();
       onReferencesUpdated?.(); // Update references count after create
     } catch (err) {
       console.error("Failed to create question:", err);
@@ -458,6 +461,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
       resetForms();
       await fetchQuestions();
+      onQuestionsUpdated?.();
       onReferencesUpdated?.(); // Update references count after all changes
     } catch (err) {
       console.error("Failed to update question:", err);
@@ -473,6 +477,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         try {
           await invoke("delete_question", { id: question.id });
           await fetchQuestions();
+          onQuestionsUpdated?.();
           onReferencesUpdated?.(); // Update references count
         } catch (err) {
           console.error("Failed to delete:", err);
