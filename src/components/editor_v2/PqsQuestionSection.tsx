@@ -1249,6 +1249,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
             args: {
               id: existingId,
               score: 0,
+              is_scored: false,
               question_type: formScoreType,
               display_text: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
             }
@@ -1270,6 +1271,7 @@ const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
             args: {
               id: existingId,
               score: 0,
+              is_scored: false,
               question_type: formScoreType,
               display_text: formScoreType === 'exempted' ? '(ไม่ต้องปฏิบัติ)' : ''
             }

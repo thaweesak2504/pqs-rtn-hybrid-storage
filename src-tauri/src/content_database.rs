@@ -3053,10 +3053,18 @@ pub struct UpdateQuestionScoreArgs {
 pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    conn.execute(
-        "UPDATE Questions SET score = ?2, is_scored = ?3, question_type = ?4, display_text = ?5 WHERE id = ?1",
-        params![args.id, args.score, args.is_scored, args.question_type, args.display_text],
-    ).map_err(|e| e.to_string())?;
+    // When exempted, also clear group_score so the UI badge and parent chain are correct
+    if args.question_type == "exempted" {
+        conn.execute(
+            "UPDATE Questions SET score = 0, is_scored = 0, question_type = ?2, display_text = ?3, group_score = 0 WHERE id = ?1",
+            params![args.id, args.question_type, args.display_text],
+        ).map_err(|e| e.to_string())?;
+    } else {
+        conn.execute(
+            "UPDATE Questions SET score = ?2, is_scored = ?3, question_type = ?4, display_text = ?5 WHERE id = ?1",
+            params![args.id, args.score, args.is_scored, args.question_type, args.display_text],
+        ).map_err(|e| e.to_string())?;
+    }
 
     // If this question has a parent, recalculate parent's group_score (L2 → L1)
     let parent_id: Option<String> = conn.query_row(
