@@ -1446,9 +1446,10 @@ fn main() {
             update_section_ref_score,
             migrate_section_links_to_ref_children,
             // Required Count Children (3xx.2-3xx.6 L3 "ครั้งที่ X")
-            get_required_count_children,
-            sync_required_count_children,
-            // Scoring & User Progress
+            content_database::get_required_count_children,
+            content_database::sync_required_count_children,
+            content_database::check_has_children,
+            user_database::init_user_db,
             calculate_section_total_score,
             upsert_user_progress,
             get_user_progress,

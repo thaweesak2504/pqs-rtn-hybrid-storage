@@ -1202,9 +1202,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(() => {
+    // If it's already exempted, don't show description
+    if (initialQuestionType === 'exempted') return false;
+    
     // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.4/1.5 section selectors
     if (isPrerequisiteQuestion) return true;
-    if ((isSection100Selector || isSection200Selector) && initialQuestionType !== 'exempted') return true;
+    if (isSection100Selector || isSection200Selector) return true;
     return !!initialDescription;
   });
 
@@ -1269,6 +1272,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [scorePerInstance, setScorePerInstance] = useState<number>(initialScore);
   // Dynamic group header flag — may be reverted when L3 children are all deleted
   const [effectiveIsGroupHeader, setEffectiveIsGroupHeader] = useState<boolean>(initialIsGroupHeader);
+
+  // Track if this question has actual children in the database (for Exempted warning)
+  const [hasActualChildren, setHasActualChildren] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (existingId) {
+      invoke<boolean>('check_has_children', { parentId: existingId })
+        .then(hasChildren => setHasActualChildren(hasChildren))
+        .catch(err => console.error("Failed to check children count:", err));
+    }
+  }, [existingId]);
 
   const fetchRequiredCountChildren = useCallback(async () => {
     if (!isPerformanceL2 || !existingId) { setRequiredCountChildren([]); return; }
@@ -2116,14 +2130,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     });
                   }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                  disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector}
-                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector)
+                  disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector || formScoreType === 'exempted'}
+                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector || formScoreType === 'exempted')
                     ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
                     : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
                     }`}
                   rows={1}
                 />
-                {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && (
+                {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && formScoreType !== 'exempted' && (
                   <button
                     onClick={() => {
                       setDescription("");
@@ -2771,8 +2785,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </div>
           )}
 
-        {/* Score Editing (Section 300 only) - hide for group headers, prerequisite questions, prerequisite children, and section selectors */}
-        {is300 && !(isPerformanceL2 ? effectiveIsGroupHeader : initialIsGroupHeader) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+        {/* Score Editing (Section 300 only) - hide for L2+ group headers, prerequisite questions, prerequisite children, and section selectors */}
+        {/* L1 group headers CAN show scoring controls to allow Exempted selection (which will delete children) */}
+        {is300 && !(isPerformanceL2 ? effectiveIsGroupHeader : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -2800,7 +2815,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               )}
               <select
                 value={formScoreType}
-                onChange={(e) => setFormScoreType(e.target.value)}
+                onChange={(e) => {
+                  const newType = e.target.value;
+                  setFormScoreType(newType);
+                  if (newType === 'exempted') {
+                    setDescription('');
+                    setShowDescription(false);
+                  }
+                }}
                 className="text-xs px-2 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
               >
                 <option value="normal">ปกติ (normal)</option>
@@ -2817,6 +2839,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 />
               )}
             </div>
+            {/* Red warning if L1 with children selects Exempted */}
+            {isL1 && hasActualChildren && formScoreType === 'exempted' && (
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-600 dark:text-red-400 text-sm font-bold">⚠️</span>
+                  <div className="flex-1 text-xs text-red-700 dark:text-red-300">
+                    <div className="font-bold mb-1">คำเตือน: คำถามนี้มีคำถามย่อยอยู่</div>
+                    <div>เมื่อบันทึกเป็น "ไม่ต้องปฏิบัติ" คำถามย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -3227,7 +3261,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
-  const isPrerequisiteChild = is300 && questionSequence && !isL1 && questionSequence >= 1 && questionSequence <= 3 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.3
   const isSection100or200Selector = is300 && questionSequence && !isL1 && (questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
@@ -3421,7 +3454,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           )}
         </div>
 
-        {showDescriptionImage && question.description && !(isSection100or200Selector && question.question_type === 'exempted') && (
+        {showDescriptionImage && question.description && question.question_type !== 'exempted' && !(isSection100or200Selector && question.question_type === 'exempted') && (
           <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
@@ -3479,7 +3512,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             items={
               isDefault300L2
                 ? ([
-                  ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
+                  ...(canAddSub && question.question_type !== 'exempted'
                     ? [{
                       label: "เพิ่มคำถามย่อย (Add Sub-Question)",
                       icon: <MessageSquarePlus />,
@@ -3494,7 +3527,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 ] as DropdownMenuItem[])
                 : isDefaultL1
                   ? ([
-                    ...(canAddSub && !(isPrerequisiteChild && question.question_type === 'exempted')
+                    ...(canAddSub && question.question_type !== 'exempted'
                       ? [{
                         label: "เพิ่มคำถามย่อย (Add Sub-Question)",
                         icon: <MessageSquarePlus />,

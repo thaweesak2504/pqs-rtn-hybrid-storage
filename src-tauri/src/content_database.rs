@@ -3078,8 +3078,15 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
 
     // When exempted, also clear group_score so the UI badge and parent chain are correct
     if args.question_type == "exempted" {
+        // If this question has children, delete them all (allows L1 group headers to become exempted)
         conn.execute(
-            "UPDATE Questions SET score = 0, is_scored = 0, question_type = ?2, display_text = ?3, group_score = 0 WHERE id = ?1",
+            "DELETE FROM Questions WHERE parent_id = ?1",
+            params![args.id],
+        ).map_err(|e| e.to_string())?;
+        
+        // Set question to exempted and revert group_header status, clear description
+        conn.execute(
+            "UPDATE Questions SET score = 0, is_scored = 0, question_type = ?2, display_text = ?3, group_score = 0, is_group_header = 0, description = NULL WHERE id = ?1",
             params![args.id, args.question_type, args.display_text],
         ).map_err(|e| e.to_string())?;
     } else {
@@ -3842,6 +3849,17 @@ fn thai_number(n: i32) -> String {
         9 => "๙".to_string(),
         _ => n.to_string(),
     }
+}
+
+#[tauri::command]
+pub fn check_has_children(parent_id: String) -> Result<bool, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let count: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+        params![parent_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+    Ok(count > 0)
 }
 
 #[derive(Debug, serde::Serialize, Clone)]
