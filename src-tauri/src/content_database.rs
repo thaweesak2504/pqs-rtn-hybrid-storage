@@ -1267,7 +1267,15 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
             args.is_scored.unwrap_or(false)
         ]
     )
-    .map_err(|e| e.to_string())?;
+    .map_err(|e | e.to_string())?;
+
+    // If this question has a parent, set parent as group header (is_group_header = 1, is_scored = 0)
+    if let Some(ref parent_id) = args.parent_id {
+        conn.execute(
+            "UPDATE Questions SET is_group_header = 1, is_scored = 0 WHERE id = ?1",
+            params![parent_id],
+        ).map_err(|e| e.to_string())?;
+    }
 
     // SYNC References from Metadata
     // DISABLED: We manage references via add_question_reference API now.
@@ -3851,7 +3859,6 @@ fn thai_number(n: i32) -> String {
     }
 }
 
-#[tauri::command]
 pub fn check_has_children(parent_id: String) -> Result<bool, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     let count: i32 = conn.query_row(

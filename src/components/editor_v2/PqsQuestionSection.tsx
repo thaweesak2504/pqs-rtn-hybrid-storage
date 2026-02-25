@@ -1279,10 +1279,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   useEffect(() => {
     if (existingId) {
       invoke<boolean>('check_has_children', { parentId: existingId })
-        .then(hasChildren => setHasActualChildren(hasChildren))
+        .then(hasChildren => {
+          setHasActualChildren(hasChildren);
+          // If has children but initialIsGroupHeader is false, update effectiveIsGroupHeader
+          if (hasChildren && !initialIsGroupHeader) {
+            setEffectiveIsGroupHeader(true);
+          }
+        })
         .catch(err => console.error("Failed to check children count:", err));
     }
-  }, [existingId]);
+  }, [existingId, initialIsGroupHeader]);
 
   const fetchRequiredCountChildren = useCallback(async () => {
     if (!isPerformanceL2 || !existingId) { setRequiredCountChildren([]); return; }
@@ -1405,6 +1411,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
   });
+
+  // Reset useSubQuestions when formScoreType becomes exempted
+  useEffect(() => {
+    if (formScoreType === 'exempted') {
+      setUseSubQuestions(false);
+    }
+  }, [formScoreType]);
+
+  // L1 with useSubQuestions enabled = Group Header (auto-calc mode)
+  // This handles both: toggle ON in editor AND re-mount from saved metadata
+  useEffect(() => {
+    if (isL1 && useSubQuestions) {
+      setEffectiveIsGroupHeader(true);
+      setFormScoreIsScored(false);
+    }
+  }, [isL1, useSubQuestions]);
 
   // DB-backed occupation branches state
   interface DbBranch { code: string; name: string; }
@@ -1875,6 +1897,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         newMeta = JSON.parse(initialMetadata);
       } catch { }
     }
+    // If exempted, clear all sub-question and scoring metadata
+    if (isL1 && formScoreType === 'exempted') {
+      delete newMeta.useSubQuestions;
+      delete newMeta.subQuestionList;
+      delete newMeta.occupationBranches;
+      delete newMeta.activeSubQuestions;
+      delete newMeta.selectedBranch;
+      delete newMeta.answerKey;
+      delete newMeta.answerKeys;
+    }
     // Save toggle states (only store non-default values)
     if (!requireRef) newMeta.requireRef = false;
     else delete newMeta.requireRef;
@@ -1904,24 +1936,27 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       delete newMeta.answerKeys;
     }
     // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
+    // Skip if exempted - metadata already cleared above
     const alwaysCodesInBranch = is300 ? filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code) : [];
     const effectiveActiveSubQCodes = Array.from(new Set([...activeSubQCodes, ...alwaysCodesInBranch]));
-    if (showSubQuestionEditor) {
-      if (useSubQuestions) {
-        newMeta.useSubQuestions = true;
-        // Branches and sub-questions are now stored in DB tables, not metadata
-        delete newMeta.subQuestionList;
-        delete newMeta.occupationBranches;
-        // Always save selectedBranch for both 2xx.2 and 2xx.4 (needed for display)
-        if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
-        else delete newMeta.selectedBranch;
-        newMeta.activeSubQuestions = effectiveActiveSubQCodes;
-      } else {
-        delete newMeta.useSubQuestions;
-        delete newMeta.subQuestionList;
-        delete newMeta.occupationBranches;
-        delete newMeta.activeSubQuestions;
-        delete newMeta.selectedBranch;
+    if (!(isL1 && formScoreType === 'exempted')) {
+      if (showSubQuestionEditor) {
+        if (useSubQuestions) {
+          newMeta.useSubQuestions = true;
+          // Branches and sub-questions are now stored in DB tables, not metadata
+          delete newMeta.subQuestionList;
+          delete newMeta.occupationBranches;
+          // Always save selectedBranch for both 2xx.2 and 2xx.4 (needed for display)
+          if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
+          else delete newMeta.selectedBranch;
+          newMeta.activeSubQuestions = effectiveActiveSubQCodes;
+        } else {
+          delete newMeta.useSubQuestions;
+          delete newMeta.subQuestionList;
+          delete newMeta.occupationBranches;
+          delete newMeta.activeSubQuestions;
+          delete newMeta.selectedBranch;
+        }
       }
     }
     // Save selectedSubQuestions (for child questions of L1 with SubQuestionList)
@@ -2165,7 +2200,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                   <div className="relative inline-flex items-center">
                     <input type="checkbox" checked={useSubQuestions}
-                      onChange={(e) => { setUseSubQuestions(e.target.checked); if (!e.target.checked) setActiveSubQCodes([]); }}
+                      onChange={(e) => { 
+                      const newValue = e.target.checked;
+                      setUseSubQuestions(newValue); 
+                      if (!newValue) setActiveSubQCodes([]);
+                      
+                      // Auto-change from Exempted to Normal when enabling sub-questions
+                      if (newValue && formScoreType === 'exempted') {
+                        setFormScoreType('normal');
+                        setFormScoreIsScored(false); // Disable scoring initially
+                      }
+                      // Always set as Group Header when sub-questions are enabled
+                      if (newValue) {
+                        setEffectiveIsGroupHeader(true); // Set as Group Header
+                      }
+                    }}
                       className="sr-only peer" />
                     <div className={`w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 ${sqClr.toggle} transition-colors`}></div>
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
@@ -2796,7 +2845,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   type="checkbox"
                   checked={formScoreIsScored}
                   onChange={(e) => setFormScoreIsScored(e.target.checked)}
-                  className="accent-purple-600 w-3.5 h-3.5"
+                  disabled={formScoreType === 'exempted' || effectiveIsGroupHeader}
+                  className="accent-purple-600 w-3.5 h-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 มีคะแนน (is_scored)
               </label>
@@ -2829,15 +2879,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 <option value="performance">ปฏิบัติ (performance)</option>
                 <option value="exempted">ไม่ต้องปฏิบัติ (exempted)</option>
               </select>
-              {formScoreType === 'exempted' && (
-                <input
-                  type="text"
-                  value={formScoreDisplayText}
-                  onChange={(e) => setFormScoreDisplayText(e.target.value)}
-                  className="flex-1 min-w-[120px] px-2 py-0.5 text-xs border border-amber-300 dark:border-amber-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-amber-400"
-                  placeholder="ข้อความแสดง เช่น (ไม่ต้องปฏิบัติ)"
-                />
-              )}
             </div>
             {/* Red warning if L1 with children selects Exempted */}
             {isL1 && hasActualChildren && formScoreType === 'exempted' && (
@@ -3095,7 +3136,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         )}
 
         {/* Group Header Info (Section 300 only) - auto-calc info */}
-        {is300 && (isPerformanceL2 ? effectiveIsGroupHeader : initialIsGroupHeader) && (
+        {is300 && effectiveIsGroupHeader && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
             <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
               <span className="font-bold uppercase tracking-wider">Group Header</span>
