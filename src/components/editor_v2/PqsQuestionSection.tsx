@@ -2644,7 +2644,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
           {/* ── SubQuestion Binding (children of L1 with SubQuestionList) ── */}
-          {hasParentSubQ && (
+          {/* Hidden when L2 has L3 required_count children (sub-questions are copied to L3 already) */}
+          {hasParentSubQ && requiredCountChildren.length === 0 && (
             <div className={`rounded-lg border ${sqClr.bindWrap} p-3`}>
               <div className="flex items-center gap-2 mb-2">
                 <ListChecks className={`w-4 h-4 ${sqClr.text}`} />
