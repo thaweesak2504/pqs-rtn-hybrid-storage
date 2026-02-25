@@ -3963,14 +3963,14 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
         }
     }
 
-    // Update score and regenerate content for all remaining children
-    // (fixes any old rows that had "ก. " prefix, and normalises content format)
+    // Update score, content, metadata, and answer_type for all remaining children
+    // This ensures L3 children always inherit the latest sub-questions from L2 parent
     let remaining = get_required_count_children_inner(&conn, &args.parent_id)?;
     for child in &remaining {
         let new_content = format!("{} ครั้งที่ {}", parent_content, thai_number(child.sequence));
         conn.execute(
-            "UPDATE Questions SET score = ?1, content = ?2 WHERE id = ?3 AND question_type = 'required_instance'",
-            params![args.score_per_instance, new_content, child.id],
+            "UPDATE Questions SET score = ?1, content = ?2, metadata = ?3, answer_type = ?4 WHERE id = ?5 AND question_type = 'required_instance'",
+            params![args.score_per_instance, new_content, parent_metadata, parent_answer_type, child.id],
         ).map_err(|e| e.to_string())?;
     }
 

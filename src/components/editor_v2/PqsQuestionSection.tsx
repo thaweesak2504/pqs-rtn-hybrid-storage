@@ -1319,55 +1319,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [isPerformanceL2, existingId]);
   useEffect(() => { fetchRequiredCountChildren(); }, [fetchRequiredCountChildren]);
 
-  const handleSyncRequiredCount = useCallback(async () => {
-    if (!isPerformanceL2 || !sectionId) return;
-    
-    let questionId = existingId || generatedId;
-    
-    // Background save L2 if not yet created in DB
-    if (!questionId) {
-      questionId = crypto.randomUUID();
-      setGeneratedId(questionId);
-      try {
-        // Create minimal L2 record - will be updated with real content on final Save
-        await invoke<string>('create_question', {
-          args: {
-            id: questionId,
-            document_id: documentId,
-            section_id: sectionId,
-            parent_id: parentId || null,
-            content: '(รอบันทึก)',
-            description: null,
-            is_header: false,
-            sequence: null,
-            answer_type: 'text',
-            metadata: null,
-          }
-        });
-        setIsBackgroundSaved(true);
-      } catch (err) {
-        console.error('Failed to background save L2:', err);
-        return;
-      }
-    }
-    
-    // Sync L3 children (DO NOT call onRefresh here - it unmounts the form!)
-    try {
-      const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
-        args: {
-          parent_id: questionId,
-          document_id: documentId,
-          section_id: sectionId,
-          desired_count: requiredCount,
-          score_per_instance: scorePerInstance,
-        }
-      });
-      setRequiredCountChildren(children);
-    } catch (err) {
-      console.error('Failed to sync required count children:', err);
-    }
-  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, requiredCount, scorePerInstance]);
-
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
     if (isPrerequisiteChild && existingId) {
@@ -1532,6 +1483,74 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
   const [editingSubName, setEditingSubName] = useState("");
   const [newSqText, setNewSqText] = useState("");
+
+  // Sync L3 children for performance L2 (required count)
+  const handleSyncRequiredCount = useCallback(async () => {
+    if (!isPerformanceL2 || !sectionId) return;
+    
+    // Build current metadata from form state (sub-questions will be copied to L3)
+    const syncMeta: Record<string, any> = {};
+    if (useSubQuestions) {
+      syncMeta.useSubQuestions = true;
+      if (selMainBranch) syncMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
+      if (activeSubQCodes.length > 0) syncMeta.activeSubQuestions = activeSubQCodes;
+    }
+    if (selectedSubQCodes.length > 0) syncMeta.selectedSubQuestions = selectedSubQCodes;
+    const syncMetaStr = Object.keys(syncMeta).length > 0 ? JSON.stringify(syncMeta) : null;
+
+    let questionId = existingId || generatedId;
+    
+    // Background save L2 if not yet created in DB
+    if (!questionId) {
+      questionId = crypto.randomUUID();
+      setGeneratedId(questionId);
+      try {
+        await invoke<string>('create_question', {
+          args: {
+            id: questionId,
+            document_id: documentId,
+            section_id: sectionId,
+            parent_id: parentId || null,
+            content: content.trim() || '(รอบันทึก)',
+            description: null,
+            is_header: false,
+            sequence: null,
+            answer_type: 'text',
+            metadata: syncMetaStr,
+          }
+        });
+        setIsBackgroundSaved(true);
+      } catch (err) {
+        console.error('Failed to background save L2:', err);
+        return;
+      }
+    } else {
+      // Existing L2: update metadata so backend sync picks up latest sub-questions
+      try {
+        await invoke('update_question', {
+          args: { id: questionId, content: content.trim() || '(รอบันทึก)', description: null, metadata: syncMetaStr }
+        });
+      } catch (err) {
+        console.error('Failed to update L2 metadata before sync:', err);
+      }
+    }
+    
+    // Sync L3 children (DO NOT call onRefresh here - it unmounts the form!)
+    try {
+      const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
+        args: {
+          parent_id: questionId,
+          document_id: documentId,
+          section_id: sectionId,
+          desired_count: requiredCount,
+          score_per_instance: scorePerInstance,
+        }
+      });
+      setRequiredCountChildren(children);
+    } catch (err) {
+      console.error('Failed to sync required count children:', err);
+    }
+  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, requiredCount, scorePerInstance, useSubQuestions, selMainBranch, selSubBranch, activeSubQCodes, selectedSubQCodes]);
 
   // Fetch branches from DB on mount (both normal and 2xx.4)
   useEffect(() => {
@@ -3754,49 +3773,57 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                       onClick: onEdit,
                     },
                   ] as DropdownMenuItem[])
-                  : ([
-                    ...(canInsertSibling ? [
+                  : question.question_type === 'required_instance'
+                    ? ([
                       {
-                        label: "แทรกคำถามต่อท้าย (Insert After)",
-                        icon: <Plus />,
-                        onClick: onInsertAfter,
+                        label: "แก้ไข (Edit)",
+                        icon: <Edit />,
+                        onClick: onEdit,
+                      },
+                    ] as DropdownMenuItem[])
+                    : ([
+                      ...(canInsertSibling ? [
+                        {
+                          label: "แทรกคำถามต่อท้าย (Insert After)",
+                          icon: <Plus />,
+                          onClick: onInsertAfter,
+                        },
+                        { label: "separator", onClick: () => { }, separator: true },
+                      ] : []),
+                      {
+                        label: "เลื่อนขึ้น (Move Up)",
+                        icon: <ArrowUp />,
+                        onClick: onMoveUp,
+                        disabled: isFirst,
+                      },
+                      {
+                        label: "เลื่อนลง (Move Down)",
+                        icon: <ArrowDown />,
+                        onClick: onMoveDown,
+                        disabled: isLast,
                       },
                       { label: "separator", onClick: () => { }, separator: true },
-                    ] : []),
-                    {
-                      label: "เลื่อนขึ้น (Move Up)",
-                      icon: <ArrowUp />,
-                      onClick: onMoveUp,
-                      disabled: isFirst,
-                    },
-                    {
-                      label: "เลื่อนลง (Move Down)",
-                      icon: <ArrowDown />,
-                      onClick: onMoveDown,
-                      disabled: isLast,
-                    },
-                    { label: "separator", onClick: () => { }, separator: true },
-                    ...(canAddSub
-                      ? [
-                        {
-                          label: "เพิ่มคำถามย่อย (Add Sub-Question)",
-                          icon: <MessageSquarePlus />,
-                          onClick: onAddSub,
-                        },
-                      ]
-                      : []),
-                    {
-                      label: "แก้ไข (Edit)",
-                      icon: <Edit />,
-                      onClick: onEdit,
-                    },
-                    {
-                      label: "ลบ (Delete)",
-                      icon: <Trash2 />,
-                      onClick: onDelete,
-                      danger: true,
-                    },
-                  ] as DropdownMenuItem[])
+                      ...(canAddSub
+                        ? [
+                          {
+                            label: "เพิ่มคำถามย่อย (Add Sub-Question)",
+                            icon: <MessageSquarePlus />,
+                            onClick: onAddSub,
+                          },
+                        ]
+                        : []),
+                      {
+                        label: "แก้ไข (Edit)",
+                        icon: <Edit />,
+                        onClick: onEdit,
+                      },
+                      {
+                        label: "ลบ (Delete)",
+                        icon: <Trash2 />,
+                        onClick: onDelete,
+                        danger: true,
+                      },
+                    ] as DropdownMenuItem[])
             }
           />
         </div>
