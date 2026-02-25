@@ -3386,7 +3386,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                     ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
                     : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
                 }`}>
-                  {toThaiNumber(question.group_score)} คะแนน
+                  {!question.parent_id && 'รวม: '}{toThaiNumber(question.group_score)} คะแนน
                 </span>
               )}
               {/* Individual scored item (L2/L3): show score (emerald) */}
