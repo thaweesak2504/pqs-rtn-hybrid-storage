@@ -1648,8 +1648,8 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
     
     // 3xx.7: สอบความรู้ (group header, children NOT scored)
     let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal")?;
-    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), None, false, false, "normal")?;
-    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), None, false, false, "normal")?;
+    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal")?;
+    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal")?;
 
     Ok(())
 }
