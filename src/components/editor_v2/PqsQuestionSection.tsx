@@ -1486,7 +1486,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Sync L3 children for performance L2 (required count)
   const handleSyncRequiredCount = useCallback(async () => {
-    if (!isPerformanceL2 || !sectionId) return;
+    // CRITICAL: abort if no parentId - would create root-level L1 instead of L2
+    if (!isPerformanceL2 || !sectionId || (!existingId && !generatedId && !parentId)) return;
     
     // Build current metadata from form state (sub-questions will be copied to L3)
     const syncMeta: Record<string, any> = {};
@@ -3123,7 +3124,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
                 </span>
               )}
-              {(requiredCount > 0 || requiredCountChildren.length > 0) ? (
+              {(requiredCount > 0 || requiredCountChildren.length > 0) && (existingId || generatedId || parentId) ? (
                 <button
                   type="button"
                   onClick={handleSyncRequiredCount}
