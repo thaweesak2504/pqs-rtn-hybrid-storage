@@ -1325,13 +1325,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       questionId = crypto.randomUUID();
       setGeneratedId(questionId);
       try {
+        // Create minimal L2 record - will be updated with real content on final Save
         await invoke<string>('create_question', {
           args: {
             id: questionId,
             document_id: documentId,
             section_id: sectionId,
             parent_id: parentId || null,
-            content: content.trim() || '(กำลังสร้าง...)',
+            content: '(รอบันทึก)',
             description: null,
             is_header: false,
             sequence: null,
@@ -1346,7 +1347,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
     
-    // Sync L3 children
+    // Sync L3 children (DO NOT call onRefresh here - it unmounts the form!)
     try {
       const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
         args: {
@@ -1358,11 +1359,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
       });
       setRequiredCountChildren(children);
-      onRefresh?.();
     } catch (err) {
       console.error('Failed to sync required count children:', err);
     }
-  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, requiredCount, scorePerInstance, onRefresh]);
+  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, requiredCount, scorePerInstance]);
 
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
@@ -2156,10 +2156,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   };
 
+  // Cleanup background-saved L2 if user cancels
+  const handleCancel = useCallback(async () => {
+    if (isBackgroundSaved && generatedId) {
+      try {
+        await invoke('delete_question', { id: generatedId });
+      } catch (err) {
+        console.error('Failed to cleanup background-saved L2:', err);
+      }
+    }
+    onCancel();
+  }, [isBackgroundSaved, generatedId, onCancel]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
       setAnswerKey("");
-      onCancel();
+      handleCancel();
     }
     if (e.key === "Enter" && e.ctrlKey) handleSave();
   };
@@ -3310,7 +3322,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               variant="outline"
               size="small"
               icon={<X className="w-3 h-3" />}
-              onClick={onCancel}
+              onClick={handleCancel}
               className="h-7 text-xs px-2"
             >
               ยกเลิก
