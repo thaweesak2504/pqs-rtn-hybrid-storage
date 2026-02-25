@@ -3118,19 +3118,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   className="w-14 px-1 py-0.5 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-indigo-400"
                 />
               </div>
-              {requiredCount > 0 ? (
-                <>
-                  <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
-                    รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
-                  </span>
-                  <button
-                    type="button"
-                    onClick={handleSyncRequiredCount}
-                    className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
-                  >
-                    ✓ อัปเดต
-                  </button>
-                </>
+              {requiredCount > 0 && (
+                <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
+                  รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
+                </span>
+              )}
+              {(requiredCount > 0 || requiredCountChildren.length > 0) ? (
+                <button
+                  type="button"
+                  onClick={handleSyncRequiredCount}
+                  className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
+                >
+                  ✓ อัปเดต
+                </button>
               ) : (
                 <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded">
                   ไม่กำหนดจำนวนครั้ง ต้องกำหนดคะแนน
