@@ -3668,8 +3668,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               )}
             </div>
           )}
-          {/* Inline SubQ checkboxes — ชิดขวา */}
-          {inlineSubQItems && (
+          {/* Inline SubQ checkboxes — ชิดขวา (ซ่อนเมื่อ L2 เป็น group_header มี L3 จำนวนครั้ง) */}
+          {inlineSubQItems && !question.is_group_header && (
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               {inlineSubQItems.map(({ sq, checked }, idx) => (
                 <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
