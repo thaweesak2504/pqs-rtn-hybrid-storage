@@ -846,8 +846,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   // Performance L2 (3xx.2-3xx.6) with required count children: disable manual "Add Sub-Question"
   const isPerformanceL2 = is300 && level === 1 && !isParentDefault300L1 && !!question.is_group_header;
   const canAddSub = level < maxSubLevel && !readOnly && !is300LockedL1 && !is300L2NoL3 && !isPerformanceL2;
-  // L3 created by required count (content starts with ก.-ฮ.): disable "Insert After"
-  const isRequiredCountChild = is300 && level === 2 && /^[ก-ฮ]\./.test(question.content || '');
+  // L3 created by required count (question_type='required_instance'): disable "Insert After"
+  const isRequiredCountChild = question.question_type === 'required_instance';
   // 300Template: default L2 cannot insert sibling (no "แทรกคำถามต่อท้าย")
   const canInsertSibling = !(is300 && level === 1 && isParentDefault300L1) && !isRequiredCountChild;
   const isDefault200L1 = is200 && level === 0;
