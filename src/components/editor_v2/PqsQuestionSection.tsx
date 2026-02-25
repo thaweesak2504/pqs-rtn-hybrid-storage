@@ -1068,11 +1068,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             onSave={(data) => onCreate(data, question.id)}
             onCancel={onCancel}
             documentId={documentId}
+            parentId={question.id}
             sectionId={sectionId}
             onAlert={onAlert}
             parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
+            onRefresh={onRefresh}
+            onQuestionsUpdated={onQuestionsUpdated}
           />
         </div>
       )}
@@ -1105,6 +1108,7 @@ interface QuestionFormCardProps {
   onCancel: () => void;
   documentId: string; // Added documentId
   existingId?: string; // Edit mode ID
+  parentId?: string | null; // Parent question ID (for background save of new L2)
   sectionId?: number; // Added sectionId for fetching available references
   onAlert?: (message: string, type?: "warning" | "danger") => void;
   childLayout?: "list" | "grid";
@@ -1139,6 +1143,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   onCancel,
   documentId,
   existingId,
+  parentId,
   sectionId,
   onAlert,
   childLayout: initialChildLayout = "list",
@@ -1151,6 +1156,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialQuestionType = 'normal',
   initialDisplayText = '',
   initialIsGroupHeader = false,
+  onRefresh,
+  onQuestionsUpdated,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1228,6 +1235,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
+  const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
 
   // ---- Score Editor State (Section 300 only) ----
   const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
@@ -1310,10 +1318,35 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const handleSyncRequiredCount = useCallback(async () => {
     if (!isPerformanceL2 || !sectionId) return;
     
-    // Use existingId for editing, generatedId for new questions
-    const questionId = existingId || generatedId;
-    if (!questionId) return;
+    let questionId = existingId || generatedId;
     
+    // Background save L2 if not yet created in DB
+    if (!questionId) {
+      questionId = crypto.randomUUID();
+      setGeneratedId(questionId);
+      try {
+        await invoke<string>('create_question', {
+          args: {
+            id: questionId,
+            document_id: documentId,
+            section_id: sectionId,
+            parent_id: parentId || null,
+            content: content.trim() || '(กำลังสร้าง...)',
+            description: null,
+            is_header: false,
+            sequence: null,
+            answer_type: 'text',
+            metadata: null,
+          }
+        });
+        setIsBackgroundSaved(true);
+      } catch (err) {
+        console.error('Failed to background save L2:', err);
+        return;
+      }
+    }
+    
+    // Sync L3 children
     try {
       const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
         args: {
@@ -1325,10 +1358,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
       });
       setRequiredCountChildren(children);
+      onRefresh?.();
     } catch (err) {
       console.error('Failed to sync required count children:', err);
     }
-  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, requiredCount, scorePerInstance]);
+  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, requiredCount, scorePerInstance, onRefresh]);
 
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
@@ -1995,7 +2029,61 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
-    // Generate ID for new questions (needed for sync_required_count_children)
+    // --- Background-saved L2: update existing DB record instead of creating new ---
+    if (isBackgroundSaved && !isEdit && generatedId) {
+      try {
+        // Update L2 content/metadata
+        let metaObj: any = {};
+        if (metadataString) {
+          try { metaObj = JSON.parse(metadataString); } catch {}
+        }
+        if (imagePath) metaObj.image = imagePath;
+        if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
+        const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
+
+        await invoke('update_question', {
+          args: {
+            id: generatedId,
+            content: content.trim(),
+            description: showExtraButtons ? description || null : null,
+            metadata: finalMeta,
+          }
+        });
+        // Update score
+        if (is300) {
+          await invoke('update_question_score', {
+            args: {
+              id: generatedId,
+              score: formScoreIsScored ? parseInt(formScoreValue) || 0 : 0,
+              is_scored: formScoreIsScored,
+              question_type: formScoreType,
+              display_text: formScoreType === 'exempted' ? (formScoreDisplayText || '(ไม่ต้องปฏิบัติ)') : null,
+            }
+          });
+        }
+        // Final sync of L3 children
+        if (requiredCount > 0 && sectionId) {
+          await invoke('sync_required_count_children', {
+            args: {
+              parent_id: generatedId,
+              document_id: documentId,
+              section_id: sectionId,
+              desired_count: requiredCount,
+              score_per_instance: scorePerInstance,
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Failed to finalize background-saved L2:', err);
+      }
+      // Refresh tree and close form
+      onRefresh?.();
+      onQuestionsUpdated?.();
+      onCancel();
+      return;
+    }
+
+    // --- Normal flow (new question or editing existing) ---
     let questionId = existingId;
     if (!isEdit) {
       if (generatedId) {
@@ -2034,7 +2122,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     });
 
     // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6)
-    // This works for both new and existing L2 questions
     if (isPerformanceL2 && sectionId && questionId && requiredCount > 0) {
       try {
         await invoke('sync_required_count_children', {
@@ -2051,7 +2138,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
 
-    // Save scoring fields AFTER onSave for new L2 questions (requiredCount = 0 case)
+    // Save scoring fields AFTER onSave for new L2 questions
     if (is300 && isPerformanceL2 && !isEdit && questionId) {
       try {
         await invoke('update_question_score', {
@@ -3001,19 +3088,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
                     รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
                   </span>
-                  {(existingId || generatedId) ? (
-                    <button
-                      type="button"
-                      onClick={handleSyncRequiredCount}
-                      className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
-                    >
-                      ✓ อัปเดต
-                    </button>
-                  ) : (
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 italic">
-                      กด "บันทึก" ด้านล่างเพื่อสร้าง L3
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    onClick={handleSyncRequiredCount}
+                    className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
+                  >
+                    ✓ อัปเดต
+                  </button>
                 </>
               ) : (
                 <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded">
