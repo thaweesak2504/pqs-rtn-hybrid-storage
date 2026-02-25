@@ -1308,11 +1308,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   useEffect(() => { fetchRequiredCountChildren(); }, [fetchRequiredCountChildren]);
 
   const handleSyncRequiredCount = useCallback(async () => {
-    if (!isPerformanceL2 || !existingId || !sectionId) return;
+    if (!isPerformanceL2 || !sectionId) return;
+    
+    // Use existingId for editing, generatedId for new questions
+    const questionId = existingId || generatedId;
+    if (!questionId) return;
+    
     try {
       const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
         args: {
-          parent_id: existingId,
+          parent_id: questionId,
           document_id: documentId,
           section_id: sectionId,
           desired_count: requiredCount,
@@ -1320,11 +1325,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
       });
       setRequiredCountChildren(children);
-      setEffectiveIsGroupHeader(children.length > 0);
-    } catch (error) {
-      console.error("Failed to sync required count children:", error);
+    } catch (err) {
+      console.error('Failed to sync required count children:', err);
     }
-  }, [isPerformanceL2, existingId, sectionId, documentId, requiredCount, scorePerInstance]);
+  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, requiredCount, scorePerInstance]);
 
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
@@ -1427,6 +1431,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       setFormScoreIsScored(false);
     }
   }, [isL1, useSubQuestions]);
+
+  // L2 Performance with requiredCount > 0 = Group Header (auto-calc from L3 instances)
+  useEffect(() => {
+    if (isPerformanceL2) {
+      if (requiredCount > 0) {
+        setEffectiveIsGroupHeader(true);
+        setFormScoreIsScored(false);
+      } else {
+        // requiredCount = 0 means L2 is a leaf node (no L3 children)
+        setEffectiveIsGroupHeader(false);
+        setFormScoreIsScored(true);
+      }
+    }
+  }, [isPerformanceL2, requiredCount]);
 
   // DB-backed occupation branches state
   interface DbBranch { code: string; name: string; }
@@ -1977,6 +1995,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
+    // Generate ID for new questions (needed for sync_required_count_children)
+    let questionId = existingId;
+    if (!isEdit) {
+      if (generatedId) {
+        questionId = generatedId;
+      } else {
+        questionId = crypto.randomUUID();
+        setGeneratedId(questionId);
+      }
+    }
+
     // Save scoring fields BEFORE onSave so DB has fresh scores when fetchQuestions runs
     if (is300 && isEdit && existingId) {
       try {
@@ -1992,34 +2021,52 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       } catch (err) {
         console.error('Failed to save question score:', err);
       }
-
-      // Auto-sync required count children on save (L2 of 3xx.2-3xx.6)
-      if (isPerformanceL2 && sectionId) {
-        try {
-          await invoke('sync_required_count_children', {
-            args: {
-              parent_id: existingId,
-              document_id: documentId,
-              section_id: sectionId,
-              desired_count: requiredCount,
-              score_per_instance: scorePerInstance,
-            }
-          });
-        } catch (err) {
-          console.error('Failed to sync required count children:', err);
-        }
-      }
     }
 
     onSave({
       content,
       description: showExtraButtons ? description : undefined,
       image: showExtraButtons ? imagePath || undefined : undefined,
-      id: !isEdit ? generatedId || undefined : undefined,
+      id: !isEdit ? questionId : undefined,
       references: requireRef ? linkedRefs : [],
       metadata: metadataString,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
+
+    // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6)
+    // This works for both new and existing L2 questions
+    if (isPerformanceL2 && sectionId && questionId && requiredCount > 0) {
+      try {
+        await invoke('sync_required_count_children', {
+          args: {
+            parent_id: questionId,
+            document_id: documentId,
+            section_id: sectionId,
+            desired_count: requiredCount,
+            score_per_instance: scorePerInstance,
+          }
+        });
+      } catch (err) {
+        console.error('Failed to sync required count children:', err);
+      }
+    }
+
+    // Save scoring fields AFTER onSave for new L2 questions (requiredCount = 0 case)
+    if (is300 && isPerformanceL2 && !isEdit && questionId) {
+      try {
+        await invoke('update_question_score', {
+          args: {
+            id: questionId,
+            score: formScoreIsScored ? parseInt(formScoreValue) || 0 : 0,
+            is_scored: formScoreIsScored,
+            question_type: formScoreType,
+            display_text: formScoreType === 'exempted' ? (formScoreDisplayText || '(ไม่ต้องปฏิบัติ)') : null,
+          }
+        });
+      } catch (err) {
+        console.error('Failed to save question score for new L2:', err);
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -2834,23 +2881,43 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </div>
           )}
 
-        {/* Score Editing (Section 300 only) - hide for L2+ group headers, prerequisite questions, prerequisite children, and section selectors */}
-        {/* L1 group headers CAN show scoring controls to allow Exempted selection (which will delete children) */}
-        {is300 && !(isPerformanceL2 ? effectiveIsGroupHeader : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+        {is300 && !(isPerformanceL2 ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={formScoreIsScored}
-                  onChange={(e) => setFormScoreIsScored(e.target.checked)}
-                  disabled={formScoreType === 'exempted' || effectiveIsGroupHeader}
-                  className="accent-purple-600 w-3.5 h-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-                มีคะแนน (is_scored)
-              </label>
-              {formScoreIsScored && (
+              {isPerformanceL2 && requiredCount === 0 ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    value={formScoreValue}
+                    onChange={(e) => setFormScoreValue(e.target.value)}
+                    className={`w-16 px-2 py-0.5 text-xs border rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400 ${
+                      parseInt(formScoreValue) === 0 
+                        ? 'border-red-300 dark:border-red-700 ring-1 ring-red-400' 
+                        : 'border-purple-300 dark:border-purple-700'
+                    }`}
+                  />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
+                  {parseInt(formScoreValue) === 0 && (
+                    <span className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded">
+                      ต้องกำหนดคะแนน
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={formScoreIsScored}
+                    onChange={(e) => setFormScoreIsScored(e.target.checked)}
+                    disabled={formScoreType === 'exempted' || effectiveIsGroupHeader}
+                    className="accent-purple-600 w-3.5 h-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  />
+                  มีคะแนน (is_scored)
+                </label>
+              )}
+              {formScoreIsScored && !(isPerformanceL2 && requiredCount === 0) && (
                 <div className="flex items-center gap-1.5">
                   <input
                     type="number"
@@ -2858,12 +2925,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     value={formScoreValue}
                     onChange={(e) => setFormScoreValue(e.target.value)}
                     className="w-16 px-2 py-0.5 text-xs border border-purple-300 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
-                    placeholder="0"
                   />
-                  <span className="text-xs text-slate-500">คะแนน</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
                 </div>
               )}
-              <select
+            </div>
+            <select
                 value={formScoreType}
                 onChange={(e) => {
                   const newType = e.target.value;
@@ -2879,8 +2946,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 <option value="performance">ปฏิบัติ (performance)</option>
                 <option value="exempted">ไม่ต้องปฏิบัติ (exempted)</option>
               </select>
-            </div>
-            {/* Red warning if L1 with children selects Exempted */}
             {isL1 && hasActualChildren && formScoreType === 'exempted' && (
               <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
                 <div className="flex items-start gap-2">
@@ -2896,8 +2961,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         )}
 
 
-        {/* Required Count (จำนวนครั้ง) for L2 children of 3xx.2-3xx.6 */}
-        {isPerformanceL2 && isEdit && (
+        {isPerformanceL2 && (
           <div className="rounded-md border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 p-2 space-y-2">
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">จำนวนครั้งที่ต้องปฏิบัติ</span>
             <div className="flex items-center gap-3 flex-wrap">
@@ -2932,18 +2996,30 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   className="w-14 px-1 py-0.5 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-indigo-400"
                 />
               </div>
-              {requiredCount > 0 && (
-                <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
-                  รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
+              {requiredCount > 0 ? (
+                <>
+                  <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
+                    รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
+                  </span>
+                  {(existingId || generatedId) ? (
+                    <button
+                      type="button"
+                      onClick={handleSyncRequiredCount}
+                      className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
+                    >
+                      ✓ อัปเดต
+                    </button>
+                  ) : (
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 italic">
+                      กด "บันทึก" ด้านล่างเพื่อสร้าง L3
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                  ไม่กำหนดจำนวนครั้ง ต้องกำหนดคะแนน
                 </span>
               )}
-              <button
-                type="button"
-                onClick={handleSyncRequiredCount}
-                className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
-              >
-                ✓ อัปเดต
-              </button>
             </div>
             {requiredCountChildren.length > 0 && (
               <div className="mt-1 space-y-0.5">
