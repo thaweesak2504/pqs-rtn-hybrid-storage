@@ -1188,8 +1188,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
   const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
-  // 3xx.6 L1 = mandatory practice, 3xx.7 L1 = up to command decision → no exempted/scoring
-  const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 6;
+  // 3xx.7 L1 = up to command decision → no exempted/scoring (3xx.6 now has scoring + L2 with จำนวนครั้ง)
+  const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 7;
   const isDefaultDescL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 2 && questionSequence <= 6;
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
   const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild;
@@ -3730,7 +3730,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         </div>
 
         {showDescriptionImage && question.description && question.description !== 'undefined' && question.description !== 'null' && question.question_type !== 'exempted' && !(isSection100or200Selector && question.question_type === 'exempted') && (
-          <div className="mt-1 text-sm font-normal text-slate-400 dark:text-slate-200 whitespace-pre-wrap">
+          <div className="mt-1 text-sm font-normal text-slate-700 dark:text-slate-400 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
         )}
