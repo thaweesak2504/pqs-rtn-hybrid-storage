@@ -1195,6 +1195,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // 3xx.7 L1 = up to command decision → no exempted/scoring
   const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 7;
   const isDefaultDescL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 2 && questionSequence <= 6;
+  // Auto-created children (required_instance) → score-only edit form
+  const isRequiredInstance = is300 && initialQuestionType === 'required_instance';
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
   const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild;
 
@@ -2262,7 +2264,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
 
           {/* Optional Toggles (L1 Only for 100/300, L0+L1 for 200) */}
-          {showExtraButtons && (
+          {showExtraButtons && !isRequiredInstance && (
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -2304,7 +2306,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>
 
         {/* Content (Main Question) - Compact & Auto-expanding */}
-        <div>
+        {!isRequiredInstance && <div>
           <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
             คำถาม (Question) <span className="text-red-500">*</span>
           </label>
@@ -2346,10 +2348,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               } focus:outline-none focus:ring-1`}
             rows={1}
           />
-        </div>
+        </div>}
 
         {/* ── Unified "ไม่ต้องปฏิบัติ" checkbox (right after question title for visibility) ── */}
-        {is300 && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && (
+        {is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
@@ -3103,7 +3105,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
-              {isPerformanceL2 && requiredCount === 0 ? (
+              {isPerformanceL2 && requiredCount === 0 && !isRequiredInstance ? (
                 <div className="flex items-center gap-1.5">
                   <input
                     type="number"
@@ -3152,7 +3154,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         )}
 
 
-        {(isPerformanceL2 || is306L1) && formScoreType !== 'exempted' && (
+        {(isPerformanceL2 || is306L1) && !isRequiredInstance && formScoreType !== 'exempted' && (
           <div className="rounded-md border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 p-2 space-y-2">
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">จำนวนครั้งที่ต้องปฏิบัติ</span>
             <div className="flex items-center gap-3 flex-wrap">
