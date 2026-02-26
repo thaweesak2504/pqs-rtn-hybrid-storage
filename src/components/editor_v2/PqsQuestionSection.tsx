@@ -3650,7 +3650,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       `}
       >
         {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
-        <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : "pr-8"}`}>
+        <div className="flex items-center gap-2 min-w-0 pr-2">
           <div className="flex-1 truncate min-w-0" title={question.content}>
             <span className={isL1 ? "font-semibold" : ""}>{question.content}</span>
             {question.references && question.references.length > 0 && (
