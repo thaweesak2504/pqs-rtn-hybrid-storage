@@ -139,9 +139,9 @@ const buildPrefix200_300 = (level: number, sequence: number, sectionNumber: numb
 const DEFAULT_L1_DESC_BY_SEQ: Record<number, string> = {
   2: 'จงอธิบายหรือปฏิบัติงานปกติ ตามรายการที่กำหนด',
   3: 'จงอธิบายหรือปฏิบัติงานกรณีพิเศษ ตามรายการที่กำหนด',
-  4: 'จงอธิบายหรือปฏิบัติกรณีเหตุขัดข้อง ตามรายการที่กำหนด',
-  5: 'จงอธิบายหรือปฏิบัติกรณีเหตุฉุกเฉิน ตามรายการที่กำหนด',
-  6: 'ผู้ทดสอบควบคุมการปฏิบัติงานประจำตำแหน่งอย่างใกล้ชิด ประเมินผ่านการปฏิบัติหรือไม่',
+  4: 'จงอธิบายหรือปฏิบัติงานกรณีเหตุขัดข้อง ตามรายการที่กำหนด',
+  5: 'จงอธิบายหรือปฏิบัติงานกรณีเหตุฉุกเฉิน ตามรายการที่กำหนด',
+  6: 'ผู้ทดสอบควบคุมการปฏิบัติหน้าที่ในตำแหน่งอย่างใกล้ชิด ประเมินผ่านการปฏิบัติหรือไม่',
 };
 
 // ============ Types ============
@@ -1238,24 +1238,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     return !!initialDescription;
   });
 
-  // Helper: treat 'undefined'/'null' strings (leftover bad DB data) as empty
-  const isBadDesc = (d: string) => !d || d === 'undefined' || d === 'null';
-
   // Auto-set default description for 3xx.1, 3xx.1.4/1.5, and 3xx.2-3xx.6 L1
+  // Force-overwrite on mount so description always matches the locked constant in code
   useEffect(() => {
-    if (isPrerequisiteQuestion && isBadDesc(description)) {
-      setDescription("เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้");
-    }
-    if (isSection100Selector && isBadDesc(description)) {
+    if (isPrerequisiteQuestion) {
+      setDescription("เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุดและสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบต้องมีคุณสมบัติ ดังต่อไปนี้");
+    } else if (isSection100Selector) {
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบความรู้พื้นฐาน ที่กำหนด ดังนี้");
-    }
-    if (isSection200Selector && isBadDesc(description)) {
+    } else if (isSection200Selector) {
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
-    }
-    if (isDefaultDescL1 && questionSequence !== undefined && isBadDesc(description)) {
+    } else if (isDefaultDescL1 && questionSequence !== undefined) {
       setDescription(DEFAULT_L1_DESC_BY_SEQ[questionSequence] || '');
     }
-  }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence, description]);
+   
+  }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence]);
 
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
