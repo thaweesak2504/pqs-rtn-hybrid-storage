@@ -413,7 +413,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       }
 
       resetForms();
-      await fetchQuestions();
+      await fetchQuestions(true);
       onQuestionsUpdated?.();
       onReferencesUpdated?.(); // Update references count after create
     } catch (err) {
@@ -492,7 +492,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       }
 
       resetForms();
-      await fetchQuestions();
+      await fetchQuestions(true);
       onQuestionsUpdated?.();
       onReferencesUpdated?.(); // Update references count after all changes
     } catch (err) {
@@ -508,7 +508,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       onConfirm: async () => {
         try {
           await invoke("delete_question", { id: question.id });
-          await fetchQuestions();
+          await fetchQuestions(true);
           onQuestionsUpdated?.();
           onReferencesUpdated?.(); // Update references count
         } catch (err) {
@@ -527,7 +527,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
     try {
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
-      await fetchQuestions();
+      await fetchQuestions(true);
     } catch (err) {
       console.error("Failed to reorder:", err);
     }
@@ -540,7 +540,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
     try {
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
-      await fetchQuestions();
+      await fetchQuestions(true);
     } catch (err) {
       console.error("Failed to reorder:", err);
     }
