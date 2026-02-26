@@ -947,6 +947,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       }
       onCancel();
       if (onRefresh) onRefresh();
+      if (onQuestionsUpdated) onQuestionsUpdated();
     };
     return (
       <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
