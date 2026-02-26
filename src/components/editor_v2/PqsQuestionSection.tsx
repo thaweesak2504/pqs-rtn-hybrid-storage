@@ -1188,7 +1188,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
   const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
-  // 3xx.7 L1 = up to command decision → no exempted/scoring (3xx.6 now has scoring + L2 with จำนวนครั้ง)
+  // 3xx.6 L1 = required count practice (has scoring, no exempted, auto-creates L2 children)
+  const is306L1 = is300 && isL1 && questionSequence === 6;
+  // 3xx.7 L1 = up to command decision → no exempted/scoring
   const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 7;
   const isDefaultDescL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 2 && questionSequence <= 6;
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
@@ -1294,7 +1296,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [isSection100Selector, isSection200Selector, existingId]);
   useEffect(() => { fetchSectionRefChildren(); }, [fetchSectionRefChildren]);
 
-  // ---- Required Count State (for L2 children of 3xx.2-3xx.6) ----
+  // ---- Required Count State (for L2 children of 3xx.2-3xx.6, and for 3xx.6 L1 itself) ----
   interface RequiredCountChild { id: string; parent_id: string; sequence: number; content: string; score: number; is_scored: boolean; }
   const [requiredCountChildren, setRequiredCountChildren] = useState<RequiredCountChild[]>([]);
   const [requiredCount, setRequiredCount] = useState<number>(0);
@@ -1320,7 +1322,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [existingId, initialIsGroupHeader]);
 
   const fetchRequiredCountChildren = useCallback(async () => {
-    if (!isPerformanceL2 || !existingId) { setRequiredCountChildren([]); return; }
+    if ((!isPerformanceL2 && !is306L1) || !existingId) { setRequiredCountChildren([]); return; }
     try {
       const children = await invoke<RequiredCountChild[]>('get_required_count_children', { parentId: existingId });
       setRequiredCountChildren(children);
@@ -1330,10 +1332,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setEffectiveIsGroupHeader(true);
       } else {
         // No children but was group_header → stale state, revert
-        setEffectiveIsGroupHeader(false);
+        if (!is306L1) setEffectiveIsGroupHeader(false);
       }
     } catch { setRequiredCountChildren([]); }
-  }, [isPerformanceL2, existingId]);
+  }, [isPerformanceL2, is306L1, existingId]);
   useEffect(() => { fetchRequiredCountChildren(); }, [fetchRequiredCountChildren]);
 
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
@@ -1501,8 +1503,30 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [editingSubName, setEditingSubName] = useState("");
   const [newSqText, setNewSqText] = useState("");
 
-  // Sync L3 children for performance L2 (required count)
+  // Sync children for required count (L2→L3 for isPerformanceL2, L1→L2 for is306L1)
   const handleSyncRequiredCount = useCallback(async () => {
+    if (is306L1) {
+      // 3xx.6 L1: sync L2 children using description as content
+      if (!sectionId || !existingId) return;
+      try {
+        const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
+          args: {
+            parent_id: existingId,
+            document_id: documentId,
+            section_id: sectionId,
+            desired_count: requiredCount,
+            score_per_instance: scorePerInstance,
+            content_override: description || content.trim(),
+          }
+        });
+        setRequiredCountChildren(children);
+        if (children.length > 0) setEffectiveIsGroupHeader(true);
+      } catch (err) {
+        console.error('Failed to sync 306 L2 children:', err);
+      }
+      return;
+    }
+
     // CRITICAL: abort if no parentId - would create root-level L1 instead of L2
     if (!isPerformanceL2 || !sectionId || (!existingId && !generatedId && !parentId)) return;
     
@@ -1568,7 +1592,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     } catch (err) {
       console.error('Failed to sync required count children:', err);
     }
-  }, [isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, requiredCount, scorePerInstance, useSubQuestions, selMainBranch, selSubBranch, activeSubQCodes, selectedSubQCodes]);
+  }, [is306L1, isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, description, requiredCount, scorePerInstance, useSubQuestions, selMainBranch, selSubBranch, activeSubQCodes, selectedSubQCodes]);
 
   // Fetch branches from DB on mount (both normal and 2xx.4)
   useEffect(() => {
@@ -2162,8 +2186,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
 
-    // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6)
-    if (isPerformanceL2 && sectionId && questionId && requiredCount > 0) {
+    // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6, or L1 of 3xx.6)
+    if ((isPerformanceL2 || is306L1) && sectionId && questionId && requiredCount > 0) {
       try {
         await invoke('sync_required_count_children', {
           args: {
@@ -2172,6 +2196,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             section_id: sectionId,
             desired_count: requiredCount,
             score_per_instance: scorePerInstance,
+            content_override: is306L1 ? (description || content.trim()) : null,
           }
         });
       } catch (err) {
@@ -2322,7 +2347,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>
 
         {/* ── Unified "ไม่ต้องปฏิบัติ" checkbox (right after question title for visibility) ── */}
-        {is300 && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && (
+        {is300 && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
@@ -3072,7 +3097,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
         {/* ── Scoring section (hidden when exempted or fixedPracticeL1) ── */}
-        {is300 && formScoreType !== 'exempted' && !isFixedPracticeL1 && !(isPerformanceL2 ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+        {is300 && formScoreType !== 'exempted' && !isFixedPracticeL1 && !((isPerformanceL2 || is306L1) ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -3125,7 +3150,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         )}
 
 
-        {isPerformanceL2 && formScoreType !== 'exempted' && (
+        {(isPerformanceL2 || is306L1) && formScoreType !== 'exempted' && (
           <div className="rounded-md border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 p-2 space-y-2">
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">จำนวนครั้งที่ต้องปฏิบัติ</span>
             <div className="flex items-center gap-3 flex-wrap">

@@ -3916,6 +3916,7 @@ pub struct SyncRequiredCountArgs {
     pub section_id: i64,
     pub desired_count: i32,
     pub score_per_instance: i32,
+    pub content_override: Option<String>,
 }
 
 /// Sync L3 "ครั้งที่ X" children for an L2 question (3xx.2-3xx.6).
@@ -3931,6 +3932,9 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
         |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
     ).map_err(|e| e.to_string())?;
 
+    // Use content_override if provided (e.g. 3xx.6 L1 uses description text for L2 children)
+    let effective_content = args.content_override.unwrap_or(parent_content);
+
     // Get existing required_instance children
     let existing = get_required_count_children_inner(&conn, &args.parent_id)?;
     let current_count = existing.len() as i32;
@@ -3939,7 +3943,7 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
         // Add new children (inherit parent's metadata and answer_type)
         for i in (current_count + 1)..=(args.desired_count) {
             let id = generate_uuid();
-            let content = format!("{} ครั้งที่ {}", parent_content, thai_number(i));
+            let content = format!("{} ครั้งที่ {}", effective_content, thai_number(i));
 
             conn.execute(
                 "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
@@ -3967,7 +3971,7 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
     // This ensures L3 children always inherit the latest sub-questions from L2 parent
     let remaining = get_required_count_children_inner(&conn, &args.parent_id)?;
     for child in &remaining {
-        let new_content = format!("{} ครั้งที่ {}", parent_content, thai_number(child.sequence));
+        let new_content = format!("{} ครั้งที่ {}", effective_content, thai_number(child.sequence));
         conn.execute(
             "UPDATE Questions SET score = ?1, content = ?2, metadata = ?3, answer_type = ?4 WHERE id = ?5 AND question_type = 'required_instance'",
             params![args.score_per_instance, new_content, parent_metadata, parent_answer_type, child.id],
