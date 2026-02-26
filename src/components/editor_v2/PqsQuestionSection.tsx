@@ -3651,6 +3651,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.
+  const isSectionRefChild = is300 && (() => {
+    if (!question.metadata) return false;
+    try { const m = JSON.parse(question.metadata); return !!m.refSectionId; } catch { return false; }
+  })();
 
   // Fetch sub-questions from DB for display in L1 header (2xx.2 / 2xx.4 / 3xx.2 / 3xx.4)
   const [displaySubQList, setDisplaySubQList] = useState<SubQuestionItem[]>([]);
@@ -3926,7 +3930,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                       onClick: onEdit,
                     },
                   ] as DropdownMenuItem[])
-                  : question.question_type === 'required_instance'
+                  : (question.question_type === 'required_instance' || isSectionRefChild)
                     ? ([
                       {
                         label: "แก้ไข (Edit)",
