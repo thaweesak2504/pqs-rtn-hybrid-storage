@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-    ArrowDown,
-    ArrowUp,
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    Edit,
-    FileDigit,
-    FileQuestion,
-    FileText,
-    Globe,
-    GripVertical,
-    Image,
-    ImageIcon,
-    Layers,
-    ListChecks,
-    Lock,
-    MessageSquarePlus,
-    Mic,
-    MoreVertical,
-    Pencil,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  ArrowDown,
+  ArrowUp,
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  Edit,
+  FileDigit,
+  FileQuestion,
+  FileText,
+  Globe,
+  GripVertical,
+  Image,
+  ImageIcon,
+  Layers,
+  ListChecks,
+  Lock,
+  MessageSquarePlus,
+  Mic,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
@@ -36,9 +36,9 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import {
-    QuestionDetail,
-    QuestionReferenceDetail,
-    SectionReferenceDetail,
+  QuestionDetail,
+  QuestionReferenceDetail,
+  SectionReferenceDetail,
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
@@ -133,6 +133,15 @@ const buildPrefix200_300 = (level: number, sequence: number, sectionNumber: numb
     return `${toThaiNumber(sectionNumber)}.${toThaiNumber(parentSequence)}.${toThaiNumber(sequence)}`;
   }
   return `${toThaiAlphabet(sequence)}.`;
+};
+
+// Default descriptions for 3xx.2-3xx.6 L1 questions (locked, cannot be edited)
+const DEFAULT_L1_DESC_BY_SEQ: Record<number, string> = {
+  2: 'จงอธิบายหรือปฏิบัติงานปกติ ตามรายการที่กำหนด',
+  3: 'จงอธิบายหรือปฏิบัติงานกรณีพิเศษ ตามรายการที่กำหนด',
+  4: 'จงอธิบายหรือปฏิบัติกรณีเหตุขัดข้อง ตามรายการที่กำหนด',
+  5: 'จงอธิบายหรือปฏิบัติกรณีเหตุฉุกเฉิน ตามรายการที่กำหนด',
+  6: 'ผู้ทดสอบควบคุมการปฏิบัติงานประจำตำแหน่งอย่างใกล้ชิด ประเมินผ่านการปฏิบัติหรือไม่',
 };
 
 // ============ Types ============
@@ -1179,6 +1188,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
   // 3xx.6 L1 = mandatory practice, 3xx.7 L1 = up to command decision → no exempted/scoring
   const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 6;
+  const isDefaultDescL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 2 && questionSequence <= 6;
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
   const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild;
 
@@ -1221,10 +1231,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.4/1.5 section selectors
     if (isPrerequisiteQuestion) return true;
     if (isSection100Selector || isSection200Selector) return true;
+    // Auto-show description for 3xx.2-3xx.6 L1 questions
+    if (isDefaultDescL1) return true;
     return !!initialDescription;
   });
 
-  // Auto-set default description for 3xx.1 and 3xx.1.4/1.5
+  // Auto-set default description for 3xx.1, 3xx.1.4/1.5, and 3xx.2-3xx.6 L1
   useEffect(() => {
     if (isPrerequisiteQuestion && !description) {
       const defaultDesc = "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้";
@@ -1236,7 +1248,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (isSection200Selector && !description) {
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
     }
-  }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, description]);
+    if (isDefaultDescL1 && questionSequence !== undefined && !description) {
+      setDescription(DEFAULT_L1_DESC_BY_SEQ[questionSequence] || '');
+    }
+  }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence, description]);
 
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
@@ -2387,14 +2402,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     });
                   }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                  disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector || formScoreType === 'exempted'}
-                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector || formScoreType === 'exempted')
+                  disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector || !!isDefaultDescL1 || formScoreType === 'exempted'}
+                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector || isDefaultDescL1 || formScoreType === 'exempted')
                     ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
                     : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
                     }`}
                   rows={1}
                 />
-                {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && formScoreType !== 'exempted' && (
+                {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && !isDefaultDescL1 && formScoreType !== 'exempted' && (
                   <button
                     onClick={() => {
                       setDescription("");
