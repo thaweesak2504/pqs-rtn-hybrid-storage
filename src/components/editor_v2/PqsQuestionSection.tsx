@@ -2405,7 +2405,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector || !!isDefaultDescL1 || formScoreType === 'exempted'}
                   className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector || isDefaultDescL1 || formScoreType === 'exempted')
                     ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
+                    : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
                     }`}
                   rows={1}
                 />
@@ -3730,7 +3730,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         </div>
 
         {showDescriptionImage && question.description && question.question_type !== 'exempted' && !(isSection100or200Selector && question.question_type === 'exempted') && (
-          <div className="mt-1 text-sm font-normal text-slate-500 dark:text-slate-300 whitespace-pre-wrap">
+          <div className="mt-1 text-sm font-normal text-slate-400 dark:text-slate-200 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
         )}
