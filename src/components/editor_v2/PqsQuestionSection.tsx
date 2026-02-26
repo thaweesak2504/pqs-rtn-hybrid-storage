@@ -928,8 +928,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     }
   }, [editingId, question.id, question.is_scored, question.score, isRequiredCountChild]);
 
-  // ── Dedicated simple score-only form for required_instance L2 ──
-  if (editingId === question.id && isRequiredCountChild) {
+  // ── Dedicated simple score-only form for required_instance L2 of 3xx.6 ONLY ──
+  const is306L2Child = isRequiredCountChild && is300 && level === 1 && parentSequence === 6;
+  if (editingId === question.id && is306L2Child) {
     const handleRiSave = async () => {
       try {
         await invoke('update_question_score', {
