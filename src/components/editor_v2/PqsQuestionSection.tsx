@@ -448,6 +448,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         const q = questions.find((q) => q.id === id);
         finalDesc = q?.description || null;
       }
+      // Sanitize: never save 'undefined' or 'null' string literals to DB
+      if (finalDesc === 'undefined' || finalDesc === 'null') finalDesc = null;
 
       await invoke("update_question", {
         args: {
@@ -1236,19 +1238,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     return !!initialDescription;
   });
 
+  // Helper: treat 'undefined'/'null' strings (leftover bad DB data) as empty
+  const isBadDesc = (d: string) => !d || d === 'undefined' || d === 'null';
+
   // Auto-set default description for 3xx.1, 3xx.1.4/1.5, and 3xx.2-3xx.6 L1
   useEffect(() => {
-    if (isPrerequisiteQuestion && !description) {
-      const defaultDesc = "เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้";
-      setDescription(defaultDesc);
+    if (isPrerequisiteQuestion && isBadDesc(description)) {
+      setDescription("เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้");
     }
-    if (isSection100Selector && !description) {
+    if (isSection100Selector && isBadDesc(description)) {
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบความรู้พื้นฐาน ที่กำหนด ดังนี้");
     }
-    if (isSection200Selector && !description) {
+    if (isSection200Selector && isBadDesc(description)) {
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
     }
-    if (isDefaultDescL1 && questionSequence !== undefined && !description) {
+    if (isDefaultDescL1 && questionSequence !== undefined && isBadDesc(description)) {
       setDescription(DEFAULT_L1_DESC_BY_SEQ[questionSequence] || '');
     }
   }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence, description]);
@@ -3729,7 +3733,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           )}
         </div>
 
-        {showDescriptionImage && question.description && question.question_type !== 'exempted' && !(isSection100or200Selector && question.question_type === 'exempted') && (
+        {showDescriptionImage && question.description && question.description !== 'undefined' && question.description !== 'null' && question.question_type !== 'exempted' && !(isSection100or200Selector && question.question_type === 'exempted') && (
           <div className="mt-1 text-sm font-normal text-slate-400 dark:text-slate-200 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
