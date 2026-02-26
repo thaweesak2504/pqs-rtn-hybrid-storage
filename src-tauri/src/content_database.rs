@@ -536,7 +536,7 @@ pub struct Question {
     pub answer_type: Option<String>,
     pub metadata: Option<String>, // JSON string
     pub score: Option<i32>,
-    pub question_type: Option<String>,   // 'normal', 'performance', 'exempted'
+    pub question_type: Option<String>,   // 'normal', 'exempted', 'required_instance'
     pub group_score: Option<i32>,
     pub display_text: Option<String>,    // e.g. "(ไม่ต้องปฏิบัติ)"
     pub is_group_header: Option<bool>,
@@ -703,9 +703,9 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     );
 
-    // Set is_scored=1, question_type='performance' for L2 children of L1 seq 2-6
+    // Set is_scored=1 for L2 children of L1 seq 2-6
     let _ = conn.execute(
-        "UPDATE Questions SET is_scored = 1, question_type = 'performance'
+        "UPDATE Questions SET is_scored = 1
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence BETWEEN 2 AND 6
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
@@ -725,7 +725,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
 
     // DEBUG: Ensure 301.6 children are scored
     let _ = conn.execute(
-        "UPDATE Questions SET is_scored = 1, question_type = 'performance'
+        "UPDATE Questions SET is_scored = 1
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 6
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
@@ -1638,13 +1638,13 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
     insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "normal")?;
 
     // 3xx.2 - 3xx.5: GROUP headers (auto-calc from children, not manually scored)
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "performance")?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "performance")?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "performance")?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "performance")?;
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "normal")?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "normal")?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "normal")?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "normal")?;
 
     // 3xx.6: GROUP header (auto-calc from children, not manually scored)
-    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "performance")?;
+    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "normal")?;
     
     // 3xx.7: สอบความรู้ (group header, children NOT scored)
     let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal")?;

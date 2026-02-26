@@ -3004,7 +3004,58 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </div>
           )}
 
-        {is300 && !(isPerformanceL2 ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+        {/* ── Unified "ไม่ต้องปฏิบัติ" checkbox for 3xx.2-3xx.6 (L1 & L2) ── */}
+        {is300 && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={formScoreType === 'exempted'}
+                  onChange={(e) => {
+                    const isExempted = e.target.checked;
+                    setFormScoreType(isExempted ? 'exempted' : 'normal');
+                    if (isExempted) {
+                      // Clear everything
+                      setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
+                      setFormScoreIsScored(false);
+                      setFormScoreValue('0');
+                      setDescription('');
+                      setShowDescription(false);
+                      setUseSubQuestions(false);
+                      setRequiredCount(0);
+                      setRequiredCountChildren([]);
+                    } else {
+                      setFormScoreDisplayText('');
+                    }
+                  }}
+                  className="accent-amber-600 w-3.5 h-3.5"
+                />
+                ไม่ต้องปฏิบัติ
+              </label>
+              {formScoreType === 'exempted' && (
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                  (ไม่ต้องปฏิบัติ)
+                </span>
+              )}
+            </div>
+            {isL1 && hasActualChildren && formScoreType === 'exempted' && (
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-600 dark:text-red-400 text-sm font-bold">⚠️</span>
+                  <div className="flex-1 text-xs text-red-700 dark:text-red-300">
+                    <div className="font-bold mb-1">คำเตือน: คำถามนี้มีคำถามย่อยอยู่</div>
+                    <div>เมื่อบันทึกเป็น "ไม่ต้องปฏิบัติ" คำถามย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Scoring section (hidden when exempted) ── */}
+        {is300 && formScoreType !== 'exempted' && !(isPerformanceL2 ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -3034,7 +3085,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     type="checkbox"
                     checked={formScoreIsScored}
                     onChange={(e) => setFormScoreIsScored(e.target.checked)}
-                    disabled={formScoreType === 'exempted' || effectiveIsGroupHeader}
+                    disabled={effectiveIsGroupHeader}
                     className="accent-purple-600 w-3.5 h-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   มีคะแนน (is_scored)
@@ -3053,38 +3104,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 </div>
               )}
             </div>
-            <select
-                value={formScoreType}
-                onChange={(e) => {
-                  const newType = e.target.value;
-                  setFormScoreType(newType);
-                  if (newType === 'exempted') {
-                    setDescription('');
-                    setShowDescription(false);
-                  }
-                }}
-                className="text-xs px-2 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
-              >
-                <option value="normal">ปกติ (normal)</option>
-                <option value="performance">ปฏิบัติ (performance)</option>
-                <option value="exempted">ไม่ต้องปฏิบัติ (exempted)</option>
-              </select>
-            {isL1 && hasActualChildren && formScoreType === 'exempted' && (
-              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
-                <div className="flex items-start gap-2">
-                  <span className="text-red-600 dark:text-red-400 text-sm font-bold">⚠️</span>
-                  <div className="flex-1 text-xs text-red-700 dark:text-red-300">
-                    <div className="font-bold mb-1">คำเตือน: คำถามนี้มีคำถามย่อยอยู่</div>
-                    <div>เมื่อบันทึกเป็น "ไม่ต้องปฏิบัติ" คำถามย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
 
-        {isPerformanceL2 && (
+        {isPerformanceL2 && formScoreType !== 'exempted' && (
           <div className="rounded-md border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 p-2 space-y-2">
             <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">จำนวนครั้งที่ต้องปฏิบัติ</span>
             <div className="flex items-center gap-3 flex-wrap">
