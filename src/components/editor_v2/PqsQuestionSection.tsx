@@ -918,19 +918,19 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     }
   }, [question.metadata]);
 
-  // ── Score-only form state for required_instance (3xx.6 L2 children) ──
+  // ── Score-only inline form for: 3xx.6 L2 (required_instance) + 3xx.1.4/1.5 L3 (section_ref) ──
+  const is306L2Child = isRequiredCountChild && is300 && level === 1 && parentSequence === 6;
+  const useInlineScoreForm = is306L2Child || !!refSectionMeta;
   const [riIsScored, setRiIsScored] = useState(!!question.is_scored);
   const [riScoreValue, setRiScoreValue] = useState(String(question.score ?? 0));
   useEffect(() => {
-    if (editingId === question.id && isRequiredCountChild) {
+    if (editingId === question.id && useInlineScoreForm) {
       setRiIsScored(!!question.is_scored);
       setRiScoreValue(String(question.score ?? 0));
     }
-  }, [editingId, question.id, question.is_scored, question.score, isRequiredCountChild]);
+  }, [editingId, question.id, question.is_scored, question.score, useInlineScoreForm]);
 
-  // ── Dedicated simple score-only form for required_instance L2 of 3xx.6 ONLY ──
-  const is306L2Child = isRequiredCountChild && is300 && level === 1 && parentSequence === 6;
-  if (editingId === question.id && is306L2Child) {
+  if (editingId === question.id && useInlineScoreForm) {
     const handleRiSave = async () => {
       try {
         await invoke('update_question_score', {
@@ -938,7 +938,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             id: question.id,
             score: riIsScored ? parseInt(riScoreValue) || 0 : 0,
             is_scored: riIsScored,
-            question_type: 'required_instance',
+            question_type: question.question_type || 'normal',
             display_text: null,
           }
         });
