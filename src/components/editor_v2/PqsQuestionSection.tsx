@@ -206,10 +206,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     variant: "danger",
   });
 
-  const fetchQuestions = async () => {
+  const fetchQuestions = async (silent?: boolean) => {
     if (!docId || sectionId === undefined) return; // sectionId can be 0, so check for undefined
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const data = await invoke<QuestionDetail[]>("get_document_questions_with_details", { docId });
       const filtered = data.filter(
         (q) =>
@@ -685,7 +685,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                     cancelText: "",
                   })
                 }
-                onRefresh={fetchQuestions}
+                onRefresh={() => fetchQuestions(true)}
                 onQuestionsUpdated={onQuestionsUpdated}
               />
             ))}
