@@ -918,6 +918,87 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     }
   }, [question.metadata]);
 
+  // ── Score-only form state for required_instance (3xx.6 L2 children) ──
+  const [riIsScored, setRiIsScored] = useState(!!question.is_scored);
+  const [riScoreValue, setRiScoreValue] = useState(String(question.score ?? 0));
+  useEffect(() => {
+    if (editingId === question.id && isRequiredCountChild) {
+      setRiIsScored(!!question.is_scored);
+      setRiScoreValue(String(question.score ?? 0));
+    }
+  }, [editingId, question.id, question.is_scored, question.score, isRequiredCountChild]);
+
+  // ── Dedicated simple score-only form for required_instance L2 ──
+  if (editingId === question.id && isRequiredCountChild) {
+    const handleRiSave = async () => {
+      try {
+        await invoke('update_question_score', {
+          args: {
+            id: question.id,
+            score: riIsScored ? parseInt(riScoreValue) || 0 : 0,
+            is_scored: riIsScored,
+            question_type: 'required_instance',
+            display_text: null,
+          }
+        });
+      } catch (err) {
+        console.error('Failed to save required_instance score:', err);
+      }
+      onCancel();
+      if (onRefresh) onRefresh();
+    };
+    return (
+      <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
+        <div className="rounded-lg border-2 border-purple-400 dark:border-purple-600 bg-white dark:bg-slate-900 shadow-lg p-3 space-y-2">
+          {/* Header */}
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
+              {prefix}
+            </span>
+            <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">✏️ แก้ไขคะแนน</span>
+            <span className="flex-1 text-xs text-slate-500 dark:text-slate-400 truncate">{question.content}</span>
+          </div>
+          {/* Score Row */}
+          <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={riIsScored}
+                  onChange={(e) => setRiIsScored(e.target.checked)}
+                  className="accent-purple-600 w-3.5 h-3.5"
+                />
+                มีคะแนน (is_scored)
+              </label>
+              {riIsScored && (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    value={riScoreValue}
+                    onChange={(e) => setRiScoreValue(e.target.value)}
+                    className="w-16 px-2 py-0.5 text-xs border border-purple-300 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
+                  />
+                  <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
+                </div>
+              )}
+            </div>
+          </div>
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-1.5 pt-1">
+            <Button variant="outline" size="small" icon={<X className="w-3 h-3" />} onClick={onCancel} className="h-7 text-xs px-2">
+              ยกเลิก
+            </Button>
+            <Button variant="primary" size="small" icon={<Save className="w-3 h-3" />} onClick={handleRiSave} className="h-7 text-xs px-2">
+              บันทึก
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (editingId === question.id) {
     return (
       <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
