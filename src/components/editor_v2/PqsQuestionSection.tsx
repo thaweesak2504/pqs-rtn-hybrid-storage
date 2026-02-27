@@ -2442,7 +2442,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>}
 
         {/* ── Unified "ไม่ต้องปฏิบัติ" checkbox (right after question title for visibility) ── */}
-        {is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && (
+        {is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && !isPerformanceL2 && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
@@ -3210,8 +3210,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   />
                   <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
                   {parseInt(formScoreValue) === 0 && (
-                    <span className="text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-2 py-0.5 rounded">
-                      ต้องกำหนดคะแนน
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded">
+                      ไม่กำหนดจำนวนครั้ง ต้องกำหนดคะแนน
                     </span>
                   )}
                 </div>
@@ -3292,11 +3292,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 >
                   ✓ อัปเดต
                 </button>
-              ) : (
-                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded">
-                  ไม่กำหนดจำนวนครั้ง ต้องกำหนดคะแนน
-                </span>
-              )}
+              ) : null}
             </div>
             {requiredCountChildren.length > 0 && (
               <div className="mt-1 space-y-0.5">
