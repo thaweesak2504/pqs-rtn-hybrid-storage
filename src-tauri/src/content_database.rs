@@ -1614,42 +1614,43 @@ fn to_thai_digit(n: i32) -> String {
 ///   3xx.2 - 3xx.6     → is_scored = true, is_group_header = true (score = sum of children)
 ///   3xx.7.1 - 3xx.7.2 → is_scored = false (knowledge test, separate evaluation)
 fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
-    // Helper closure with scoring fields
-    let insert_q = |parent: Option<&str>, seq: i32, content: String, desc: Option<String>, is_scored: bool, is_group_header: bool, question_type: &str| -> Result<String, String> {
+    // Helper closure with scoring fields + display_text
+    let insert_q = |parent: Option<&str>, seq: i32, content: String, desc: Option<String>, is_scored: bool, is_group_header: bool, question_type: &str, display_text: Option<&str>| -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type, score, question_type, group_score, is_group_header, is_scored) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none', 0, ?8, 0, ?9, ?10)",
-            params![q_id, doc_id, section_id, parent, seq, content, desc, question_type, is_group_header, is_scored]
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type, score, question_type, display_text, group_score, is_group_header, is_scored) 
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none', 0, ?8, ?9, 0, ?10, ?11)",
+            params![q_id, doc_id, section_id, parent, seq, content, desc, question_type, display_text, is_group_header, is_scored]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
     };
 
     // 3xx.1 - คุณสมบัติก่อนการทดสอบ (group header, may have score from 1.4-1.5)
     let q1_desc = "เพื่อให้การทดสอบตาม มาตรฐานการทดสอบกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้".to_string();
-    let q1_id = insert_q(None, 1, "คุณสมบัติก่อนการทดสอบ".to_string(), Some(q1_desc), false, true, "normal")?;
-    
-    // 3xx.1.1 - 3xx.1.3: NOT scored (prerequisites)
-    insert_q(Some(&q1_id), 1, "ผ่านการอบรม".to_string(), None, false, false, "normal")?;
-    insert_q(Some(&q1_id), 2, "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(), None, false, false, "normal")?;
-    insert_q(Some(&q1_id), 3, "ผ่านการปฏิบัติหน้าที่".to_string(), None, false, false, "normal")?;
-    // 3xx.1.4 - 3xx.1.5: SCORED (can assign score)
-    insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "normal")?;
-    insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "normal")?;
+    let q1_id = insert_q(None, 1, "คุณสมบัติก่อนการทดสอบ".to_string(), Some(q1_desc), false, true, "normal", None)?;
+
+    // 3xx.1.1 - 3xx.1.3: NOT scored, default EXEMPTED (prerequisites — most positions skip these)
+    let exempted_text = "(ไม่ต้องปฏิบัติ)";
+    insert_q(Some(&q1_id), 1, "ผ่านการอบรม".to_string(), None, false, false, "exempted", Some(exempted_text))?;
+    insert_q(Some(&q1_id), 2, "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(), None, false, false, "exempted", Some(exempted_text))?;
+    insert_q(Some(&q1_id), 3, "ผ่านการปฏิบัติหน้าที่".to_string(), None, false, false, "exempted", Some(exempted_text))?;
+    // 3xx.1.4 - 3xx.1.5: SCORED, default EXEMPTED (section selectors — configured per position)
+    insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "exempted", Some(exempted_text))?;
+    insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "exempted", Some(exempted_text))?;
 
     // 3xx.2 - 3xx.5: GROUP headers (auto-calc from children, not manually scored)
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "normal")?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "normal")?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "normal")?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "normal")?;
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "normal", None)?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "normal", None)?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "normal", None)?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "normal", None)?;
 
     // 3xx.6: GROUP header (auto-calc from children, not manually scored)
-    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "normal")?;
-    
+    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "normal", None)?;
+
     // 3xx.7: สอบความรู้ (group header, children NOT scored)
-    let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal")?;
-    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal")?;
-    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal")?;
+    let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal", None)?;
+    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal", None)?;
+    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal", None)?;
 
     Ok(())
 }
