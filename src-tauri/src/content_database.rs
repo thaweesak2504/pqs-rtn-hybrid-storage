@@ -1638,11 +1638,11 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
     insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "exempted", Some(exempted_text))?;
     insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "exempted", Some(exempted_text))?;
 
-    // 3xx.2 - 3xx.5: GROUP headers (auto-calc from children, not manually scored)
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "normal", None)?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "normal", None)?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "normal", None)?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "normal", None)?;
+    // 3xx.2 - 3xx.5: GROUP headers, default EXEMPTED (may not apply for all positions)
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "exempted", Some(exempted_text))?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "exempted", Some(exempted_text))?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "exempted", Some(exempted_text))?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "exempted", Some(exempted_text))?;
 
     // 3xx.6: GROUP header (auto-calc from children, not manually scored)
     insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "normal", None)?;
