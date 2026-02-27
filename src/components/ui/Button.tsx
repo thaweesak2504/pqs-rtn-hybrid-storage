@@ -1,17 +1,13 @@
 import React from 'react'
 
-interface ButtonProps {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
   size?: 'small' | 'medium' | 'large'
-  disabled?: boolean
   loading?: boolean
   icon?: React.ReactNode
   iconPosition?: 'left' | 'right'
   fullWidth?: boolean
-  className?: string
-  onClick?: () => void
-  type?: 'button' | 'submit' | 'reset'
 }
 
 const Button: React.FC<ButtonProps> = ({
@@ -25,7 +21,8 @@ const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   className = '',
   onClick,
-  type = 'button'
+  type = 'button',
+  ...props
 }) => {
   const variantClasses = {
     primary: 'bg-github-bg-active text-github-text-primary border border-github-border-primary hover:bg-github-bg-hover hover:border-github-border-active active:bg-github-bg-hover active:border-github-border-active',
@@ -67,6 +64,7 @@ const Button: React.FC<ButtonProps> = ({
       `}
       onClick={onClick}
       disabled={disabled || loading}
+      {...props}
     >
       <div className="flex items-center justify-center space-x-2">
         {/* Loading Spinner */}
@@ -76,15 +74,15 @@ const Button: React.FC<ButtonProps> = ({
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         )}
-        
+
         {/* Left Icon */}
         {icon && iconPosition === 'left' && !loading && (
           <span className="flex-shrink-0">{icon}</span>
         )}
-        
+
         {/* Content */}
         <span>{children}</span>
-        
+
         {/* Right Icon */}
         {icon && iconPosition === 'right' && !loading && (
           <span className="flex-shrink-0">{icon}</span>

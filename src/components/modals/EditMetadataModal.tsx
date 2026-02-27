@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { X } from 'lucide-react';
+import { CheckCircle, Plus, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Button from '../ui/Button';
 import { FormInput, FormRow, FormSelect } from '../ui/Form';
@@ -41,6 +41,12 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [subBranches, setSubBranches] = useState<OccupationSubBranch[]>([]);
   const [selectedMain, setSelectedMain] = useState<string>('');
   const [selectedSub, setSelectedSub] = useState<string>('');
+
+  // Add branch state
+  const [isAddingMain, setIsAddingMain] = useState(false);
+  const [newMainName, setNewMainName] = useState('');
+  const [isAddingSub, setIsAddingSub] = useState(false);
+  const [newSubName, setNewSubName] = useState('');
 
   // Load branches and existing document branch on open
   useEffect(() => {
@@ -177,53 +183,98 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
           </div>
 
           {/* Occupation Branch (Document-level) */}
-          <div className="border border-orange-200 dark:border-orange-800/50 rounded-md p-3 bg-orange-50/30 dark:bg-orange-950/20 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">สาขาอาชีพของเอกสาร</span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">(ใช้ทั้งเล่ม)</span>
+          <div className="border border-github-border-primary rounded-md p-4 bg-github-bg-secondary space-y-4 mt-6">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-bold text-github-text-primary">สาขาอาชีพของเอกสาร (Document Branch Selection)</span>
+              <span className="text-xs text-github-text-secondary">(บังคับใช้ทั้งเล่ม)</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Main Branch */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">สาขาอาชีพหลัก</label>
-                <select
-                  value={selectedMain}
-                  onChange={(e) => { setSelectedMain(e.target.value); setSelectedSub(''); }}
-                  className="w-full text-sm border border-orange-300 dark:border-orange-700 rounded-md bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-2 focus:outline-none focus:ring-1 focus:ring-orange-400"
-                >
-                  <option value="">— ไม่ระบุ —</option>
-                  {branches.map((b) => (
-                    <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-github-text-secondary mb-1">สาขาอาชีพหลัก</label>
+                {isAddingMain ? (
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+                    <Button type="button" variant="primary" onClick={async () => {
+                      if (!newMainName.trim()) return;
+                      const nc = (branches.length + 1).toString();
+                      try {
+                        const created = await invoke<OccupationBranch>('create_occupation_branch', { code: nc, name: newMainName.trim() });
+                        setBranches(prev => [...prev, created]);
+                        setSelectedMain(nc);
+                        setSelectedSub("");
+                      } catch (e) { console.error(e); }
+                      setNewMainName(""); setIsAddingMain(false);
+                    }}><CheckCircle className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" onClick={() => { setNewMainName(""); setIsAddingMain(false); }}><X className="w-4 h-4" /></Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedMain}
+                      onChange={(e) => { setSelectedMain(e.target.value); setSelectedSub(''); setIsAddingSub(false); }}
+                      className="flex-1 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                      <option value="">— ไม่ระบุ —</option>
+                      {branches.map((b) => (
+                        <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
+                      ))}
+                    </select>
+                    <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingMain(true)} title="เพิ่มสาขาใหม่"><Plus className="w-4 h-4" /></Button>
+                  </div>
+                )}
               </div>
 
               {/* Sub Branch */}
               <div>
-                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">สาขาอาชีพย่อย</label>
-                <select
-                  value={selectedSub}
-                  onChange={(e) => setSelectedSub(e.target.value)}
-                  disabled={!selectedMain}
-                  className="w-full text-sm border border-orange-300 dark:border-orange-700 rounded-md bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-2 focus:outline-none focus:ring-1 focus:ring-orange-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="">— ไม่ระบุ —</option>
-                  {subBranches.map((s) => (
-                    <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
-                  ))}
-                </select>
+                <label className="block text-sm font-medium text-github-text-secondary mb-1">สาขาอาชีพย่อย</label>
+                {selectedMain && isAddingSub ? (
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+                    <Button type="button" variant="primary" onClick={async () => {
+                      if (!newSubName.trim()) return;
+                      const nc = (subBranches.length + 1).toString();
+                      try {
+                        const created = await invoke<OccupationSubBranch>('create_occupation_sub_branch', { code: nc, branchCode: selectedMain, name: newSubName.trim() });
+                        setSubBranches(prev => [...prev, created]);
+                        setSelectedSub(nc);
+                      } catch (e) { console.error(e); }
+                      setNewSubName(""); setIsAddingSub(false);
+                    }}><CheckCircle className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" onClick={() => { setNewSubName(""); setIsAddingSub(false); }}><X className="w-4 h-4" /></Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedSub}
+                      onChange={(e) => setSelectedSub(e.target.value)}
+                      disabled={!selectedMain}
+                      className="flex-1 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary p-2 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <option value="">— ไม่ระบุ —</option>
+                      {subBranches.map((s) => (
+                        <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
+                      ))}
+                    </select>
+                    {selectedMain && (
+                      <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingSub(true)} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-4 h-4" /></Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
             {selectedMain && selectedSub && (
-              <div className="text-xs text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 rounded px-2 py-1.5">
-                ✅ ทุก Section จะโหลดคำถามย่อยของสาขา <strong>{selectedMain} / {selectedSub}</strong> โดยอัตโนมัติ
+              <div className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
+                ✅ <strong>{branches.find(b => b.code === selectedMain)?.name} / {subBranches.find(s => s.code === selectedSub)?.name}</strong> จะถูกใช้งานเป็นสาขาหลักในทุก Section (เช่น 2xx.2, 3xx.2)
               </div>
             )}
             {selectedMain && !selectedSub && (
-              <div className="text-xs text-amber-600 dark:text-amber-400">
-                ⚠️ กรุณาเลือกสาขาอาชีพย่อยด้วย
+              <div className="text-sm text-github-danger dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded px-3 py-2">
+                ⚠️ กรุณาเลือกสาขาอาชีพย่อยด้วยเพื่อความสมบูรณ์
               </div>
             )}
           </div>
