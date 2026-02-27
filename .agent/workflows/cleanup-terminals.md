@@ -2,7 +2,7 @@
 description: ล้าง Terminal Background ทั้งหมด (Cleanup background processes)
 ---
 
- workflow นี้จะรวบรวมและปิดหน่วยความจำที่ค้างอยู่จาก Terminal (conhost.exe และ powershell.exe) ที่ทำงานอยู่ในเบื้องหลัง
+workflow นี้จะปิด process ที่ค้างอยู่จาก Terminal (conhost.exe และ powershell.exe)
 
 // turbo
 1. รันสคริปต์ Cleanup

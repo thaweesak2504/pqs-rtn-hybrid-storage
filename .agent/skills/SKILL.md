@@ -1,30 +1,53 @@
 ---
-description: skill หลักสำหรับโปรเจกต์ PQS RTN Hybrid Storage รวบรวมคำสั่งและแนวทางปฏิบัติที่สำคัญ
+description: หลักการพัฒนาโปรเจกต์ PQS RTN Hybrid Storage (Project Principles)
 ---
 
-# Project Skills: PQS RTN Hybrid Storage
+# PQS RTN Hybrid Storage — Project Principles
 
-ยินดีต้อนรับสู่คลัง Skill ของโปรเจกต์ นี่คือชุดคำสั่งที่สรุป Best Practices ของโปรเจกต์ไว้
-เมื่อได้รับงานที่เกี่ยวข้องกับหัวข้อเหล่านี้ ให้ **เปิดอ่าน Skill ไฟล์นั้นๆ ก่อนเสมอ** เพื่อให้งานเป็นไปตามมาตรฐานเดียวกัน
+โปรเจกต์นี้คือระบบจัดการ PQS (Personal Qualification Standard) ของกองทัพเรือ
+พัฒนาด้วย **React + TypeScript + Vite + Tauri** รองรับ Dark/Light Mode
 
-## สารบัญ Skill
+---
 
-### 1. การสร้างและจัดการหน้าคำถาม (Question Pages)
-- **[Create Question Page](create_question_page/SKILL.md)**
-  - ใช้เมื่อ: ต้องการสร้างหน้าจอคำถามใหม่ (เช่น `203Rcp.tsx`)
-  - สิ่งที่ได้: ไฟล์ Component `.tsx` ที่มีโครงสร้างถูกต้องตาม Template มาตรฐาน (`202Lcp.tsx`)
+## หลักการหลัก (Core Principles)
 
-### 2. การจัดการข้อมูล (Data Management)
-- **[Manage Question Data](manage_question_data/SKILL.md)**
-  - ใช้เมื่อ: ต้องการเพิ่ม แก้ไข หรือลบข้อมูลคำถามในไฟล์ `*Data.ts`
-  - สิ่งที่ได้: ข้อมูลที่มีโครงสร้างถูกต้อง, `id` ไม่ซ้ำ, และ Logic `selectedSubQuestions` ที่แม่นยำ
+### 1. Example Files คือแนวทาง ไม่ใช่ข้อบังคับ
+- ไฟล์ใน `src/example/` เป็นตัวอย่างประกอบ เพื่อให้เข้าใจ Pattern ของโปรเจกต์
+- **ไม่จำเป็นต้อง copy ทุกบรรทัด** — ปรับตามความเหมาะสมของเนื้อหาแต่ละ Section ได้
+- ถ้ามีสองตัวอย่างที่ต่างกัน ให้ใช้ตัวที่ใหม่กว่า (ไฟล์ขนาดใหญ่กว่า = feature ครบกว่า)
 
-### 3. มาตรฐาน UI และ Theme (UI Standards)
-- **[UI Standards](ui_standards/SKILL.md)**
-  - ใช้เมื่อ: เขียน CSS/Tailwind, จัดการ Layout, หรือทำ Dark Mode
-  - สิ่งที่ได้: UI ที่สวยงาม ทันสมัย และตรงตาม Design System ของโปรเจกต์
+### 2. ความสม่ำเสมอเหนือความสมบูรณ์แบบ
+- ให้ผลลัพธ์ทำงานได้และดูสอดคล้องกัน มากกว่าเน้น pixel-perfect
 
-### 4. การจัดการเอกสาร (Documentation)
-- **[Normalize Docs](normalize_docs/SKILL.md)**
-  - ใช้เมื่อ: จัดการไฟล์ CSV หรือ Markdown ที่ตารางข้อมูลไม่สมบูรณ์
-  - สิ่งที่ได้: ไฟล์ข้อมูลที่ Clean และพร้อมสำหรับการประมวลผลต่อ
+### 3. Dark Mode ต้องผ่านเสมอ
+- ทุก Component ที่สร้างหรือแก้ไขต้องทดสอบทั้ง Light และ Dark Mode
+- ใช้ CSS variables `github-bg-*` ที่กำหนดไว้ใน `src/index.css` — ไม่ hardcode สี
+
+### 4. Thai Language First
+- ตัวเลขในเอกสาร PQS ใช้เลขไทย (๑, ๒, ๓...) และอักษรไทย (ก, ข, ค...)
+- Font หลัก: `TH Sarabun New` ในส่วนที่เป็นเอกสาร
+
+---
+
+## โครงสร้าง Section
+
+| Section | สี | เนื้อหา |
+|---|---|---|
+| **001** | — | Introduction |
+| **100** | 🟢 Green | ความรู้พื้นฐาน |
+| **200** | 🟠 Orange | ระบบและอุปกรณ์ (มี Answer Key) |
+| **300** | 🟣 Purple | การปฏิบัติ (ไม่มี Answer Key, มีระบบ Pass/Fail) |
+
+---
+
+## กฎที่ห้ามทำ (Hard Rules)
+
+- **ห้ามใช้ `window.confirm()` หรือ `alert()`** — ใช้ Custom Modal แทน
+- **ห้าม hardcode สี** บน outer container — ใช้ CSS variables
+- **ห้ามสร้าง ID ซ้ำ** ใน Data files (`*Data.ts`) ของ section เดียวกัน
+
+---
+
+## Workflow
+
+- `/cleanup-terminals` — ล้าง background terminal processes ที่ค้างอยู่
