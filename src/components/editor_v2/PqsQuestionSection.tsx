@@ -3498,7 +3498,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         )}
 
         {/* Group Header Info (Section 300 only) - auto-calc info */}
-        {is300 && effectiveIsGroupHeader && (
+        {is300 && effectiveIsGroupHeader && !isSection300Selector && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
             <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
               <span className="font-bold uppercase tracking-wider">Group Header</span>
