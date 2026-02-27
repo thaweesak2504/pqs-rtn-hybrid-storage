@@ -1056,6 +1056,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialIsGroupHeader={!!question.is_group_header}
           onRefresh={onRefresh}
           onQuestionsUpdated={onQuestionsUpdated}
+          currentSectionNumber={sectionNumber}
         />
       </div>
     );
@@ -1104,11 +1105,12 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             parentSubQuestionList={parentSubQuestionList}
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
+            currentSectionNumber={sectionNumber}
           />
         </div>
       )}
 
-      {isExpanded && hasChildren && !(is300 && level === 1 && (question.sequence === 4 || question.sequence === 5) && question.question_type === 'exempted') && (
+      {isExpanded && hasChildren && !(is300 && level === 1 && (question.sequence === 3 || question.sequence === 4 || question.sequence === 5) && question.question_type === 'exempted') && (
         <div className="relative">
           {childLayout !== "grid" && parentLayout !== "grid" && (
             <div className={`absolute ${level === 0 ? "left-[30px]" : "left-[62px]"} top-0 bottom-0 w-px bg-gradient-to-b from-blue-200 to-transparent dark:from-blue-800 dark:to-transparent`} />
@@ -1176,6 +1178,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
             onQuestionsUpdated={onQuestionsUpdated}
+            currentSectionNumber={sectionNumber}
           />
         </div>
       )}
@@ -1224,6 +1227,7 @@ interface QuestionFormCardProps {
   initialIsGroupHeader?: boolean;
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
   onQuestionsUpdated?: () => void;
+  currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -1258,6 +1262,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialIsGroupHeader = false,
   onRefresh,
   onQuestionsUpdated,
+  currentSectionNumber,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1269,7 +1274,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
   // We need to know if its parent is 3xx.1. We can check prefix!
   // In Thai numerals: 1 is ๑. So `prefix.includes('.๑.')` works for 3xx.1.x
-  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 3 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.3
+  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.2
+  const isSection300Selector = is300 && !isL1 && questionSequence === 3 && prefix.includes('.๑.'); // 3xx.1.3 → select 300Sections (no score)
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
   const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
@@ -1281,7 +1287,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // Auto-created children (required_instance) → score-only edit form
   const isRequiredInstance = is300 && initialQuestionType === 'required_instance';
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
-  const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild;
+  const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild;
 
   // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = is300 ? {
@@ -1318,10 +1324,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [showDescription, setShowDescription] = useState(() => {
     // If it's already exempted, don't show description
     if (initialQuestionType === 'exempted') return false;
-    
-    // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.4/1.5 section selectors
+
+    // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.3/1.4/1.5 section selectors
     if (isPrerequisiteQuestion) return true;
-    if (isSection100Selector || isSection200Selector) return true;
+    if (isSection300Selector || isSection100Selector || isSection200Selector) return true;
     // Auto-show description for 3xx.2-3xx.6 L1 questions
     if (isDefaultDescL1) return true;
     return !!initialDescription;
@@ -1332,6 +1338,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   useEffect(() => {
     if (isPrerequisiteQuestion) {
       setDescription("เพื่อให้การทดสอบตาม มาตรฐานกำลังพลเกิดประโยชน์สูงสุดและสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบต้องมีคุณสมบัติ ดังต่อไปนี้");
+    } else if (isSection300Selector) {
+      setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การปฏิบัติหน้าที่ ที่กำหนด ดังนี้");
     } else if (isSection100Selector) {
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบความรู้พื้นฐาน ที่กำหนด ดังนี้");
     } else if (isSection200Selector) {
@@ -1339,8 +1347,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     } else if (isDefaultDescL1 && questionSequence !== undefined) {
       setDescription(DEFAULT_L1_DESC_BY_SEQ[questionSequence] || '');
     }
-   
-  }, [isPrerequisiteQuestion, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence]);
+
+  }, [isPrerequisiteQuestion, isSection300Selector, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence]);
 
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
@@ -1361,8 +1369,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [sectionRefChildren, setSectionRefChildren] = useState<SectionRefChild[]>([]);
   // Fetch available sections (master data from Sections table)
   useEffect(() => {
-    if (!(isSection100Selector || isSection200Selector) || !documentId) return;
-    const targetGroup = isSection100Selector ? 100 : 200;
+    if (!(isSection300Selector || isSection100Selector || isSection200Selector) || !documentId) return;
+    const targetGroup = isSection100Selector ? 100 : isSection200Selector ? 200 : 300;
     invoke<{ id: number; document_id: string; section_group: number; section_number: number; title_th: string; menu_label: string; display_order: number; is_system_defined: number; duration_value: number | null; duration_unit: string | null; total_score: number | null; created_at: string; updated_at: string; }[]>('get_sections_by_document', { documentId })
       .then(sections => {
         const filtered = sections
@@ -1375,7 +1383,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Fetch existing L3 section-ref children (real Questions with question_type='section_ref')
   const fetchSectionRefChildren = useCallback(async () => {
-    if (!(isSection100Selector || isSection200Selector) || !existingId) { setSectionRefChildren([]); return; }
+    if (!(isSection300Selector || isSection100Selector || isSection200Selector) || !existingId) { setSectionRefChildren([]); return; }
     try {
       const children = await invoke<SectionRefChild[]>('get_section_ref_children', { parentId: existingId });
       setSectionRefChildren(children);
@@ -1453,7 +1461,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // Tree refresh + total score update happen on Save via handleSave → onSave → handleUpdate
   const sectionSelectorMountRef = useRef(true);
   useEffect(() => {
-    if ((isSection100Selector || isSection200Selector) && existingId) {
+    if ((isSection300Selector || isSection100Selector || isSection200Selector) && existingId) {
       if (sectionSelectorMountRef.current) {
         sectionSelectorMountRef.current = false;
         return; // Skip initial mount — score is already saved in DB
@@ -1486,7 +1494,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setShowDescription(true);
       }
     }
-  }, [isSection100Selector, isSection200Selector, existingId, formScoreType, fetchSectionRefChildren]);
+  }, [isSection300Selector, isSection100Selector, isSection200Selector, existingId, formScoreType, fetchSectionRefChildren]);
 
   // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5 only) ----
   // Base condition for showing sub-question editor
@@ -1616,7 +1624,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
     // CRITICAL: abort if no parentId - would create root-level L1 instead of L2
     if (!isPerformanceL2 || !sectionId || (!existingId && !generatedId && !parentId)) return;
-    
+
     // Build current metadata from form state (sub-questions will be copied to L3)
     const syncMeta: Record<string, any> = {};
     if (useSubQuestions) {
@@ -1628,7 +1636,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     const syncMetaStr = Object.keys(syncMeta).length > 0 ? JSON.stringify(syncMeta) : null;
 
     let questionId = existingId || generatedId;
-    
+
     // Background save L2 if not yet created in DB
     if (!questionId) {
       questionId = crypto.randomUUID();
@@ -1663,7 +1671,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         console.error('Failed to update L2 metadata before sync:', err);
       }
     }
-    
+
     // Sync L3 children (DO NOT call onRefresh here - it unmounts the form!)
     try {
       const children = await invoke<RequiredCountChild[]>('sync_required_count_children', {
@@ -2187,7 +2195,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         // Update L2 content/metadata
         let metaObj: any = {};
         if (metadataString) {
-          try { metaObj = JSON.parse(metadataString); } catch {}
+          try { metaObj = JSON.parse(metadataString); } catch { }
         }
         if (imagePath) metaObj.image = imagePath;
         if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
@@ -2434,7 +2442,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>}
 
         {/* ── Unified "ไม่ต้องปฏิบัติ" checkbox (right after question title for visibility) ── */}
-        {is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && (
+        {is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !is306L1 && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
@@ -2514,14 +2522,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     });
                   }}
                   placeholder="คำอธิบายเพิ่มเติม (Description)..."
-                  disabled={!!isPrerequisiteQuestion || !!isSection100Selector || !!isSection200Selector || !!isDefaultDescL1 || formScoreType === 'exempted'}
-                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection100Selector || isSection200Selector || isDefaultDescL1 || formScoreType === 'exempted')
+                  disabled={!!isPrerequisiteQuestion || !!isSection300Selector || !!isSection100Selector || !!isSection200Selector || !!isDefaultDescL1 || formScoreType === 'exempted'}
+                  className={`w-full p-2 pr-7 border rounded-md resize-none text-sm min-h-[34px] overflow-hidden ${(isPrerequisiteQuestion || isSection300Selector || isSection100Selector || isSection200Selector || isDefaultDescL1 || formScoreType === 'exempted')
                     ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600 cursor-not-allowed'
                     : 'border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 text-slate-400 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/50'
                     }`}
                   rows={1}
                 />
-                {!isPrerequisiteQuestion && !isSection100Selector && !isSection200Selector && !isDefaultDescL1 && formScoreType !== 'exempted' && (
+                {!isPrerequisiteQuestion && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isDefaultDescL1 && formScoreType !== 'exempted' && (
                   <button
                     onClick={() => {
                       setDescription("");
@@ -2549,21 +2557,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
                   <div className="relative inline-flex items-center">
                     <input type="checkbox" checked={useSubQuestions}
-                      onChange={(e) => { 
-                      const newValue = e.target.checked;
-                      setUseSubQuestions(newValue); 
-                      if (!newValue) setActiveSubQCodes([]);
-                      
-                      // Auto-change from Exempted to Normal when enabling sub-questions
-                      if (newValue && formScoreType === 'exempted') {
-                        setFormScoreType('normal');
-                        setFormScoreIsScored(false); // Disable scoring initially
-                      }
-                      // Always set as Group Header when sub-questions are enabled
-                      if (newValue) {
-                        setEffectiveIsGroupHeader(true); // Set as Group Header
-                      }
-                    }}
+                      onChange={(e) => {
+                        const newValue = e.target.checked;
+                        setUseSubQuestions(newValue);
+                        if (!newValue) setActiveSubQCodes([]);
+
+                        // Auto-change from Exempted to Normal when enabling sub-questions
+                        if (newValue && formScoreType === 'exempted') {
+                          setFormScoreType('normal');
+                          setFormScoreIsScored(false); // Disable scoring initially
+                        }
+                        // Always set as Group Header when sub-questions are enabled
+                        if (newValue) {
+                          setEffectiveIsGroupHeader(true); // Set as Group Header
+                        }
+                      }}
                       className="sr-only peer" />
                     <div className={`w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 ${sqClr.toggle} transition-colors`}></div>
                     <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
@@ -3184,7 +3192,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
         {/* ── Scoring section (hidden when exempted or fixedPracticeL1) ── */}
-        {is300 && formScoreType !== 'exempted' && !isFixedPracticeL1 && !((isPerformanceL2 || is306L1) ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection100Selector && !isSection200Selector && !isExamChild && (
+        {is300 && formScoreType !== 'exempted' && !isFixedPracticeL1 && !((isPerformanceL2 || is306L1) ? (effectiveIsGroupHeader || requiredCount > 0) : (initialIsGroupHeader && !isL1)) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
@@ -3195,11 +3203,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     min="0"
                     value={formScoreValue}
                     onChange={(e) => setFormScoreValue(e.target.value)}
-                    className={`w-16 px-2 py-0.5 text-xs border rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400 ${
-                      parseInt(formScoreValue) === 0 
-                        ? 'border-red-300 dark:border-red-700 ring-1 ring-red-400' 
-                        : 'border-purple-300 dark:border-purple-700'
-                    }`}
+                    className={`w-16 px-2 py-0.5 text-xs border rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400 ${parseInt(formScoreValue) === 0
+                      ? 'border-red-300 dark:border-red-700 ring-1 ring-red-400'
+                      : 'border-purple-300 dark:border-purple-700'
+                      }`}
                   />
                   <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
                   {parseInt(formScoreValue) === 0 && (
@@ -3334,8 +3341,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* Section Picker for 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — L3 section_ref children */}
-        {is300 && (isSection100Selector || isSection200Selector) && (
+        {/* Section Picker for 3xx.1.3 (300Sections), 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — L3 section_ref children */}
+        {is300 && (isSection300Selector || isSection100Selector || isSection200Selector) && (
           <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2 space-y-2">
             {/* Single checkbox: ปฏิบัติ / ไม่ต้องปฏิบัติ */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -3368,7 +3375,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 {/* Section header */}
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                    {isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
+                    {isSection300Selector ? 'เลือก Section 300 ที่ต้องผ่าน' : isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
                   </span>
                 </div>
 
@@ -3379,7 +3386,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
                         <span className="font-medium">{toThaiNumber(child.ref_section_number)}</span>
                         <span className="flex-1">{child.content}</span>
-                        {isEdit && (
+                        {/* Show score only for 3xx.1.4/3xx.1.5 (not 3xx.1.3 — no score) */}
+                        {isEdit && !isSection300Selector && (
                           <input
                             type="number"
                             min={0}
@@ -3395,17 +3403,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             title="คะแนน"
                           />
                         )}
-                        {!isEdit && child.score > 0 && (
+                        {!isEdit && !isSection300Selector && child.score > 0 && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
                             {child.score} คะแนน
                           </span>
                         )}
                       </div>
                     ))}
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
-                      <span>รวม</span>
-                      <span className="ml-auto">{sectionRefChildren.reduce((sum, c) => sum + c.score, 0)} คะแนน</span>
-                    </div>
+                    {/* Only show total score for 3xx.1.4/3xx.1.5 (not 3xx.1.3) */}
+                    {!isSection300Selector && (
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
+                        <span>รวม</span>
+                        <span className="ml-auto">{sectionRefChildren.reduce((sum, c) => sum + c.score, 0)} คะแนน</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -3441,12 +3452,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         {availableSections.map(s => {
                           const existingChild = sectionRefChildren.find(c => c.ref_section_id === s.id);
                           const checked = !!existingChild;
+                          // Don't select yourself: disable if this section is the current one
+                          const isSelf = currentSectionNumber !== undefined && s.section_number === currentSectionNumber;
                           return (
-                            <label key={s.id} className="flex items-center gap-2 px-3 py-1.5 cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20">
+                            <label key={s.id} className={`flex items-center gap-2 px-3 py-1.5 ${isSelf ? 'cursor-not-allowed bg-slate-100/60 dark:bg-slate-700/30' : 'cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}>
                               <input
                                 type="checkbox"
                                 checked={checked}
+                                disabled={isSelf}
                                 onChange={async () => {
+                                  if (isSelf) return;
                                   if (checked && existingChild) {
                                     try {
                                       await invoke('remove_section_ref_child', { questionId: existingChild.id });
@@ -3463,8 +3478,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 }}
                                 className="accent-purple-600 w-3.5 h-3.5 shrink-0"
                               />
-                              <span className="text-xs font-medium text-purple-600 dark:text-purple-400 shrink-0">{toThaiNumber(s.section_number)}</span>
-                              <span className="text-xs text-slate-700 dark:text-slate-300">{s.title_th}</span>
+                              <span className={`text-xs font-medium shrink-0 ${isSelf ? 'text-slate-500 dark:text-slate-400' : 'text-purple-600 dark:text-purple-400'}`}>{toThaiNumber(s.section_number)}</span>
+                              <span className={`text-xs flex-1 ${isSelf ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400 dark:decoration-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{s.title_th}</span>
+                              {isSelf && <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded shrink-0">(ตัวเอง)</span>}
                             </label>
                           );
                         })}
@@ -3805,11 +3821,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             <div className="flex items-center gap-2 shrink-0">
               {/* Group header (L1/L2 with children): show group_score */}
               {question.is_group_header && (question.group_score != null && question.group_score > 0) && (
-                <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${
-                  !question.parent_id
-                    ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
-                    : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
-                }`}>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded whitespace-nowrap ${!question.parent_id
+                  ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+                  : 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30'
+                  }`}>
                   {!question.parent_id ? (
                     <><span className="mr-2">รวม:</span>{toThaiNumber(question.group_score)} คะแนน</>
                   ) : (
