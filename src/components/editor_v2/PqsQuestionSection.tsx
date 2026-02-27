@@ -2700,17 +2700,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       ) : !sectionOccupationBranches && !isAddingMain ? (
                         <div className="flex gap-1">
                           <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
-                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}>
+                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}
+                            disabled={!!sectionSelectedBranch}>
                             <option value="">-- เลือก --</option>
                             {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
                           </select>
-                          {selMainBranch && <>
+                          {selMainBranch && !sectionSelectedBranch && <>
                             <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
                               className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
                             <button onClick={async () => { const br = dbBranches.find(b => b.code === selMainBranch); if (!window.confirm(`ลบสาขา "${br?.name}"?`)) return; await invoke('delete_occupation_branch', { code: selMainBranch }); setDbBranches(prev => prev.filter(b => b.code !== selMainBranch)); setSelMainBranch(""); setSelSubBranch(""); }}
                               className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขา"><Trash2 className="w-3 h-3" /></button>
                           </>}
-                          <button onClick={() => setIsAddingMain(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>
+                          {!sectionSelectedBranch && <button onClick={() => setIsAddingMain(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>}
                         </div>
                       ) : !sectionOccupationBranches ? (
                         <div className="flex gap-1">
@@ -2745,17 +2746,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         ) : !sectionOccupationBranches && !isAddingSub ? (
                           <div className="flex gap-1">
                             <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}>
+                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}
+                              disabled={!!sectionSelectedBranch}>
                               <option value="">-- เลือก --</option>
                               {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
                             </select>
-                            {selSubBranch && <>
+                            {selSubBranch && !sectionSelectedBranch && <>
                               <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
                                 className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
                               <button onClick={async () => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (!window.confirm(`ลบสาขาย่อย "${sb?.name}"?`)) return; await invoke('delete_occupation_sub_branch', { code: selSubBranch, branchCode: selMainBranch }); setDbSubBranches(prev => prev.filter(s => s.code !== selSubBranch)); setSelSubBranch(""); }}
                                 className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขาย่อย"><Trash2 className="w-3 h-3" /></button>
                             </>}
-                            <button onClick={() => setIsAddingSub(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>
+                            {!sectionSelectedBranch && <button onClick={() => setIsAddingSub(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>}
                           </div>
                         ) : !sectionOccupationBranches ? (
                           <div className="flex gap-1">
