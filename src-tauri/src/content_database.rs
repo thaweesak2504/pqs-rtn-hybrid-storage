@@ -1817,14 +1817,20 @@ pub fn delete_section(id: i64) -> Result<(), String> {
         return Err("Cannot delete system-defined section (e.g., Section 101)".to_string());
     }
     
-    // Delete all questions belonging to this section first
+    // Delete QuestionSectionLinks for all questions in this section (may not cascade automatically)
+    conn.execute(
+        "DELETE FROM QuestionSectionLinks WHERE question_id IN (SELECT id FROM Questions WHERE section_id = ?1)",
+        params![id]
+    ).map_err(|e| format!("Failed to delete section question links: {}", e))?;
+
+    // Delete all questions belonging to this section
     // (QuestionChoices, QuestionReferences, UserAnswers cascade from Questions automatically)
     conn.execute("DELETE FROM Questions WHERE section_id = ?1", params![id])
         .map_err(|e| format!("Failed to delete section questions: {}", e))?;
-    
+
     conn.execute("DELETE FROM Sections WHERE id = ?1", params![id])
         .map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
