@@ -1379,7 +1379,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setAvailableSections(filtered);
       })
       .catch(() => setAvailableSections([]));
-  }, [isSection100Selector, isSection200Selector, documentId]);
+  }, [isSection100Selector, isSection200Selector, isSection300Selector, documentId]);
 
   // Fetch existing L3 section-ref children (real Questions with question_type='section_ref')
   const fetchSectionRefChildren = useCallback(async () => {
@@ -1388,7 +1388,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       const children = await invoke<SectionRefChild[]>('get_section_ref_children', { parentId: existingId });
       setSectionRefChildren(children);
     } catch { setSectionRefChildren([]); }
-  }, [isSection100Selector, isSection200Selector, existingId]);
+  }, [isSection100Selector, isSection200Selector, isSection300Selector, existingId]);
   useEffect(() => { fetchSectionRefChildren(); }, [fetchSectionRefChildren]);
 
   // ---- Required Count State (for L2 children of 3xx.2-3xx.6, and for 3xx.6 L1 itself) ----
