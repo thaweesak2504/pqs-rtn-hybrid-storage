@@ -1321,9 +1321,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
+  // Force-default exempted for questions that haven't been explicitly scored yet:
+  // 3xx.1.1-3xx.1.2 (prerequisite children), 3xx.1.3/1.4/1.5 (section selectors),
+  // and 3xx.2-3xx.5 L2 performance questions — all start as 'exempted' until explicitly set
+  const shouldDefaultExempted =
+    (isPrerequisiteChild || isSection300Selector || isSection100Selector || isSection200Selector || isPerformanceL2)
+    && initialQuestionType === 'normal';
+
   const [showDescription, setShowDescription] = useState(() => {
-    // If it's already exempted, don't show description
-    if (initialQuestionType === 'exempted') return false;
+    // If force-defaulted to exempted or already exempted in DB, don't show description
+    if (shouldDefaultExempted || initialQuestionType === 'exempted') return false;
 
     // Auto-show description for 3xx.1 prerequisite questions and 3xx.1.3/1.4/1.5 section selectors
     if (isPrerequisiteQuestion) return true;
@@ -1358,8 +1365,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // ---- Score Editor State (Section 300 only) ----
   const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
   const [formScoreValue, setFormScoreValue] = useState<string>(initialScore.toString());
-  const [formScoreType, setFormScoreType] = useState<string>(initialQuestionType);
-  const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(initialDisplayText);
+  // Force default 'exempted' for 3xx.1.1-3xx.1.5 and 3xx.2-3xx.5 L2 on first open
+  const [formScoreType, setFormScoreType] = useState<string>(
+    shouldDefaultExempted ? 'exempted' : initialQuestionType
+  );
+  const [formScoreDisplayText, setFormScoreDisplayText] = useState<string>(
+    shouldDefaultExempted ? '(ไม่ต้องปฏิบัติ)' : (initialDisplayText || '')
+  );
 
   // ---- Section Selector State (for 3xx.1.4 and 3xx.1.5) ----
   // NEW: Link-based approach using QuestionSectionLinks table (no content copying, no sync needed)
