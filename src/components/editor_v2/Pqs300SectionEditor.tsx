@@ -63,7 +63,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: newTitle,
-          menu_label: currentMenuLabel || `${sectionNumber} ${subTitle || ''}`.trim(),
+          menu_label: `${sectionNumber} ${currentMenuLabel}`.trim(),
           duration_value: durationValue,
           duration_unit: durationUnit,
           total_score: totalScore,
@@ -82,7 +82,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: currentTitle,
-          menu_label: newSubTitle,
+          menu_label: `${sectionNumber} ${newSubTitle}`.trim(),
           duration_value: durationValue,
           duration_unit: durationUnit,
           total_score: totalScore,
@@ -103,7 +103,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: currentTitle,
-          menu_label: currentMenuLabel || `${sectionNumber} ${subTitle || ''}`.trim(),
+          menu_label: `${sectionNumber} ${currentMenuLabel}`.trim(),
           duration_value: dv,
           duration_unit: tempUnit,
           total_score: totalScore,
@@ -127,7 +127,10 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       if (currentSection) {
         setSectionId(currentSection.id);
         setCurrentTitle(currentSection.title_th);
-        setCurrentMenuLabel(currentSection.menu_label || '');
+        // Strip section number prefix — only menu text part is editable
+        const rawLabel = currentSection.menu_label || '';
+        const prefix = `${sectionNumber} `;
+        setCurrentMenuLabel(rawLabel.startsWith(prefix) ? rawLabel.slice(prefix.length) : rawLabel);
         setDurationValue(currentSection.duration_value);
         setDurationUnit(currentSection.duration_unit || 'weeks');
         setTotalScore(currentSection.total_score);

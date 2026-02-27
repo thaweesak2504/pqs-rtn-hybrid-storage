@@ -66,7 +66,10 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         if (currentSection) {
           setSectionId(currentSection.id);
           setCurrentTitle(currentSection.title_th);
-          setCurrentMenuLabel(currentSection.menu_label || '');
+          // Strip section number prefix — only menu text part is editable
+          const rawLabel = currentSection.menu_label || '';
+          const prefix = `${sectionNumber} `;
+          setCurrentMenuLabel(rawLabel.startsWith(prefix) ? rawLabel.slice(prefix.length) : rawLabel);
           await fetchReferences(currentSection.id);
         }
       } catch (error) {
@@ -82,7 +85,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: newTitle,
-          menu_label: currentMenuLabel || `${sectionNumber} ${subTitle || ''}`.trim()
+          menu_label: `${sectionNumber} ${currentMenuLabel}`.trim()
         }
       });
       setCurrentTitle(newTitle);
@@ -98,11 +101,11 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: currentTitle,
-          menu_label: newSubTitle,
+          menu_label: `${sectionNumber} ${newSubTitle}`.trim(),
         }
       });
       setCurrentMenuLabel(newSubTitle);
-      onMenuLabelChange?.(); // refresh sidebar
+      onMenuLabelChange?.();
     } catch (error) {
       console.error("Failed to update menu label:", error);
       alert("Failed to save menu label: " + error);
