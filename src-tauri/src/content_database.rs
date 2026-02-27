@@ -165,6 +165,16 @@ pub fn initialize_content_database() -> Result<String, String> {
     // Seed OwnerUnits if empty
     seed_owner_units(&conn)?;
 
+    // Hotfix: Correct typo "ไฟฟ้าอาวุะ" to "ไฟฟ้าอาวุธ" in existing occupation branches
+    let _ = conn.execute(
+        "UPDATE OccupationBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
+        [],
+    );
+    let _ = conn.execute(
+        "UPDATE OccupationSubBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
+        [],
+    );
+
     Ok("Content database initialized successfully".to_string())
 }
 

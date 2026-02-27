@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Button from '../ui/Button';
-import { FormInput } from '../ui/Form';
+import { FormInput, FormRow, FormSelect } from '../ui/Form';
 
 interface EditMetadataModalProps {
   isOpen: boolean;
@@ -10,6 +10,8 @@ interface EditMetadataModalProps {
   docId: string;
   initialName: string;
   initialAppliedTo: string;
+  initialDocType: string;
+  initialUserLevel: string;
   onSuccess: () => void;
 }
 
@@ -23,10 +25,14 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   docId,
   initialName,
   initialAppliedTo,
+  initialDocType,
+  initialUserLevel,
   onSuccess
 }) => {
   const [name, setName] = useState(initialName);
   const [appliedTo, setAppliedTo] = useState(initialAppliedTo);
+  const [docType, setDocType] = useState(initialDocType || '10');
+  const [userLevel, setUserLevel] = useState(initialUserLevel || '2');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -72,7 +78,9 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         args: {
           id: docId,
           name,
-          applied_to: appliedTo
+          applied_to: appliedTo,
+          doc_type: docType,
+          user_level: userLevel
         }
       });
 
@@ -124,6 +132,34 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               required
             />
+          </div>
+          <div>
+            <FormRow>
+              <FormSelect
+                name="docType"
+                label="ประเภทเอกสาร (Type)"
+                value={docType}
+                onChange={(e) => setDocType(e.target.value)}
+                options={[
+                  { value: '10', label: '10 - General (ทั่วไป)' },
+                  { value: '20', label: '20 - Specific (เฉพาะ)' }
+                ]}
+                className="dark:text-slate-200"
+              />
+              <FormSelect
+                name="userLevel"
+                label="ระดับชั้นผู้ใช้ (User Level)"
+                value={userLevel}
+                onChange={(e) => setUserLevel(e.target.value)}
+                options={[
+                  { value: '0', label: '0 - Commissioned (สัญญาบัตร)' },
+                  { value: '1', label: '1 - Non-commissioned (ประทวน)' },
+                  { value: '2', label: '2 - Undefined (ไม่ระบุ)' },
+                  { value: '3', label: '3 - Both (ประทวน และ สัญญาบัตร)' }
+                ]}
+                className="dark:text-slate-200"
+              />
+            </FormRow>
           </div>
 
           <div>

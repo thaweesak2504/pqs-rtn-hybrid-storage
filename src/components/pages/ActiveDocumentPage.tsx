@@ -9,6 +9,8 @@ interface Document {
   id: string;
   name: string;
   applied_to: string;
+  doc_type?: string;
+  user_level?: string;
   updated_at: string | null;
   created_at: string | null;
 }
@@ -428,7 +430,9 @@ const ActiveDocumentPage: React.FC = () => {
           onClose={() => setEditModalOpen(false)}
           docId={docData.document.id}
           initialName={docData.document.name}
-          initialAppliedTo={docData.document.applied_to}
+          initialAppliedTo={docData.document.applied_to || ''}
+          initialDocType={docData.document.doc_type || '10'}
+          initialUserLevel={docData.document.user_level || '2'}
           onSuccess={() => { fetchDocData(); fetchDocBranch(); }}
         />
       )}
