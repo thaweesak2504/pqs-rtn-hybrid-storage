@@ -8,6 +8,7 @@ interface PqsHeaderProps {
   title: string;
   subTitle?: string;
   onTitleChange?: (newTitle: string) => void;
+  onSubTitleChange?: (newSubTitle: string) => void;
   readOnly?: boolean;
   prefix?: string;
   metadata?: {
@@ -23,6 +24,7 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
   title,
   subTitle,
   onTitleChange,
+  onSubTitleChange,
   readOnly = false,
   prefix = "",
   metadata,
@@ -30,17 +32,30 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
+  const [isEditingSubTitle, setIsEditingSubTitle] = useState(false);
+  const [tempSubTitle, setTempSubTitle] = useState(subTitle || '');
   const inputRef = useRef<HTMLInputElement>(null);
+  const subTitleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setTempTitle(title);
   }, [title]);
 
   useEffect(() => {
+    setTempSubTitle(subTitle || '');
+  }, [subTitle]);
+
+  useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    if (isEditingSubTitle && subTitleInputRef.current) {
+      subTitleInputRef.current.focus();
+    }
+  }, [isEditingSubTitle]);
 
   const getTheme = (sec: string): SectionTheme => {
     if (sec.startsWith('1')) return 'green';
@@ -100,6 +115,21 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSave();
     if (e.key === 'Escape') handleCancel();
+  };
+
+  const handleSubTitleSave = () => {
+    onSubTitleChange?.(tempSubTitle);
+    setIsEditingSubTitle(false);
+  };
+
+  const handleSubTitleCancel = () => {
+    setTempSubTitle(subTitle || '');
+    setIsEditingSubTitle(false);
+  };
+
+  const handleSubTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSubTitleSave();
+    if (e.key === 'Escape') handleSubTitleCancel();
   };
 
 
@@ -167,16 +197,44 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Subtitle & Status (Hidden on small screens if needed, or kept compact) */}
+        {/* Right: Subtitle & Status */}
         <div className="flex flex-col items-end gap-1 shrink-0">
 
-
-
-          {/* SubTitle as Badge or Small Text */}
-          {subTitle && (
-            <span className="text-xs md:text-sm font-light text-white/90 border-l border-white/20 pl-3">
-              {subTitle}
-            </span>
+          {/* SubTitle: English Menu Name — editable inline */}
+          {(subTitle !== undefined || onSubTitleChange) && (
+            <div className="group/subtitle">
+              {isEditingSubTitle && !readOnly ? (
+                <div className="flex items-center gap-1 animate-in fade-in zoom-in-95 duration-150">
+                  <input
+                    ref={subTitleInputRef}
+                    type="text"
+                    value={tempSubTitle}
+                    onChange={(e) => setTempSubTitle(e.target.value)}
+                    onKeyDown={handleSubTitleKeyDown}
+                    maxLength={40}
+                    className="text-xs bg-white/10 text-white border-b border-white/40 focus:border-white outline-none px-1 rounded w-32"
+                    placeholder="English Menu Name"
+                  />
+                  <button onClick={handleSubTitleSave} className="p-0.5 bg-green-500 hover:bg-green-400 rounded text-white shadow-sm">
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button onClick={handleSubTitleCancel} className="p-0.5 bg-white/10 hover:bg-white/20 rounded text-white">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  className={`flex items-center gap-1 px-1 -mr-1 rounded transition-colors ${!readOnly && onSubTitleChange ? 'cursor-pointer hover:bg-white/10' : ''}`}
+                  onClick={!readOnly && onSubTitleChange ? () => setIsEditingSubTitle(true) : undefined}
+                  title={!readOnly && onSubTitleChange ? 'คลิกเพื่อแก้ไข English Menu Name' : undefined}
+                >
+                  <span className="text-xs md:text-sm font-light text-white/90 border-l border-white/20 pl-3">
+                    {subTitle || (onSubTitleChange ? <span className="italic text-white/40">คลิกเพื่อใส่ชื่อเมนู</span> : null)}
+                  </span>
+                  {!readOnly && onSubTitleChange && <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover/subtitle:opacity-60 transition-opacity text-white/70 shrink-0" />}
+                </div>
+              )}
+            </div>
           )}
 
           {metadata?.updated_at && (

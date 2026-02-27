@@ -45,6 +45,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   const titlePrefix = "การปฏิบัติหน้าที่ในตำแหน่ง ";
 
   const [currentTitle, setCurrentTitle] = useState(title);
+  const [currentMenuLabel, setCurrentMenuLabel] = useState(subTitle || '');
 
   // Duration & Score state
   const [durationValue, setDurationValue] = useState<number | null>(null);
@@ -53,14 +54,14 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [tempDuration, setTempDuration] = useState<string>('');
   const [tempUnit, setTempUnit] = useState<DurationUnit>('weeks');
-  
+
   const handleTitleChange = async (newTitle: string) => {
     try {
       await invoke('update_section', {
         args: {
           id: sectionId,
           title_th: newTitle,
-          menu_label: `${sectionNumber} ${subTitle || ''}`.trim(),
+          menu_label: currentMenuLabel || `${sectionNumber} ${subTitle || ''}`.trim(),
           duration_value: durationValue,
           duration_unit: durationUnit,
           total_score: totalScore,
@@ -73,6 +74,25 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
     }
   };
 
+  const handleSubTitleChange = async (newSubTitle: string) => {
+    try {
+      await invoke('update_section', {
+        args: {
+          id: sectionId,
+          title_th: currentTitle,
+          menu_label: newSubTitle,
+          duration_value: durationValue,
+          duration_unit: durationUnit,
+          total_score: totalScore,
+        }
+      });
+      setCurrentMenuLabel(newSubTitle);
+    } catch (error) {
+      console.error("Failed to update menu label:", error);
+      alert("Failed to save menu label: " + error);
+    }
+  };
+
   const handleSaveMeta = async () => {
     const dv = tempDuration ? parseInt(tempDuration) : null;
     try {
@@ -80,10 +100,10 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: currentTitle,
-          menu_label: `${sectionNumber} ${subTitle || ''}`.trim(),
+          menu_label: currentMenuLabel || `${sectionNumber} ${subTitle || ''}`.trim(),
           duration_value: dv,
           duration_unit: tempUnit,
-          total_score: totalScore, // Keep existing auto-calculated score
+          total_score: totalScore,
         }
       });
       setDurationValue(dv);
@@ -95,7 +115,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
     }
   };
 
-  
+
   // Fetch Section ID on mount or when sectionNumber changes
   const fetchSectionData = useCallback(async () => {
     try {
@@ -104,6 +124,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       if (currentSection) {
         setSectionId(currentSection.id);
         setCurrentTitle(currentSection.title_th);
+        setCurrentMenuLabel(currentSection.menu_label || '');
         setDurationValue(currentSection.duration_value);
         setDurationUnit(currentSection.duration_unit || 'weeks');
         setTotalScore(currentSection.total_score);
@@ -138,8 +159,9 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       <PqsHeader
         section={sectionNumber.toString()}
         title={currentTitle}
-        subTitle={subTitle}
+        subTitle={currentMenuLabel || subTitle}
         onTitleChange={handleTitleChange}
+        onSubTitleChange={readOnly ? undefined : handleSubTitleChange}
         readOnly={readOnly}
         prefix={titlePrefix}
         metadata={{

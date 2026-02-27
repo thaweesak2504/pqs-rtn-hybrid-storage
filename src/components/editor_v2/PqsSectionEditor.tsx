@@ -28,6 +28,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   const isCompact = viewMode === 'normal';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
+  const [currentMenuLabel, setCurrentMenuLabel] = useState(subTitle || '');
   const [sectionId, setSectionId] = useState<number>(0);
   const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
 
@@ -61,6 +62,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         if (currentSection) {
           setSectionId(currentSection.id);
           setCurrentTitle(currentSection.title_th);
+          setCurrentMenuLabel(currentSection.menu_label || '');
           await fetchReferences(currentSection.id);
         }
       } catch (error) {
@@ -76,13 +78,29 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         args: {
           id: sectionId,
           title_th: newTitle,
-          menu_label: `${sectionNumber} ${subTitle || ''}`.trim() // Keep menu label consistent
+          menu_label: currentMenuLabel || `${sectionNumber} ${subTitle || ''}`.trim(),
         }
       });
       setCurrentTitle(newTitle);
     } catch (error) {
       console.error("Failed to update title:", error);
       alert("Failed to save title: " + error);
+    }
+  };
+
+  const handleSubTitleChange = async (newSubTitle: string) => {
+    try {
+      await invoke('update_section', {
+        args: {
+          id: sectionId,
+          title_th: currentTitle,
+          menu_label: newSubTitle,
+        }
+      });
+      setCurrentMenuLabel(newSubTitle);
+    } catch (error) {
+      console.error("Failed to update menu label:", error);
+      alert("Failed to save menu label: " + error);
     }
   };
 
@@ -211,13 +229,14 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       <PqsHeader
         section={sectionNumber.toString()}
         title={currentTitle}
-        subTitle={subTitle}
+        subTitle={currentMenuLabel || subTitle}
         onTitleChange={readOnly ? undefined : handleTitleChange}
+        onSubTitleChange={readOnly ? undefined : handleSubTitleChange}
         readOnly={readOnly}
         metadata={{
           id: docId,
           unit_code: '',
-          updated_at: new Date().toISOString() // TODO: Get real update time
+          updated_at: new Date().toISOString()
         }}
       />
 
