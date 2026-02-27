@@ -1467,6 +1467,29 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [isPrerequisiteChild, existingId, formScoreType]);
 
+  // ── Auto-save force-default exempted (one-shot on mount) ─────────────────────────────────
+  // When form opens and shouldDefaultExempted=true, immediately write 'exempted' to DB.
+  // This ensures display cards (tree view) reflect the exempted state without needing a manual Save.
+  // Safe against infinite loops: after onRefresh remounts the form, initialQuestionType='exempted'
+  // → shouldDefaultExempted=false → this effect is skipped on the next mount.
+  // NOTE: isPrerequisiteChild already has its own useEffect above, but we unify here for
+  // SectionSelectors (3xx.1.3/1.4/1.5) and PerformanceL2 (3xx.2-3xx.5 L2) which had no auto-save.
+  useEffect(() => {
+    if (!shouldDefaultExempted || !existingId) return;
+    invoke('update_question_score', {
+      args: {
+        id: existingId,
+        score: 0,
+        is_scored: false,
+        question_type: 'exempted',
+        display_text: '(ไม่ต้องปฏิบัติ)',
+      }
+    })
+      .then(() => { if (onRefresh) onRefresh(); })
+      .catch(err => console.error('Failed to auto-save default exempted:', err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty deps — run ONCE on mount only
+
   // Update question score when formScoreType changes for section selectors (3xx.1.4/1.5)
   // NOTE: Do NOT call onRefresh/onQuestionsUpdated here — that causes infinite loop
   // (fetchQuestions → setLoading → tree unmount → form remount → useEffect fires again)
