@@ -2289,6 +2289,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
 
+    // Save question_type & display_text for 2xx.2 and 2xx.4 (exempted toggle, no scoring)
+    if (isDefaultDescL1_200 && isEdit && existingId) {
+      try {
+        await invoke('update_question_score', {
+          args: {
+            id: existingId,
+            score: 0,
+            is_scored: false,
+            question_type: formScoreType,
+            display_text: formScoreType === 'exempted' ? '(ไม่ต้องอธิบาย)' : null,
+          }
+        });
+      } catch (err) {
+        console.error('Failed to save 200-series exempted state:', err);
+      }
+    }
+
     onSave({
       content,
       description: showExtraButtons ? description : undefined,
