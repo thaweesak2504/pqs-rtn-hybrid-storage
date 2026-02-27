@@ -355,6 +355,7 @@ const ActiveDocumentPage: React.FC = () => {
                 })()}
                 isPreviewMode={isPreviewMode}
                 viewMode={viewMode}
+                onMenuLabelChange={fetchSections}
               />
             )}
 
@@ -373,6 +374,7 @@ const ActiveDocumentPage: React.FC = () => {
                 })()}
                 isPreviewMode={isPreviewMode}
                 viewMode={viewMode}
+                onMenuLabelChange={fetchSections}
               />
             )}
 
@@ -391,6 +393,7 @@ const ActiveDocumentPage: React.FC = () => {
                 })()}
                 isPreviewMode={isPreviewMode}
                 viewMode={viewMode}
+                onMenuLabelChange={fetchSections}
               />
             )}
 

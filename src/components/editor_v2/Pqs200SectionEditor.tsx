@@ -17,6 +17,7 @@ interface Pqs200SectionEditorProps {
   subTitle?: string;
   isPreviewMode?: boolean;
   viewMode?: ViewMode;
+  onMenuLabelChange?: () => void;
 }
 
 const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
@@ -24,7 +25,8 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   sectionNumber,
   title,
   subTitle,
-  viewMode = 'edit'
+  viewMode = 'edit',
+  onMenuLabelChange,
 }) => {
   const readOnly = viewMode !== 'edit';
   const isCompact = viewMode === 'normal';
@@ -100,6 +102,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         }
       });
       setCurrentMenuLabel(newSubTitle);
+      onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
       console.error("Failed to update menu label:", error);
       alert("Failed to save menu label: " + error);
