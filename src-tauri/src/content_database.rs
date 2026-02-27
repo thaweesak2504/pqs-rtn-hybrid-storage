@@ -1657,25 +1657,27 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
 
 /// Seed Section 200 Template (2xx.1 - 2xx.6)
 fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
-    // Prefix is handled dynamically by the frontend component (buildPrefix200)
-    
-    // Helper closure to insert question
-    let insert_q = |seq: i32, content: String| -> Result<String, String> {
+    // Helper closure: question_type and display_text added for 2xx.2 & 2xx.4 exempted support
+    let insert_q = |seq: i32, content: String, question_type: &str, display_text: Option<&str>| -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type) 
-             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'text')",
-            params![q_id, doc_id, section_id, seq, content]
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, question_type, display_text) 
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'text', ?6, ?7)",
+            params![q_id, doc_id, section_id, seq, content, question_type, display_text]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
     };
 
-    insert_q(1, "หน้าที่".to_string())?;
-    insert_q(2, "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string())?;
-    insert_q(3, "หลักการทำงาน".to_string())?;
-    insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string())?;
-    insert_q(5, "การเชื่อมต่อระบบ".to_string())?;
-    insert_q(6, "ข้อระมัดระวังอันตราย".to_string())?;
+    let exempted_text = "(ไม่ต้องอธิบาย)";
+
+    insert_q(1, "หน้าที่".to_string(), "normal", None)?;
+    // 2xx.2: ส่วนประกอบ — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
+    insert_q(2, "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string(), "exempted", Some(exempted_text))?;
+    insert_q(3, "หลักการทำงาน".to_string(), "normal", None)?;
+    // 2xx.4: ค่าทำงาน — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
+    insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(), "exempted", Some(exempted_text))?;
+    insert_q(5, "การเชื่อมต่อระบบ".to_string(), "normal", None)?;
+    insert_q(6, "ข้อระมัดระวังอันตราย".to_string(), "normal", None)?;
 
     Ok(())
 }

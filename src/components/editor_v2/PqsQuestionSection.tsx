@@ -1284,6 +1284,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // 3xx.7 L1 = up to command decision → no exempted/scoring
   const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 7;
   const isDefaultDescL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 2 && questionSequence <= 6;
+  // 2xx.2 = ส่วนประกอบ, 2xx.4 = ค่าทำงาน — exempted toggle with default description when not exempted
+  const isDefaultDescL1_200 = is200 && isL1 && (questionSequence === 2 || questionSequence === 4);
   // Auto-created children (required_instance) → score-only edit form
   const isRequiredInstance = is300 && initialQuestionType === 'required_instance';
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
@@ -1330,6 +1332,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (isSection300Selector || isSection100Selector || isSection200Selector) return true;
     // Auto-show description for 3xx.2-3xx.6 L1 questions
     if (isDefaultDescL1) return true;
+    // Auto-show description for 2xx.2, 2xx.4 when not exempted
+    if (isDefaultDescL1_200) return true;
     return !!initialDescription;
   });
 
@@ -1346,9 +1350,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       setDescription("การปฏิบัติหน้าที่ในตำแหน่งนี้ ต้องผ่าน การทดสอบระบบ ที่กำหนด ดังนี้");
     } else if (isDefaultDescL1 && questionSequence !== undefined) {
       setDescription(DEFAULT_L1_DESC_BY_SEQ[questionSequence] || '');
+    } else if (isDefaultDescL1_200 && questionSequence !== undefined) {
+      // Default description for 2xx.2 and 2xx.4 when not exempted (shown when toggle is off)
+      const DEFAULT_200_DESC: Record<number, string> = {
+        2: 'จงอธิบายส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ ตามรายการที่กำหนด',
+        4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
+      };
+      setDescription(DEFAULT_200_DESC[questionSequence] || '');
     }
 
-  }, [isPrerequisiteQuestion, isSection300Selector, isSection100Selector, isSection200Selector, isDefaultDescL1, questionSequence]);
+  }, [isPrerequisiteQuestion, isSection300Selector, isSection100Selector, isSection200Selector, isDefaultDescL1, isDefaultDescL1_200, questionSequence]);
 
   const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
@@ -1504,17 +1515,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     (is300 && (questionSequence === 2 || questionSequence === 3 || questionSequence === 4 || questionSequence === 5))
   );
 
-  // Disable for exempted prerequisite questions (3xx.1 when question_type = 'exempted')
+  // Disable for exempted prerequisite questions OR exempted 2xx.2/2xx.4
   const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() =>
-    baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted') && !(isPrerequisiteChild && formScoreType === 'exempted')
+    baseShowSubQuestionEditor
+    && !(isPrerequisiteQuestion && formScoreType === 'exempted')
+    && !(isPrerequisiteChild && formScoreType === 'exempted')
+    && !(isDefaultDescL1_200 && formScoreType === 'exempted')
   );
 
   // Re-evaluate when formScoreType changes
   useEffect(() => {
     setShowSubQuestionEditor(
-      baseShowSubQuestionEditor && !(isPrerequisiteQuestion && formScoreType === 'exempted') && !(isPrerequisiteChild && formScoreType === 'exempted')
+      baseShowSubQuestionEditor
+      && !(isPrerequisiteQuestion && formScoreType === 'exempted')
+      && !(isPrerequisiteChild && formScoreType === 'exempted')
+      && !(isDefaultDescL1_200 && formScoreType === 'exempted')
     );
-  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, formScoreType]);
+  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, isDefaultDescL1_200, formScoreType]);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     if (!initialMetadata) return false;
     try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
@@ -2485,6 +2502,59 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <div className="flex-1 text-xs text-red-700 dark:text-red-300">
                     <div className="font-bold mb-1">คำเตือน: คำถามนี้มีคำถามย่อยอยู่</div>
                     <div>เมื่อบันทึกเป็น "ไม่ต้องปฏิบัติ" คำถามย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 200-series: "(ไม่ต้องอธิบาย)" toggle for 2xx.2 and 2xx.4 only ── */}
+        {isDefaultDescL1_200 && (
+          <div className="rounded-md border border-orange-200 dark:border-orange-800/50 bg-orange-50/30 dark:bg-orange-950/20 p-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">การอธิบาย</span>
+              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={formScoreType === 'exempted'}
+                  onChange={(e) => {
+                    const isExempted = e.target.checked;
+                    setFormScoreType(isExempted ? 'exempted' : 'normal');
+                    if (isExempted) {
+                      setFormScoreDisplayText('(ไม่ต้องอธิบาย)');
+                      setDescription('');
+                      setShowDescription(false);
+                      setUseSubQuestions(false);
+                    } else {
+                      setFormScoreDisplayText('');
+                      const DEFAULT_200_DESC: Record<number, string> = {
+                        2: 'จงอธิบายส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ ตามรายการที่กำหนด',
+                        4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
+                      };
+                      if (questionSequence !== undefined) {
+                        setDescription(DEFAULT_200_DESC[questionSequence] || '');
+                      }
+                      setShowDescription(true);
+                    }
+                  }}
+                  className="accent-orange-600 w-3.5 h-3.5"
+                />
+                ไม่ต้องอธิบาย
+              </label>
+              {formScoreType === 'exempted' && (
+                <span className="text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded">
+                  (ไม่ต้องอธิบาย)
+                </span>
+              )}
+            </div>
+            {isL1 && hasActualChildren && formScoreType === 'exempted' && (
+              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
+                <div className="flex items-start gap-2">
+                  <span className="text-red-600 dark:text-red-400 text-sm font-bold">⚠️</span>
+                  <div className="flex-1 text-xs text-red-700 dark:text-red-300">
+                    <div className="font-bold mb-1">คำเตือน: คำถามนี้มีรายการย่อยอยู่</div>
+                    <div>เมื่อบันทึกเป็น "ไม่ต้องอธิบาย" รายการย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
                   </div>
                 </div>
               </div>
