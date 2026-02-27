@@ -1111,6 +1111,20 @@ fn get_document_stats() -> Result<content_database::DocumentStats, String> {
     content_database::get_document_stats()
 }
 
+#[tauri::command]
+fn get_document_branch(doc_id: String) -> Result<content_database::DocumentBranch, String> {
+    content_database::get_document_branch(doc_id)
+}
+
+#[tauri::command]
+fn update_document_branch(
+    doc_id: String,
+    branch_main: Option<String>,
+    branch_sub: Option<String>,
+) -> Result<(), String> {
+    content_database::update_document_branch(doc_id, branch_main, branch_sub)
+}
+
 // ==========================================
 // Occupation Branch Commands
 // ==========================================
@@ -1460,6 +1474,9 @@ fn main() {
             get_user_progress,
             calculate_group_score,
             update_question_score,
+            // Document Branch (Occupation Branch at document level)
+            get_document_branch,
+            update_document_branch,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

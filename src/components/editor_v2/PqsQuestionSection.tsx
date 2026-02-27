@@ -156,6 +156,9 @@ interface PqsQuestionSectionProps {
   refreshTrigger?: number;
   onReferencesUpdated?: () => void; // Added callback
   onQuestionsUpdated?: () => void;
+  // Document-level occupation branch (set in Edit Metadata)
+  docBranchMain?: string;
+  docBranchSub?: string;
 }
 
 // ============ Main Component ============
@@ -170,6 +173,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   refreshTrigger = 0,
   onReferencesUpdated,
   onQuestionsUpdated,
+  docBranchMain = '',
+  docBranchSub = '',
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -304,15 +309,19 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     } catch { return {}; }
   }, [questionTree, is200]);
 
-  const seq2SelectedBranch = useMemo((): { main: string; sub: string } => {
-    if (!is200) return { main: "", sub: "" };
+  const effectiveSelectedBranch = useMemo((): { main: string; sub: string } | undefined => {
+    if (docBranchMain && docBranchSub) return { main: docBranchMain, sub: docBranchSub };
+    if (!is200) return undefined;
     const seq2 = questionTree.find(q => q.sequence === 2);
-    if (!seq2?.metadata) return { main: "", sub: "" };
+    if (!seq2?.metadata) return undefined;
     try {
       const meta = JSON.parse(seq2.metadata);
-      return { main: meta.selectedBranch?.main || "", sub: meta.selectedBranch?.sub || "" };
-    } catch { return { main: "", sub: "" }; }
-  }, [questionTree, is200]);
+      if (meta.selectedBranch?.main && meta.selectedBranch?.sub) {
+        return { main: meta.selectedBranch.main, sub: meta.selectedBranch.sub };
+      }
+    } catch { return undefined; }
+    return undefined;
+  }, [questionTree, is200, docBranchMain, docBranchSub]);
 
   const resetForms = () => {
     setIsCreating(false);
@@ -646,7 +655,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 sectionOccupationBranches={is200 && question.sequence === 4 ? seq2OccupationBranches : undefined}
-                sectionSelectedBranch={is200 && question.sequence === 4 ? seq2SelectedBranch : undefined}
+                sectionSelectedBranch={(is200 || is300) ? effectiveSelectedBranch : undefined}
                 collapsedIds={collapsedIds}
                 onToggleCollapse={handleToggleCollapse}
                 readOnly={readOnly}

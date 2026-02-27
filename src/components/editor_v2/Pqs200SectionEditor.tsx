@@ -18,6 +18,8 @@ interface Pqs200SectionEditorProps {
   isPreviewMode?: boolean;
   viewMode?: ViewMode;
   onMenuLabelChange?: () => void;
+  docBranchMain?: string;
+  docBranchSub?: string;
 }
 
 const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
@@ -27,6 +29,8 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   subTitle,
   viewMode = 'edit',
   onMenuLabelChange,
+  docBranchMain,
+  docBranchSub,
 }) => {
   const readOnly = viewMode !== 'edit';
   const isCompact = viewMode === 'normal';
@@ -264,6 +268,8 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
           sectionGroup={200}
           readOnly={readOnly}
           refreshTrigger={refreshQuestionsTrigger}
+          docBranchMain={docBranchMain}
+          docBranchSub={docBranchSub}
           onReferencesUpdated={() => {
             fetchReferences(sectionId);
           }}

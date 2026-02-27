@@ -30,6 +30,8 @@ interface Pqs300SectionEditorProps {
   isPreviewMode?: boolean;
   viewMode?: ViewMode;
   onMenuLabelChange?: () => void;
+  docBranchMain?: string;
+  docBranchSub?: string;
 }
 
 const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
@@ -39,6 +41,8 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   subTitle,
   viewMode = 'edit',
   onMenuLabelChange,
+  docBranchMain,
+  docBranchSub,
 }) => {
   const readOnly = viewMode !== 'edit';
   const [sectionId, setSectionId] = useState<number>(0);
@@ -275,6 +279,8 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
           sectionNumber={sectionNumber}
           sectionGroup={300}
           readOnly={readOnly}
+          docBranchMain={docBranchMain}
+          docBranchSub={docBranchSub}
           onQuestionsUpdated={fetchSectionData}
         />
       </div>

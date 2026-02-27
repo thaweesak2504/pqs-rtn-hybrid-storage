@@ -81,6 +81,21 @@ const ActiveDocumentPage: React.FC = () => {
     }
   }, [docId]);
 
+  // Document-level occupation branch
+  const [docBranchMain, setDocBranchMain] = useState<string>('');
+  const [docBranchSub, setDocBranchSub] = useState<string>('');
+
+  const fetchDocBranch = useCallback(() => {
+    if (docId) {
+      invoke<{ occupation_branch_main: string | null; occupation_branch_sub: string | null }>(
+        'get_document_branch', { docId }
+      ).then(b => {
+        setDocBranchMain(b.occupation_branch_main || '');
+        setDocBranchSub(b.occupation_branch_sub || '');
+      }).catch(() => { });
+    }
+  }, [docId]);
+
   const handleAddSection = (sectionGroup: 100 | 200 | 300) => {
     setSelectedSectionGroup(sectionGroup);
     setAddSectionModalOpen(true);
@@ -111,8 +126,9 @@ const ActiveDocumentPage: React.FC = () => {
       // Fetch data immediately
       fetchDocData();
       fetchSections();
+      fetchDocBranch();
     }
-  }, [docId, fetchDocData, fetchSections]);
+  }, [docId, fetchDocData, fetchSections, fetchDocBranch]);
 
   if (!docId) return <div>Invalid Document ID</div>;
 
@@ -375,6 +391,8 @@ const ActiveDocumentPage: React.FC = () => {
                 isPreviewMode={isPreviewMode}
                 viewMode={viewMode}
                 onMenuLabelChange={fetchSections}
+                docBranchMain={docBranchMain}
+                docBranchSub={docBranchSub}
               />
             )}
 
@@ -394,6 +412,8 @@ const ActiveDocumentPage: React.FC = () => {
                 isPreviewMode={isPreviewMode}
                 viewMode={viewMode}
                 onMenuLabelChange={fetchSections}
+                docBranchMain={docBranchMain}
+                docBranchSub={docBranchSub}
               />
             )}
 
@@ -409,7 +429,7 @@ const ActiveDocumentPage: React.FC = () => {
           docId={docData.document.id}
           initialName={docData.document.name}
           initialAppliedTo={docData.document.applied_to}
-          onSuccess={fetchDocData}
+          onSuccess={() => { fetchDocData(); fetchDocBranch(); }}
         />
       )}
 

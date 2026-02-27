@@ -102,6 +102,10 @@ pub fn initialize_content_database() -> Result<String, String> {
         [],
     ).map_err(|e| format!("Failed to create Documents table: {}", e))?;
 
+    // Migration: add occupation_branch columns if not exist (safe to run multiple times)
+    let _ = conn.execute("ALTER TABLE Documents ADD COLUMN occupation_branch_main VARCHAR(10)", []);
+    let _ = conn.execute("ALTER TABLE Documents ADD COLUMN occupation_branch_sub VARCHAR(10)", []);
+
     // Create Sections table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS Sections (
@@ -489,6 +493,35 @@ pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {
     ).map_err(|e| format!("Failed to update document: {}", e))?;
     
     Ok(format!("Document {} updated successfully", args.id))
+}
+
+#[derive(serde::Serialize)]
+pub struct DocumentBranch {
+    pub occupation_branch_main: Option<String>,
+    pub occupation_branch_sub: Option<String>,
+}
+
+/// Get the occupation branch selection for a document
+pub fn get_document_branch(doc_id: String) -> Result<DocumentBranch, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.query_row(
+        "SELECT occupation_branch_main, occupation_branch_sub FROM Documents WHERE id = ?1",
+        params![doc_id],
+        |row| Ok(DocumentBranch {
+            occupation_branch_main: row.get(0)?,
+            occupation_branch_sub: row.get(1)?,
+        })
+    ).map_err(|e| e.to_string())
+}
+
+/// Update occupation branch selection for a document
+pub fn update_document_branch(doc_id: String, branch_main: Option<String>, branch_sub: Option<String>) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute(
+        "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
+        params![branch_main, branch_sub, doc_id]
+    ).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[derive(serde::Serialize)]
