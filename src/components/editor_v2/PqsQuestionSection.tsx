@@ -2703,7 +2703,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           <Tooltip
                             disabled={!sectionSelectedBranch}
                             content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
-                            position="top"
+                            position="top-start"
                             className="flex-1"
                           >
                             <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
@@ -2733,7 +2733,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
                         <Tooltip
                           content="แสดงค่าที่เลือกมาจากข้อย่อย 2xx.2"
-                          position="top"
+                          position="top-start"
                           className="w-full"
                         >
                           <select value={selMainBranch} disabled
@@ -2762,7 +2762,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <Tooltip
                               disabled={!sectionSelectedBranch}
                               content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
-                              position="top"
+                              position="top-start"
                               className="flex-1"
                             >
                               <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
@@ -2792,7 +2792,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
                           <Tooltip
                             content="แสดงค่าที่เลือกมาจากข้อย่อย 2xx.2"
-                            position="top"
+                            position="top-start"
                             className="w-full"
                           >
                             <select value={selSubBranch} disabled
