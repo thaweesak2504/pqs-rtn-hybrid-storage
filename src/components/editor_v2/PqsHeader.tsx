@@ -1,5 +1,6 @@
 import { Check, Edit2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import Tooltip from '../ui/Tooltip';
 
 type SectionTheme = 'blue' | 'green' | 'orange' | 'purple';
 
@@ -223,16 +224,21 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
                   </button>
                 </div>
               ) : (
-                <div
-                  className={`flex items-center gap-1 px-1 -mr-1 rounded transition-colors ${!readOnly && onSubTitleChange ? 'cursor-pointer hover:bg-white/10' : ''}`}
-                  onClick={!readOnly && onSubTitleChange ? () => setIsEditingSubTitle(true) : undefined}
-                  title={!readOnly && onSubTitleChange ? 'คลิกเพื่อแก้ไข English Menu Name' : undefined}
+                <Tooltip
+                  disabled={readOnly || !onSubTitleChange}
+                  content="คลิกเพื่อแก้ไข English Menu Name"
+                  position="bottom-end"
                 >
-                  <span className="text-xs md:text-sm font-light text-white/90 border-l border-white/20 pl-3">
-                    {subTitle || (onSubTitleChange ? <span className="italic text-white/40">คลิกเพื่อใส่ชื่อเมนู</span> : null)}
-                  </span>
-                  {!readOnly && onSubTitleChange && <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover/subtitle:opacity-60 transition-opacity text-white/70 shrink-0" />}
-                </div>
+                  <div
+                    className={`flex items-center gap-1 px-1 -mr-1 rounded transition-colors ${!readOnly && onSubTitleChange ? 'cursor-pointer hover:bg-white/10' : ''}`}
+                    onClick={!readOnly && onSubTitleChange ? () => setIsEditingSubTitle(true) : undefined}
+                  >
+                    <span className="text-xs md:text-sm font-light text-white/90 border-l border-white/20 pl-3">
+                      {subTitle || (onSubTitleChange ? <span className="italic text-white/40">คลิกเพื่อใส่ชื่อเมนู</span> : null)}
+                    </span>
+                    {!readOnly && onSubTitleChange && <Edit2 className="w-2.5 h-2.5 opacity-0 group-hover/subtitle:opacity-60 transition-opacity text-white/70 shrink-0" />}
+                  </div>
+                </Tooltip>
               )}
             </div>
           )}
