@@ -1159,6 +1159,8 @@ fn get_occupation_sub_branches(
     content_database::get_occupation_sub_branches(branch_code)
 }
 
+
+
 #[tauri::command]
 fn create_occupation_sub_branch(
     code: String,
@@ -1176,6 +1178,8 @@ fn update_occupation_sub_branch(
 ) -> Result<(), String> {
     content_database::update_occupation_sub_branch(code, branch_code, name)
 }
+
+
 
 #[tauri::command]
 fn delete_occupation_sub_branch(code: String, branch_code: String) -> Result<(), String> {

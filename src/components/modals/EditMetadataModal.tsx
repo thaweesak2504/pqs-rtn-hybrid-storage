@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { CheckCircle, Plus, X } from 'lucide-react';
+import { CheckCircle, Pencil, Plus, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import Button from '../ui/Button';
 import { FormInput, FormRow, FormSelect } from '../ui/Form';
@@ -47,6 +47,12 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [newMainName, setNewMainName] = useState('');
   const [isAddingSub, setIsAddingSub] = useState(false);
   const [newSubName, setNewSubName] = useState('');
+
+  // Editing existing branch state
+  const [editingMainCode, setEditingMainCode] = useState<string | null>(null);
+  const [editingMainName, setEditingMainName] = useState('');
+  const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
+  const [editingSubName, setEditingSubName] = useState('');
 
   // Load branches and existing document branch on open
   useEffect(() => {
@@ -210,6 +216,20 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     }}><CheckCircle className="w-4 h-4" /></Button>
                     <Button type="button" variant="outline" onClick={() => { setNewMainName(""); setIsAddingMain(false); }}><X className="w-4 h-4" /></Button>
                   </div>
+                ) : editingMainCode ? (
+                  <div className="flex gap-2">
+                    <input type="text" maxLength={50} value={editingMainName} onChange={e => setEditingMainName(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+                    <Button type="button" variant="primary" onClick={async () => {
+                      if (!editingMainName.trim()) return;
+                      try {
+                        await invoke('update_occupation_branch', { code: editingMainCode, name: editingMainName.trim() });
+                        setBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b));
+                        setEditingMainCode(null);
+                      } catch (e) { console.error(e); }
+                    }}><CheckCircle className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingMainCode(null)}><X className="w-4 h-4" /></Button>
+                  </div>
                 ) : (
                   <div className="flex gap-2">
                     <select
@@ -222,6 +242,12 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                         <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
                       ))}
                     </select>
+                    {selectedMain && (
+                      <Button type="button" variant="outline" className="px-3" onClick={() => {
+                        setEditingMainCode(selectedMain);
+                        setEditingMainName(branches.find(b => b.code === selectedMain)?.name || "");
+                      }} title="แก้ไขชื่อสาขา"><Pencil className="w-4 h-4" /></Button>
+                    )}
                     <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingMain(true)} title="เพิ่มสาขาใหม่"><Plus className="w-4 h-4" /></Button>
                   </div>
                 )}
@@ -246,6 +272,20 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     }}><CheckCircle className="w-4 h-4" /></Button>
                     <Button type="button" variant="outline" onClick={() => { setNewSubName(""); setIsAddingSub(false); }}><X className="w-4 h-4" /></Button>
                   </div>
+                ) : selectedMain && editingSubCode ? (
+                  <div className="flex gap-2">
+                    <input type="text" maxLength={50} value={editingSubName} onChange={e => setEditingSubName(e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" autoFocus />
+                    <Button type="button" variant="primary" onClick={async () => {
+                      if (!editingSubName.trim()) return;
+                      try {
+                        await invoke('update_occupation_sub_branch', { code: editingSubCode, branchCode: selectedMain, name: editingSubName.trim() });
+                        setSubBranches(prev => prev.map(s => s.code === editingSubCode ? { ...s, name: editingSubName.trim() } : s));
+                        setEditingSubCode(null);
+                      } catch (e) { console.error(e); }
+                    }}><CheckCircle className="w-4 h-4" /></Button>
+                    <Button type="button" variant="outline" onClick={() => setEditingSubCode(null)}><X className="w-4 h-4" /></Button>
+                  </div>
                 ) : (
                   <div className="flex gap-2">
                     <select
@@ -260,7 +300,15 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                       ))}
                     </select>
                     {selectedMain && (
-                      <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingSub(true)} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-4 h-4" /></Button>
+                      <>
+                        {selectedSub && (
+                          <Button type="button" variant="outline" className="px-3" onClick={() => {
+                            setEditingSubCode(selectedSub);
+                            setEditingSubName(subBranches.find(s => s.code === selectedSub)?.name || "");
+                          }} title="แก้ไขชื่อสาขาย่อย"><Pencil className="w-4 h-4" /></Button>
+                        )}
+                        <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingSub(true)} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-4 h-4" /></Button>
+                      </>
                     )}
                   </div>
                 )}
