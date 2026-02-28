@@ -31,6 +31,7 @@ import {
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Button from "../ui/Button";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
+import Tooltip from "../ui/Tooltip";
 
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -2699,13 +2700,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         </div>
                       ) : !sectionOccupationBranches && !isAddingMain ? (
                         <div className="flex gap-1">
-                          <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
-                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
-                            disabled={!!sectionSelectedBranch}
-                            title={!!sectionSelectedBranch ? "ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)" : ""}>
-                            <option value="">-- เลือก --</option>
-                            {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
-                          </select>
+                          <Tooltip
+                            disabled={!sectionSelectedBranch}
+                            content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
+                            position="top"
+                            className="flex-1"
+                          >
+                            <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
+                              className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                              disabled={!!sectionSelectedBranch}>
+                              <option value="">-- เลือก --</option>
+                              {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
+                            </select>
+                          </Tooltip>
                           {selMainBranch && !sectionSelectedBranch && <>
                             <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
                               className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
@@ -2724,11 +2731,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         </div>
                       ) : (
                         /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
-                        <select value={selMainBranch} disabled
-                          className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
-                          <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
-                          {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
-                        </select>
+                        <Tooltip
+                          content="แสดงค่าที่เลือกมาจากข้อย่อย 2xx.2"
+                          position="top"
+                          className="w-full"
+                        >
+                          <select value={selMainBranch} disabled
+                            className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
+                            <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
+                            {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
+                          </select>
+                        </Tooltip>
                       )}
                     </div>
 
@@ -2746,13 +2759,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           </div>
                         ) : !sectionOccupationBranches && !isAddingSub ? (
                           <div className="flex gap-1">
-                            <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
-                              disabled={!!sectionSelectedBranch}
-                              title={!!sectionSelectedBranch ? "ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)" : ""}>
-                              <option value="">-- เลือก --</option>
-                              {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
-                            </select>
+                            <Tooltip
+                              disabled={!sectionSelectedBranch}
+                              content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
+                              position="top"
+                              className="flex-1"
+                            >
+                              <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
+                                className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                                disabled={!!sectionSelectedBranch}>
+                                <option value="">-- เลือก --</option>
+                                {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
+                              </select>
+                            </Tooltip>
                             {selSubBranch && !sectionSelectedBranch && <>
                               <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
                                 className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
@@ -2771,11 +2790,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           </div>
                         ) : (
                           /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
-                          <select value={selSubBranch} disabled
-                            className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
-                            <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
-                            {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
-                          </select>
+                          <Tooltip
+                            content="แสดงค่าที่เลือกมาจากข้อย่อย 2xx.2"
+                            position="top"
+                            className="w-full"
+                          >
+                            <select value={selSubBranch} disabled
+                              className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
+                              <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
+                              {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
+                            </select>
+                          </Tooltip>
                         )}
                       </div>
                     )}
