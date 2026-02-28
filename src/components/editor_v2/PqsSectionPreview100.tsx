@@ -5,6 +5,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
+import TraineeAnswerBox from './TraineeAnswerBox';
 
 // ============ Helpers ============
 
@@ -280,7 +281,14 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         </div>
       )}
 
-      {/* Answer Key Box โ€” always shown, no repeated question, no checkboxes */}
+      {/* Trainee Answer Box */}
+      {(!question.children || question.children.length === 0) && (
+        <div className={`mt-3 mb-1 ${contentStartOffsetClass}`}>
+          <TraineeAnswerBox questionId={question.id} readOnly={false} />
+        </div>
+      )}
+
+      {/* Answer Key Box — always shown, no repeated question, no checkboxes */}
       {answerKey && (
         <div className={`mt-2 ${contentStartOffsetClass}`}>
           <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">

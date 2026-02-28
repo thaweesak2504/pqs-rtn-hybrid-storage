@@ -39,3 +39,9 @@ If commands still hang:
     ./scripts/cleanup.ps1
     ```
 3.  **Restart IDE**: A full restart of Antigravity is often the cleanest way to reset the terminal handle.
+
+## 5. User-Reported Success Patterns (2026-02-28)
+Recent feedback confirms highly stable terminal operations with the following habits:
+*   **Terminal Reset on Start**: Closing and reopening the Terminal once at the start of an IDE session ensures a fresh, non-hanging state.
+*   **Language/Keyboard Support**: Using the keyboard in "Thai" mode while the Agent works does not cause interference or hangs in current versions.
+*   **Overall Flow**: Terminal commands (Git, etc.) are currently performing fluidly without manual intervention.

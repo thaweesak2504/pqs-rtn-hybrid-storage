@@ -5,6 +5,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
+import TraineeAnswerBox from './TraineeAnswerBox';
 
 // ============ Helpers ============
 
@@ -165,7 +166,7 @@ interface PreviewQuestionNode200Props {
   parentPath: string;
   sectionNumber: number;
   sectionGroup: 100 | 200 | 300;
-  parentSubQuestionList?: Array<{code: string; text: string; alwaysChecked?: boolean}>;
+  parentSubQuestionList?: Array<{ code: string; text: string; alwaysChecked?: boolean }>;
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -232,15 +233,15 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   }, [parentSubQuestionList, question.metadata]);
 
   // Active SubQuestionList to pass to children (same as View Mode)
-  const activeSubQuestionList = useMemo((): Array<{code: string; text: string; alwaysChecked?: boolean}> => {
+  const activeSubQuestionList = useMemo((): Array<{ code: string; text: string; alwaysChecked?: boolean }> => {
     if (!question.metadata) return [];
     try {
       const meta = JSON.parse(question.metadata);
       if (!meta.useSubQuestions) return [];
-      const list: Array<{code: string; text: string; alwaysChecked?: boolean}> = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
+      const list: Array<{ code: string; text: string; alwaysChecked?: boolean }> = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
       const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
       if (activeCodes.length === 0) return [];
-      return activeCodes.map(code => list.find(sq => sq.code === code)).filter(Boolean) as Array<{code: string; text: string; alwaysChecked?: boolean}>;
+      return activeCodes.map(code => list.find(sq => sq.code === code)).filter(Boolean) as Array<{ code: string; text: string; alwaysChecked?: boolean }>;
     } catch { return []; }
   }, [question.metadata]);
 
@@ -360,7 +361,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
           const meta = JSON.parse(question.metadata);
           console.log('Preview200 SubQuestionList metadata:', meta);
           // แสดงเมื่อมี subQuestionList และ activeCodes ไม่ว่า useSubQuestions จะเป็นอะไร
-          const list: Array<{code: string; text: string; alwaysChecked?: boolean}> = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
+          const list: Array<{ code: string; text: string; alwaysChecked?: boolean }> = Array.isArray(meta.subQuestionList) ? meta.subQuestionList : [];
           const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
           console.log('Preview200: list length:', list.length, 'activeCodes:', activeCodes);
           if (list.length === 0 || activeCodes.length === 0) {
@@ -368,7 +369,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
             return null;
           }
           // เรียงตาม activeCodes ไม่ใช่ idx จาก filter
-          const display = activeCodes.map(code => list.find(sq => sq.code === code)).filter(Boolean) as Array<{code: string; text: string; alwaysChecked?: boolean}>;
+          const display = activeCodes.map(code => list.find(sq => sq.code === code)).filter(Boolean) as Array<{ code: string; text: string; alwaysChecked?: boolean }>;
           console.log('Preview200: display items:', display);
           if (display.length === 0) {
             return (
@@ -392,96 +393,117 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
               })}
             </div>
           );
-        } catch (e) { 
+        } catch (e) {
           console.error('Preview200 SubQuestionList error:', e);
-          return null; 
+          return null;
         }
       })()}
 
-      {/* Answer Key Display */}
+      {/* Trainee Answer Box handling moved inside the Answer Key blocks to support multi-answers */}          {/* Answer Key Display */}
       {/* Single Answer Key (for questions without sub-questions) */}
-      {answerKey && Object.keys(answerKeys).length === 0 && (
-        <div className={`mt-2 ${contentStartOffsetClass}`}>
-          <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
-            <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
-            <div className="answer-key-markdown min-w-0 flex-1">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-              >
-                {formatAnswerKeyForDisplay(answerKey).replace(/\n/g, "  \n")}
-              </ReactMarkdown>
+      {
+        answerKey && Object.keys(answerKeys).length === 0 && (
+          <div className={`mt-2 ${contentStartOffsetClass} flex flex-col gap-1.5`}>
+            {/* If there's an answer key, show the answer box regardless of being a leaf node */}
+            <TraineeAnswerBox questionId={question.id} readOnly={false} />
+            <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
+              <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
+              <div className="answer-key-markdown min-w-0 flex-1">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                >
+                  {formatAnswerKeyForDisplay(answerKey).replace(/\n/g, "  \n")}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Multi Answer Keys — เรียงตาม parentSubQuestionList เหมือน View Mode */}
-      {Object.keys(answerKeys).length > 0 && (() => {
-        // เรียงตาม parentSubQuestionList ถ้ามี ไม่งั้นเรียงตาม selectedSubQuestions ใน metadata
-        const ordered: string[] = parentSubQuestionList
-          ? parentSubQuestionList.map(s => s.code).filter(c => c in answerKeys)
-          : Array.isArray(meta.selectedSubQuestions)
-            ? (meta.selectedSubQuestions as string[]).filter(c => c in answerKeys)
-            : Object.keys(answerKeys);
-        if (ordered.length === 0) return null;
-        return (
-          <div className={`mt-2 ${contentStartOffsetClass} space-y-1.5`}>
-            {ordered.map(code => {
-              const text = answerKeys[code];
-              // หา index จาก parentSubQuestionList เพื่อแสดง label ที่ถูกต้อง
-              const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
-              const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
-              return (
-                <div key={code} className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary">
-                  <div className="flex items-start gap-2">
-                    <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}</span></span>
-                    <div className="answer-key-markdown min-w-0 flex-1">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw]}
-                      >
-                        {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
-                      </ReactMarkdown>
+      {
+        Object.keys(answerKeys).length > 0 && (() => {
+          // เรียงตาม parentSubQuestionList ถ้ามี ไม่งั้นเรียงตาม selectedSubQuestions ใน metadata
+          const ordered: string[] = parentSubQuestionList
+            ? parentSubQuestionList.map(s => s.code).filter(c => c in answerKeys)
+            : Array.isArray(meta.selectedSubQuestions)
+              ? (meta.selectedSubQuestions as string[]).filter(c => c in answerKeys)
+              : Object.keys(answerKeys);
+          if (ordered.length === 0) return null;
+          return (
+            <div className={`mt-2 ${contentStartOffsetClass} space-y-1.5`}>
+              {ordered.map(code => {
+                const text = answerKeys[code];
+                // หา index จาก parentSubQuestionList เพื่อแสดง label ที่ถูกต้อง
+                const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
+                const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
+                return (
+                  <div key={code} className="flex flex-col gap-1.5">
+                    {/* If there's an answer key, show the answer box regardless of being a leaf node */}
+                    <TraineeAnswerBox questionId={question.id} subQuestionCode={code} readOnly={false} />
+                    <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary">
+                      <div className="flex items-start gap-2">
+                        <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}</span></span>
+                        <div className="answer-key-markdown min-w-0 flex-1">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                          >
+                            {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          );
+        })()
+      }
+
+      {/* Fallback Answer Box ONLY (if no answerKeys yet) */}
+      {
+        (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
+          <div className={`mt-2 ${contentStartOffsetClass}`}>
+            <TraineeAnswerBox questionId={question.id} readOnly={false} />
           </div>
-        );
-      })()}
+        )
+      }
 
       {/* Children (sub-questions) */}
-      {hasChildren && (
-        <div
-          className={
-            childLayout === 'grid'
-              ? `grid grid-cols-2 gap-x-8 gap-y-1 ${level === 0
-                ? (is200 ? 'ml-0' : 'ml-[9ch]')
-                : (is200 && level === 1 ? 'ml-[9ch]' : 'ml-4')
-              }`
-              : `space-y-1 ${level === 0
-                ? (is200 ? 'ml-0' : 'ml-[9ch]')
-                : (is200 && level === 1 ? 'ml-[9ch]' : 'ml-4')
-              }`
-          }
-        >
-          {question.children!.map((child, childIdx) => (
-            <div key={child.id} className="break-inside-avoid">
-              <PreviewQuestionNode200
-                question={child}
-                index={childIdx}
-                level={level + 1}
-                parentPath={fullPath}
-                sectionNumber={sectionNumber}
-                sectionGroup={sectionGroup}
-                parentSubQuestionList={activeSubQuestionList.length > 0 ? activeSubQuestionList : parentSubQuestionList}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      {
+        hasChildren && (
+          <div
+            className={
+              childLayout === 'grid'
+                ? `grid grid-cols-2 gap-x-8 gap-y-1 ${level === 0
+                  ? (is200 ? 'ml-0' : 'ml-[9ch]')
+                  : (is200 && level === 1 ? 'ml-[9ch]' : 'ml-4')
+                }`
+                : `space-y-1 ${level === 0
+                  ? (is200 ? 'ml-0' : 'ml-[9ch]')
+                  : (is200 && level === 1 ? 'ml-[9ch]' : 'ml-4')
+                }`
+            }
+          >
+            {question.children!.map((child, childIdx) => (
+              <div key={child.id} className="break-inside-avoid">
+                <PreviewQuestionNode200
+                  question={child}
+                  index={childIdx}
+                  level={level + 1}
+                  parentPath={fullPath}
+                  sectionNumber={sectionNumber}
+                  sectionGroup={sectionGroup}
+                  parentSubQuestionList={activeSubQuestionList.length > 0 ? activeSubQuestionList : parentSubQuestionList}
+                />
+              </div>
+            ))}
+          </div>
+        )
+      }
     </div>
   );
 };

@@ -32,6 +32,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import Button from "../ui/Button";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import Tooltip from "../ui/Tooltip";
+import TraineeAnswerBox from "./TraineeAnswerBox";
 
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -4048,8 +4049,17 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             </div>
           );
         })()}
+        {/* Trainee Answer Box is now managed inside QuestionMetadataDisplay to support per-subQ answers */}
+
         {question.metadata && (
-          <QuestionMetadataDisplay metadata={question.metadata} onImageClick={onImageClick} parentSubQuestionList={parentSubQuestionList} />
+          <QuestionMetadataDisplay
+            metadata={question.metadata}
+            questionId={question.id}
+            onImageClick={onImageClick}
+            parentSubQuestionList={parentSubQuestionList}
+            readOnly={readOnly}
+            showAnswerBox={!is300 && !question.is_group_header && question.question_type !== 'exempted'}
+          />
         )}
       </div>
 
@@ -4156,9 +4166,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 // Helper to Display Metadata (Images)
 const QuestionMetadataDisplay: React.FC<{
   metadata: string;
+  questionId: string;
   onImageClick?: (src: string) => void;
   parentSubQuestionList?: SubQuestionItem[];
-}> = ({ metadata, onImageClick, parentSubQuestionList }) => {
+  readOnly?: boolean;
+  showAnswerBox?: boolean;
+}> = ({ metadata, questionId, onImageClick, parentSubQuestionList, readOnly = false, showAnswerBox = false }) => {
   const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
     const out: string[] = [];
@@ -4214,7 +4227,7 @@ const QuestionMetadataDisplay: React.FC<{
   if (!data.image && !data.answerKey && !data.answerKeys) return null;
 
   return (
-    <div className="mt-2 ml-4 space-y-2">
+    <div className="mt-2 space-y-2">
       {/* Image Display (First) */}
       {data.image && (
         <AsyncImagePreview
@@ -4241,13 +4254,18 @@ const QuestionMetadataDisplay: React.FC<{
             const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
             const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
             return (
-              <div key={code} className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
-                <div className="flex items-start gap-2">
-                  <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
-                  <div className="answer-key-markdown min-w-0 flex-1">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                      {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
-                    </ReactMarkdown>
+              <div key={code} className="flex flex-col gap-1.5">
+                {showAnswerBox && (
+                  <TraineeAnswerBox questionId={questionId} subQuestionCode={code} readOnly={readOnly} />
+                )}
+                <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+                  <div className="flex items-start gap-2">
+                    <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
+                    <div className="answer-key-markdown min-w-0 flex-1">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                        {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -4256,19 +4274,27 @@ const QuestionMetadataDisplay: React.FC<{
         </div>
       ) : data.answerKey ? (
         /* Single answer key */
-        <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
-          <div className="flex items-start gap-2">
-            <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
-            <div className="answer-key-markdown min-w-0 flex-1">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeRaw]}
-              >
-                {formatAnswerKeyForDisplay(data.answerKey).replace(/\n/g, "  \n")}
-              </ReactMarkdown>
+        <div className="flex flex-col gap-1.5">
+          {showAnswerBox && (
+            <TraineeAnswerBox questionId={questionId} readOnly={readOnly} />
+          )}
+          <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+            <div className="flex items-start gap-2">
+              <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
+              <div className="answer-key-markdown min-w-0 flex-1">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw]}
+                >
+                  {formatAnswerKeyForDisplay(data.answerKey).replace(/\n/g, "  \n")}
+                </ReactMarkdown>
+              </div>
             </div>
           </div>
         </div>
+      ) : showAnswerBox ? (
+        /* Answer box ONLY (no answer keys yet) */
+        <TraineeAnswerBox questionId={questionId} readOnly={readOnly} />
       ) : null}
     </div>
   );
