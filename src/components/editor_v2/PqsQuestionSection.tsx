@@ -2700,8 +2700,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       ) : !sectionOccupationBranches && !isAddingMain ? (
                         <div className="flex gap-1">
                           <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
-                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}
-                            disabled={!!sectionSelectedBranch}>
+                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                            disabled={!!sectionSelectedBranch}
+                            title={!!sectionSelectedBranch ? "ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)" : ""}>
                             <option value="">-- เลือก --</option>
                             {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
                           </select>
@@ -2746,8 +2747,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         ) : !sectionOccupationBranches && !isAddingSub ? (
                           <div className="flex gap-1">
                             <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`}
-                              disabled={!!sectionSelectedBranch}>
+                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                              disabled={!!sectionSelectedBranch}
+                              title={!!sectionSelectedBranch ? "ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)" : ""}>
                               <option value="">-- เลือก --</option>
                               {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
                             </select>
