@@ -6,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ConfirmModal from '../modals/ConfirmModal';
 import ImagePreviewModal from '../modals/ImagePreviewModal';
 import Button from '../ui/Button';
+import Tooltip from '../ui/Tooltip';
 
 
 // Types
@@ -116,9 +117,9 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
             </div>
             {references.length > 0 && (
               <div className={`absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center border shadow-sm backdrop-blur-sm ${sectionNumber.startsWith('2') ? 'bg-orange-50/80 text-orange-700 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-800' :
-                  sectionNumber.startsWith('3') ? 'bg-purple-50/80 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800' :
-                    sectionNumber.startsWith('1') ? 'bg-green-50/80 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
-                      'bg-blue-50/80 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
+                sectionNumber.startsWith('3') ? 'bg-purple-50/80 text-purple-700 border-purple-200 dark:bg-purple-900/40 dark:text-purple-300 dark:border-purple-800' :
+                  sectionNumber.startsWith('1') ? 'bg-green-50/80 text-green-700 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-800' :
+                    'bg-blue-50/80 text-blue-700 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-800'
                 }`}>
                 {references.length}
               </div>
@@ -453,17 +454,20 @@ const ReferenceSearchCard: React.FC<{
                         <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
                           {ref.code}
                         </span>
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate" title={ref.title}>{ref.title}</span>
+                        <Tooltip content={ref.title}>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{ref.title}</span>
+                        </Tooltip>
                       </div>
 
                       {/* Trash Icon for Global Delete */}
-                      <button
-                        onClick={(e) => handleDeleteMaster(e, ref.id, ref.code)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                        title="ลบออกจากระบบถาวร"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <Tooltip content="ลบออกจากระบบถาวร" position="left">
+                        <button
+                          onClick={(e) => handleDeleteMaster(e, ref.id, ref.code)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>
@@ -576,7 +580,7 @@ const ReferenceFormCard: React.FC<{
   };
 
   // Auto-Update Code on Category/Class Change (Smart Sequence)
-   
+
   useEffect(() => {
     if (!formData.category) return;
 
@@ -757,14 +761,15 @@ const ReferenceFormCard: React.FC<{
 
               {/* Browse Button */}
               {formData.resource_type !== 'WEBLINK' && formData.classification !== 'Confidential' && (
-                <button
-                  type="button"
-                  onClick={handleBrowse}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-                  title="เลือกไฟล์จากเครื่อง (Browse)"
-                >
-                  <FolderOpen className="w-3.5 h-3.5" />
-                </button>
+                <Tooltip content="เลือกไฟล์จากเครื่อง (Browse)">
+                  <button
+                    type="button"
+                    onClick={handleBrowse}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                  >
+                    <FolderOpen className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
               )}
             </div>
             {focusedField === 'file_path' && (
@@ -885,9 +890,11 @@ const ReferenceDisplayCard: React.FC<{
         </span>
 
         {/* 2. Title */}
-        <span className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate" title={data.title}>
-          {data.title}
-        </span>
+        <Tooltip content={data.title}>
+          <span className="font-medium text-sm text-slate-800 dark:text-slate-200 truncate">
+            {data.title}
+          </span>
+        </Tooltip>
 
         {/* 3. Category Badge — hidden in compact mode */}
         {!compact && data.category && (
@@ -903,13 +910,17 @@ const ReferenceDisplayCard: React.FC<{
 
         {/* Usage Badge — hidden in compact mode and 200 sections */}
         {!compact && !is200 && ((data.usage_count || 0) > 0 ? (
-          <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800" title={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
-            Used: {data.usage_count}
-          </span>
+          <Tooltip content={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
+            <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+              Used: {data.usage_count}
+            </span>
+          </Tooltip>
         ) : (
-          <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80" title="ยังไม่ได้ถูกอ้างอิง">
-            Unused
-          </span>
+          <Tooltip content="ยังไม่ได้ถูกอ้างอิง">
+            <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
+              Unused
+            </span>
+          </Tooltip>
         ))}
       </div>
 
@@ -923,46 +934,53 @@ const ReferenceDisplayCard: React.FC<{
         )}
 
         {/* 5. Resource Icon */}
-        <div
-          className={`flex items-center transition-transform ${data.file_path ? 'cursor-pointer hover:scale-110' : 'cursor-default opacity-40'}`}
-          title={data.file_path ? (data.resource_type === 'WEBLINK' ? `Open: ${data.file_path}` : 'Open File') : 'No file linked'}
-          onClick={data.file_path ? handleOpenResource : undefined}
-        >
-          {data.resource_type === 'WEBLINK' ? (
-            <Globe className="w-4 h-4 text-emerald-500" />
-          ) : data.resource_type === 'VIDEO' ? (
-            <Video className="w-4 h-4 text-purple-500" />
-          ) : data.resource_type === 'IMAGE' ? (
-            <Image className="w-4 h-4 text-blue-500" />
-          ) : data.resource_type === 'AUDIO' ? (
-            <Mic className="w-4 h-4 text-orange-500" />
-          ) : data.resource_type === 'TEMPLATE' ? (
-            <FileDigit className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-          ) : (
-            <FileText className="w-4 h-4 text-slate-400" />
-          )}
-        </div>
+        <Tooltip content={data.file_path ? (data.resource_type === 'WEBLINK' ? `Open: ${data.file_path}` : 'Open File') : 'No file linked'}>
+          <div
+            className={`flex items-center transition-transform ${data.file_path ? 'cursor-pointer hover:scale-110' : 'cursor-default opacity-40'}`}
+            onClick={data.file_path ? handleOpenResource : undefined}
+          >
+            {data.resource_type === 'WEBLINK' ? (
+              <Globe className="w-4 h-4 text-emerald-500" />
+            ) : data.resource_type === 'VIDEO' ? (
+              <Video className="w-4 h-4 text-purple-500" />
+            ) : data.resource_type === 'IMAGE' ? (
+              <Image className="w-4 h-4 text-blue-500" />
+            ) : data.resource_type === 'AUDIO' ? (
+              <Mic className="w-4 h-4 text-orange-500" />
+            ) : data.resource_type === 'TEMPLATE' ? (
+              <FileDigit className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            ) : (
+              <FileText className="w-4 h-4 text-slate-400" />
+            )}
+          </div>
+        </Tooltip>
 
         {/* 6. Classification Icon */}
-        <div className="flex items-center" title={data.classification || 'Unclassified'}>
-          {data.classification === 'Confidential' || data.classification === 'Secret' ? (
-            <Lock className="w-4 h-4 text-red-500" />
-          ) : data.classification === 'Restricted' ? (
-            <Shield className="w-4 h-4 text-blue-500" />
-          ) : (
-            <CheckCircle className="w-4 h-4 text-green-500" />
-          )}
-        </div>
+        <Tooltip content={data.classification || 'Unclassified'}>
+          <div className="flex items-center">
+            {data.classification === 'Confidential' || data.classification === 'Secret' ? (
+              <Lock className="w-4 h-4 text-red-500" />
+            ) : data.classification === 'Restricted' ? (
+              <Shield className="w-4 h-4 text-blue-500" />
+            ) : (
+              <CheckCircle className="w-4 h-4 text-green-500" />
+            )}
+          </div>
+        </Tooltip>
 
         {/* 7. Actions */}
         {!readOnly && (
           <div className="flex gap-1 pl-2 border-l border-slate-200 dark:border-slate-700">
-            <button onClick={onEdit} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded">
-              <Edit className="w-3.5 h-3.5" />
-            </button>
-            <button onClick={onDelete} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
+            <Tooltip content="แก้ไข" position="top">
+              <button onClick={onEdit} className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded">
+                <Edit className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
+            <Tooltip content="ลบ" position="top">
+              <button onClick={onDelete} className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
           </div>
         )}
       </div>

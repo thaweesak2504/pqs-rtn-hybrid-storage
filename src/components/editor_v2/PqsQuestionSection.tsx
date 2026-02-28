@@ -609,7 +609,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700
                 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200
                 hover:border-slate-300 dark:hover:border-slate-600 hover:shadow-sm"
-              title={allCollapsed ? "ขยายทั้งหมด" : "ยุบทั้งหมด"}
             >
               {allCollapsed ? (
                 <><ChevronDown className="w-3.5 h-3.5" /><span>ขยายทั้งหมด</span></>
@@ -2402,40 +2401,43 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           {/* Optional Toggles (L1 Only for 100/300, L0+L1 for 200) */}
           {showExtraButtons && !isRequiredInstance && (
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setShowDescription(true)}
-                className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                title="เพิ่มคำอธิบาย"
-              >
-                <FileText className="w-3.5 h-3.5" />
-              </button>
-              {!imagePath && (
+              <Tooltip content="เพิ่มคำอธิบาย" position="top-end">
                 <button
                   type="button"
-                  onClick={handleImageUpload}
+                  onClick={() => setShowDescription(true)}
                   className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                  title="เพิ่มรูปภาพ"
                 >
-                  <ImageIcon className="w-3.5 h-3.5" />
+                  <FileText className="w-3.5 h-3.5" />
                 </button>
+              </Tooltip>
+              {!imagePath && (
+                <Tooltip content="เพิ่มรูปภาพ" position="top-end">
+                  <button
+                    type="button"
+                    onClick={handleImageUpload}
+                    className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                  >
+                    <ImageIcon className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
               )}
               {!isDefaultL1 && !is300 && (
-                <button
-                  type="button"
-                  onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
-                  className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all border shadow-sm
-                    ${currentChildLayout === "grid"
-                      ? "bg-blue-600 border-blue-500 text-white"
-                      : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
-                    }`}
-                  title="สลับโหมดการแสดงผลคำถามย่อย"
-                >
-                  <Plus
-                    className={`w-3 h-3 transition-transform ${currentChildLayout === "grid" ? "rotate-45" : ""}`}
-                  />
-                  {currentChildLayout === "grid" ? "2 คอลัมน์" : "1 คอลัมน์"}
-                </button>
+                <Tooltip content="สลับโหมดการแสดงผลคำถามย่อย" position="top-end">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentChildLayout((prev) => (prev === "grid" ? "list" : "grid"))}
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold transition-all border shadow-sm
+                      ${currentChildLayout === "grid"
+                        ? "bg-blue-600 border-blue-500 text-white"
+                        : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50"
+                      }`}
+                  >
+                    <Plus
+                      className={`w-3 h-3 transition-transform ${currentChildLayout === "grid" ? "rotate-45" : ""}`}
+                    />
+                    {currentChildLayout === "grid" ? "2 คอลัมน์" : "1 คอลัมน์"}
+                  </button>
+                </Tooltip>
               )}
             </div>
           )}
@@ -2628,16 +2630,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   rows={1}
                 />
                 {!isPrerequisiteQuestion && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isDefaultDescL1 && formScoreType !== 'exempted' && (
-                  <button
-                    onClick={() => {
-                      setDescription("");
-                      setShowDescription(false);
-                    }}
-                    className="absolute top-1.5 right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded opacity-0 group-hover/desc:opacity-100 transition-opacity"
-                    title="ลบคำอธิบาย"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
+                  <Tooltip content="ลบคำอธิบาย">
+                    <button
+                      onClick={() => {
+                        setDescription("");
+                        setShowDescription(false);
+                      }}
+                      className="absolute top-1.5 right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded opacity-0 group-hover/desc:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
             </div>
@@ -2714,12 +2717,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             </select>
                           </Tooltip>
                           {selMainBranch && !sectionSelectedBranch && <>
-                            <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
-                              className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
-                            <button onClick={async () => { const br = dbBranches.find(b => b.code === selMainBranch); if (!window.confirm(`ลบสาขา "${br?.name}"?`)) return; await invoke('delete_occupation_branch', { code: selMainBranch }); setDbBranches(prev => prev.filter(b => b.code !== selMainBranch)); setSelMainBranch(""); setSelSubBranch(""); }}
-                              className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขา"><Trash2 className="w-3 h-3" /></button>
+                            <Tooltip content="แก้ไขชื่อ">
+                              <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
+                                className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
+                            </Tooltip>
+                            <Tooltip content="ลบสาขา">
+                              <button onClick={async () => { const br = dbBranches.find(b => b.code === selMainBranch); if (!window.confirm(`ลบสาขา "${br?.name}"?`)) return; await invoke('delete_occupation_branch', { code: selMainBranch }); setDbBranches(prev => prev.filter(b => b.code !== selMainBranch)); setSelMainBranch(""); setSelSubBranch(""); }}
+                                className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-3 h-3" /></button>
+                            </Tooltip>
                           </>}
-                          {!sectionSelectedBranch && <button onClick={() => setIsAddingMain(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาใหม่"><Plus className="w-3 h-3" /></button>}
+                          {!sectionSelectedBranch && (
+                            <Tooltip content="เพิ่มสาขาใหม่">
+                              <button onClick={() => setIsAddingMain(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`}><Plus className="w-3 h-3" /></button>
+                            </Tooltip>
+                          )}
                         </div>
                       ) : !sectionOccupationBranches ? (
                         <div className="flex gap-1">
@@ -2773,12 +2784,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               </select>
                             </Tooltip>
                             {selSubBranch && !sectionSelectedBranch && <>
-                              <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
-                                className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`} title="แก้ไขชื่อ"><Pencil className="w-3 h-3" /></button>
-                              <button onClick={async () => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (!window.confirm(`ลบสาขาย่อย "${sb?.name}"?`)) return; await invoke('delete_occupation_sub_branch', { code: selSubBranch, branchCode: selMainBranch }); setDbSubBranches(prev => prev.filter(s => s.code !== selSubBranch)); setSelSubBranch(""); }}
-                                className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20" title="ลบสาขาย่อย"><Trash2 className="w-3 h-3" /></button>
+                              <Tooltip content="แก้ไขชื่อ">
+                                <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
+                                  className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
+                              </Tooltip>
+                              <Tooltip content="ลบสาขาย่อย">
+                                <button onClick={async () => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (!window.confirm(`ลบสาขาย่อย "${sb?.name}"?`)) return; await invoke('delete_occupation_sub_branch', { code: selSubBranch, branchCode: selMainBranch }); setDbSubBranches(prev => prev.filter(s => s.code !== selSubBranch)); setSelSubBranch(""); }}
+                                  className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-3 h-3" /></button>
+                              </Tooltip>
                             </>}
-                            {!sectionSelectedBranch && <button onClick={() => setIsAddingSub(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-3 h-3" /></button>}
+                            {!sectionSelectedBranch && (
+                              <Tooltip content="เพิ่มสาขาย่อยใหม่">
+                                <button onClick={() => setIsAddingSub(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`}><Plus className="w-3 h-3" /></button>
+                              </Tooltip>
+                            )}
                           </div>
                         ) : !sectionOccupationBranches ? (
                           <div className="flex gap-1">
@@ -2829,11 +2848,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
                             {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
-                              {is300 && <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
-                                className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`} title={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
-                                <CheckCircle className="w-3 h-3" />
-                              </button>}
-                              <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded" title="ลบ"><Trash2 className="w-3 h-3" /></button>
+                              {is300 && (
+                                <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
+                                  <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
+                                    className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
+                                    <CheckCircle className="w-3 h-3" />
+                                  </button>
+                                </Tooltip>
+                              )}
+                              <Tooltip content="ลบ">
+                                <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
+                              </Tooltip>
                             </div>
                           </div>
                         );
@@ -3070,13 +3095,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           (หน้า {ref.location_text || "-"})
                         </span>
                       </span>
-                      <button
-                        onClick={() => handleRemoveReference(ref)}
-                        className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        title="ลบเอกสารอ้างอิง"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <Tooltip content="ลบเอกสารอ้างอิง">
+                        <button
+                          onClick={() => handleRemoveReference(ref)}
+                          className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -3182,12 +3208,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                         <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
                                           {r.reference.code}
                                         </span>
-                                        <span
-                                          className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate"
-                                          title={r.reference.title}
-                                        >
-                                          {r.reference.title}
-                                        </span>
+                                        <Tooltip content={r.reference.title}>
+                                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                            {r.reference.title}
+                                          </span>
+                                        </Tooltip>
                                       </div>
 
                                       {/* Status Area (Usage + Class) */}
@@ -3204,19 +3229,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                         ))}
 
                                         {/* Classification Icon */}
-                                        <div
-                                          className="flex items-center"
-                                          title={r.reference.classification || "Unclassified"}
-                                        >
-                                          {r.reference.classification === "Confidential" ||
-                                            r.reference.classification === "Secret" ? (
-                                            <Lock className="w-3.5 h-3.5 text-red-500" />
-                                          ) : r.reference.classification === "Restricted" ? (
-                                            <Shield className="w-3.5 h-3.5 text-blue-500" />
-                                          ) : (
-                                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                          )}
-                                        </div>
+                                        <Tooltip content={r.reference.classification || "Unclassified"}>
+                                          <div className="flex items-center">
+                                            {r.reference.classification === "Confidential" ||
+                                              r.reference.classification === "Secret" ? (
+                                              <Lock className="w-3.5 h-3.5 text-red-500" />
+                                            ) : r.reference.classification === "Restricted" ? (
+                                              <Shield className="w-3.5 h-3.5 text-blue-500" />
+                                            ) : (
+                                              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                            )}
+                                          </div>
+                                        </Tooltip>
                                       </div>
                                     </div>
                                   );
@@ -3510,20 +3534,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         <span className="flex-1">{child.content}</span>
                         {/* Show score only for 3xx.1.4/3xx.1.5 (not 3xx.1.3 — no score) */}
                         {isEdit && !isSection300Selector && (
-                          <input
-                            type="number"
-                            min={0}
-                            value={child.score}
-                            onChange={async (e) => {
-                              const newScore = parseInt(e.target.value) || 0;
-                              try {
-                                await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
-                                setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
-                              } catch (err) { console.error('Failed to update section ref score:', err); }
-                            }}
-                            className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                            title="คะแนน"
-                          />
+                          <Tooltip content="คะแนน">
+                            <input
+                              type="number"
+                              min={0}
+                              value={child.score}
+                              onChange={async (e) => {
+                                const newScore = parseInt(e.target.value) || 0;
+                                try {
+                                  await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
+                                  setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
+                                } catch (err) { console.error('Failed to update section ref score:', err); }
+                              }}
+                              className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
+                            />
+                          </Tooltip>
                         )}
                         {!isEdit && !isSection300Selector && child.score > 0 && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
@@ -3706,23 +3731,24 @@ const AsyncImagePreview: React.FC<AsyncImagePreviewProps> = ({ path, className, 
   if (!src) return <div className={`animate-pulse bg-gray-200 dark:bg-slate-700 ${className}`} />;
 
   return (
-    <img
-      src={src}
-      alt="Preview"
-      title="คลิกเพื่อเปิดรูปภาพขยาย"
-      className={`cursor-pointer ${className}`}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (onImageClick) {
-          onImageClick(src);
-        } else if (resolvedPath) {
-          invoke("open_path", { path: resolvedPath });
-        }
-      }}
-      onError={() => {
-        console.error("Image load error for src:", src);
-      }}
-    />
+    <Tooltip content="คลิกเพื่อเปิดรูปภาพขยาย">
+      <img
+        src={src}
+        alt="Preview"
+        className={`cursor-pointer ${className}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onImageClick) {
+            onImageClick(src);
+          } else if (resolvedPath) {
+            invoke("open_path", { path: resolvedPath });
+          }
+        }}
+        onError={() => {
+          console.error("Image load error for src:", src);
+        }}
+      />
+    </Tooltip>
   );
 };
 
@@ -3920,7 +3946,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       >
         {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
         <div className="flex items-start gap-2 min-w-0 pr-2">
-          <div className="flex-1 min-w-0" title={question.content}>
+          <div className="flex-1 min-w-0">
             <span className={isL1 ? "font-semibold" : ""}>{question.content}</span>
             {question.references && question.references.length > 0 && (
               <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">

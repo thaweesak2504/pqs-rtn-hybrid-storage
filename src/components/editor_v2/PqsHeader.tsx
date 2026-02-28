@@ -191,7 +191,11 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
                   <h1 className="text-lg md:text-xl font-bold font-sarabun tracking-tight leading-tight truncate text-white drop-shadow-md">
                     {prefix}{title || "Untitled Document"}
                   </h1>
-                  {!readOnly && <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-70 transition-opacity text-white/80 shrink-0 self-center" />}
+                  {!readOnly && (
+                    <Tooltip content="แก้ไขชื่อเรื่อง" position="top-end">
+                      <Edit2 className="w-3.5 h-3.5 opacity-0 group-hover/title:opacity-70 transition-opacity text-white/80 shrink-0 self-center" />
+                    </Tooltip>
+                  )}
                 </div>
               )}
             </div>
