@@ -18,6 +18,7 @@ interface TraineeAnswerBoxProps {
   subQuestionCode?: string;
   initialValue?: string;
   readOnly?: boolean;
+  label?: string; // e.g. "ก", "ข"
 }
 
 const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
@@ -25,6 +26,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   subQuestionCode,
   initialValue = "",
   readOnly = false,
+  label,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
@@ -157,7 +159,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         onClick={handleEditStart}
       >
         <div className="flex items-start gap-2 text-sm font-normal">
-          <span className="text-blue-800 dark:text-blue-300 shrink-0">คำตอบ:</span>
+          <span className="text-blue-800 dark:text-blue-300 shrink-0">คำตอบ: {label && <span className="text-amber-600 dark:text-amber-400 font-medium">{label}.</span>}</span>
           {cleanValue ? (
             <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
               <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
@@ -186,7 +188,9 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-1 px-2 py-1.5 border-b border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-slate-800">
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-blue-800 dark:text-blue-300 text-sm font-medium px-2 py-0.5 mr-1 bg-blue-100 dark:bg-blue-900/50 rounded">คำตอบ</span>
+          <span className="text-blue-800 dark:text-blue-300 text-sm font-medium px-2 py-0.5 mr-1 bg-blue-100 dark:bg-blue-900/50 rounded">
+            คำตอบ {label && <span className="text-amber-600 dark:text-amber-400 font-bold ml-1">{label}.</span>}
+          </span>
           <button
             type="button"
             title="ตัวหนา (Bold)"

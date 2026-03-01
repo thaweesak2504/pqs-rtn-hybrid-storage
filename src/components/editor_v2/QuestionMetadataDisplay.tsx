@@ -128,7 +128,12 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                 return (
                   <div key={code} className="flex flex-col gap-1.5">
                     {showAnswerBox && (
-                      <TraineeAnswerBox questionId={questionId} subQuestionCode={code} readOnly={readOnly} />
+                      <TraineeAnswerBox
+                        questionId={questionId}
+                        subQuestionCode={code}
+                        readOnly={readOnly}
+                        label={label}
+                      />
                     )}
                     {showAnswerKey && (
                       <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
