@@ -40,15 +40,16 @@ import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 
-import { Edit2, Edit3, Eye, FileText } from 'lucide-react';
+import { Edit2, Edit3, Eye, EyeOff, Printer, UserCircle, Users } from 'lucide-react';
 import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
 import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
 import ConfirmModal from '../modals/ConfirmModal';
 import EditMetadataModal from '../modals/EditMetadataModal';
+import DropdownMenu from '../ui/DropdownMenu';
 
-type ViewMode = 'edit' | 'normal' | 'preview';
+export type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
 const ActiveDocumentPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
@@ -58,7 +59,7 @@ const ActiveDocumentPage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('cover'); // 'cover', 'intro', '100', '200', '300', or section numbers
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
-  const isPreviewMode = viewMode === 'preview';
+  const isPrintMode = viewMode === 'print';
   const isEditMode = viewMode === 'edit';
 
   // Section Management States
@@ -261,39 +262,65 @@ const ActiveDocumentPage: React.FC = () => {
                   มาตรฐานกำลังพล : {docId} {docData?.document.name || '...'}
                 </h1>
                 <div className="flex items-center space-x-2">
-                  {/* View Mode Toggle */}
-                  <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700">
-                    <button
-                      onClick={() => setViewMode('edit')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${viewMode === 'edit'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                        }`}
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-                    <button
-                      onClick={() => setViewMode('normal')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${viewMode === 'normal'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                        }`}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>View</span>
-                    </button>
-                    <button
-                      onClick={() => setViewMode('preview')}
-                      className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 ${viewMode === 'preview'
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                        }`}
-                    >
-                      <FileText className="w-3.5 h-3.5" />
-                      <span>Preview</span>
-                    </button>
-                  </div>
+                  {/* Edit Button */}
+                  <button
+                    onClick={() => setViewMode('edit')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1.5 border ${viewMode === 'edit'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit</span>
+                  </button>
+
+                  <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+                  {/* View As Dropdown */}
+                  <DropdownMenu
+                    trigger={
+                      <button
+                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 border ${viewMode !== 'edit'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+                          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                          }`}
+                      >
+                        <Eye className="w-4 h-4" />
+                        <span>
+                          View As
+                          {viewMode !== 'edit' && (
+                            <span className="ml-1 opacity-90 font-bold bg-white/20 px-1.5 py-0.5 rounded text-[10px] uppercase">
+                              {viewMode}
+                            </span>
+                          )}
+                        </span>
+                        <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
+                      </button>
+                    }
+                    items={[
+                      {
+                        label: 'Qualifier (See All)',
+                        icon: <UserCircle />,
+                        onClick: () => setViewMode('qualifier')
+                      },
+                      {
+                        label: 'Trainee (Answer Only)',
+                        icon: <Users />,
+                        onClick: () => setViewMode('trainee')
+                      },
+                      {
+                        label: 'Visitor (Questions Only)',
+                        icon: <EyeOff />,
+                        onClick: () => setViewMode('visitor')
+                      },
+                      { separator: true, label: '', onClick: () => { } },
+                      {
+                        label: 'Print Layout (A4)',
+                        icon: <Printer />,
+                        onClick: () => setViewMode('print')
+                      }
+                    ]}
+                  />
 
                   {/* Edit Metadata Button — only in Edit mode */}
                   {isEditMode && (
@@ -335,27 +362,27 @@ const ActiveDocumentPage: React.FC = () => {
               id={docData.document.id}
               name={docData.document.name}
               hierarchy={docData.hierarchy}
-              isPreviewMode={isPreviewMode}
+              isPreviewMode={isPrintMode}
             />
           )}
 
           {activeSection === 'intro' && docData && (
             <IntroductionView
               appliedTo={docData.document.applied_to}
-              isPreviewMode={isPreviewMode}
+              isPreviewMode={isPrintMode}
             />
           )}
 
           {activeSection === '100' && (
-            <Section100View isPreviewMode={isPreviewMode} />
+            <Section100View isPreviewMode={isPrintMode} />
           )}
 
           {activeSection === '200' && (
-            <Section200View isPreviewMode={isPreviewMode} />
+            <Section200View isPreviewMode={isPrintMode} />
           )}
 
           {activeSection === '300' && (
-            <Section300View isPreviewMode={isPreviewMode} />
+            <Section300View isPreviewMode={isPrintMode} />
           )}
 
           {/* Dynamic Sections (101-199) - 100 Template */}
@@ -371,7 +398,7 @@ const ActiveDocumentPage: React.FC = () => {
                   const parts = section.menu_label.split(' ');
                   return parts.length > 1 ? parts.slice(1).join(' ') : "";
                 })()}
-                isPreviewMode={isPreviewMode}
+                isPreviewMode={isPrintMode}
                 viewMode={viewMode}
                 onMenuLabelChange={fetchSections}
               />
@@ -390,7 +417,7 @@ const ActiveDocumentPage: React.FC = () => {
                   const parts = section.menu_label.split(' ');
                   return parts.length > 1 ? parts.slice(1).join(' ') : "";
                 })()}
-                isPreviewMode={isPreviewMode}
+                isPreviewMode={isPrintMode}
                 viewMode={viewMode}
                 onMenuLabelChange={fetchSections}
                 docBranchMain={docBranchMain}
@@ -411,7 +438,7 @@ const ActiveDocumentPage: React.FC = () => {
                   const parts = section.menu_label.split(' ');
                   return parts.length > 1 ? parts.slice(1).join(' ') : "";
                 })()}
-                isPreviewMode={isPreviewMode}
+                isPreviewMode={isPrintMode}
                 viewMode={viewMode}
                 onMenuLabelChange={fetchSections}
                 docBranchMain={docBranchMain}

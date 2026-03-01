@@ -32,8 +32,11 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import Button from "../ui/Button";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import Tooltip from "../ui/Tooltip";
-import TraineeAnswerBox from "./TraineeAnswerBox";
+import TraineeAnswerBox from './TraineeAnswerBox';
 
+type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
+
+// Helper component for rich text with links
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
@@ -161,6 +164,7 @@ interface PqsQuestionSectionProps {
   // Document-level occupation branch (set in Edit Metadata)
   docBranchMain?: string;
   docBranchSub?: string;
+  viewMode?: ViewMode;
 }
 
 // ============ Main Component ============
@@ -177,6 +181,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   onQuestionsUpdated,
   docBranchMain = '',
   docBranchSub = '',
+  viewMode = 'edit',
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -652,6 +657,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
               <QuestionTreeNode
                 key={question.id}
                 question={question}
+                viewMode={viewMode}
                 level={0}
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
@@ -803,6 +809,7 @@ interface QuestionTreeNodeProps {
   isParentDefault300L1?: boolean;
   onRefresh?: () => void;
   onQuestionsUpdated?: () => void;
+  viewMode?: ViewMode;
 }
 
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
@@ -841,6 +848,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   isParentDefault300L1 = false,
   onRefresh,
   onQuestionsUpdated,
+  viewMode = 'edit',
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1076,6 +1084,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     <div>
       <QuestionDisplayCard
         question={question}
+        viewMode={viewMode}
         prefix={prefix}
         level={level}
         sectionGroup={sectionGroup}
@@ -1130,6 +1139,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
               <QuestionTreeNode
                 key={child.id}
                 question={child}
+                viewMode={viewMode}
                 level={level + 1}
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
@@ -3776,6 +3786,7 @@ interface QuestionDisplayCardProps {
   onInsertAfter: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  viewMode?: ViewMode;
   onImageClick?: (src: string) => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
@@ -3805,6 +3816,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   onImageClick,
   parentLayout = "list",
   parentSubQuestionList,
+  viewMode = 'edit',
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -4049,7 +4061,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             </div>
           );
         })()}
-        {/* Trainee Answer Box is now managed inside QuestionMetadataDisplay to support per-subQ answers */}
+        {/* Trainee Answer Box & Answer Keys managed inside QuestionMetadataDisplay */}
 
         {question.metadata && (
           <QuestionMetadataDisplay
@@ -4058,7 +4070,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             onImageClick={onImageClick}
             parentSubQuestionList={parentSubQuestionList}
             readOnly={readOnly}
-            showAnswerBox={!is300 && !question.is_group_header && question.question_type !== 'exempted'}
+            showAnswerBox={(!is300 && !question.is_group_header && question.question_type !== 'exempted') && (viewMode !== 'visitor')}
+            showAnswerKey={viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'print'}
           />
         )}
       </div>
@@ -4171,7 +4184,8 @@ const QuestionMetadataDisplay: React.FC<{
   parentSubQuestionList?: SubQuestionItem[];
   readOnly?: boolean;
   showAnswerBox?: boolean;
-}> = ({ metadata, questionId, onImageClick, parentSubQuestionList, readOnly = false, showAnswerBox = false }) => {
+  showAnswerKey?: boolean;
+}> = ({ metadata, questionId, onImageClick, parentSubQuestionList, readOnly = false, showAnswerBox = false, showAnswerKey = true }) => {
   const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
     const out: string[] = [];
@@ -4237,65 +4251,73 @@ const QuestionMetadataDisplay: React.FC<{
         />
       )}
 
-      {/* Answer Key Display (Last) — render as markdown */}
-      {data.answerKeys && typeof data.answerKeys === "object" && Object.keys(data.answerKeys).length > 0 ? (
-        /* Per-subQ answer keys — เรียงตาม selectedSubQuestions หรือ parentSubQuestionList */
-        <div className="space-y-1.5">
-          {((): [string, string][] => {
-            const keys = data.answerKeys as Record<string, string>;
-            // เรียงตาม parentSubQuestionList ถ้ามี ไม่งั้นเรียงตาม selectedSubQuestions ใน metadata
-            const ordered: string[] = parentSubQuestionList
-              ? parentSubQuestionList.map(s => s.code).filter(c => c in keys)
-              : Array.isArray(data.selectedSubQuestions)
-                ? (data.selectedSubQuestions as string[]).filter(c => c in keys)
-                : Object.keys(keys);
-            return ordered.map(c => [c, keys[c]]);
-          })().map(([code, text]) => {
-            const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
-            const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
-            return (
-              <div key={code} className="flex flex-col gap-1.5">
-                {showAnswerBox && (
-                  <TraineeAnswerBox questionId={questionId} subQuestionCode={code} readOnly={readOnly} />
-                )}
+      {/* Answer Area Display */}
+      {(() => {
+        const hasAnswerKeysObj = data.answerKeys && typeof data.answerKeys === "object" && Object.keys(data.answerKeys).length > 0;
+
+        if (hasAnswerKeysObj) {
+          // Per-subQ mode
+          const keys = data.answerKeys as Record<string, string>;
+          const ordered: string[] = parentSubQuestionList
+            ? parentSubQuestionList.map(s => s.code).filter(c => c in keys)
+            : Array.isArray(data.selectedSubQuestions)
+              ? (data.selectedSubQuestions as string[]).filter(c => c in keys)
+              : Object.keys(keys);
+
+          return (
+            <div className="space-y-1.5">
+              {ordered.map(code => {
+                const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
+                const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
+                return (
+                  <div key={code} className="flex flex-col gap-1.5">
+                    {showAnswerBox && (
+                      <TraineeAnswerBox questionId={questionId} subQuestionCode={code} readOnly={readOnly} />
+                    )}
+                    {showAnswerKey && (
+                      <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
+                        <div className="flex items-start gap-2">
+                          <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
+                          <div className="answer-key-markdown min-w-0 flex-1">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                              {formatAnswerKeyForDisplay(keys[code]).replace(/\n/g, "  \n")}
+                            </ReactMarkdown>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        } else if (data.answerKey || showAnswerBox) {
+          // Single mode
+          return (
+            <div className="flex flex-col gap-1.5">
+              {showAnswerBox && (
+                <TraineeAnswerBox questionId={questionId} readOnly={readOnly} />
+              )}
+              {showAnswerKey && data.answerKey && (
                 <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
                   <div className="flex items-start gap-2">
-                    <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}.</span></span>
+                    <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
                     <div className="answer-key-markdown min-w-0 flex-1">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                        {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw]}
+                      >
+                        {formatAnswerKeyForDisplay(data.answerKey).replace(/\n/g, "  \n")}
                       </ReactMarkdown>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : data.answerKey ? (
-        /* Single answer key */
-        <div className="flex flex-col gap-1.5">
-          {showAnswerBox && (
-            <TraineeAnswerBox questionId={questionId} readOnly={readOnly} />
-          )}
-          <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
-            <div className="flex items-start gap-2">
-              <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
-              <div className="answer-key-markdown min-w-0 flex-1">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                >
-                  {formatAnswerKeyForDisplay(data.answerKey).replace(/\n/g, "  \n")}
-                </ReactMarkdown>
-              </div>
+              )}
             </div>
-          </div>
-        </div>
-      ) : showAnswerBox ? (
-        /* Answer box ONLY (no answer keys yet) */
-        <TraineeAnswerBox questionId={questionId} readOnly={readOnly} />
-      ) : null}
+          );
+        }
+        return null;
+      })()}
     </div>
   );
 };

@@ -4,9 +4,9 @@ import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
 import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
-import PqsSectionPreview from './PqsSectionPreview';
+import PqsSectionPreview200 from './PqsSectionPreview200';
 
-type ViewMode = 'edit' | 'normal' | 'preview';
+type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
 // ============ Component ============
 
@@ -33,7 +33,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   docBranchSub,
 }) => {
   const readOnly = viewMode !== 'edit';
-  const isCompact = viewMode === 'normal';
+  const isCompact = viewMode !== 'edit' && viewMode !== 'print';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
   const [currentMenuLabel, setCurrentMenuLabel] = useState(subTitle || '');
@@ -208,10 +208,10 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
     }
   };
 
-  // Preview Mode: Render A4 paper view
-  if (viewMode === 'preview') {
+  // Print Mode: Render A4 paper view
+  if (viewMode === 'print') {
     return (
-      <PqsSectionPreview
+      <PqsSectionPreview200
         docId={docId}
         sectionId={sectionId}
         sectionNumber={sectionNumber}
@@ -262,6 +262,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
       {/* 3. Question Area — Section 200 Template */}
       <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
         <PqsQuestionSection
+          viewMode={viewMode}
           docId={docId}
           sectionId={sectionId}
           sectionNumber={sectionNumber}
