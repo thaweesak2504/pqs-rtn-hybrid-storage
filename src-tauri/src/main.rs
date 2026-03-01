@@ -1318,6 +1318,21 @@ fn get_question_image_base64(path: String) -> Result<String, String> {
     content_database::get_question_image_base64(path)
 }
 
+#[tauri::command]
+fn save_trainee_answer(args: content_database::SaveTraineeAnswerArgs) -> Result<String, String> {
+    content_database::save_trainee_answer(args)
+}
+
+#[tauri::command]
+fn save_qualifier_assessment(args: content_database::SaveQualifierAssessmentArgs) -> Result<String, String> {
+    content_database::save_qualifier_assessment(args)
+}
+
+#[tauri::command]
+fn get_trainee_answers(user_id: String, document_id: String) -> Result<Vec<content_database::UserAnswer>, String> {
+    content_database::get_trainee_answers(&user_id, &document_id)
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -1481,6 +1496,9 @@ fn main() {
             // Document Branch (Occupation Branch at document level)
             get_document_branch,
             update_document_branch,
+            save_trainee_answer,
+            save_qualifier_assessment,
+            get_trainee_answers,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

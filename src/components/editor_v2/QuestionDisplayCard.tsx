@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus,
 import React, { useEffect, useMemo, useState } from "react";
 import { QuestionDetail } from "../../types/content";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
+import { UserAnswer } from "./PqsQuestionSection";
 import QuestionMetadataDisplay from "./QuestionMetadataDisplay";
 
 // ============ Types ============
@@ -40,6 +41,10 @@ interface QuestionDisplayCardProps {
   onImageClick?: (src: string) => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
+  traineeAnswer?: UserAnswer;
+  answerMap?: Map<string, UserAnswer>;
+  documentId: string;
+  onRefresh?: () => void;
 }
 
 // ============ Helpers ============
@@ -84,6 +89,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   parentLayout = "list",
   parentSubQuestionList,
   viewMode = 'edit',
+  traineeAnswer,
+  answerMap,
+  documentId,
+  onRefresh,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -331,21 +340,28 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         {/* Trainee Answer Box & Answer Keys managed inside QuestionMetadataDisplay */}
 
         {question.metadata && (
-          <QuestionMetadataDisplay
-            metadata={question.metadata}
-            questionId={question.id}
-            onImageClick={onImageClick}
-            parentSubQuestionList={parentSubQuestionList}
-            readOnly={readOnly}
-            showAnswerBox={(!is300 && !question.is_group_header && question.question_type !== 'exempted') && (viewMode !== 'visitor')}
-            showAnswerKey={viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'print'}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <QuestionMetadataDisplay
+              metadata={question.metadata}
+              questionId={question.id}
+              documentId={documentId}
+              onImageClick={onImageClick}
+              parentSubQuestionList={parentSubQuestionList}
+              readOnly={readOnly}
+              showAnswerBox={(!is300 && !question.is_group_header && question.question_type !== 'exempted') && (viewMode !== 'visitor')}
+              showAnswerKey={viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'print'}
+              mode={viewMode === 'qualifier' ? 'qualifier' : viewMode === 'trainee' ? 'trainee' : 'viewer'}
+              traineeAnswer={traineeAnswer}
+              answerMap={answerMap}
+              onRefresh={onRefresh}
+            />
+          </div>
         )}
       </div>
 
 
       {/* Actions */}
-      {!readOnly && (
+      {!readOnly && viewMode === 'edit' && (
         <div className="pl-2 border-l border-slate-200 dark:border-slate-700 shrink-0">
           <DropdownMenu
             trigger={

@@ -33,6 +33,7 @@ interface PqsSectionPreviewProps {
   title: string;
   references: ReferenceDoc[];
   sectionGroup?: 100 | 200 | 300;
+  mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
 }
 
 // ============ Main Component ============
@@ -44,6 +45,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
   title,
   references,
   sectionGroup = 100,
+  mode = "viewer",
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +151,8 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               parentPath={toThaiNumber(sectionNumber)}
               sectionNumber={sectionNumber}
               sectionGroup={sectionGroup}
+              docId={docId}
+              mode={mode}
             />
           ))}
         </div>
@@ -167,6 +171,8 @@ interface PreviewQuestionNode200Props {
   sectionNumber: number;
   sectionGroup: 100 | 200 | 300;
   parentSubQuestionList?: Array<{ code: string; text: string; alwaysChecked?: boolean }>;
+  docId: string;
+  mode: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -177,6 +183,8 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   sectionNumber,
   sectionGroup,
   parentSubQuestionList,
+  docId,
+  mode,
 }) => {
   const is200 = sectionGroup === 200;
 
@@ -405,7 +413,12 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         answerKey && Object.keys(answerKeys).length === 0 && (
           <div className={`mt-2 ${contentStartOffsetClass} flex flex-col gap-1.5`}>
             {/* If there's an answer key, show the answer box regardless of being a leaf node */}
-            <TraineeAnswerBox questionId={question.id} readOnly={false} />
+            <TraineeAnswerBox
+              mode={mode}
+              questionId={question.id}
+              documentId={docId}
+              readOnly={mode !== "trainee"}
+            />
             <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
               <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
               <div className="answer-key-markdown min-w-0 flex-1">
@@ -441,7 +454,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                 return (
                   <div key={code} className="flex flex-col gap-1.5">
                     {/* If there's an answer key, show the answer box regardless of being a leaf node */}
-                    <TraineeAnswerBox questionId={question.id} subQuestionCode={code} readOnly={false} />
+                    <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} subQuestionCode={code} readOnly={mode !== "trainee"} />
                     <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary">
                       <div className="flex items-start gap-2">
                         <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}</span></span>
@@ -467,7 +480,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       {
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
-            <TraineeAnswerBox questionId={question.id} readOnly={false} />
+            <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />
           </div>
         )
       }
@@ -498,6 +511,8 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   sectionNumber={sectionNumber}
                   sectionGroup={sectionGroup}
                   parentSubQuestionList={activeSubQuestionList.length > 0 ? activeSubQuestionList : parentSubQuestionList}
+                  docId={docId}
+                  mode={mode}
                 />
               </div>
             ))}

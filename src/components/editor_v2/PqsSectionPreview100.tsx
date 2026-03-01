@@ -33,6 +33,7 @@ interface PqsSectionPreviewProps {
   title: string;
   references: ReferenceDoc[];
   sectionGroup?: 100 | 200 | 300;
+  mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
 }
 
 // ============ Main Component ============
@@ -44,6 +45,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
   title,
   references,
   sectionGroup = 100,
+  mode = "viewer",
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +113,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
       {/* A4 Paper */}
       <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_1.0cm_2.0cm_2.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
 
-        {/* โ”€โ”€ Section Header โ”€โ”€ */}
+        {/* ——— Section Header ——— */}
         <div className="mb-4">
           <div className="flex mb-4">
             <div className="font-bold text-lg min-w-[8ch]">
@@ -138,7 +140,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
           </div>
         </div>
 
-        {/* โ”€โ”€ Questions โ”€โ”€ */}
+        {/* ——— Questions ——— */}
         <div className="space-y-1">
           {questionTree.map((question, index) => (
             <PreviewQuestionNode
@@ -149,6 +151,8 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
               parentPath={toThaiNumber(sectionNumber)}
               sectionNumber={sectionNumber}
               sectionGroup={sectionGroup}
+              docId={docId}
+              mode={mode}
             />
           ))}
         </div>
@@ -165,7 +169,9 @@ interface PreviewQuestionNodeProps {
   level: number;
   parentPath: string;
   sectionNumber: number;
-  sectionGroup: 100 | 200 | 300;
+  sectionGroup?: 100 | 200 | 300;
+  docId: string;
+  mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
 }
 
 const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
@@ -175,6 +181,8 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   parentPath,
   sectionNumber,
   sectionGroup,
+  docId,
+  mode = "viewer",
 }) => {
   // Build numbering: 100/300: L0 = ๑๐๑.๑, L1 = ก.
   let displayNumber = '';
@@ -249,7 +257,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
 
-  // Build reference text like "(เธ.35, เธ.12)"
+  // Build reference text like "(ก.35, ข.12)"
   const refText = question.references && question.references.length > 0
     ? `(${question.references.map(r => `${r.thai_letter || '?'}.${r.location_text || '-'}`).join(', ')})`
     : '';
@@ -284,7 +292,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
       {/* Trainee Answer Box */}
       {(!question.children || question.children.length === 0) && (
         <div className={`mt-3 mb-1 ${contentStartOffsetClass}`}>
-          <TraineeAnswerBox questionId={question.id} readOnly={false} />
+          <TraineeAnswerBox questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} mode={mode} />
         </div>
       )}
 
@@ -323,6 +331,8 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
                 parentPath={fullPath}
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
+                docId={docId}
+                mode={mode}
               />
             </div>
           ))}

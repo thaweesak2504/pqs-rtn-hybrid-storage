@@ -627,18 +627,7 @@ pub struct QuestionReference {
     pub display_order: i32,
 }
 
-#[allow(dead_code)]
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
-pub struct UserAnswer {
-    pub id: i32,
-    pub user_id: String,
-    pub question_id: String,
-    pub document_id: String,
-    pub answer_value: Option<String>,
-    pub is_verified: bool,
-    pub verified_by: Option<String>,
-    pub updated_at: String,
-}
+
 
 /// Generate a pseudo-unique ID (Time based)
 fn generate_uuid() -> String {
@@ -863,15 +852,29 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             user_id TEXT NOT NULL,
             question_id TEXT NOT NULL,
             document_id VARCHAR(11) NOT NULL,
-            answer_value TEXT,
-            is_verified BOOLEAN DEFAULT 0,
-            verified_by TEXT,
+            sub_question_code VARCHAR(20) DEFAULT '',
+            answer_text TEXT,
+            status VARCHAR(20) DEFAULT 'pending',
+            feedback TEXT,
+            assessed_at DATETIME,
+            assessed_by TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, question_id, document_id),
+            UNIQUE(user_id, question_id, document_id, sub_question_code),
             FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
         [],
     ).map_err(|e| format!("Failed to create UserAnswers table: {}", e))?;
+
+    // Migration: Add new assessment columns if missing
+    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN answer_text TEXT", []);
+    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN status VARCHAR(20) DEFAULT 'pending'", []);
+    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN feedback TEXT", []);
+    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN assessed_at DATETIME", []);
+    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN assessed_by TEXT", []);
+    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN sub_question_code VARCHAR(20) DEFAULT ''", []);
+    
+    // Ensure we have a unique index including sub_question_code (SQLite doesn't support ALTER TABLE DROP CONSTRAINT)
+    let _ = conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_answers_composite ON UserAnswers(user_id, question_id, document_id, sub_question_code)", []);
 
     // UserProgress Table - Track trainee scoring progress per section
     conn.execute(
@@ -4048,4 +4051,107 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
     recalculate_group_score_chain(&conn, &args.parent_id)?;
 
     get_required_count_children_inner(&conn, &args.parent_id)
+}
+
+#[derive(serde::Deserialize)]
+pub struct SaveTraineeAnswerArgs {
+    pub user_id: String,
+    pub question_id: String,
+    pub document_id: String,
+    pub sub_question_code: String,
+    pub answer_text: String,
+}
+
+#[derive(serde::Deserialize)]
+pub struct SaveQualifierAssessmentArgs {
+    pub user_id: String,
+    pub question_id: String,
+    pub document_id: String,
+    pub sub_question_code: String,
+    pub status: String,
+    pub feedback: Option<String>,
+    pub qualifier_id: String,
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct UserAnswer {
+    pub user_id: String,
+    pub question_id: String,
+    pub document_id: String,
+    pub sub_question_code: String,
+    pub answer_text: Option<String>,
+    pub status: String,
+    pub feedback: Option<String>,
+    pub assessed_at: Option<String>,
+    pub assessed_by: Option<String>,
+    pub updated_at: String,
+}
+
+/// Save or update a trainee's answer
+pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    conn.execute(
+        "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, 'pending', CURRENT_TIMESTAMP)
+         ON CONFLICT(user_id, question_id, document_id, sub_question_code) DO UPDATE SET
+            answer_text = excluded.answer_text,
+            status = 'pending',
+            updated_at = CURRENT_TIMESTAMP",
+        params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text]
+    ).map_err(|e| format!("Failed to save answer: {}", e))?;
+    
+    Ok("Answer saved successfully".to_string())
+}
+
+/// Save or update a qualifier's assessment
+pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    conn.execute(
+        "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, status, feedback, assessed_by, assessed_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         ON CONFLICT(user_id, question_id, document_id, sub_question_code) DO UPDATE SET
+            status = excluded.status,
+            feedback = excluded.feedback,
+            assessed_by = excluded.assessed_by,
+            assessed_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP",
+        params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.status, args.feedback, args.qualifier_id]
+    ).map_err(|e| format!("Failed to save assessment: {}", e))?;
+    
+    Ok("Assessment saved successfully".to_string())
+}
+
+/// Get all trainee answers for a document
+pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserAnswer>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let mut stmt = conn.prepare(
+        "SELECT user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at 
+         FROM UserAnswers 
+         WHERE user_id = ?1 AND document_id = ?2"
+    ).map_err(|e| e.to_string())?;
+    
+    let rows = stmt.query_map(params![user_id, document_id], |row| {
+        Ok(UserAnswer {
+            user_id: row.get(0)?,
+            question_id: row.get(1)?,
+            document_id: row.get(2)?,
+            sub_question_code: row.get(3)?,
+            answer_text: row.get(4)?,
+            status: row.get(5)?,
+            feedback: row.get(6)?,
+            assessed_at: row.get(7)?,
+            assessed_by: row.get(8)?,
+            updated_at: row.get(9)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row.map_err(|e| e.to_string())?);
+    }
+    
+    Ok(result)
 }

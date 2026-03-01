@@ -20,6 +20,19 @@ import QuestionTreeNode, { QuestionFormCard, buildPrefix } from "./QuestionTreeN
 
 // ============ Types ============
 
+export interface UserAnswer {
+  user_id: string;
+  question_id: string;
+  document_id: string;
+  sub_question_code: string;
+  answer_text: string | null;
+  status: 'pending' | 'passed' | 'needs_improvement';
+  feedback: string | null;
+  assessed_at: string | null;
+  assessed_by: string | null;
+  updated_at: string;
+}
+
 interface PqsQuestionSectionProps {
   docId: string;
   sectionId?: number;
@@ -54,7 +67,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
+
+  // Internal check for question editing permissions
+  const canManageQuestions = !readOnly && viewMode === 'edit';
+
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
+  const [traineeAnswers, setTraineeAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [creatingAtParent, setCreatingAtParent] = useState<string | null>(null);
@@ -119,6 +137,17 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       }
 
       setQuestions(filtered);
+
+      // --- Fetch Trainee Answers (NEW for Fluent Assessment) ---
+      try {
+        const answers = await invoke<UserAnswer[]>("get_trainee_answers", {
+          userId: "T-001", // MOCK_TRAINEE_ID
+          documentId: docId
+        });
+        setTraineeAnswers(answers);
+      } catch (err) {
+        console.error("Failed to fetch trainee answers:", err);
+      }
     } catch (error) {
       console.error("Failed to fetch questions:", error);
     } finally {
@@ -162,6 +191,16 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     sortNodes(tree);
     return tree;
   }, [questions]);
+
+  // Answer Map for lookup (Composite Key: question_id | sub_question_code)
+  const answerMap = useMemo(() => {
+    const map = new Map<string, UserAnswer>();
+    traineeAnswers.forEach(ans => {
+      const key = `${ans.question_id}|${ans.sub_question_code || ""}`;
+      map.set(key, ans);
+    });
+    return map;
+  }, [traineeAnswers]);
 
   const allIds = getAllIds(questionTree);
   const allCollapsed = allIds.length > 0 && allIds.every(id => collapsedIds.has(id));
@@ -572,6 +611,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 }
                 onRefresh={() => fetchQuestions(true)}
                 onQuestionsUpdated={onQuestionsUpdated}
+                traineeAnswer={answerMap.get(`${question.id}|`)}
+                answerMap={answerMap}
               />
             ))}
           </div>
@@ -581,7 +622,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         {!isCreating && questionTree.length === 0 && (
           <div
             className="group relative overflow-hidden rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-800/30 py-14 cursor-pointer transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/5"
-            onClick={!readOnly ? () => handleStartCreate(null) : undefined}
+            onClick={canManageQuestions ? () => handleStartCreate(null) : undefined}
           >
             <div className="flex flex-col items-center gap-3 relative z-10">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -591,7 +632,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                   ยังไม่มีคำถามในหัวข้อนี้
                 </p>
-                {!readOnly && (
+                {canManageQuestions && (
                   <p className="text-xs text-blue-500 mt-1 group-hover:text-blue-600 transition-colors">
                     + คลิกเพื่อเพิ่มคำถามแรก
                   </p>

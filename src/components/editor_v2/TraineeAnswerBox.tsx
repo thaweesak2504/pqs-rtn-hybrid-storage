@@ -1,7 +1,14 @@
+import { invoke } from "@tauri-apps/api/tauri";
+import { CheckCircle2, MessageSquare, RotateCcw, Save } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
+import { UserAnswer } from "./PqsQuestionSection";
+
+// Simulation Constants
+const MOCK_TRAINEE_ID = "T-001";
+const MOCK_QUALIFIER_ID = "Q-001";
 
 // Thai Helpers
 const THAI_ALPHA = ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ซ", "ฌ", "ญ", "ฎ", "ฏ", "ฐ", "ฑ", "ฒ", "ณ", "ด", "ต", "ถ", "ท", "ธ", "น", "บ", "ป", "ผ", "ฝ", "พ", "ฟ", "ภ", "ม", "ย", "ร", "ล", "ว", "ศ", "ษ", "ส", "ห", "ฬ", "อ", "ฮ"];
@@ -11,28 +18,60 @@ const toThaiDigit = (n: number): string => {
   return n.toString().split("").map(d => THAI_DIGITS[parseInt(d)] || d).join("");
 };
 
+export type AssessmentStatus = "pending" | "passed" | "needs_improvement";
+
 type ToolbarAction = "bold" | "italic" | "ol" | "ul" | "thai_alpha" | "thai_num" | "table";
 
 interface TraineeAnswerBoxProps {
   questionId: string;
+  documentId: string;
   subQuestionCode?: string;
   initialValue?: string;
+  status?: AssessmentStatus;
+  feedback?: string;
   readOnly?: boolean;
   label?: string; // e.g. "ก", "ข"
+  mode: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
+  onAnswerSaved?: () => void;
+  onAssessmentSaved?: () => void;
+  traineeAnswer?: UserAnswer;
 }
 
 const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   questionId,
+  documentId,
   subQuestionCode,
   initialValue = "",
+  status = "pending",
+  feedback = "",
   readOnly = false,
   label,
+  mode = "trainee",
+  onAnswerSaved,
+  onAssessmentSaved,
+  traineeAnswer,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
+  const [localFeedback, setLocalFeedback] = useState(feedback);
+  const [localStatus, setLocalStatus] = useState<AssessmentStatus>(status);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync with props
+  useEffect(() => {
+    if (traineeAnswer) {
+      setValue(traineeAnswer.answer_text || "");
+      setLocalStatus(traineeAnswer.status || "pending");
+      setLocalFeedback(traineeAnswer.feedback || "");
+    } else {
+      setValue(initialValue);
+      setLocalStatus(status);
+      setLocalFeedback(feedback);
+    }
+  }, [traineeAnswer, initialValue, status, feedback]);
 
   const colorMode = useMemo<"light" | "dark">(() => {
     if (typeof document === "undefined") return "light";
@@ -53,6 +92,58 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isEditing]);
+
+  const handleSaveAnswer = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setIsSaved(false);
+    try {
+      await invoke("save_trainee_answer", {
+        args: {
+          user_id: MOCK_TRAINEE_ID,
+          question_id: questionId,
+          document_id: documentId,
+          sub_question_code: subQuestionCode || "",
+          answer_text: value,
+        }
+      });
+      setIsEditing(false);
+      onAnswerSaved?.();
+    } catch (error) {
+      console.error("Failed to save answer:", error);
+      alert("ไม่สามารถบันทึกคำตอบได้");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAssessment = async (targetStatus: AssessmentStatus) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setIsSaved(false);
+    try {
+      await invoke("save_qualifier_assessment", {
+        args: {
+          user_id: MOCK_TRAINEE_ID,
+          question_id: questionId,
+          document_id: documentId,
+          sub_question_code: subQuestionCode || "",
+          status: targetStatus,
+          feedback: targetStatus === "needs_improvement" ? localFeedback : null,
+          qualifier_id: MOCK_QUALIFIER_ID,
+        }
+      });
+      setLocalStatus(targetStatus);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2000);
+      onAssessmentSaved?.();
+    } catch (error) {
+      console.error("Failed to save assessment:", error);
+      alert("ไม่สามารถบันทึกการประเมินได้");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const applyAction = useCallback(
     (action: ToolbarAction) => {
@@ -135,10 +226,12 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     el.style.height = `${Math.max(el.scrollHeight, 90)}px`;
   }, [value, isEditing]);
 
-  const handleEditStart = () => {
-    if (readOnly) return;
+  const handleEditStart = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation(); // Prevent parent toggle
+    // Allow 'trainee' or 'edit' mode to edit the answer (edit mode only if not locked)
+    const canEdit = mode === "trainee" || (mode === "edit" && !readOnly);
+    if (readOnly || !canEdit || localStatus === "passed") return;
     setIsEditing(true);
-    // Focus textarea after render
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -148,53 +241,152 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
   const cleanValue = value.trim();
 
-  // Idle / View Mode
+  // Status Styles
+  const statusConfig = {
+    pending: {
+      borderColor: "border-blue-200 dark:border-blue-800/50",
+      bgColor: "bg-blue-50/50 dark:bg-blue-900/10",
+      textColor: "text-blue-800 dark:text-blue-300",
+      icon: null
+    },
+    passed: {
+      borderColor: "border-emerald-200 dark:border-emerald-800/50",
+      bgColor: "bg-emerald-50/50 dark:bg-emerald-900/10",
+      textColor: "text-emerald-800 dark:text-emerald-300",
+      icon: <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+    },
+    needs_improvement: {
+      borderColor: "border-rose-200 dark:border-rose-800/50",
+      bgColor: "bg-rose-50/50 dark:bg-rose-900/10",
+      textColor: "text-rose-800 dark:text-rose-300",
+      icon: <RotateCcw className="w-4 h-4 text-rose-600" />
+    }
+  };
+
+  const config = statusConfig[localStatus] || statusConfig.pending;
+
+  // View Mode
   if (!isEditing) {
     return (
-      <div
-        data-question-id={questionId}
-        data-sub-question-code={subQuestionCode}
-        className={`px-2 py-1.5 text-sm rounded-md border transition-colors bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800/50 ${readOnly ? "" : "cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/40"
-          }`}
-        onClick={handleEditStart}
-      >
-        <div className="flex items-start gap-2 text-sm font-normal">
-          <span className="text-blue-800 dark:text-blue-300 shrink-0">คำตอบ: {label && <span className="text-amber-600 dark:text-amber-400 font-medium">{label}.</span>}</span>
-          {cleanValue ? (
-            <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                {cleanValue.replace(/\n/g, "  \n")}
-              </ReactMarkdown>
+      <div className="flex flex-col gap-1.5 w-full">
+        {/* Feedback Display for Trainee */}
+        {localStatus === "needs_improvement" && localFeedback && (
+          <div className="px-3 py-2 text-xs bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 rounded-md text-rose-700 dark:text-rose-400 flex items-start gap-2">
+            <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <div className="flex-1 italic">
+              <span className="font-bold not-italic">คำแนะนำจากครู:</span> {localFeedback}
             </div>
-          ) : (
-            <span className="text-slate-400 dark:text-slate-500 italic">
-              {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
-            </span>
+          </div>
+        )}
+
+        <div
+          ref={containerRef}
+          className={`px-3 py-2.5 text-sm rounded-md border transition-all ${config.bgColor} ${config.borderColor} ${readOnly || localStatus === "passed" || (mode !== "trainee" && mode !== "edit") ? "cursor-default" : "cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500"}`}
+          onClick={handleEditStart}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`text-xs font-bold uppercase tracking-wider ${config.textColor}`}>
+                  คำตอบ {label && <span className="text-amber-600 dark:text-amber-400 font-bold ml-1">{label}.</span>}
+                </span>
+                {config.icon}
+                {localStatus === "passed" && (
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">ตรวจสอบแล้ว</span>
+                )}
+                {localStatus === "needs_improvement" && (
+                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full">รอการแก้ไข</span>
+                )}
+              </div>
+
+              {cleanValue ? (
+                <div className="answer-key-markdown min-w-0 text-slate-800 dark:text-slate-200">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                    {cleanValue.replace(/\n/g, "  \n")}
+                  </ReactMarkdown>
+                </div>
+              ) : (
+                <span className="text-slate-400 dark:text-slate-500 italic">
+                  {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Qualifier Assessment Controls (Inside the Box) */}
+          {mode === "qualifier" && (
+            <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleSaveAssessment("passed"); }}
+                    disabled={isSaving}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "passed" ? "bg-emerald-600 text-white shadow-lg" : "bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
+                  >
+                    {isSaved && localStatus === "passed" ? <CheckCircle2 className="w-3.5 h-3.5 animate-bounce" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {isSaved && localStatus === "passed" ? "บันทึกแล้ว" : "ผ่าน"}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
+                    disabled={isSaving}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "needs_improvement" ? "bg-rose-600 text-white shadow-lg" : "bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
+                  >
+                    {isSaved && localStatus === "needs_improvement" ? <CheckCircle2 className="w-3.5 h-3.5 animate-bounce" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                    {isSaved && localStatus === "needs_improvement" ? "บันทึกโหมดแนะแนวแล้ว" : "ปรับปรุง"}
+                  </button>
+                </div>
+              </div>
+
+              {localStatus === "needs_improvement" && (
+                <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">ข้อเสนอแนะสำหรับการปรับปรุง</label>
+                  <textarea
+                    value={localFeedback}
+                    onChange={(e) => setLocalFeedback(e.target.value)}
+                    placeholder="พิมพ์คำแนะนำที่นี่เพื่อให้ Trainee นำไปแก้ไข..."
+                    className="w-full p-2 text-sm bg-rose-50/30 dark:bg-rose-900/10 border border-rose-200/50 dark:border-rose-800/30 rounded focus:outline-none focus:ring-1 focus:ring-rose-500/50 min-h-[60px]"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
+                      disabled={isSaving}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${isSaved
+                          ? "bg-emerald-600 text-white"
+                          : "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900"
+                        }`}
+                    >
+                      {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+                      {isSaved ? "บันทึกคำแนะนำเรียบร้อย!" : "บันทึกคำแนะนำ"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
     );
   }
 
-  // Edit Mode
+  // Edit Mode (Trainee only)
   return (
     <div
       ref={containerRef}
       data-color-mode={colorMode}
       data-question-id={questionId}
-      data-sub-question-code={subQuestionCode}
-      className={`rounded-md overflow-hidden border border-blue-300 dark:border-blue-600 shadow-sm transition-all focus-within:ring-1 focus-within:ring-blue-500/50 focus-within:border-blue-500 bg-white dark:bg-slate-900`}
+      className={`rounded-md overflow-hidden border border-blue-400 dark:border-blue-500 shadow-xl transition-all ring-2 ring-blue-500/20 bg-white dark:bg-slate-900 z-10 w-full`}
     >
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-1 px-2 py-1.5 border-b border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-slate-800">
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-blue-800 dark:text-blue-300 text-sm font-medium px-2 py-0.5 mr-1 bg-blue-100 dark:bg-blue-900/50 rounded">
+          <span className="text-blue-800 dark:text-blue-300 text-xs font-bold px-2 py-0.5 mr-1 bg-blue-100 dark:bg-blue-900/50 rounded uppercase tracking-tighter">
             คำตอบ {label && <span className="text-amber-600 dark:text-amber-400 font-bold ml-1">{label}.</span>}
           </span>
           <button
             type="button"
             title="ตัวหนา (Bold)"
-            onClick={() => applyAction("bold")}
+            onClick={(e) => { e.stopPropagation(); applyAction("bold"); }}
             className="h-6 px-2 text-xs font-bold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             B
@@ -202,7 +394,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           <button
             type="button"
             title="ตัวเอียง (Italic)"
-            onClick={() => applyAction("italic")}
+            onClick={(e) => { e.stopPropagation(); applyAction("italic"); }}
             className="h-6 px-2 text-xs italic rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             I
@@ -210,24 +402,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
           <button
             type="button"
-            title="ลิสต์เลข (1. 2. 3.)"
-            onClick={() => applyAction("ol")}
-            className="h-6 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            1.
-          </button>
-          <button
-            type="button"
-            title="ลิสต์จุด (- )"
-            onClick={() => applyAction("ul")}
-            className="h-6 px-2 text-xs rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            -
-          </button>
-          <button
-            type="button"
             title="ลำดับอักษรไทย (ก. ข. ค. ง. ...)"
-            onClick={() => applyAction("thai_alpha")}
+            onClick={(e) => { e.stopPropagation(); applyAction("thai_alpha"); }}
             className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             ก.ข.ค.
@@ -235,7 +411,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           <button
             type="button"
             title="ลำดับเลขไทย (๑. ๒. ๓. ...)"
-            onClick={() => applyAction("thai_num")}
+            onClick={(e) => { e.stopPropagation(); applyAction("thai_num"); }}
             className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             ๑.๒.๓.
@@ -244,31 +420,39 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           <button
             type="button"
             title="แทรกตาราง (Table)"
-            onClick={() => applyAction("table")}
+            onClick={(e) => { e.stopPropagation(); applyAction("table"); }}
             className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             Table
           </button>
         </div>
-        <button
-          onClick={() => setIsEditing(false)}
-          className="h-6 px-3 text-xs font-semibold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-        >
-          บันทึกคำตอบ
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
+            className="h-6 px-2 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            ยกเลิก
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleSaveAnswer(); }}
+            disabled={isSaving}
+            className="h-6 px-3 text-xs font-bold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50"
+          >
+            <Save className="w-3 h-3" />
+            บันทึก
+          </button>
+        </div>
       </div>
-
       <textarea
         ref={textareaRef}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onPaste={handlePaste}
         placeholder="ระบุคำตอบของคุณที่นี่..."
-        className="w-full p-2 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif] bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
-        rows={4}
+        className="w-full p-3 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif] bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none min-h-[120px]"
       />
     </div>
   );
 };
 
-export default TraineeAnswerBox;
+export default React.memo(TraineeAnswerBox);

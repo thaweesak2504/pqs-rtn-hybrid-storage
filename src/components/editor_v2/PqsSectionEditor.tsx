@@ -28,6 +28,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 }) => {
   const readOnly = viewMode !== 'edit';
   const isCompact = viewMode !== 'edit' && viewMode !== 'print';
+
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
   const [currentMenuLabel, setCurrentMenuLabel] = useState(subTitle || '');
@@ -267,15 +268,14 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       {/* 3. Question Area */}
       <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
         <PqsQuestionSection
-          viewMode={viewMode}
           docId={docId}
           sectionId={sectionId}
           sectionNumber={sectionNumber}
-          readOnly={readOnly}
-          refreshTrigger={refreshQuestionsTrigger} // Pass trigger
-          onReferencesUpdated={() => {
-            fetchReferences(sectionId);
-          }}
+          sectionGroup={100}
+          readOnly={false}
+          refreshTrigger={refreshQuestionsTrigger}
+          onQuestionsUpdated={() => setRefreshQuestionsTrigger(prev => prev + 1)}
+          viewMode={viewMode}
         />
       </div>
 

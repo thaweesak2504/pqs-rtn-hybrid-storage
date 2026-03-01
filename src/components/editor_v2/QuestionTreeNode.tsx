@@ -30,6 +30,7 @@ import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
 import Tooltip from "../ui/Tooltip";
 import AnswerKeyEditor from "./AnswerKeyEditor";
+import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
 
 const DEFAULT_L1_DESC_BY_SEQ: { [key: number]: string } = {
@@ -97,6 +98,7 @@ interface SubQuestionItem {
   text: string;
   alwaysChecked?: boolean;
 }
+// Note: UserAnswer is imported from PqsQuestionSection
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
@@ -137,6 +139,8 @@ interface QuestionTreeNodeProps {
   onRefresh?: () => void;
   onQuestionsUpdated?: () => void;
   viewMode?: ViewMode;
+  traineeAnswer?: UserAnswer;
+  answerMap?: Map<string, UserAnswer>;
 }
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question,
@@ -175,6 +179,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   onRefresh,
   onQuestionsUpdated,
   viewMode = 'edit',
+  traineeAnswer,
+  answerMap,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -438,6 +444,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onImageClick={onImageClick}
         parentLayout={parentLayout}
         parentSubQuestionList={parentSubQuestionList}
+        traineeAnswer={traineeAnswer}
+        answerMap={answerMap}
+        documentId={documentId}
+        onRefresh={onRefresh}
       />
 
       {/* Insert After Form */}
@@ -505,6 +515,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionSelectedBranch={sectionSelectedBranch}
                 onRefresh={onRefresh}
                 onQuestionsUpdated={onQuestionsUpdated}
+                traineeAnswer={answerMap?.get(child.id)}
+                answerMap={answerMap}
               />
             ))}
           </div>

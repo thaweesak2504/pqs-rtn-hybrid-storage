@@ -262,13 +262,14 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
       {/* 3. Question Area — Section 200 Template */}
       <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
         <PqsQuestionSection
-          viewMode={viewMode}
           docId={docId}
           sectionId={sectionId}
           sectionNumber={sectionNumber}
           sectionGroup={200}
-          readOnly={readOnly}
+          readOnly={false}
           refreshTrigger={refreshQuestionsTrigger}
+          onQuestionsUpdated={() => setRefreshQuestionsTrigger(prev => prev + 1)}
+          viewMode={viewMode}
           docBranchMain={docBranchMain}
           docBranchSub={docBranchSub}
           onReferencesUpdated={() => {

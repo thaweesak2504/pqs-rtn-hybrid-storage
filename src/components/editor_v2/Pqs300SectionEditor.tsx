@@ -277,15 +277,15 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       {/* 3. Content Area */}
       <div className="flex flex-col gap-6">
         <PqsQuestionSection
-          viewMode={viewMode}
           docId={docId}
           sectionId={sectionId}
           sectionNumber={sectionNumber}
           sectionGroup={300}
-          readOnly={readOnly}
+          readOnly={false}
+          onQuestionsUpdated={fetchSectionData}
+          viewMode={viewMode}
           docBranchMain={docBranchMain}
           docBranchSub={docBranchSub}
-          onQuestionsUpdated={fetchSectionData}
         />
       </div>
 

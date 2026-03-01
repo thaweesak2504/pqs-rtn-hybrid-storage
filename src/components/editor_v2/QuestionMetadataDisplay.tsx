@@ -2,6 +2,7 @@ import React, { useCallback, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
+import { UserAnswer } from "./PqsQuestionSection";
 import { AsyncImagePreview } from "./QuestionTreeNode";
 import TraineeAnswerBox from "./TraineeAnswerBox";
 
@@ -15,11 +16,16 @@ interface SubQuestionItem {
 interface QuestionMetadataDisplayProps {
   metadata: string;
   questionId: string;
+  documentId: string;
   onImageClick?: (src: string) => void;
   parentSubQuestionList?: SubQuestionItem[];
   readOnly?: boolean;
   showAnswerBox?: boolean;
   showAnswerKey?: boolean;
+  mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
+  traineeAnswer?: UserAnswer;
+  answerMap?: Map<string, UserAnswer>;
+  onRefresh?: () => void;
 }
 
 // ============ Helpers ============
@@ -36,11 +42,16 @@ const toThaiAlphabet = (n: number) => {
 const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
   metadata,
   questionId,
+  documentId,
   onImageClick,
   parentSubQuestionList,
   readOnly = false,
   showAnswerBox = false,
-  showAnswerKey = true
+  showAnswerKey = true,
+  mode = "viewer",
+  traineeAnswer,
+  answerMap,
+  onRefresh,
 }) => {
   const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
@@ -130,9 +141,14 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                     {showAnswerBox && (
                       <TraineeAnswerBox
                         questionId={questionId}
+                        documentId={documentId}
                         subQuestionCode={code}
                         readOnly={readOnly}
                         label={label}
+                        mode={mode}
+                        traineeAnswer={answerMap?.get(`${questionId}|${code}`)}
+                        onAnswerSaved={onRefresh}
+                        onAssessmentSaved={onRefresh}
                       />
                     )}
                     {showAnswerKey && (
@@ -157,7 +173,15 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
           return (
             <div className="flex flex-col gap-1.5">
               {showAnswerBox && (
-                <TraineeAnswerBox questionId={questionId} readOnly={readOnly} />
+                <TraineeAnswerBox
+                  questionId={questionId}
+                  documentId={documentId}
+                  readOnly={readOnly}
+                  mode={mode}
+                  traineeAnswer={traineeAnswer}
+                  onAnswerSaved={onRefresh}
+                  onAssessmentSaved={onRefresh}
+                />
               )}
               {showAnswerKey && data.answerKey && (
                 <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
