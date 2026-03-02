@@ -36,6 +36,7 @@ interface PqsSectionPreviewProps {
   references: ReferenceDoc[];
   sectionGroup?: 100 | 200 | 300;
   mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
+  printSubView?: PrintSubView;
 }
 
 // ============ Main Component ============
@@ -48,10 +49,15 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
   references,
   sectionGroup = 100,
   mode = "viewer",
+  printSubView: printSubViewProp = 'question-only',
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
-  const [printSubView, setPrintSubView] = useState<PrintSubView>('question-only');
+  const [printSubView, setPrintSubView] = useState<PrintSubView>(printSubViewProp);
+
+  useEffect(() => {
+    setPrintSubView(printSubViewProp);
+  }, [printSubViewProp]);
 
   useEffect(() => {
     const fetchQuestions = async () => {

@@ -41,7 +41,7 @@ import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 
-import { Edit2, Edit3, Eye, EyeOff, Printer, UserCircle, Users } from 'lucide-react';
+import { BookOpen, Edit2, Edit3, Eye, EyeOff, FileText, Printer, UserCircle, Users } from 'lucide-react';
 import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
 import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
@@ -50,6 +50,7 @@ import EditMetadataModal from '../modals/EditMetadataModal';
 import DropdownMenu from '../ui/DropdownMenu';
 
 export type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
+export type PrintSubView = 'question-only' | 'question-with-key';
 
 const ActiveDocumentPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
@@ -59,6 +60,7 @@ const ActiveDocumentPage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<string>('cover'); // 'cover', 'intro', '100', '200', '300', or section numbers
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('edit');
+  const [printSubView, setPrintSubView] = useState<PrintSubView>('question-only');
   const isPrintMode = viewMode === 'print';
   const isEditMode = viewMode === 'edit';
 
@@ -340,7 +342,18 @@ const ActiveDocumentPage: React.FC = () => {
                       {
                         label: 'Print Layout (A4)',
                         icon: <Printer />,
-                        onClick: () => setViewMode('print')
+                        subItems: [
+                          {
+                            label: 'Question (เล่มคำถาม)',
+                            icon: <FileText />,
+                            onClick: () => { setViewMode('print'); setPrintSubView('question-only'); }
+                          },
+                          {
+                            label: 'Answer Key (เล่มเฉลย)',
+                            icon: <BookOpen />,
+                            onClick: () => { setViewMode('print'); setPrintSubView('question-with-key'); }
+                          },
+                        ]
                       },
                       { separator: true, label: '', onClick: () => { } },
                       {
@@ -430,6 +443,7 @@ const ActiveDocumentPage: React.FC = () => {
                 })()}
                 isPreviewMode={isPrintMode}
                 viewMode={viewMode}
+                printSubView={printSubView}
                 onMenuLabelChange={fetchSections}
               />
             )}
@@ -450,6 +464,7 @@ const ActiveDocumentPage: React.FC = () => {
                 })()}
                 isPreviewMode={isPrintMode}
                 viewMode={viewMode}
+                printSubView={printSubView}
                 onMenuLabelChange={fetchSections}
                 docBranchMain={docBranchMain}
                 docBranchSub={docBranchSub}
@@ -472,6 +487,7 @@ const ActiveDocumentPage: React.FC = () => {
                 })()}
                 isPreviewMode={isPrintMode}
                 viewMode={viewMode}
+                printSubView={printSubView}
                 onMenuLabelChange={fetchSections}
                 docBranchMain={docBranchMain}
                 docBranchSub={docBranchSub}

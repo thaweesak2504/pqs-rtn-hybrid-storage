@@ -7,6 +7,7 @@ import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 import PqsSectionPreview100 from './PqsSectionPreview100';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
+type PrintSubView = 'question-only' | 'question-with-key';
 
 interface PqsSectionEditorProps {
   docId: string;
@@ -15,6 +16,7 @@ interface PqsSectionEditorProps {
   subTitle?: string;
   isPreviewMode?: boolean;
   viewMode?: ViewMode;
+  printSubView?: PrintSubView;
   onMenuLabelChange?: () => void;
 }
 
@@ -24,6 +26,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   title,
   subTitle,
   viewMode = 'edit',
+  printSubView = 'question-only',
   onMenuLabelChange,
 }) => {
   const readOnly = viewMode !== 'edit';
@@ -226,6 +229,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         title={currentTitle}
         references={references}
         mode={viewMode}
+        printSubView={printSubView}
       />
     );
   }

@@ -8,6 +8,7 @@ import PqsQuestionSection from './PqsQuestionSection';
 import PqsSectionPreview from './PqsSectionPreview';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
+type PrintSubView = 'question-only' | 'question-with-key';
 type DurationUnit = 'days' | 'weeks' | 'months';
 
 const DURATION_UNIT_LABELS: Record<DurationUnit, string> = {
@@ -30,6 +31,7 @@ interface Pqs300SectionEditorProps {
   subTitle?: string;
   isPreviewMode?: boolean;
   viewMode?: ViewMode;
+  printSubView?: PrintSubView;
   onMenuLabelChange?: () => void;
   docBranchMain?: string;
   docBranchSub?: string;
@@ -41,6 +43,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   title,
   subTitle,
   viewMode = 'edit',
+  printSubView: _printSubView300 = 'question-only',
   onMenuLabelChange,
   docBranchMain,
   docBranchSub,
