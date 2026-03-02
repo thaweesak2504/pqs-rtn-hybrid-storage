@@ -115,7 +115,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       onAnswerSaved?.();
     } catch (error) {
       console.error("Failed to save answer:", error);
-      alert("ไม่สามารถบันทึกคำตอบได้");
+      alert("ไม่สามารถบันทึกคำตอบได้ (โปรดแจ้งนักพัฒนา)");
     } finally {
       setIsSaving(false);
     }
@@ -144,7 +144,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       onAssessmentSaved?.();
     } catch (error) {
       console.error("Failed to save assessment:", error);
-      alert("ไม่สามารถบันทึกการประเมินได้");
+      alert("ไม่สามารถบันทึกการประเมินได้ (โปรดแจ้งนักพัฒนา)");
     } finally {
       setIsSaving(false);
     }
@@ -300,7 +300,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             </div>
 
             {/* Edit Feedback Button for Qualifier */}
-            {mode === "qualifier" && (
+            {mode === "qualifier" && !isQualifierPanelOpen && (
               <button
                 onClick={(e) => { e.stopPropagation(); setIsQualifierPanelOpen(true); }}
                 className="shrink-0 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-blue-200 dark:border-blue-700 hover:bg-blue-50 transition-colors"

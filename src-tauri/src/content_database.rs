@@ -874,6 +874,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN sub_question_code VARCHAR(20) DEFAULT ''", []);
     
     // Ensure we have a unique index including sub_question_code (SQLite doesn't support ALTER TABLE DROP CONSTRAINT)
+    let _ = conn.execute("DROP INDEX IF EXISTS idx_user_answers_composite", []);
     let _ = conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_answers_composite ON UserAnswers(user_id, question_id, document_id, sub_question_code)", []);
 
     // UserProgress Table - Track trainee scoring progress per section
@@ -4099,7 +4100,11 @@ pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String
             status = 'pending',
             updated_at = CURRENT_TIMESTAMP",
         params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text]
-    ).map_err(|e| format!("Failed to save answer: {}", e))?;
+    ).map_err(|e| {
+        let err_msg = format!("Failed to save answer: {}", e);
+        println!("DB ERROR in save_trainee_answer: {}", err_msg);
+        err_msg
+    })?;
     
     Ok("Answer saved successfully".to_string())
 }
