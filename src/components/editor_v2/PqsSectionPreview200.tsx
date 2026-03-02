@@ -397,7 +397,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       {is200 && level === 0 && ownSubQuestionList.length > 0 && (
         <div className="mt-1.5 ml-[9ch] space-y-0.5">
           {ownSubQuestionList.map((sq, sqIdx) => (
-            <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-700 dark:text-slate-300">
+            <div key={sq.code} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
               <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[2.5ch] shrink-0">{toThaiAlphabet(sqIdx)}</span>
               <span>{sq.text}</span>
             </div>
