@@ -27,6 +27,9 @@
     "src",
     "example/section_200/201RadarWeapon.tsx"
   ],
+  "exclude": [
+    "src/example/**/*"
+  ],
   "references": [
     {
       "path": "./tsconfig.node.json"
