@@ -313,65 +313,69 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
         <div
           ref={containerRef}
-          className={`px-3 py-2.5 text-sm rounded-md border transition-all ${config.bgColor} ${config.borderColor} ${readOnly || localStatus === "passed" || (mode !== "trainee" && mode !== "edit") ? "cursor-default" : "cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500"}`}
+          className={`px-3 py-2.5 text-sm font-normal rounded-md border transition-all ${config.bgColor} ${config.borderColor} ${readOnly || localStatus === "passed" || (mode !== "trainee" && mode !== "edit") ? "cursor-default" : "cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500"}`}
           onClick={handleEditStart}
         >
           <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  {label && <span className="text-[10px] font-bold text-slate-400">({label}.)</span>}
-                  {!cleanValue && (
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1`}>
-                      {config.icon} {config.label}
-                    </span>
+            <div className="flex-1 min-w-0 pb-[2px]">
+              <div className="flex items-start justify-between gap-4">
+                {/* Left Side: Prefix + Content */}
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  <span className="text-slate-900 dark:text-slate-100 shrink-0">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
+
+                  {cleanValue ? (
+                    <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                        {cleanValue.replace(/\n/g, "  \n")}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <div className="flex items-center flex-wrap gap-2 min-w-0">
+                      <span className="text-slate-400 dark:text-slate-500 italic mt-[2px]">
+                        {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1`}>
+                        {config.icon} {config.label}
+                      </span>
+                    </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
-                  {/* Timestamp display */}
-                  {traineeAnswer?.updated_at && (
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
-                      {formatThaiTime(traineeAnswer.updated_at)}
-                    </span>
-                  )}
+                {/* Right Side: Status Badges (Only shown if answer exists) */}
+                {cleanValue && (
+                  <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar shrink-0 mt-[2px]">
+                    {/* Timestamp display */}
+                    {traineeAnswer?.updated_at && (
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
+                        {formatThaiTime(traineeAnswer.updated_at)}
+                      </span>
+                    )}
 
-                  {/* Right side statuses (Inline: Timestamp - Status Details - Main Badge) */}
-                  {cleanValue && localStatus === "pending" && (
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
-                      {config.icon} {config.label}
-                    </span>
-                  )}
-                  {cleanValue && localStatus === "passed" && (
-                    <>
-                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">ตรวจสอบแล้ว</span>
+                    {/* Status Badges */}
+                    {localStatus === "pending" && (
                       <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
                         {config.icon} {config.label}
                       </span>
-                    </>
-                  )}
-                  {cleanValue && localStatus === "needs_improvement" && (
-                    <>
-                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">รอการแก้ไข</span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
-                        {config.icon} {config.label}
-                      </span>
-                    </>
-                  )}
-                </div>
+                    )}
+                    {localStatus === "passed" && (
+                      <>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">ตรวจสอบแล้ว</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                          {config.icon} {config.label}
+                        </span>
+                      </>
+                    )}
+                    {localStatus === "needs_improvement" && (
+                      <>
+                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">รอการแก้ไข</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                          {config.icon} {config.label}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-
-              {cleanValue ? (
-                <div className="answer-key-markdown min-w-0 text-slate-800 dark:text-slate-200">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                    {cleanValue.replace(/\n/g, "  \n")}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <span className="text-slate-400 dark:text-slate-500 italic">
-                  {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
-                </span>
-              )}
             </div>
           </div>
 
@@ -437,14 +441,14 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       ref={containerRef}
       data-color-mode={colorMode}
       data-question-id={questionId}
-      className={`rounded-md overflow-hidden border border-blue-400 dark:border-blue-500 shadow-xl transition-all ring-2 ring-blue-500/20 bg-white dark:bg-slate-900 z-10 w-full`}
+      className={`rounded-md overflow-hidden border border-blue-400 dark:border-blue-500 shadow-xl transition-all ring-2 ring-blue-500/20 bg-white dark:bg-slate-900 z-10 w-full font-normal`}
     >
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-1 px-2 py-1.5 border-b border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-slate-800">
+      <div className="flex flex-wrap items-center justify-between gap-1 px-2 py-1.5 border-b border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-slate-800 font-normal">
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-blue-800 dark:text-blue-300 text-xs font-bold px-2 py-0.5 mr-1 bg-blue-100 dark:bg-blue-900/50 rounded uppercase tracking-tighter">
-            คำตอบ {label && <span className="text-amber-600 dark:text-amber-400 font-bold ml-1">{label}.</span>}
-          </span>
+          <div className="flex items-center gap-2 mr-2">
+            <span className="text-slate-900 dark:text-slate-100 shrink-0 text-sm">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
+          </div>
           <button
             type="button"
             title="ตัวหนา (Bold)"

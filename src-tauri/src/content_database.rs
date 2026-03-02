@@ -4160,3 +4160,17 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
     
     Ok(result)
 }
+
+#[tauri::command]
+pub fn clear_all_trainee_answers() -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    conn.execute("DELETE FROM UserAnswers", rusqlite::params![])
+        .map_err(|e| {
+            println!("Failed to clear UserAnswers: {}", e);
+            e.to_string()
+        })?;
+
+    println!("Successfully cleared all records from UserAnswers table.");
+    Ok(())
+}

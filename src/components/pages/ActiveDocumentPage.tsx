@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, Trash2, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -67,6 +67,7 @@ const ActiveDocumentPage: React.FC = () => {
   const [isAddSectionModalOpen, setAddSectionModalOpen] = useState(false);
   const [selectedSectionGroup, setSelectedSectionGroup] = useState<100 | 200 | 300>(100);
   const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
   const fetchDocData = useCallback(() => {
     if (docId) {
@@ -118,6 +119,19 @@ const ActiveDocumentPage: React.FC = () => {
     } catch (err) {
       console.error("Failed to delete section:", err);
       alert(`Error: ${err}`);
+    }
+  };
+
+  const handleClearAnswers = async () => {
+    if (window.confirm('คำเตือน: คุณต้องการลบ "คำตอบ" และ "การประเมิน" ของผู้รับการประเมินทั้งหมดในฐานข้อมูลใช่หรือไม่?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้')) {
+      try {
+        await invoke('clear_all_trainee_answers');
+        alert('ลบข้อมูลคำตอบทั้งหมดเรียบร้อยแล้ว');
+        setRefreshKey(prev => prev + 1); // Trigger React re-render of active editors without crashing WebView
+      } catch (err) {
+        console.error("Failed to clear trainee answers:", err);
+        alert(`เกิดข้อผิดพลาดในการลบข้อมูล: ${err}`);
+      }
     }
   };
 
@@ -318,6 +332,12 @@ const ActiveDocumentPage: React.FC = () => {
                         label: 'Print Layout (A4)',
                         icon: <Printer />,
                         onClick: () => setViewMode('print')
+                      },
+                      { separator: true, label: '', onClick: () => { } },
+                      {
+                        label: 'Clear Answers (DB)',
+                        icon: <Trash2 className="text-red-500" />,
+                        onClick: handleClearAnswers
                       }
                     ]}
                   />
@@ -389,6 +409,7 @@ const ActiveDocumentPage: React.FC = () => {
           {activeSection !== '100' && activeSection !== '200' && activeSection !== '300' &&
             parseInt(activeSection) >= 100 && parseInt(activeSection) < 200 && docId && (
               <PqsSectionEditor
+                key={`100-${docId}-${activeSection}-${refreshKey}`}
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
@@ -408,6 +429,7 @@ const ActiveDocumentPage: React.FC = () => {
           {activeSection !== '200' &&
             parseInt(activeSection) >= 201 && parseInt(activeSection) < 300 && docId && (
               <Pqs200SectionEditor
+                key={`200-${docId}-${activeSection}-${refreshKey}`}
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
@@ -429,6 +451,7 @@ const ActiveDocumentPage: React.FC = () => {
           {activeSection !== '300' &&
             parseInt(activeSection) >= 301 && parseInt(activeSection) < 400 && docId && (
               <Pqs300SectionEditor
+                key={`300-${docId}-${activeSection}-${refreshKey}`}
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}

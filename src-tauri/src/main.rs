@@ -1499,6 +1499,7 @@ fn main() {
             save_trainee_answer,
             save_qualifier_assessment,
             get_trainee_answers,
+            content_database::clear_all_trainee_answers,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
