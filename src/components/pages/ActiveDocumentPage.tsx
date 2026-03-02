@@ -1,6 +1,7 @@
 import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, Trash2, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import ConfirmModal from '../modals/ConfirmModal';
 import Button from '../ui/Button';
 
 import { invoke } from '@tauri-apps/api/tauri';
@@ -45,7 +46,6 @@ import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
 import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
-import ConfirmModal from '../modals/ConfirmModal';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import DropdownMenu from '../ui/DropdownMenu';
 
@@ -68,6 +68,10 @@ const ActiveDocumentPage: React.FC = () => {
   const [selectedSectionGroup, setSelectedSectionGroup] = useState<100 | 200 | 300>(100);
   const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
+  const [clearConfirmModal, setClearConfirmModal] = useState<boolean>(false);
+  const [clearSuccessModal, setClearSuccessModal] = useState<boolean>(false);
+  const [clearErrorModal, setClearErrorModal] = useState<boolean>(false);
+  const [clearError, setClearError] = useState<string>('');
 
   const fetchDocData = useCallback(() => {
     if (docId) {
@@ -123,15 +127,20 @@ const ActiveDocumentPage: React.FC = () => {
   };
 
   const handleClearAnswers = async () => {
-    if (window.confirm('คำเตือน: คุณต้องการลบ "คำตอบ" และ "การประเมิน" ของผู้รับการประเมินทั้งหมดในฐานข้อมูลใช่หรือไม่?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้')) {
-      try {
-        await invoke('clear_all_trainee_answers');
-        alert('ลบข้อมูลคำตอบทั้งหมดเรียบร้อยแล้ว');
-        setRefreshKey(prev => prev + 1); // Trigger React re-render of active editors without crashing WebView
-      } catch (err) {
-        console.error("Failed to clear trainee answers:", err);
-        alert(`เกิดข้อผิดพลาดในการลบข้อมูล: ${err}`);
-      }
+    setClearConfirmModal(true);
+  };
+
+  const confirmClearAnswers = async () => {
+    try {
+      await invoke('clear_all_trainee_answers');
+      setClearConfirmModal(false);
+      setClearSuccessModal(true);
+      setRefreshKey(prev => prev + 1); // Trigger React re-render of active editors without crashing WebView
+    } catch (err) {
+      console.error("Failed to clear trainee answers:", err);
+      setClearConfirmModal(false);
+      setClearError(String(err));
+      setClearErrorModal(true);
     }
   };
 
@@ -512,6 +521,37 @@ const ActiveDocumentPage: React.FC = () => {
         message={`คุณต้องการลบส่วน "${sectionToDelete?.title || sectionToDelete?.menu_label}" ใช่หรือไม่?\n\nการลบส่วนจะลบเนื้อหาและคำถามทั้งหมดที่อยู่ภายใน`}
         confirmText="ลบส่วนนี้"
         variant="danger"
+      />
+
+      {/* Clear Answers Modals */}
+      <ConfirmModal
+        isOpen={clearConfirmModal}
+        onClose={() => setClearConfirmModal(false)}
+        onConfirm={confirmClearAnswers}
+        title="ยืนยันการลบคำตอบ"
+        message="คำเตือน: คุณต้องการลบคำตอบและการประเมินทั้งหมดในฐานข้อมูลใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้"
+        confirmText="ลบทั้งหมด"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={clearSuccessModal}
+        onClose={() => setClearSuccessModal(false)}
+        onConfirm={() => setClearSuccessModal(false)}
+        title="ลบข้อมูลสำเร็จ"
+        message="ลบข้อมูลคำตอบทั้งหมดเรียบร้อยแล้ว"
+        confirmText="ตกลง"
+        variant="info"
+      />
+
+      <ConfirmModal
+        isOpen={clearErrorModal}
+        onClose={() => setClearErrorModal(false)}
+        onConfirm={() => setClearErrorModal(false)}
+        title="เกิดข้อผิดพลาด"
+        message={`เกิดข้อผิดพลาดในการลบข้อมูล: ${clearError}`}
+        confirmText="ตกลง"
+        variant="warning"
       />
     </div>
   );
