@@ -1,11 +1,13 @@
 ﻿import { invoke } from '@tauri-apps/api/tauri';
+import { BookOpen, FileText, Printer } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
-import TraineeAnswerBox from './TraineeAnswerBox';
+
+type PrintSubView = 'question-only' | 'question-with-key';
 
 // ============ Helpers ============
 
@@ -49,6 +51,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [printSubView, setPrintSubView] = useState<PrintSubView>('question-only');
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -56,7 +59,6 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
       try {
         setLoading(true);
         const data = await invoke<QuestionDetail[]>('get_document_questions_with_details', { docId });
-        // Filter by sectionId (same logic as PqsQuestionSection)
         const filtered = data.filter(
           (q) =>
             q.section_id === sectionId ||
@@ -76,11 +78,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
   const questionTree = useMemo(() => {
     const tree: QuestionDetail[] = [];
     const map = new Map<string, QuestionDetail>();
-
-    questions.forEach((q) => {
-      map.set(q.id, { ...q, children: [] });
-    });
-
+    questions.forEach((q) => { map.set(q.id, { ...q, children: [] }); });
     questions.forEach((q) => {
       const node = map.get(q.id)!;
       if (q.parent_id && map.has(q.parent_id)) {
@@ -89,16 +87,15 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
         tree.push(node);
       }
     });
-
     const sortNodes = (nodes: QuestionDetail[]) => {
       nodes.sort((a, b) => a.sequence - b.sequence);
-      nodes.forEach((n) => {
-        if (n.children && n.children.length > 0) sortNodes(n.children);
-      });
+      nodes.forEach((n) => { if (n.children && n.children.length > 0) sortNodes(n.children); });
     };
     sortNodes(tree);
     return tree;
   }, [questions]);
+
+  const showAnswerKey = mode === 'print' ? printSubView === 'question-with-key' : (mode === 'qualifier');
 
   if (loading) {
     return (
@@ -109,52 +106,92 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
   }
 
   return (
-    <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
-      {/* A4 Paper */}
-      <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_1.0cm_2.0cm_2.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
+    <div className="flex flex-col bg-github-bg-primary min-h-full transition-colors duration-300">
 
-        {/* ——— Section Header ——— */}
-        <div className="mb-4">
-          <div className="flex mb-4">
-            <div className="font-bold text-lg min-w-[8ch]">
-              {toThaiNumber(sectionNumber)}
-            </div>
-            <div className="flex-1">
-              <h1 className="font-bold text-lg mb-2">{title}</h1>
+      {/* ——— Toolbar (Print mode only) ——— */}
+      {mode === 'print' && (
+        <div className="flex items-center justify-between gap-3 px-6 py-3 bg-github-bg-secondary border-b border-github-border-primary print:hidden sticky top-0 z-10">
+          {/* Sub-view toggle */}
+          <div className="flex items-center gap-1 bg-github-bg-tertiary rounded-lg p-1">
+            <button
+              onClick={() => setPrintSubView('question-only')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                printSubView === 'question-only'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-github-text-secondary hover:text-github-text-primary'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              เล่มคำถาม (Trainee)
+            </button>
+            <button
+              onClick={() => setPrintSubView('question-with-key')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                printSubView === 'question-with-key'
+                  ? 'bg-green-600 text-white shadow-sm'
+                  : 'text-github-text-secondary hover:text-github-text-primary'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              เล่มเฉลย (Qualifier)
+            </button>
+          </div>
 
-              {/* References Header */}
-              <div className="mb-2">
-                <span>เอกสารอ้างอิง :</span>
+          {/* Print button */}
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            พิมพ์
+          </button>
+        </div>
+      )}
+
+      {/* ——— A4 Paper ——— */}
+      <div className="flex justify-center p-8 min-w-fit">
+        <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-black box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_1.0cm_2.0cm_2.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
+
+          {/* ——— Section Header ——— */}
+          <div className="mb-4">
+            <div className="flex mb-4">
+              <div className="font-bold text-lg min-w-[8ch]">
+                {toThaiNumber(sectionNumber)}
               </div>
-
-              {/* References List */}
-              <ol className="list-none space-y-0.5">
-                {references.map((ref, index) => (
-                  <li key={ref.id} className="flex gap-2">
-                    <span className="shrink-0">{toThaiAlphabet(index)}</span>
-                    <span>{ref.title}</span>
-                  </li>
-                ))}
-              </ol>
+              <div className="flex-1">
+                <h1 className="font-bold text-lg mb-2">{title}</h1>
+                <div className="mb-2">
+                  <span>เอกสารอ้างอิง :</span>
+                </div>
+                <ol className="list-none space-y-0.5">
+                  {references.map((ref, index) => (
+                    <li key={ref.id} className="flex gap-2">
+                      <span className="shrink-0">{toThaiAlphabet(index)}</span>
+                      <span>{ref.title}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* ——— Questions ——— */}
-        <div className="space-y-1">
-          {questionTree.map((question, index) => (
-            <PreviewQuestionNode
-              key={question.id}
-              question={question}
-              index={index}
-              level={0}
-              parentPath={toThaiNumber(sectionNumber)}
-              sectionNumber={sectionNumber}
-              sectionGroup={sectionGroup}
-              docId={docId}
-              mode={mode}
-            />
-          ))}
+          {/* ——— Questions ——— */}
+          <div className="space-y-1">
+            {questionTree.map((question, index) => (
+              <PreviewQuestionNode
+                key={question.id}
+                question={question}
+                index={index}
+                level={0}
+                parentPath={toThaiNumber(sectionNumber)}
+                sectionNumber={sectionNumber}
+                sectionGroup={sectionGroup}
+                docId={docId}
+                mode={mode}
+                showAnswerKey={showAnswerKey}
+              />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -172,6 +209,7 @@ interface PreviewQuestionNodeProps {
   sectionGroup?: 100 | 200 | 300;
   docId: string;
   mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
+  showAnswerKey?: boolean;
 }
 
 const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
@@ -183,6 +221,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   sectionGroup,
   docId,
   mode = "viewer",
+  showAnswerKey = false,
 }) => {
   // Build numbering: 100/300: L0 = ๑๐๑.๑, L1 = ก.
   let displayNumber = '';
@@ -289,15 +328,8 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         </div>
       )}
 
-      {/* Trainee Answer Box */}
-      {(!question.children || question.children.length === 0) && (
-        <div className={`mt-3 mb-1 ${contentStartOffsetClass}`}>
-          <TraineeAnswerBox questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} mode={mode} />
-        </div>
-      )}
-
-      {/* Answer Key Box — always shown, no repeated question, no checkboxes */}
-      {answerKey && (
+      {/* Answer Key Box — shown only when showAnswerKey=true, TraineeAnswerBox removed from print */}
+      {showAnswerKey && answerKey && (
         <div className={`mt-2 ${contentStartOffsetClass}`}>
           <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
             <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
@@ -333,6 +365,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
                 sectionGroup={sectionGroup}
                 docId={docId}
                 mode={mode}
+                showAnswerKey={showAnswerKey}
               />
             </div>
           ))}
