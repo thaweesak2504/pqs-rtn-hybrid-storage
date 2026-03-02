@@ -515,7 +515,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionSelectedBranch={sectionSelectedBranch}
                 onRefresh={onRefresh}
                 onQuestionsUpdated={onQuestionsUpdated}
-                traineeAnswer={answerMap?.get(child.id)}
+                traineeAnswer={answerMap?.get(`${child.id}:`)}
                 answerMap={answerMap}
               />
             ))}

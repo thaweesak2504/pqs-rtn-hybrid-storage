@@ -146,7 +146,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         readOnly={readOnly}
                         label={label}
                         mode={mode}
-                        traineeAnswer={answerMap?.get(`${questionId}|${code}`)}
+                        traineeAnswer={answerMap?.get(`${questionId}:${code}`)}
                         onAnswerSaved={onRefresh}
                         onAssessmentSaved={onRefresh}
                       />

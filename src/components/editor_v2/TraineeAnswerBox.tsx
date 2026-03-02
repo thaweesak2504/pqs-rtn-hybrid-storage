@@ -57,6 +57,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const [localStatus, setLocalStatus] = useState<AssessmentStatus>(status);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -66,10 +67,13 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setValue(traineeAnswer.answer_text || "");
       setLocalStatus(traineeAnswer.status || "pending");
       setLocalFeedback(traineeAnswer.feedback || "");
+      // Open panel if pending, close if already assessed
+      setIsQualifierPanelOpen(traineeAnswer.status === "pending");
     } else {
       setValue(initialValue);
       setLocalStatus(status);
       setLocalFeedback(feedback);
+      setIsQualifierPanelOpen(status === "pending");
     }
   }, [traineeAnswer, initialValue, status, feedback]);
 
@@ -134,8 +138,9 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         }
       });
       setLocalStatus(targetStatus);
-      setIsSaved(true);
-      setTimeout(() => setIsSaved(false), 2000);
+      // Close panel after successful save
+      setIsQualifierPanelOpen(false);
+      // Immediately close and refresh after save per user request
       onAssessmentSaved?.();
     } catch (error) {
       console.error("Failed to save assessment:", error);
@@ -266,6 +271,18 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }
   };
 
+  const formatThaiTime = (dateStr: string) => {
+    // Ensure the date string is treated as UTC if it doesn't have a timezone suffix
+    // SQLite datetime('now') returns 'YYYY-MM-DD HH:MM:SS'
+    const isoStr = (dateStr.includes('Z') || dateStr.includes('+')) ? dateStr : dateStr.replace(' ', 'T') + 'Z';
+    const d = new Date(isoStr);
+    const day = d.getDate().toString().padStart(2, '0');
+    const month = d.toLocaleString('th-TH', { month: 'short' });
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${hours}:${minutes}`;
+  };
+
   const config = statusConfig[localStatus] || statusConfig.pending;
 
   // View Mode
@@ -274,11 +291,23 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       <div className="flex flex-col gap-1.5 w-full">
         {/* Feedback Display for Trainee */}
         {localStatus === "needs_improvement" && localFeedback && (
-          <div className="px-3 py-2 text-xs bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 rounded-md text-rose-700 dark:text-rose-400 flex items-start gap-2">
-            <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <div className="flex-1 italic">
-              <span className="font-bold not-italic">คำแนะนำจากครู:</span> {localFeedback}
+          <div className="px-3 py-2 text-xs bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800/50 rounded-md text-rose-700 dark:text-rose-400 flex items-center justify-between gap-2">
+            <div className="flex-1 italic flex items-start gap-2">
+              <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <div>
+                <span className="font-bold not-italic">คำแนะนำจากครู:</span> {localFeedback}
+              </div>
             </div>
+
+            {/* Edit Feedback Button for Qualifier */}
+            {mode === "qualifier" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setIsQualifierPanelOpen(true); }}
+                className="shrink-0 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-blue-200 dark:border-blue-700 hover:bg-blue-50 transition-colors"
+              >
+                แก้ไขคำแนะนำ
+              </button>
+            )}
           </div>
         )}
 
@@ -291,28 +320,45 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor}`}>
-                    {config.icon} {config.label} {label && <span className="font-bold ml-1 text-slate-400">({label}.)</span>}
-                  </span>
-                  {localStatus === "passed" && (
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">ตรวจสอบแล้ว</span>
-                  )}
-                  {localStatus === "needs_improvement" && (
-                    <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full">รอการแก้ไข</span>
+                  {label && <span className="text-[10px] font-bold text-slate-400">({label}.)</span>}
+                  {!cleanValue && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1`}>
+                      {config.icon} {config.label}
+                    </span>
                   )}
                 </div>
 
-                {/* Timestamp display */}
-                {traineeAnswer?.updated_at && (
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
-                    {new Date(traineeAnswer.updated_at).toLocaleString('th-TH', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      day: '2-digit',
-                      month: 'short',
-                    })}
-                  </span>
-                )}
+                <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                  {/* Timestamp display */}
+                  {traineeAnswer?.updated_at && (
+                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
+                      {formatThaiTime(traineeAnswer.updated_at)}
+                    </span>
+                  )}
+
+                  {/* Right side statuses (Inline: Timestamp - Status Details - Main Badge) */}
+                  {cleanValue && localStatus === "pending" && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                      {config.icon} {config.label}
+                    </span>
+                  )}
+                  {cleanValue && localStatus === "passed" && (
+                    <>
+                      <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">ตรวจสอบแล้ว</span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                        {config.icon} {config.label}
+                      </span>
+                    </>
+                  )}
+                  {cleanValue && localStatus === "needs_improvement" && (
+                    <>
+                      <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">รอการแก้ไข</span>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                        {config.icon} {config.label}
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
 
               {cleanValue ? (
@@ -329,8 +375,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             </div>
           </div>
 
-          {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists */}
-          {mode === "qualifier" && cleanValue && (
+          {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists and NOT passed and panel is open */}
+          {mode === "qualifier" && cleanValue && localStatus !== "passed" && isQualifierPanelOpen && (
             <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
@@ -338,18 +384,18 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                   <button
                     onClick={(e) => { e.stopPropagation(); handleSaveAssessment("passed"); }}
                     disabled={isSaving}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "passed" ? "bg-emerald-600 text-white shadow-lg" : "bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20`}
                   >
-                    {isSaved && localStatus === "passed" ? <CheckCircle2 className="w-3.5 h-3.5 animate-bounce" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                    {isSaved && localStatus === "passed" ? "บันทึกแล้ว" : "ผ่าน"}
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    ผ่าน
                   </button>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
+                    onClick={(e) => { e.stopPropagation(); setLocalStatus("needs_improvement"); }}
                     disabled={isSaving}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "needs_improvement" ? "bg-rose-600 text-white shadow-lg" : "bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
                   >
-                    {isSaved && localStatus === "needs_improvement" ? <CheckCircle2 className="w-3.5 h-3.5 animate-bounce" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                    {isSaved && localStatus === "needs_improvement" ? "บันทึกโหมดแนะแนวแล้ว" : "ปรับปรุง"}
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    ปรับปรุง
                   </button>
                 </div>
               </div>

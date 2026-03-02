@@ -196,7 +196,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const answerMap = useMemo(() => {
     const map = new Map<string, UserAnswer>();
     traineeAnswers.forEach(ans => {
-      const key = `${ans.question_id}|${ans.sub_question_code || ""}`;
+      const key = `${ans.question_id}:${ans.sub_question_code || ""}`;
       map.set(key, ans);
     });
     return map;
@@ -611,7 +611,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 }
                 onRefresh={() => fetchQuestions(true)}
                 onQuestionsUpdated={onQuestionsUpdated}
-                traineeAnswer={answerMap.get(`${question.id}|`)}
+                traineeAnswer={answerMap.get(`${question.id}:`)}
                 answerMap={answerMap}
               />
             ))}
