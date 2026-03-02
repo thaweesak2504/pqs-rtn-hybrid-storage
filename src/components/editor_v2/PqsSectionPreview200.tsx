@@ -7,6 +7,8 @@ import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
 import TraineeAnswerBox from './TraineeAnswerBox';
 
+type PrintSubView = 'question-only' | 'question-with-key';
+
 // ============ Helpers ============
 
 const toThaiNumber = (num: number | string) => {
@@ -34,6 +36,7 @@ interface PqsSectionPreviewProps {
   references: ReferenceDoc[];
   sectionGroup?: 100 | 200 | 300;
   mode?: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
+  printSubView?: PrintSubView;
 }
 
 // ============ Main Component ============
@@ -46,9 +49,17 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
   references,
   sectionGroup = 100,
   mode = "viewer",
+  printSubView: printSubViewProp = 'question-only',
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [printSubView, setPrintSubView] = useState<PrintSubView>(printSubViewProp);
+
+  useEffect(() => {
+    setPrintSubView(printSubViewProp);
+  }, [printSubViewProp]);
+
+  const showAnswerKey = mode !== 'print' ? (mode === 'qualifier') : (printSubView === 'question-with-key');
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -153,6 +164,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               sectionGroup={sectionGroup}
               docId={docId}
               mode={mode}
+              showAnswerKey={showAnswerKey}
             />
           ))}
         </div>
@@ -173,6 +185,7 @@ interface PreviewQuestionNode200Props {
   parentSubQuestionList?: Array<{ code: string; text: string; alwaysChecked?: boolean }>;
   docId: string;
   mode: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
+  showAnswerKey?: boolean;
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -185,6 +198,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   parentSubQuestionList,
   docId,
   mode,
+  showAnswerKey = false,
 }) => {
   const is200 = sectionGroup === 200;
 
@@ -407,25 +421,24 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         }
       })()}
 
-      {/* Trainee Answer Box handling moved inside the Answer Key blocks to support multi-answers */}          {/* Answer Key Display */}
-      {/* Single Answer Key (for questions without sub-questions) */}
+      {/* Answer Key Display — show only when showAnswerKey=true */}
+
+      {/* Single Answer Key */}
       {
-        answerKey && Object.keys(answerKeys).length === 0 && (
-          <div className={`mt-2 ${contentStartOffsetClass} flex flex-col gap-1.5`}>
-            {/* If there's an answer key, show the answer box regardless of being a leaf node */}
-            <TraineeAnswerBox
-              mode={mode}
-              questionId={question.id}
-              documentId={docId}
-              readOnly={mode !== "trainee"}
-            />
-            <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary mb-2">
-              <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
+        showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && (
+          <div className={`mt-1 ${contentStartOffsetClass} flex flex-col gap-1`}>
+            {mode !== 'print' && (
+              <TraineeAnswerBox
+                mode={mode}
+                questionId={question.id}
+                documentId={docId}
+                readOnly={mode !== "trainee"}
+              />
+            )}
+            <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary mb-1">
+              <span className="text-slate-900 dark:text-slate-100 shrink-0 font-semibold">เฉลย:</span>
               <div className="answer-key-markdown min-w-0 flex-1">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeRaw]}
-                >
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                   {formatAnswerKeyForDisplay(answerKey).replace(/\n/g, "  \n")}
                 </ReactMarkdown>
               </div>
@@ -434,10 +447,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         )
       }
 
-      {/* Multi Answer Keys — เรียงตาม parentSubQuestionList เหมือน View Mode */}
+      {/* Multi Answer Keys (per sub-question code) */}
       {
-        Object.keys(answerKeys).length > 0 && (() => {
-          // เรียงตาม parentSubQuestionList ถ้ามี ไม่งั้นเรียงตาม selectedSubQuestions ใน metadata
+        showAnswerKey && Object.keys(answerKeys).length > 0 && (() => {
           const ordered: string[] = parentSubQuestionList
             ? parentSubQuestionList.map(s => s.code).filter(c => c in answerKeys)
             : Array.isArray(meta.selectedSubQuestions)
@@ -445,24 +457,21 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
               : Object.keys(answerKeys);
           if (ordered.length === 0) return null;
           return (
-            <div className={`mt-2 ${contentStartOffsetClass} space-y-1.5`}>
+            <div className={`mt-1 ${contentStartOffsetClass} space-y-1`}>
               {ordered.map(code => {
                 const text = answerKeys[code];
-                // หา index จาก parentSubQuestionList เพื่อแสดง label ที่ถูกต้อง
                 const sqIdx = parentSubQuestionList ? parentSubQuestionList.findIndex(s => s.code === code) : -1;
                 const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
                 return (
-                  <div key={code} className="flex flex-col gap-1.5">
-                    {/* If there's an answer key, show the answer box regardless of being a leaf node */}
-                    <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} subQuestionCode={code} readOnly={mode !== "trainee"} />
-                    <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary">
+                  <div key={code} className="flex flex-col gap-1">
+                    {mode !== 'print' && (
+                      <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} subQuestionCode={code} readOnly={mode !== "trainee"} />
+                    )}
+                    <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary">
                       <div className="flex items-start gap-2">
-                        <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}</span></span>
+                        <span className="shrink-0 font-semibold">เฉลย: <span className="text-amber-600 dark:text-amber-400">{label}</span></span>
                         <div className="answer-key-markdown min-w-0 flex-1">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeRaw]}
-                          >
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                             {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
                           </ReactMarkdown>
                         </div>
@@ -476,8 +485,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         })()
       }
 
-      {/* Fallback Answer Box ONLY (if no answerKeys yet) */}
+      {/* Fallback Answer Box — non-print mode only */}
       {
+        !showAnswerKey && mode !== 'print' &&
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
             <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />
@@ -513,6 +523,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   parentSubQuestionList={activeSubQuestionList.length > 0 ? activeSubQuestionList : parentSubQuestionList}
                   docId={docId}
                   mode={mode}
+                  showAnswerKey={showAnswerKey}
                 />
               </div>
             ))}

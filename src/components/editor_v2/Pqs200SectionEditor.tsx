@@ -30,7 +30,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   title,
   subTitle,
   viewMode = 'edit',
-  printSubView: _printSubView200 = 'question-only',
+  printSubView: printSubView200 = 'question-only',
   onMenuLabelChange,
   docBranchMain,
   docBranchSub,
@@ -221,6 +221,8 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         title={currentTitle}
         references={references}
         sectionGroup={200}
+        mode={viewMode}
+        printSubView={printSubView200}
       />
     );
   }
