@@ -244,22 +244,25 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   // Status Styles
   const statusConfig = {
     pending: {
-      borderColor: "border-blue-200 dark:border-blue-800/50",
-      bgColor: "bg-blue-50/50 dark:bg-blue-900/10",
-      textColor: "text-blue-800 dark:text-blue-300",
-      icon: null
+      borderColor: cleanValue ? "border-amber-400 dark:border-amber-500/50" : "border-slate-200 dark:border-slate-800",
+      bgColor: cleanValue ? "bg-amber-50/50 dark:bg-amber-900/10" : "bg-slate-50/30 dark:bg-slate-900/10",
+      textColor: cleanValue ? "text-amber-800 dark:text-amber-300" : "text-slate-500",
+      icon: cleanValue ? <span className="text-sm">💡</span> : null,
+      label: cleanValue ? "รอประเมิน" : "ยังไม่ได้ส่งคำตอบ"
     },
     passed: {
       borderColor: "border-emerald-200 dark:border-emerald-800/50",
       bgColor: "bg-emerald-50/50 dark:bg-emerald-900/10",
       textColor: "text-emerald-800 dark:text-emerald-300",
-      icon: <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+      icon: <CheckCircle2 className="w-4 h-4 text-emerald-600" />,
+      label: "ผ่าน"
     },
     needs_improvement: {
       borderColor: "border-rose-200 dark:border-rose-800/50",
       bgColor: "bg-rose-50/50 dark:bg-rose-900/10",
       textColor: "text-rose-800 dark:text-rose-300",
-      icon: <RotateCcw className="w-4 h-4 text-rose-600" />
+      icon: <RotateCcw className="w-4 h-4 text-rose-600" />,
+      label: "ปรับปรุง"
     }
   };
 
@@ -286,16 +289,29 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         >
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={`text-xs font-bold uppercase tracking-wider ${config.textColor}`}>
-                  คำตอบ {label && <span className="text-amber-600 dark:text-amber-400 font-bold ml-1">{label}.</span>}
-                </span>
-                {config.icon}
-                {localStatus === "passed" && (
-                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">ตรวจสอบแล้ว</span>
-                )}
-                {localStatus === "needs_improvement" && (
-                  <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full">รอการแก้ไข</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor}`}>
+                    {config.icon} {config.label} {label && <span className="font-bold ml-1 text-slate-400">({label}.)</span>}
+                  </span>
+                  {localStatus === "passed" && (
+                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full">ตรวจสอบแล้ว</span>
+                  )}
+                  {localStatus === "needs_improvement" && (
+                    <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full">รอการแก้ไข</span>
+                  )}
+                </div>
+
+                {/* Timestamp display */}
+                {traineeAnswer?.updated_at && (
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium">
+                    {new Date(traineeAnswer.updated_at).toLocaleString('th-TH', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: 'short',
+                    })}
+                  </span>
                 )}
               </div>
 
@@ -313,8 +329,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             </div>
           </div>
 
-          {/* Qualifier Assessment Controls (Inside the Box) */}
-          {mode === "qualifier" && (
+          {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists */}
+          {mode === "qualifier" && cleanValue && (
             <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
@@ -352,8 +368,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                       onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
                       disabled={isSaving}
                       className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${isSaved
-                          ? "bg-emerald-600 text-white"
-                          : "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900"
                         }`}
                     >
                       {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
