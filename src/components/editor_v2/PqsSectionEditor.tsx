@@ -225,6 +225,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         sectionNumber={sectionNumber}
         title={currentTitle}
         references={references}
+        mode={viewMode}
       />
     );
   }
