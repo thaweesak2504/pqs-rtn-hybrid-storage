@@ -4171,6 +4171,12 @@ pub fn clear_all_trainee_answers() -> Result<(), String> {
             e.to_string()
         })?;
 
-    println!("Successfully cleared all records from UserAnswers table.");
+    conn.execute("DELETE FROM UserProgress", rusqlite::params![])
+        .map_err(|e| {
+            println!("Failed to clear UserProgress: {}", e);
+            e.to_string()
+        })?;
+
+    println!("Successfully cleared all records from UserAnswers and UserProgress tables.");
     Ok(())
 }
