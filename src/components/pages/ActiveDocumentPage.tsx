@@ -41,7 +41,7 @@ import Section100View from '../views/Section100View';
 import Section200View from '../views/Section200View';
 import Section300View from '../views/Section300View';
 
-import { BookOpen, Edit2, Edit3, Eye, EyeOff, FileText, Printer, UserCircle, Users } from 'lucide-react';
+import { BookOpen, Edit3, Eye, EyeOff, FileText, Printer, UserCircle, Users } from 'lucide-react';
 import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
 import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
@@ -340,27 +340,41 @@ const ActiveDocumentPage: React.FC = () => {
                       },
                       { separator: true, label: '', onClick: () => { } },
                       {
-                        label: 'Print Layout (A4)',
-                        icon: <Printer />,
-                        subItems: [
-                          {
-                            label: 'Question (เล่มคำถาม)',
-                            icon: <FileText />,
-                            onClick: () => { setViewMode('print'); setPrintSubView('question-only'); }
-                          },
-                          {
-                            label: 'Answer Key (เล่มเฉลย)',
-                            icon: <BookOpen />,
-                            onClick: () => { setViewMode('print'); setPrintSubView('question-with-key'); }
-                          },
-                        ]
-                      },
-                      { separator: true, label: '', onClick: () => { } },
-                      {
                         label: 'Clear Answers (DB)',
                         icon: <Trash2 className="text-red-500" />,
                         onClick: handleClearAnswers
                       }
+                    ]}
+                  />
+
+                  <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+
+                  {/* Print Layout (A4) Dropdown */}
+                  <DropdownMenu
+                    trigger={
+                      <button
+                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 border ${
+                          isPrintMode
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <Printer className="w-4 h-4" />
+                        <span>Print Layout (A4)</span>
+                        <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
+                      </button>
+                    }
+                    items={[
+                      {
+                        label: 'Question (เล่มคำถาม)',
+                        icon: <FileText />,
+                        onClick: () => { setViewMode('print'); setPrintSubView('question-only'); }
+                      },
+                      {
+                        label: 'Answer Key (เล่มเฉลย)',
+                        icon: <BookOpen />,
+                        onClick: () => { setViewMode('print'); setPrintSubView('question-with-key'); }
+                      },
                     ]}
                   />
 
@@ -370,7 +384,7 @@ const ActiveDocumentPage: React.FC = () => {
                       variant="ghost"
                       size="small"
                       onClick={() => setEditModalOpen(true)}
-                      icon={<Edit2 className="w-4 h-4" />}
+                      icon={<Edit3 className="w-4 h-4" />}
                       className="text-github-text-secondary hover:text-blue-600"
                     >
                       Edit Metadata

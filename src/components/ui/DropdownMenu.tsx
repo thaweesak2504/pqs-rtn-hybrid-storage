@@ -1,15 +1,13 @@
-import { ChevronRight } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export interface DropdownMenuItem {
   label: string;
   icon?: React.ReactNode;
-  onClick?: () => void;
+  onClick: () => void;
   disabled?: boolean;
   danger?: boolean;
   separator?: boolean;
-  subItems?: DropdownMenuItem[];
 }
 
 interface DropdownMenuProps {
@@ -22,7 +20,6 @@ interface DropdownMenuProps {
 const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, items, align = 'right', className = '' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -127,101 +124,43 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, items, align = 'ri
               }
 
               return (
-                <div key={index} className="relative"
-                  onMouseEnter={() => { if (item.subItems && item.subItems.length > 0) setOpenSubmenu(index); }}
-                  onMouseLeave={() => setOpenSubmenu(null)}
+                <button
+                  key={index}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!item.disabled) {
+                      item.onClick();
+                      setIsOpen(false);
+                    }
+                  }}
+                  disabled={item.disabled}
+                  className={`
+                    group flex w-full items-center px-3 py-1.5 text-xs text-left transition-colors
+                    ${item.disabled
+                      ? 'text-slate-400 cursor-not-allowed opacity-50'
+                      : item.danger
+                        ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+                        : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                    }
+                  `}
                 >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!item.disabled && item.onClick) {
-                        item.onClick();
-                        setIsOpen(false);
-                      }
-                    }}
-                    disabled={item.disabled}
-                    className={`
-                      group flex w-full items-center px-3 py-1.5 text-xs text-left transition-colors
+                  {item.icon && (
+                    <span className={`mr-2 h-3.5 w-3.5 flex items-center justify-center 
                       ${item.disabled
-                        ? 'text-slate-400 cursor-not-allowed opacity-50'
+                        ? 'text-slate-300 dark:text-slate-600'
                         : item.danger
-                          ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-                          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                          ? 'text-red-500'
+                          : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
                       }
-                    `}
-                  >
-                    {item.icon && (
-                      <span className={`mr-2 h-3.5 w-3.5 flex items-center justify-center
-                        ${item.disabled
-                          ? 'text-slate-300 dark:text-slate-600'
-                          : item.danger
-                            ? 'text-red-500'
-                            : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                        }
-                      `}>
-                        {React.isValidElement(item.icon)
-                          ? React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: 'w-3.5 h-3.5' })
-                          : item.icon
-                        }
-                      </span>
-                    )}
-                    <span className="flex-1">{item.label}</span>
-                    {item.subItems && item.subItems.length > 0 && (
-                      <ChevronRight className="w-3 h-3 ml-1 opacity-50" />
-                    )}
-                  </button>
-
-                  {/* Sub-menu */}
-                  {item.subItems && item.subItems.length > 0 && openSubmenu === index && (
-                    <div className="absolute left-full top-0 ml-1 min-w-[180px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl py-1 z-10">
-                      {item.subItems.map((subItem, subIndex) => {
-                        if (subItem.separator) {
-                          return <div key={subIndex} className="h-px bg-slate-100 dark:bg-slate-700 my-1" />;
-                        }
-                        return (
-                          <button
-                            key={subIndex}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!subItem.disabled && subItem.onClick) {
-                                subItem.onClick();
-                                setIsOpen(false);
-                                setOpenSubmenu(null);
-                              }
-                            }}
-                            disabled={subItem.disabled}
-                            className={`
-                              group flex w-full items-center px-3 py-1.5 text-xs text-left transition-colors
-                              ${subItem.disabled
-                                ? 'text-slate-400 cursor-not-allowed opacity-50'
-                                : subItem.danger
-                                  ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-                                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700/50'
-                              }
-                            `}
-                          >
-                            {subItem.icon && (
-                              <span className={`mr-2 h-3.5 w-3.5 flex items-center justify-center
-                                ${subItem.disabled
-                                  ? 'text-slate-300 dark:text-slate-600'
-                                  : subItem.danger
-                                    ? 'text-red-500'
-                                    : 'text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white'
-                                }
-                              `}>
-                                {React.isValidElement(subItem.icon)
-                                  ? React.cloneElement(subItem.icon as React.ReactElement<{ className?: string }>, { className: 'w-3.5 h-3.5' })
-                                  : subItem.icon
-                                }
-                              </span>
-                            )}
-                            {subItem.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    `}>
+                      {React.isValidElement(item.icon)
+                        ? React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: 'w-3.5 h-3.5' })
+                        : item.icon
+                      }
+                    </span>
                   )}
-                </div>
+                  {item.label}
+                </button>
               );
             })}
           </div>
