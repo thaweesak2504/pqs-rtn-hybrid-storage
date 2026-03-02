@@ -1,5 +1,4 @@
 ﻿import { invoke } from '@tauri-apps/api/tauri';
-import { BookOpen, FileText, Printer } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -115,44 +114,26 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
     <div className="flex flex-col bg-github-bg-primary min-h-full transition-colors duration-300">
 
       {/* ——— Toolbar (Print mode only) ——— */}
+      {/* REMOVED: Toolbar now controlled by Print Layout dropdown button
       {mode === 'print' && (
         <div className="flex items-center justify-between gap-3 px-6 py-3 bg-github-bg-secondary border-b border-github-border-primary print:hidden sticky top-0 z-10">
-          {/* Sub-view toggle */}
           <div className="flex items-center gap-1 bg-github-bg-tertiary rounded-lg p-1">
-            <button
-              onClick={() => setPrintSubView('question-only')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                printSubView === 'question-only'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-github-text-secondary hover:text-github-text-primary'
-              }`}
-            >
+            <button onClick={() => setPrintSubView('question-only')} className={`...`}>
               <FileText className="w-4 h-4" />
               เล่มคำถาม (Trainee)
             </button>
-            <button
-              onClick={() => setPrintSubView('question-with-key')}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                printSubView === 'question-with-key'
-                  ? 'bg-green-600 text-white shadow-sm'
-                  : 'text-github-text-secondary hover:text-github-text-primary'
-              }`}
-            >
+            <button onClick={() => setPrintSubView('question-with-key')} className={`...`}>
               <BookOpen className="w-4 h-4" />
               เล่มเฉลย (Qualifier)
             </button>
           </div>
-
-          {/* Print button */}
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
-          >
+          <button onClick={() => window.print()} className={`...`}>
             <Printer className="w-4 h-4" />
             พิมพ์
           </button>
         </div>
       )}
+      */}
 
       {/* ——— A4 Paper ——— */}
       <div className="flex justify-center p-8 min-w-fit">
