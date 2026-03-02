@@ -351,7 +351,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         <div className="flex-1">
           {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
           <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : ""}`}>
-            <div className="flex-1 truncate min-w-0" title={question.content}>
+            <div className="flex-1 min-w-0">
               <span className={`${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
                 {question.content}
               </span>
@@ -361,21 +361,16 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                 </span>
               )}
             </div>
-            {/* Inline SubQ checkboxes — ชิดขวา */}
-            {inlineSubQItems && (
-              <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-                {inlineSubQItems.map(({ sq, checked }) => {
-                  // หา index จริงจาก parentSubQuestionList เพื่อให้ลำดับถูกต้อง
+            {/* Inline SubQ checkboxes — show checked only */}
+            {inlineSubQItems && inlineSubQItems.some(i => i.checked) && (
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                {inlineSubQItems.filter(i => i.checked).map(({ sq }) => {
                   const realIndex = parentSubQuestionList ? parentSubQuestionList.findIndex(p => p.code === sq.code) : 0;
                   return (
-                    <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                    <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] whitespace-nowrap">
                       <span className="text-amber-600 dark:text-amber-400 font-bold">{toThaiAlphabet(realIndex)}</span>
-                      <span className={`w-3.5 h-3.5 inline-flex items-center justify-center rounded border text-[9px] font-bold shrink-0
-                        ${checked
-                          ? "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
-                          : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-transparent"
-                        }`}>
-                        {checked ? "✓" : ""}
+                      <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold shrink-0">
+                        ✓
                       </span>
                     </span>
                   );
