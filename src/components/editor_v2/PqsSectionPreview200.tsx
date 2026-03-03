@@ -414,7 +414,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       {
         showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && (
           <div className={`mt-1 ${contentStartOffsetClass} flex flex-col gap-1`}>
-            {mode !== 'print' && mode === 'trainee' && (
+            {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
               <TraineeAnswerBox
                 mode={mode}
                 questionId={question.id}
@@ -453,7 +453,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                 const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
                 return (
                   <div key={code} className="flex flex-col gap-1">
-                    {mode !== 'print' && mode === 'trainee' && (
+                    {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
                       <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} subQuestionCode={code} readOnly={mode !== "trainee"} />
                     )}
                     <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary">
@@ -476,7 +476,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
 
       {/* Fallback Answer Box — non-print mode only */}
       {
-        !showAnswerKey && mode !== 'print' && mode === 'trainee' &&
+        !showAnswerKey && mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') &&
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
             <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />
