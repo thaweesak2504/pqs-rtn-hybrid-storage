@@ -160,7 +160,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         sectionId={sectionId}
         sectionNumber={sectionNumber}
         title={currentTitle}
-        subTitle={currentMenuLabel}
+        subTitle={undefined}
       />
     );
   }
