@@ -229,38 +229,39 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         <div className="flex-1">
           <div className={`flex items-center gap-2 min-w-0`}>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className={isL3 ? 'text-slate-700 dark:text-slate-300' : ''}>
-                  {question.content}
-                </span>
-                {/* Exempted text */}
-                {question.question_type === 'exempted' && (
-                  <span className="ml-2 text-base font-medium text-amber-600 dark:text-amber-400">
-                    {question.display_text || "(ไม่ต้องปฏิบัติ)"}
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex-1 min-w-0">
+                  <span className={isL3 ? 'text-slate-700 dark:text-slate-300' : ''}>
+                    {question.content}
                   </span>
+                  {/* Exempted text */}
+                  {question.question_type === 'exempted' && (
+                    <span className="ml-2 text-base font-medium text-amber-600 dark:text-amber-400">
+                      {question.display_text || "(ไม่ต้องปฏิบัติ)"}
+                    </span>
+                  )}
+                </div>
+                {/* SubQ checkboxes inline - show only for children nodes (level >= 2) */}
+                {inlineSubQItems && level >= 2 && (
+                  <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                    {inlineSubQItems.map((sq) => {
+                      const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
+                      return (
+                        <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
+                          <span className="text-amber-600 dark:text-amber-400 font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
+                          <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold shrink-0">
+                            ✓
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
                       </div>
         </div>
       </div>
-
-      {/* SubQ checkboxes on new line - show only for children nodes (level >= 2) */}
-      {inlineSubQItems && level >= 2 && (
-        <div className={`${contentOffsetClass} flex flex-wrap gap-1.5`}>
-          {inlineSubQItems.map((sq) => {
-            const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
-            return (
-              <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                <span className="text-amber-600 dark:text-amber-400 font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
-                <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold shrink-0">
-                  ✓
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      )}
 
       {/* Description (L0 only) */}
       {level === 0 && question.description && (
