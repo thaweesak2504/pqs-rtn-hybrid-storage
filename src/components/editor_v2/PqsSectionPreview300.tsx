@@ -152,11 +152,13 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
   sectionNumber,
   parentSubQuestionList,
 }) => {
-  // Numbering per buildPrefix200_300:
-  //   level=0 → ๓xx.๑   level=1 → ๓xx.๑.๑   level=2 → ก./ข./ค.
+  // Numbering: L0 = ๓xx.๑, L1 = ๓xx.๑.๑, L2 = ก.
   let displayNumber = '';
   let fullPath = '';
-  if (level === 0 || level === 1) {
+  if (level === 0) {
+    displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+    fullPath = displayNumber;
+  } else if (level === 1) {
     displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
     fullPath = displayNumber;
   } else {
@@ -214,16 +216,13 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
   }, [parentSubQuestionList, question.metadata]);
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
-  // L0→L1: ml-0 so 3xx.1.1 aligns with 3xx.1 (same left edge)
-  // L1→L2: ml-[9ch] so ก./ข./ค. stays indented under 3xx.1.1 text
-  // L2→L3: ml-[9ch]
-  const contentOffsetClass = level === 0 ? 'ml-0' : 'ml-[9ch]';
+  const contentOffsetClass = 'ml-[9ch]';
 
   return (
     <div className="flex flex-col">
       {/* Question Row */}
       <div className={`flex items-baseline ${isL3 ? 'text-slate-700 dark:text-slate-300' : ''}`}>
-        <span className={`${level <= 1 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} ${isL3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}>
+        <span className={`min-w-[9ch] ${question.is_header ? 'font-bold' : 'font-normal'} ${isL3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}>
           {displayNumber}
         </span>
 
