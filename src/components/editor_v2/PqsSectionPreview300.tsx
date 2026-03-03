@@ -241,25 +241,26 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
                 )}
               </div>
             </div>
-            {/* Inline checked sub-question checkboxes - show only for children nodes (level >= 2) */}
-            {inlineSubQItems && level >= 2 && (
-              <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
-                {inlineSubQItems.map((sq) => {
-                  const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
-                  return (
-                    <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                      <span className="text-amber-600 dark:text-amber-400 font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
-                      <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold shrink-0">
-                        ✓
-                      </span>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                      </div>
         </div>
       </div>
+
+      {/* SubQ checkboxes on new line - show only for children nodes (level >= 2) */}
+      {inlineSubQItems && level >= 2 && (
+        <div className={`mt-1 ${contentOffsetClass} flex flex-wrap gap-1.5`}>
+          {inlineSubQItems.map((sq) => {
+            const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
+            return (
+              <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
+                <span className="text-amber-600 dark:text-amber-400 font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
+                <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold shrink-0">
+                  ✓
+                </span>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {/* Description (L0 only) */}
       {level === 0 && question.description && (
