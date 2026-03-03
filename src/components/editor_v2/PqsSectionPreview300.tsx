@@ -216,13 +216,13 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
   }, [parentSubQuestionList, question.metadata]);
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
-  const contentOffsetClass = 'ml-[9ch]';
+  const contentOffsetClass = level === 0 ? 'ml-0' : 'ml-[9ch]';
 
   return (
     <div className="flex flex-col">
       {/* Question Row */}
       <div className={`flex items-baseline ${isL3 ? 'text-slate-700 dark:text-slate-300' : ''}`}>
-        <span className={`min-w-[9ch] ${question.is_header ? 'font-bold' : 'font-normal'} ${isL3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}>
+        <span className={`${level <= 1 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} ${isL3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}>
           {displayNumber}
         </span>
 
