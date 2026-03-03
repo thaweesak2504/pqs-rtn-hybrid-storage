@@ -352,14 +352,22 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
           {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
           <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : ""}`}>
             <div className="flex-1 min-w-0">
-              <span className={`${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
-                {question.content}
-              </span>
-              {refText && (
-                <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
-                  {refText}
+              <div className="flex items-center gap-2">
+                <span className={`${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
+                  {question.content}
                 </span>
-              )}
+                {/* Exempted badge */}
+                {question.question_type === 'exempted' && (
+                  <span className="ml-2 text-base font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                    {question.display_text || "(ไม่ต้องอธิบาย)"}
+                  </span>
+                )}
+                {refText && (
+                  <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
+                    {refText}
+                  </span>
+                )}
+              </div>
             </div>
             {/* Inline SubQ checkboxes — show checked only */}
             {inlineSubQItems && inlineSubQItems.some(i => i.checked) && (
