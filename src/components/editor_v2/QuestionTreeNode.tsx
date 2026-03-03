@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  QuestionDetail,
-  QuestionReferenceDetail,
-  SectionReferenceDetail
+    QuestionDetail,
+    QuestionReferenceDetail,
+    SectionReferenceDetail
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -38,7 +38,7 @@ const DEFAULT_L1_DESC_BY_SEQ: { [key: number]: string } = {
   3: 'งานและเกณฑ์การปฏิบัติงานที่กำลังพลดำเนินการได้',
   4: 'สภาวะแวดล้อม',
   5: 'มาตรฐานหรือเอกสารอ้างอิง',
-  6: 'จำนวนครั้ง/คะแนน',
+  6: 'ควบคุมการปฏิบัติหน้าที่ในตำแหน่งอย่างใกล้ชิด ประเมินผ่านการปฏิบัติหรือไม่',
 };
 
 const toThaiNumber = (num?: number | string | null): string => {
