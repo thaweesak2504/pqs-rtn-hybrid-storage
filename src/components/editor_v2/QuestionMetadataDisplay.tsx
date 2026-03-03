@@ -138,7 +138,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                 const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
                 return (
                   <div key={code} className="flex flex-col gap-1.5">
-                    {showAnswerBox && (
+                    {showAnswerBox && mode === "trainee" && (
                       <TraineeAnswerBox
                         questionId={questionId}
                         documentId={documentId}
@@ -172,7 +172,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
           // Single mode
           return (
             <div className="flex flex-col gap-1.5">
-              {showAnswerBox && (
+              {showAnswerBox && mode === "trainee" && (
                 <TraineeAnswerBox
                   questionId={questionId}
                   documentId={documentId}
