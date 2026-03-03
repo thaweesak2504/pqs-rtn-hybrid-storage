@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    FileDigit,
-    FileText,
-    Globe,
-    GripVertical,
-    ImageIcon,
-    ListChecks,
-    Lock as LockIcon,
-    Mic,
-    Pencil,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  FileDigit,
+  FileText,
+  Globe,
+  GripVertical,
+  ImageIcon,
+  ListChecks,
+  Lock as LockIcon,
+  Mic,
+  Pencil,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-    QuestionDetail,
-    QuestionReferenceDetail,
-    SectionReferenceDetail
+  QuestionDetail,
+  QuestionReferenceDetail,
+  SectionReferenceDetail
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -460,11 +460,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
             onCancel={onCancel}
             documentId={documentId}
+            parentId={question.parent_id || null}
             sectionId={sectionId}
             onAlert={onAlert}
-            parentSubQuestionList={parentSubQuestionList}
+            parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
+            onRefresh={onRefresh}
+            onQuestionsUpdated={onQuestionsUpdated}
             currentSectionNumber={sectionNumber}
           />
         </div>
@@ -2066,7 +2069,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             className="flex-1"
                           >
                             <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
-                              className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                              className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
                               disabled={!!sectionSelectedBranch}>
                               <option value="">-- เลือก --</option>
                               {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
@@ -2133,7 +2136,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               className="flex-1"
                             >
                               <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                                className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${!!sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                                className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
                                 disabled={!!sectionSelectedBranch}>
                                 <option value="">-- เลือก --</option>
                                 {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
@@ -2341,10 +2344,35 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           {/* ── SubQuestion Binding (children of L1 with SubQuestionList) ── */}
           {hasParentSubQ && (
             <div className={`rounded-lg border ${sqClr.bindWrap} p-3`}>
-              <div className="flex items-center gap-2 mb-2">
-                <ListChecks className={`w-4 h-4 ${sqClr.text}`} />
-                <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider`}>เลือกคำถามย่อย (Select Sub-Questions)</span>
-                <span className={`text-[10px] ${sqClr.count}`}>{selectedSubQCodes.length}/{parentSubQuestionList!.length}</span>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <ListChecks className={`w-4 h-4 ${sqClr.text}`} />
+                  <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider`}>เลือกคำถามย่อย (Select Sub-Questions)</span>
+                  <span className={`text-[10px] ${sqClr.count}`}>{selectedSubQCodes.length}/{parentSubQuestionList!.length}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant={selectedSubQCodes.length > 0 && selectedSubQCodes.length < parentSubQuestionList!.filter(sq => !(is300 && sq.alwaysChecked === true)).length ? "primary" : "outline"}
+                    size="small"
+                    onClick={() => {
+                      const allCodes = parentSubQuestionList!.filter(sq => !(is300 && sq.alwaysChecked === true)).map(sq => sq.code);
+                      setSelectedSubQCodes(allCodes);
+                    }}
+                    disabled={selectedSubQCodes.length === parentSubQuestionList!.filter(sq => !(is300 && sq.alwaysChecked === true)).length}
+                    className={`text-xs px-1.5 py-0.5 ${is300 ? 'hover:border-purple-500' : ''}`}
+                  >
+                    เลือกทั้งหมด
+                  </Button>
+                  <Button
+                    variant={selectedSubQCodes.length > 0 ? "primary" : "outline"}
+                    size="small"
+                    onClick={() => setSelectedSubQCodes([])}
+                    disabled={selectedSubQCodes.length === 0}
+                    className={`text-xs px-1.5 py-0.5 ${is300 ? 'hover:border-purple-500' : ''}`}
+                  >
+                    ยกเลิกทั้งหมด
+                  </Button>
+                </div>
               </div>
               <div className="grid grid-cols-1 gap-1">
                 {parentSubQuestionList!.map((sq, idx) => {
