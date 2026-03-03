@@ -243,9 +243,9 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         </div>
       </div>
 
-      {/* SubQ checkboxes on new line, no indent - show only for children nodes (level >= 2) */}
+      {/* SubQ checkboxes on new line, indented to align with question text - show only for children nodes (level >= 2) */}
       {inlineSubQItems && level >= 2 && (
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="ml-[3ch] flex items-center gap-1.5 flex-wrap">
           {inlineSubQItems.map((sq) => {
             const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
             return (
