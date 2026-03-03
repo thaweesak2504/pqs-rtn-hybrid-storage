@@ -356,9 +356,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                 <span className={`${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
                   {question.content}
                 </span>
-                {/* Exempted badge */}
+                {/* Exempted text */}
                 {question.question_type === 'exempted' && (
-                  <span className="ml-2 text-base font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                  <span className="ml-2 text-base font-medium text-amber-600 dark:text-amber-400">
                     {question.display_text || "(ไม่ต้องอธิบาย)"}
                   </span>
                 )}
