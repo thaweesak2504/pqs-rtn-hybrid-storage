@@ -229,9 +229,17 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         <div className="flex-1">
           <div className={`flex items-center gap-2 min-w-0`}>
             <div className="flex-1 min-w-0">
-              <span className={isL3 ? 'text-slate-700 dark:text-slate-300' : ''}>
-                {question.content}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={isL3 ? 'text-slate-700 dark:text-slate-300' : ''}>
+                  {question.content}
+                </span>
+                {/* Exempted badge */}
+                {question.question_type === 'exempted' && (
+                  <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                    {question.display_text || "(ไม่ต้องปฏิบัติ)"}
+                  </span>
+                )}
+              </div>
             </div>
             {/* Inline checked sub-question checkboxes */}
             {inlineSubQItems && (
