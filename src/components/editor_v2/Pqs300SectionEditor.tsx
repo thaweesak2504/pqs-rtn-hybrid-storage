@@ -5,7 +5,7 @@ import Tooltip from '../ui/Tooltip';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
-import PqsSectionPreview from './PqsSectionPreview';
+import PqsSectionPreview300 from './PqsSectionPreview300';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -43,7 +43,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   title,
   subTitle,
   viewMode = 'edit',
-  printSubView: _printSubView300 = 'question-only',
+  printSubView: printSubView300 = 'question-only',
   onMenuLabelChange,
   docBranchMain,
   docBranchSub,
@@ -155,16 +155,17 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   // Preview Mode: Render A4 paper view
   if (viewMode === 'print') {
     return (
-      <PqsSectionPreview
+      <PqsSectionPreview300
         docId={docId}
         sectionId={sectionId}
         sectionNumber={sectionNumber}
         title={currentTitle}
-        references={[]}
-        sectionGroup={300}
+        subTitle={currentMenuLabel}
       />
     );
   }
+
+  void printSubView300;
 
   return (
     <PqsEditorLayout section={sectionNumber.toString()}>
