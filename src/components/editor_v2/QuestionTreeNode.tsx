@@ -1220,13 +1220,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
-    if (!initialMetadata) return is200or300 ? false : true; // Default: Unrequired for 200/300, Required for others
+    if (!initialMetadata) return is300 ? false : true; // Default: Unrequired for 300, Required for others (100, 200)
     try {
       const meta = JSON.parse(initialMetadata);
       if (meta.requireRef !== undefined) return meta.requireRef;
-      return is200or300 ? false : true;
+      return is300 ? false : true;
     } catch {
-      return is200or300 ? false : true;
+      return is300 ? false : true;
     }
   });
 
@@ -2601,8 +2601,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
                                       {/* Status Area (Usage + Class) */}
                                       <div className="shrink-0 flex items-center gap-2">
-                                        {/* Usage Badge — hidden for 200 sections */}
-                                        {!is200 && (r.usage_count > 0 ? (
+                                        {/* Usage Badge */}
+                                        {r.usage_count > 0 ? (
                                           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
                                             Used: {r.usage_count}
                                           </span>
@@ -2610,7 +2610,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/20 opacity-80">
                                             Unused
                                           </span>
-                                        ))}
+                                        )}
 
                                         {/* Classification Icon */}
                                         <Tooltip content={r.reference.classification || "Unclassified"}>

@@ -46,10 +46,8 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   compact = false,
   sectionId,
   sectionNumber = '100',
-  sectionGroup = 100,
   onRefresh
 }) => {
-  const is200 = sectionGroup === 200;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [activeMode, setActiveMode] = useState<'idle' | 'create' | 'search'>('idle');
 
@@ -219,7 +217,6 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
                 key={ref.id}
                 data={ref}
                 index={index}
-                is200={is200}
                 readOnly={readOnly}
                 compact={compact}
                 onEdit={() => handleStartEdit(ref.id)}
@@ -825,11 +822,10 @@ const ReferenceDisplayCard: React.FC<{
   index: number;
   readOnly?: boolean;
   compact?: boolean;
-  is200?: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onImageClick?: (src: string) => void;
-}> = ({ data, index, readOnly, compact, is200 = false, onEdit, onDelete, onImageClick }) => {
+}> = ({ data, index, readOnly, compact, onEdit, onDelete, onImageClick }) => {
 
   // Convert index to Thai Alphabet (ก., ข., ค., ...)
   const getThaiLetter = (i: number) => {
@@ -908,8 +904,8 @@ const ReferenceDisplayCard: React.FC<{
           </span>
         )}
 
-        {/* Usage Badge — hidden in compact mode and 200 sections */}
-        {!compact && !is200 && ((data.usage_count || 0) > 0 ? (
+        {/* Usage Badge — hidden in compact mode */}
+        {!compact && ((data.usage_count || 0) > 0 ? (
           <Tooltip content={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
             <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
               Used: {data.usage_count}
