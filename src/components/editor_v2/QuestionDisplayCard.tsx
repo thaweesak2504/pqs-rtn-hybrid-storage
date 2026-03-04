@@ -45,7 +45,6 @@ interface QuestionDisplayCardProps {
   answerMap?: Map<string, UserAnswer>;
   documentId: string;
   onRefresh?: () => void;
-  subQUsageMap?: Record<string, number>;
 }
 
 // ============ Helpers ============
@@ -94,7 +93,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   answerMap,
   documentId,
   onRefresh,
-  subQUsageMap,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -329,26 +327,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           }
           return (
             <div className="mt-1.5 space-y-0.5">
-              {display.map((sq, idx) => {
-                const usageCount = subQUsageMap ? (subQUsageMap[sq.code] || 0) : 0;
-                return (
-                  <div key={sq.code} className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-300">
-                    <span className={`font-bold min-w-[1.5ch] ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
-                    <span className="flex-1">{sq.text}</span>
-                    {sq.alwaysChecked ? (
-                      <span className="text-[9px] text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>
-                    ) : usageCount > 0 ? (
-                      <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
-                        Used : {usageCount}
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded whitespace-nowrap shrink-0">
-                        Unused
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              {display.map((sq, idx) => (
+                <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
+                  <span className={`font-bold min-w-[1.5ch] ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
+                  <span>{sq.text}</span>
+                  {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
+                </div>
+              ))}
             </div>
           );
         })()}

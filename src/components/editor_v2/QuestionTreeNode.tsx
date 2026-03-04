@@ -262,23 +262,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
   }, [question.metadata, is300, question.sequence]);
 
-  // Compute subQUsageMap: count how many children have each sub-question code selected
-  const subQUsageMap = useMemo<Record<string, number> | undefined>(() => {
-    if (!ownSubQuestionList.length || !question.children?.length) return undefined;
-    const map: Record<string, number> = {};
-    for (const child of question.children) {
-      if (!child.metadata) continue;
-      try {
-        const meta = JSON.parse(child.metadata);
-        const selected: string[] = Array.isArray(meta.selectedSubQuestions) ? meta.selectedSubQuestions : [];
-        for (const code of selected) {
-          map[code] = (map[code] || 0) + 1;
-        }
-      } catch { /* ignore */ }
-    }
-    return map;
-  }, [ownSubQuestionList, question.children]);
-
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
     if (!question.metadata) return undefined;
@@ -429,7 +412,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           onRefresh={onRefresh}
           onQuestionsUpdated={onQuestionsUpdated}
           currentSectionNumber={sectionNumber}
-          siblings={siblings}
         />
       </div>
     );
@@ -466,7 +448,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         answerMap={answerMap}
         documentId={documentId}
         onRefresh={onRefresh}
-        subQUsageMap={subQUsageMap}
       />
 
       {/* Insert After Form */}
@@ -615,7 +596,6 @@ interface QuestionFormCardProps {
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
   onQuestionsUpdated?: () => void;
   currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
-  siblings?: QuestionDetail[]; // Sibling questions for usage count calculation
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -651,7 +631,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   onRefresh,
   onQuestionsUpdated,
   currentSectionNumber,
-  siblings = [],
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -2399,54 +2378,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 {parentSubQuestionList!.map((sq, idx) => {
                   const isForced = is300 && sq.alwaysChecked === true;
                   const isChecked = isForced || selectedSubQCodes.includes(sq.code);
-
-                  // Calculate usage count from siblings
-                  let initialUsageCount = 0;
-                  if (siblings && Array.isArray(siblings)) {
-                    siblings.forEach((sibling: QuestionDetail) => {
-                      if (sibling.id === (existingId || generatedId)) return; // Skip self
-                      if (!sibling.metadata) return;
-                      try {
-                        const meta = JSON.parse(sibling.metadata);
-                        const siblingSelected: string[] = Array.isArray(meta.selectedSubQuestions) ? meta.selectedSubQuestions : [];
-                        if (siblingSelected.includes(sq.code)) {
-                          initialUsageCount++;
-                        }
-                      } catch (e) {
-                        // ignore parse error
-                      }
-                    });
-                  }
-
-                  // Add +1 if currently checked by the user
-                  const usageCount = initialUsageCount + (isChecked && !isForced ? 1 : 0);
-                  // For 300 section forced items, usage logic might differ, but generally they are "auto", we can just show "Auto ✓" or count them too. 
-                  // Let's just follow the logic: if forced, it's used by everyone, but let's just count it normally or just rely on the badge.
-
                   return (
-                    <label key={sq.code} className={`flex items-start gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
-                      <div className="pt-0.5">
-                        <input type="checkbox" checked={isChecked} disabled={isForced}
-                          onChange={() => { if (isForced) return; setSelectedSubQCodes(prev => isChecked ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
-                          className={`w-3 h-3 rounded ${sqClr.check}`} />
-                      </div>
-                      <span className={`font-bold pt-0.5 ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
-                      <div className="flex-1 flex items-start flex-wrap gap-2">
-                        <span className="flex-1 min-w-[100px] leading-relaxed">{sq.text}</span>
-                        <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
-                          {isForced ? (
-                            <span className="text-[9px] text-emerald-500 font-bold bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">Auto ✓</span>
-                          ) : usageCount > 0 ? (
-                            <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded whitespace-nowrap">
-                              Used : {usageCount}
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded whitespace-nowrap">
-                              Unused
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    <label key={sq.code} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
+                      <input type="checkbox" checked={isChecked} disabled={isForced}
+                        onChange={() => { if (isForced) return; setSelectedSubQCodes(prev => isChecked ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
+                        className={`w-3 h-3 rounded ${sqClr.check}`} />
+                      <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
+                      <span className="flex-1">{sq.text}</span>
+                      {isForced && <span className="text-[9px] text-emerald-500 font-bold">Auto ✓</span>}
                     </label>
                   );
                 })}
