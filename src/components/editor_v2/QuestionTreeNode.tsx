@@ -2196,15 +2196,15 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
                   {/* Filtered item list for current branch */}
                   {filteredItems.length > 0 && (
-                    <div className="space-y-1">
+                    <div className="grid grid-cols-1 gap-0.5">
                       {filteredItems.map((item, localIdx) => {
                         const dbSq = dbSubQuestions.find(sq => sq.code === item.code);
                         return (
-                          <div key={item.code} className={`flex items-center gap-2 p-1.5 bg-white dark:bg-slate-900/60 border ${sqClr.itemBd} rounded-md group/sq-item`}>
+                          <div key={item.code} className={`flex items-center gap-2 px-2 py-1 bg-white dark:bg-slate-900/60 border ${sqClr.itemBd} rounded-md group/sq-item`}>
                             <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
                             <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
-                            <span className="flex-1 text-sm text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
+                            <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
                             {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
                               {is300 && (
@@ -2308,7 +2308,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <div className={`pt-2 border-t ${sqClr.border}`}>
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                           <CheckCircle className={`w-3.5 h-3.5 ${sqClr.text}`} />
-                          <span className={`text-[10px] font-bold ${sqClr.textBold} uppercase tracking-wider flex-1`}>เลือกข้อย่อยที่ใช้งาน</span>
+                          <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider flex-1`}>เลือกข้อย่อยที่ใช้งาน</span>
                           <span className={`text-[10px] ${sqClr.count}`}>{activeInBranch.length}/{filteredItems.length}</span>
                           <div className="flex gap-1 ml-auto">
                             <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...branchCodes])}
