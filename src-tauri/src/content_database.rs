@@ -4277,32 +4277,58 @@ pub struct SubQuestionUsageResponse {
 }
 
 /// Get usage counts for each sub-question code under a given L1 question (parent).
-/// Returns a map of sub_question_code → count of children that have selected it,
-/// plus the total number of children under this parent.
+/// Returns a map of sub_question_code → count of children (and descendants) that have selected it,
+/// plus the total count of all descendant questions under this parent.
 /// Uses QuestionSubQuestionLinks (relational) instead of JSON metadata for accuracy.
 #[tauri::command]
 pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsageResponse, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // 1. Get total children count for the denominator (e.g., Used: 1/5)
-    let total_children: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
-        params![parent_id],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    // 1. Get ALL descendant IDs (recursive)
+    // This ensures that if selections are made at L3 (grandchild), they are counted towards the L1 header.
+    let mut stmt_ids = conn.prepare(
+        "WITH RECURSIVE descendants(id) AS (
+            SELECT id FROM Questions WHERE parent_id = ?1
+            UNION ALL
+            SELECT q.id FROM Questions q
+            JOIN descendants d ON q.parent_id = d.id
+        )
+        SELECT id FROM descendants"
+    ).map_err(|e| format!("Failed to prepare descendant query: {}", e))?;
 
-    // 2. Collect all descendant question IDs under this parent (direct children only for now — L2)
-    let mut stmt = conn.prepare(
-        "SELECT ql.sub_question_code, COUNT(*) as usage_count
-         FROM QuestionSubQuestionLinks ql
-         JOIN Questions q ON q.id = ql.question_id
-         WHERE q.parent_id = ?1
-         GROUP BY ql.sub_question_code"
-    ).map_err(|e| format!("Failed to prepare usage count query: {}", e))?;
+    let descendant_ids: Vec<String> = stmt_ids.query_map(params![parent_id], |row| row.get(0))
+        .map_err(|e| format!("Failed to query descendants: {}", e))?
+        .collect::<Result<Vec<String>, _>>()
+        .map_err(|e| format!("Failed to collect descendant IDs: {}", e))?;
 
-    let rows = stmt.query_map(params![parent_id], |row| {
+    let total_children = descendant_ids.len() as i64;
+
+    if descendant_ids.is_empty() {
+        return Ok(SubQuestionUsageResponse {
+            usage_map: std::collections::HashMap::new(),
+            total_children: 0,
+        });
+    }
+
+    // 2. Collect counts for each sub_question_code used by ANY of these descendants
+    // We use a temporary table or a large IN clause (SQLite limited to 999 usually, but here we can join)
+    // Better: use the CTE again to join directly.
+    let mut stmt_counts = conn.prepare(
+        "WITH RECURSIVE descendants(id) AS (
+            SELECT id FROM Questions WHERE parent_id = ?1
+            UNION ALL
+            SELECT q.id FROM Questions q
+            JOIN descendants d ON q.parent_id = d.id
+        )
+        SELECT ql.sub_question_code, COUNT(DISTINCT ql.question_id) as usage_count
+        FROM QuestionSubQuestionLinks ql
+        JOIN descendants d ON ql.question_id = d.id
+        GROUP BY ql.sub_question_code"
+    ).map_err(|e| format!("Failed to prepare recursive usage count query: {}", e))?;
+
+    let rows = stmt_counts.query_map(params![parent_id], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-    }).map_err(|e| format!("Failed to query usage counts: {}", e))?;
+    }).map_err(|e| format!("Failed to query recursive usage counts: {}", e))?;
 
     let mut usage_map = std::collections::HashMap::new();
     for row in rows {
