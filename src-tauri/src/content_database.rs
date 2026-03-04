@@ -1002,6 +1002,65 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create index on OccupationSubQuestions: {}", e))?;
 
+    // QuestionSubQuestionLinks Table - Relational storage for selected sub-questions per question
+    // Replaces JSON array 'selectedSubQuestions' in Questions.metadata
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS QuestionSubQuestionLinks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id TEXT NOT NULL,
+            sub_question_code VARCHAR(20) NOT NULL,
+            UNIQUE(question_id, sub_question_code),
+            FOREIGN KEY (question_id) REFERENCES Questions(id) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create QuestionSubQuestionLinks table: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_qsql_question ON QuestionSubQuestionLinks(question_id)",
+        [],
+    ).map_err(|e| format!("Failed to create index on QuestionSubQuestionLinks: {}", e))?;
+
+    // One-time data migration: extract selectedSubQuestions from JSON metadata → QuestionSubQuestionLinks
+    // This is safe to run on every startup — it only processes questions not yet in the links table.
+    migrate_selected_sub_questions_to_table(conn)?;
+
+    Ok(())
+}
+
+/// Migrate selectedSubQuestions from JSON metadata to QuestionSubQuestionLinks table.
+/// Safe to run multiple times; skips questions already having links.
+fn migrate_selected_sub_questions_to_table(conn: &Connection) -> Result<(), String> {
+    // Only process questions that have metadata containing 'selectedSubQuestions'
+    // and do not already have any entries in QuestionSubQuestionLinks.
+    let mut stmt = conn.prepare(
+        "SELECT id, metadata FROM Questions
+         WHERE metadata IS NOT NULL
+           AND metadata LIKE '%selectedSubQuestions%'
+           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionSubQuestionLinks)"
+    ).map_err(|e| format!("Failed to prepare migration query: {}", e))?;
+
+    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| format!("Failed to query migration rows: {}", e))?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    for (question_id, metadata_json) in rows {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+            if let Some(codes) = v.get("selectedSubQuestions").and_then(|c| c.as_array()) {
+                for code_val in codes {
+                    if let Some(code) = code_val.as_str() {
+                        let _ = conn.execute(
+                            "INSERT OR IGNORE INTO QuestionSubQuestionLinks (question_id, sub_question_code)
+                             VALUES (?1, ?2)",
+                            params![question_id, code],
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -1324,9 +1383,9 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
         ).map_err(|e| e.to_string())?;
     }
 
-    // SYNC References from Metadata
-    // DISABLED: We manage references via add_question_reference API now.
-    // sync_question_references(&conn, &id, args.metadata.as_deref())?;
+    // Sync selectedSubQuestions JSON → QuestionSubQuestionLinks relational table
+    sync_question_sub_question_links(&conn, &id, args.metadata.as_deref())
+        .unwrap_or_else(|e| eprintln!("[SubQ Sync] create_question: {}", e));
 
     Ok(id)
 }
@@ -1374,9 +1433,39 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
 
-    // SYNC References from Metadata to Table
-    // DISABLED: We manage references via add_question_reference API now.
-    // sync_question_references(&conn, &args.id, args.metadata.as_deref())?;
+    // Sync selectedSubQuestions JSON → QuestionSubQuestionLinks relational table
+    sync_question_sub_question_links(&conn, &args.id, args.metadata.as_deref())
+        .unwrap_or_else(|e| eprintln!("[SubQ Sync] update_question: {}", e));
+
+    Ok(())
+}
+
+/// Sync the selectedSubQuestions field in JSON metadata → QuestionSubQuestionLinks table.
+/// Clears existing links for this question, then re-inserts from current metadata.
+/// Safe to call on every save — idempotent when metadata hasn't changed.
+fn sync_question_sub_question_links(conn: &Connection, question_id: &str, metadata_json: Option<&str>) -> Result<(), String> {
+    // 1. Delete existing links for this question
+    conn.execute(
+        "DELETE FROM QuestionSubQuestionLinks WHERE question_id = ?1",
+        params![question_id],
+    ).map_err(|e| format!("Failed to delete existing SubQ links: {}", e))?;
+
+    // 2. Insert new links from metadata
+    if let Some(json_str) = metadata_json {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(codes) = v.get("selectedSubQuestions").and_then(|c| c.as_array()) {
+                for (i, code_val) in codes.iter().enumerate() {
+                    if let Some(code) = code_val.as_str() {
+                        conn.execute(
+                            "INSERT OR IGNORE INTO QuestionSubQuestionLinks (question_id, sub_question_code)
+                             VALUES (?1, ?2)",
+                            params![question_id, code],
+                        ).map_err(|e| format!("Failed to insert SubQ link [{i}]: {}", e))?;
+                    }
+                }
+            }
+        }
+    }
 
     Ok(())
 }
@@ -4179,4 +4268,33 @@ pub fn clear_all_trainee_answers() -> Result<(), String> {
 
     println!("Successfully cleared all records from UserAnswers and UserProgress tables.");
     Ok(())
+}
+
+/// Get usage counts for each sub-question code under a given L1 question (parent).
+/// Returns a map of sub_question_code → count of children that have selected it.
+/// Uses QuestionSubQuestionLinks (relational) instead of JSON metadata for accuracy.
+#[tauri::command]
+pub fn get_sub_question_usage_counts(parent_id: String) -> Result<std::collections::HashMap<String, i64>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Collect all descendant question IDs under this parent (direct children only for now — L2)
+    let mut stmt = conn.prepare(
+        "SELECT ql.sub_question_code, COUNT(*) as usage_count
+         FROM QuestionSubQuestionLinks ql
+         JOIN Questions q ON q.id = ql.question_id
+         WHERE q.parent_id = ?1
+         GROUP BY ql.sub_question_code"
+    ).map_err(|e| format!("Failed to prepare usage count query: {}", e))?;
+
+    let rows = stmt.query_map(params![parent_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    }).map_err(|e| format!("Failed to query usage counts: {}", e))?;
+
+    let mut map = std::collections::HashMap::new();
+    for row in rows {
+        let (code, count) = row.map_err(|e| e.to_string())?;
+        map.insert(code, count);
+    }
+
+    Ok(map)
 }

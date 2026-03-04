@@ -813,6 +813,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [isPerformanceL2, is306L1, existingId]);
   useEffect(() => { fetchRequiredCountChildren(); }, [fetchRequiredCountChildren]);
 
+
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
   useEffect(() => {
     if (isPrerequisiteChild && existingId) {
@@ -1178,6 +1179,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // hasParentSubQ: this question is a child of a L1 with SubQuestionList
   const hasParentSubQ = !!(parentSubQuestionList && parentSubQuestionList.length > 0);
+
+  // ---- SubQ Usage Count (fetched from backend via QuestionSubQuestionLinks table) ----
+  // When editing a child (L2) question, parentId is the L1 group header.
+  // Ask the backend: how many L2 siblings have selected each SubQ code?
+  const [subQUsageMap, setSubQUsageMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!hasParentSubQ || !parentId) { setSubQUsageMap({}); return; }
+    invoke<Record<string, number>>('get_sub_question_usage_counts', { parentId })
+      .then(map => setSubQUsageMap(map))
+      .catch(() => setSubQUsageMap({}));
+  }, [hasParentSubQ, parentId]);
 
   // Sync selectedSubQCodes เมื่อ parentSubQuestionList เปลี่ยน (reorder/delete)
   // For 300Template: also inject alwaysChecked codes
@@ -2386,6 +2398,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
                       <span className="flex-1">{sq.text}</span>
                       {isForced && <span className="text-[9px] text-emerald-500 font-bold">Auto ✓</span>}
+                      {/* Sub-question usage badge (from relational table) */}
+                      {!isForced && hasParentSubQ && (() => {
+                        const count = subQUsageMap[sq.code];
+                        if (count === undefined || count === 0) {
+                          return <span className="ml-auto text-[9px] px-1 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 font-medium">Unused</span>;
+                        }
+                        return <span className="ml-auto text-[9px] px-1 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium">Used: {count}</span>;
+                      })()}
                     </label>
                   );
                 })}

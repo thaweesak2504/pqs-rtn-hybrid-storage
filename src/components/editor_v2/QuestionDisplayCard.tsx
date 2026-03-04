@@ -145,6 +145,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       }).catch(() => { setDisplaySubQList([]); setDisplayActiveCodes(activeCodes); });
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
   }, [is200or300, is300, isL1, question.metadata, question.sequence]);
+
+  // SubQ usage count per code for L1 header — fetched from backend relational table
+  const [subQUsedMap, setSubQUsedMap] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!is200or300 || !isL1 || !displaySubQList.length) { setSubQUsedMap({}); return; }
+    invoke<Record<string, number>>('get_sub_question_usage_counts', { parentId: question.id })
+      .then(map => setSubQUsedMap(map))
+      .catch(() => setSubQUsedMap({}));
+  }, [is200or300, isL1, displaySubQList.length, question.id]);
+
   const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
 
   // Compute inline sub-question checkboxes for L2/L3
@@ -330,8 +340,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               {display.map((sq, idx) => (
                 <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
                   <span className={`font-bold min-w-[1.5ch] ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
-                  <span>{sq.text}</span>
+                  <span className="flex-1">{sq.text}</span>
                   {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
+                  {/* Usage badge from relational table */}
+                  {!sq.alwaysChecked && (() => {
+                    const count = subQUsedMap[sq.code];
+                    if (!count) {
+                      return <span className="text-[9px] px-1 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">Unused</span>;
+                    }
+                    return <span className="text-[9px] px-1 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Used: {count}</span>;
+                  })()}
                 </div>
               ))}
             </div>
