@@ -147,12 +147,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   }, [is200or300, is300, isL1, question.metadata, question.sequence]);
 
   // SubQ usage count per code for L1 header — fetched from backend relational table
-  const [subQUsedMap, setSubQUsedMap] = useState<Record<string, number>>({});
+  interface SubQuestionUsageResponse { usage_map: Record<string, number>; total_children: number; }
+  const [subQUsedData, setSubQUsedData] = useState<SubQuestionUsageResponse>({ usage_map: {}, total_children: 0 });
   useEffect(() => {
-    if (!is200or300 || !isL1 || !displaySubQList.length) { setSubQUsedMap({}); return; }
-    invoke<Record<string, number>>('get_sub_question_usage_counts', { parentId: question.id })
-      .then(map => setSubQUsedMap(map))
-      .catch(() => setSubQUsedMap({}));
+    if (!is200or300 || !isL1 || !displaySubQList.length) { setSubQUsedData({ usage_map: {}, total_children: 0 }); return; }
+    invoke<SubQuestionUsageResponse>('get_sub_question_usage_counts', { parentId: question.id })
+      .then(data => setSubQUsedData(data))
+      .catch(() => setSubQUsedData({ usage_map: {}, total_children: 0 }));
   }, [is200or300, isL1, displaySubQList.length, question.id]);
 
   const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
@@ -344,11 +345,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
                   {/* Usage badge from relational table */}
                   {!sq.alwaysChecked && (() => {
-                    const count = subQUsedMap[sq.code];
-                    if (!count) {
-                      return <span className="text-[9px] px-1 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">Unused</span>;
+                    const count = subQUsedData.usage_map[sq.code] || 0;
+                    const total = subQUsedData.total_children;
+                    if (count === 0) {
+                      return <span className="text-[9px] px-1 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">Unused (0/{total})</span>;
                     }
-                    return <span className="text-[9px] px-1 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Used: {count}</span>;
+                    return <span className="text-[9px] px-1 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Used: {count}/{total}</span>;
                   })()}
                 </div>
               ))}

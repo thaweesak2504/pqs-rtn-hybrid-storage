@@ -4270,14 +4270,28 @@ pub fn clear_all_trainee_answers() -> Result<(), String> {
     Ok(())
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct SubQuestionUsageResponse {
+    pub usage_map: std::collections::HashMap<String, i64>,
+    pub total_children: i64,
+}
+
 /// Get usage counts for each sub-question code under a given L1 question (parent).
-/// Returns a map of sub_question_code → count of children that have selected it.
+/// Returns a map of sub_question_code → count of children that have selected it,
+/// plus the total number of children under this parent.
 /// Uses QuestionSubQuestionLinks (relational) instead of JSON metadata for accuracy.
 #[tauri::command]
-pub fn get_sub_question_usage_counts(parent_id: String) -> Result<std::collections::HashMap<String, i64>, String> {
+pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsageResponse, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Collect all descendant question IDs under this parent (direct children only for now — L2)
+    // 1. Get total children count for the denominator (e.g., Used: 1/5)
+    let total_children: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+        params![parent_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    // 2. Collect all descendant question IDs under this parent (direct children only for now — L2)
     let mut stmt = conn.prepare(
         "SELECT ql.sub_question_code, COUNT(*) as usage_count
          FROM QuestionSubQuestionLinks ql
@@ -4290,11 +4304,14 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<std::collectio
         Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
     }).map_err(|e| format!("Failed to query usage counts: {}", e))?;
 
-    let mut map = std::collections::HashMap::new();
+    let mut usage_map = std::collections::HashMap::new();
     for row in rows {
         let (code, count) = row.map_err(|e| e.to_string())?;
-        map.insert(code, count);
+        usage_map.insert(code, count);
     }
 
-    Ok(map)
+    Ok(SubQuestionUsageResponse {
+        usage_map,
+        total_children,
+    })
 }
