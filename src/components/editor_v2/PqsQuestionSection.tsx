@@ -119,28 +119,50 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
       );
 
-      // Show questions immediately — children appear without waiting for group score calc
-      setQuestions(filtered);
-
-      // For Section 300: recalculate group_score bottom-up (L2 → L1) in a second pass
-      // so score badges stay fresh without blocking the initial render
+      // For Section 300: recalculate group_score bottom-up (L2 → L1)
       if (sectionGroup === 300) {
-        const withScores = filtered.map(q => ({ ...q }));
-        const l2GroupHeaders = withScores.filter(q => q.parent_id && q.is_group_header);
+        const l2GroupHeaders = filtered.filter(q => q.parent_id && q.is_group_header);
         for (const gh of l2GroupHeaders) {
           try {
             const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
             gh.group_score = freshScore;
           } catch { /* keep existing value */ }
         }
-        const l1GroupHeaders = withScores.filter(q => !q.parent_id && q.is_group_header);
+        const l1GroupHeaders = filtered.filter(q => !q.parent_id && q.is_group_header);
         for (const gh of l1GroupHeaders) {
           try {
             const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
             gh.group_score = freshScore;
           } catch { /* keep existing value */ }
         }
-        setQuestions(withScores);
+      }
+
+      // Smart merge: preserve object references for unchanged questions so React.memo
+      // can skip re-renders — prevents the white-line flash during background sync
+      if (silent) {
+        setQuestions(prev => {
+          if (prev.length === 0) return filtered;
+          const prevMap = new Map(prev.map(q => [q.id, q]));
+          // Structure changed (add/delete) → full replace
+          if (prev.length !== filtered.length || !filtered.every(q => prevMap.has(q.id))) return filtered;
+          // Same set → preserve references for unchanged items
+          return filtered.map(f => {
+            const p = prevMap.get(f.id)!;
+            if (p.content === f.content && p.description === f.description &&
+                p.metadata === f.metadata && p.sequence === f.sequence &&
+                p.score === f.score && p.is_scored === f.is_scored &&
+                p.group_score === f.group_score && p.is_group_header === f.is_group_header &&
+                p.question_type === f.question_type && p.display_text === f.display_text &&
+                p.parent_id === f.parent_id &&
+                (p.references?.length ?? 0) === (f.references?.length ?? 0) &&
+                (p.choices?.length ?? 0) === (f.choices?.length ?? 0)) {
+              return p; // keep old reference → React.memo skips re-render
+            }
+            return f;
+          });
+        });
+      } else {
+        setQuestions(filtered);
       }
 
       // --- Fetch Trainee Answers (NEW for Fluent Assessment) ---
