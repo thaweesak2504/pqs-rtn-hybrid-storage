@@ -348,9 +348,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                     const count = subQUsedData.usage_map[sq.code] || 0;
                     const total = subQUsedData.total_children;
                     if (count === 0) {
-                      return <span className="text-[9px] px-1 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">Unused (0/{total})</span>;
+                      return <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 font-bold whitespace-nowrap">Unused (0/{total})</span>;
                     }
-                    return <span className="text-[9px] px-1 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium whitespace-nowrap">Used: {count}/{total}</span>;
+                    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
                   })()}
                 </div>
               ))}

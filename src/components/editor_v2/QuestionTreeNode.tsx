@@ -2405,9 +2405,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         const count = subQUsageData.usage_map[sq.code] || 0;
                         const total = subQUsageData.total_children;
                         if (count === 0) {
-                          return <span className="ml-auto text-[9px] px-1 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-400 dark:text-slate-500 font-medium">Unused (0/{total})</span>;
+                          return <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 font-bold whitespace-nowrap">Unused (0/{total})</span>;
                         }
-                        return <span className="ml-auto text-[9px] px-1 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 font-medium">Used: {count}/{total}</span>;
+                        return <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
                       })()}
                     </label>
                   );
@@ -2626,11 +2626,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                       <div className="shrink-0 flex items-center gap-2">
                                         {/* Usage Badge */}
                                         {r.usage_count > 0 ? (
-                                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
                                             Used: {r.usage_count}
                                           </span>
                                         ) : (
-                                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/20 opacity-80">
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
                                             Unused
                                           </span>
                                         )}
