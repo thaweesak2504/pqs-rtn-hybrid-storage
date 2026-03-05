@@ -56,6 +56,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
 
   const [currentTitle, setCurrentTitle] = useState(title);
   const [currentMenuLabel, setCurrentMenuLabel] = useState(subTitle || '');
+  const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
 
   // Duration & Score state
   const [durationValue, setDurationValue] = useState<number | null>(null);
@@ -186,6 +187,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         }}
       />
 
+
       {/* 2. Duration & Score Display */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-800 shadow-sm">
         <div className="px-4 py-3">
@@ -299,7 +301,11 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
           sectionNumber={sectionNumber}
           sectionGroup={300}
           readOnly={false}
-          onQuestionsUpdated={fetchSectionData}
+          refreshTrigger={refreshQuestionsTrigger}
+          onQuestionsUpdated={() => {
+            fetchSectionData();
+            setRefreshQuestionsTrigger(prev => prev + 1);
+          }}
           viewMode={viewMode}
           docBranchMain={docBranchMain}
           docBranchSub={docBranchSub}

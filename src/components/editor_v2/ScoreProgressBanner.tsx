@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 interface ScoreProgressBannerProps {
   documentId: string;
   sectionId: number;
-  sectionGroup: 100 | 200; // Determines theme color (Green vs Orange)
+  sectionGroup: 100 | 200 | 300; // Determines theme color (Green vs Orange vs Purple)
   refreshTrigger?: number; // Prop to force re-fetch when new answers are saved
 }
 
@@ -15,6 +15,10 @@ interface ProgressData {
   completion_percentage: number;
   is_passed: boolean;
   passing_score: number;
+  total_questions?: number;
+  answered_questions?: number;
+  passed_questions?: number;
+  pending_with_answer?: number;
 }
 
 const toThaiNumerals = (num: number | string | undefined | null): string => {
@@ -38,7 +42,10 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
   useEffect(() => {
     let isMounted = true;
     const fetchProgress = async () => {
-      if (!sectionId) return;
+      if (!sectionId) {
+        if (isMounted) setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
         const result = await invoke<ProgressData>('get_section_progress', {
@@ -46,7 +53,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
           documentId: documentId,
           sectionId: sectionId,
         }).catch((e) => {
-          console.warn("get_section_progress failed:", e);
+          console.error("[Banner] get_section_progress failed sectionId:", sectionId, "error:", e);
           return null;
         });
 
@@ -76,8 +83,9 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
     );
   }
 
-  if (!progress || progress.max_score === 0) {
-    // Show a minimal banner indicating the section exists but has no scored questions yet
+  // No data: section has no questions at all (both score-based and count-based are empty)
+  const hasNoData = !progress || (progress.max_score === 0 && (progress.total_questions ?? 0) === 0);
+  if (hasNoData) {
     return (
       <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-5 py-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
         <span>📊</span>
@@ -98,19 +106,34 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
       ring: 'text-emerald-500',
       passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700',
     }
-    : {
-      bg: 'bg-orange-50 dark:bg-orange-900/10',
-      border: 'border-orange-200 dark:border-orange-800/50',
-      text: 'text-orange-700 dark:text-orange-400',
-      barFill: 'bg-orange-500',
-      barBg: 'bg-orange-100 dark:bg-orange-900/30',
-      icon: 'text-orange-500 dark:text-orange-400',
-      ring: 'text-orange-500',
-      passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700', // Success is always green
-    };
+    : sectionGroup === 300
+      ? {
+        bg: 'bg-purple-50 dark:bg-purple-900/10',
+        border: 'border-purple-200 dark:border-purple-800/50',
+        text: 'text-purple-700 dark:text-purple-400',
+        barFill: 'bg-purple-500',
+        barBg: 'bg-purple-100 dark:bg-purple-900/30',
+        icon: 'text-purple-500 dark:text-purple-400',
+        ring: 'text-purple-500',
+        passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700', // Success is always green
+      }
+      : {
+        bg: 'bg-orange-50 dark:bg-orange-900/10',
+        border: 'border-orange-200 dark:border-orange-800/50',
+        text: 'text-orange-700 dark:text-orange-400',
+        barFill: 'bg-orange-500',
+        barBg: 'bg-orange-100 dark:bg-orange-900/30',
+        icon: 'text-orange-500 dark:text-orange-400',
+        ring: 'text-orange-500',
+        passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700', // Success is always green
+      };
 
   const isPassed = progress.is_passed;
-  const scorePercent = Math.min(100, Math.round((progress.earned_score / progress.max_score) * 100)) || 0;
+  // Use count-based mode when max_score=0 but total_questions>0
+  const isCountMode = progress.max_score === 0 && (progress.total_questions ?? 0) > 0;
+  const scorePercent = isCountMode
+    ? (Math.min(100, Math.round(((progress.passed_questions ?? 0) / (progress.total_questions ?? 1)) * 100)) || 0)
+    : (Math.min(100, Math.round((progress.earned_score / progress.max_score) * 100)) || 0);
 
   // Status Badge Logic
   const statusConfig = isPassed
@@ -127,14 +150,15 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
         <div className="flex items-end justify-between mb-1">
           <div className="flex items-center gap-2">
             <Award className={`w-5 h-5 ${theme.icon}`} />
-            <h3 className={`font-bold ${theme.text} text-sm`}>คะแนนสะสม</h3>
+            <h3 className={`font-bold ${theme.text} text-sm`}>{isCountMode ? 'ข้อที่ผ่าน' : 'คะแนนสะสม'}</h3>
           </div>
           <div className="flex items-baseline gap-1">
             <span className={`text-2xl font-bold font-sarabun leading-none ${theme.text}`}>
-              {toThaiNumerals(progress.earned_score)}
+              {isCountMode ? toThaiNumerals(progress.passed_questions ?? 0) : toThaiNumerals(progress.earned_score)}
             </span>
             <span className="text-sm font-sarabun text-slate-500 dark:text-slate-400">
-              / {toThaiNumerals(progress.max_score)}
+              / {isCountMode ? toThaiNumerals(progress.total_questions ?? 0) : toThaiNumerals(progress.max_score)}
+              {isCountMode ? ' ข้อ' : ''}
             </span>
           </div>
         </div>

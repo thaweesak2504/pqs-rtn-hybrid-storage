@@ -4337,20 +4337,50 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
 
     // ------------------------------------------------------------------
     // Strategy 2: Count-based (always works, used when score columns = 0)
-    // Count all leaf questions (questions without children that can have answers)
+    // Count Answer Key boxes = each (question_id, sub_question_code) pair that has an answer key.
+    // For questions with `answerKeys` (multi-sub): count keys in JSON.
+    // For questions with single `answerKey`: count as 1.
     // ------------------------------------------------------------------
-    let total_questions: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM Questions
+    let leaf_questions: Vec<(String, Option<String>)> = conn.prepare(
+        "SELECT id, metadata FROM Questions
          WHERE section_id = ?1
            AND question_type != 'exempted'
            AND is_group_header = 0
-           AND id NOT IN (SELECT DISTINCT parent_id FROM Questions WHERE parent_id IS NOT NULL AND section_id = ?1)",
-        params![section_id, section_id],
-        |row| row.get(0)
-    ).unwrap_or(0);
+           AND id NOT IN (SELECT DISTINCT parent_id FROM Questions WHERE parent_id IS NOT NULL AND section_id = ?2)"
+    ).ok().and_then(|mut stmt| {
+        stmt.query_map(params![section_id, section_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        }).ok().map(|rows| rows.filter_map(|r| r.ok()).collect())
+    }).unwrap_or_default();
 
+    let total_questions: i32 = leaf_questions.iter().map(|(_, meta_opt)| {
+        match meta_opt {
+            None => 0,
+            Some(meta_str) => {
+                match serde_json::from_str::<serde_json::Value>(meta_str) {
+                    Ok(m) => {
+                        if let Some(keys) = m.get("answerKeys").and_then(|v| v.as_object()) {
+                            // Multi-sub-question: count each sub-code as 1 box
+                            keys.len() as i32
+                        } else if m.get("answerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
+                            // Single answer key
+                            1
+                        } else if m.get("requireAnswerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
+                            // Section 300 required_instance questions
+                            1
+                        } else {
+                            0
+                        }
+                    },
+                    Err(_) => 0,
+                }
+            }
+        }
+    }).sum();
+
+    // passed = COUNT(*) of (question_id, sub_question_code) pairs with status='passed'
     let passed_questions: i32 = conn.query_row(
-        "SELECT COUNT(DISTINCT ua.question_id)
+        "SELECT COUNT(*)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
          WHERE ua.user_id = ?1 AND ua.document_id = ?2
@@ -4360,7 +4390,7 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
     ).unwrap_or(0);
 
     let pending_with_answer: i32 = conn.query_row(
-        "SELECT COUNT(DISTINCT ua.question_id)
+        "SELECT COUNT(*)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
          WHERE ua.user_id = ?1 AND ua.document_id = ?2

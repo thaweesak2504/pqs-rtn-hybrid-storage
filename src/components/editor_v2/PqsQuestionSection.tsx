@@ -1,9 +1,9 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-  ChevronDown,
-  FileQuestion,
-  Layers,
-  Plus
+    ChevronDown,
+    FileQuestion,
+    Layers,
+    Plus
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import Button from "../ui/Button";
@@ -11,8 +11,8 @@ import Button from "../ui/Button";
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
 import {
-  QuestionDetail,
-  QuestionReferenceDetail
+    QuestionDetail,
+    QuestionReferenceDetail
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
