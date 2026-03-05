@@ -4303,24 +4303,25 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
 pub fn get_section_progress(user_id: String, document_id: String, section_id: i64) -> Result<serde_json::Value, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Calculate max_score LIVE from Questions (don't rely on Sections.total_score being up-to-date)
+    // ------------------------------------------------------------------
+    // Strategy 1: Score-based (when is_scored=1 and score>0 are populated)
+    // ------------------------------------------------------------------
     let max_score: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE
                 WHEN question_type = 'exempted' THEN 0
-                WHEN is_group_header = 1 THEN group_score
-                WHEN is_scored = 1 AND parent_id IS NULL THEN score
+                WHEN is_group_header = 1 THEN COALESCE(group_score, 0)
+                WHEN is_scored = 1 THEN COALESCE(score, 0)
                 ELSE 0
             END
-         ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
+         ), 0) FROM Questions WHERE section_id = ?1",
         params![section_id],
         |row| row.get(0)
     ).unwrap_or(0);
 
-    // Get earned score from UserAnswers joined with Questions
     let earned_score: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
-            CASE 
+            CASE
                 WHEN q.is_group_header = 1 THEN 0
                 WHEN q.is_scored = 1 THEN COALESCE(q.score, 0)
                 ELSE 0
@@ -4334,46 +4335,76 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         |row| row.get(0)
     ).unwrap_or(0);
 
-    let pct = if max_score > 0 {
-        (earned_score as f64 / max_score as f64) * 100.0
-    } else {
-        0.0
-    };
-    let passing_score = 70;
-    let is_passed = pct >= passing_score as f64;
-
-    // Count total scoreable questions for completion tracking
+    // ------------------------------------------------------------------
+    // Strategy 2: Count-based (always works, used when score columns = 0)
+    // Count all leaf questions (questions without children that can have answers)
+    // ------------------------------------------------------------------
     let total_questions: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND is_scored = 1 AND is_group_header = 0 AND question_type != 'exempted'",
-        params![section_id],
+        "SELECT COUNT(*) FROM Questions
+         WHERE section_id = ?1
+           AND question_type != 'exempted'
+           AND is_group_header = 0
+           AND id NOT IN (SELECT DISTINCT parent_id FROM Questions WHERE parent_id IS NOT NULL AND section_id = ?1)",
+        params![section_id, section_id],
         |row| row.get(0)
     ).unwrap_or(0);
 
-    let answered_questions: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM UserAnswers ua
+    let passed_questions: i32 = conn.query_row(
+        "SELECT COUNT(DISTINCT ua.question_id)
+         FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
-         WHERE ua.user_id = ?1 AND ua.document_id = ?2 AND q.section_id = ?3 
-           AND ua.status != 'pending' AND q.is_scored = 1 AND q.is_group_header = 0",
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2
+           AND q.section_id = ?3 AND ua.status = 'passed'",
         params![user_id, document_id, section_id],
         |row| row.get(0)
     ).unwrap_or(0);
 
+    let pending_with_answer: i32 = conn.query_row(
+        "SELECT COUNT(DISTINCT ua.question_id)
+         FROM UserAnswers ua
+         JOIN Questions q ON q.id = ua.question_id
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2
+           AND q.section_id = ?3 AND ua.status = 'pending'
+           AND ua.answer_text IS NOT NULL AND ua.answer_text != ''",
+        params![user_id, document_id, section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    // Determine which strategy to use for percentage display
+    let (display_earned, display_max, pct) = if max_score > 0 {
+        let p = (earned_score as f64 / max_score as f64) * 100.0;
+        (earned_score, max_score, p)
+    } else {
+        // Fall back to count-based: treat each question as 1 point
+        let p = if total_questions > 0 {
+            (passed_questions as f64 / total_questions as f64) * 100.0
+        } else {
+            0.0
+        };
+        (passed_questions, total_questions, p)
+    };
+
+    let passing_score = 70;
+    let is_passed = pct >= passing_score as f64 && display_max > 0;
     let completion_pct = if total_questions > 0 {
-        (answered_questions as f64 / total_questions as f64) * 100.0
+        ((passed_questions + pending_with_answer) as f64 / total_questions as f64) * 100.0
     } else {
         0.0
     };
 
     Ok(serde_json::json!({
-        "earned_score": earned_score,
-        "max_score": max_score,
+        "earned_score": display_earned,
+        "max_score": display_max,
         "completion_percentage": completion_pct,
         "is_passed": is_passed,
         "passing_score": passing_score,
         "total_questions": total_questions,
-        "answered_questions": answered_questions,
+        "answered_questions": passed_questions + pending_with_answer,
+        "passed_questions": passed_questions,
+        "pending_with_answer": pending_with_answer,
     }))
 }
+
 
 
 /// Get all trainee answers for a document
