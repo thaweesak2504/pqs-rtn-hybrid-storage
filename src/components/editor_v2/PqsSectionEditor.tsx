@@ -38,6 +38,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   const [currentMenuLabel, setCurrentMenuLabel] = useState(subTitle || '');
   const [sectionId, setSectionId] = useState<number>(0);
   const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
+  const [progressRefreshKey, setProgressRefreshKey] = useState(0);
 
   const fetchReferences = async (sId: number) => {
     try {
@@ -260,7 +261,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
             documentId={docId}
             sectionId={sectionId}
             sectionGroup={100}
-            refreshTrigger={refreshQuestionsTrigger}
+            refreshTrigger={progressRefreshKey}
           />
         </div>
       )}
@@ -293,6 +294,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           readOnly={false}
           refreshTrigger={refreshQuestionsTrigger}
           onQuestionsUpdated={() => setRefreshQuestionsTrigger(prev => prev + 1)}
+          onProgressUpdate={() => setProgressRefreshKey(prev => prev + 1)}
           viewMode={viewMode}
         />
       </div>

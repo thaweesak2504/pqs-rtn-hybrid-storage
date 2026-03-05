@@ -43,6 +43,7 @@ interface PqsQuestionSectionProps {
   refreshTrigger?: number;
   onReferencesUpdated?: () => void; // Added callback
   onQuestionsUpdated?: () => void;
+  onProgressUpdate?: () => void; // Called after answers refresh (triggers banner re-fetch)
   // Document-level occupation branch (set in Edit Metadata)
   docBranchMain?: string;
   docBranchSub?: string;
@@ -61,6 +62,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   refreshTrigger = 0,
   onReferencesUpdated,
   onQuestionsUpdated,
+  onProgressUpdate,
   docBranchMain = '',
   docBranchSub = '',
   viewMode = 'edit',
@@ -145,6 +147,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           documentId: docId
         });
         setTraineeAnswers(answers);
+        // Notify parent to refresh the progress banner after new answers are loaded
+        onProgressUpdate?.();
       } catch (err) {
         console.error("Failed to fetch trainee answers:", err);
       }
