@@ -17,7 +17,8 @@ interface ProgressData {
   passing_score: number;
 }
 
-const toThaiNumerals = (num: number | string): string => {
+const toThaiNumerals = (num: number | string | undefined | null): string => {
+  if (num === undefined || num === null) return '๐';
   const thaiMap = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
   return num.toString().replace(/[0-9]/g, (m) => thaiMap[parseInt(m)]);
 };
