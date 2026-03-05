@@ -342,7 +342,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                 <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
                   <span className={`font-bold min-w-[1.5ch] ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
                   <span className="flex-1">{sq.text}</span>
-                  {sq.alwaysChecked && <span className="text-[8px] text-emerald-500">✓</span>}
+                  {sq.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
                   {/* Usage badge from relational table */}
                   {!sq.alwaysChecked && (() => {
                     const count = subQUsedData.usage_map[sq.code] || 0;

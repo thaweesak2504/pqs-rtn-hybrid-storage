@@ -2219,7 +2219,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
-                            {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">Auto ✓</span>}
+                            {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
                             <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
                               {is300 && (
                                 <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
@@ -2341,7 +2341,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                   className={`w-3 h-3 rounded ${sqClr.check}`} />
                                 <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
                                 <span className="flex-1 truncate">{sq.text}</span>
-                                {isForced && <span className="text-[9px] font-bold text-emerald-500">Auto ✓</span>}
+                                {isForced && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
                                 <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{sq.code}</span>
                               </label>
                             );
@@ -2399,7 +2399,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                         className={`w-3 h-3 rounded ${sqClr.check}`} />
                       <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
                       <span className="flex-1">{sq.text}</span>
-                      {isForced && <span className="text-[9px] text-emerald-500 font-bold">Auto ✓</span>}
+                      {isForced && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
                       {/* Sub-question usage badge (from relational table) */}
                       {!isForced && hasParentSubQ && (() => {
                         const count = subQUsageData.usage_map[sq.code] || 0;
