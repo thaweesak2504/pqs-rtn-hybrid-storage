@@ -337,7 +337,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             );
           }
           return (
-            <div className="mt-1.5 space-y-0.5">
+            <div className="mt-1.5 space-y-1.5">
               {display.map((sq, idx) => (
                 <div key={sq.code} className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300">
                   <span className={`font-bold min-w-[1.5ch] ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
@@ -348,9 +348,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                     const count = subQUsedData.usage_map[sq.code] || 0;
                     const total = subQUsedData.total_children;
                     if (count === 0) {
-                      return <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 font-bold whitespace-nowrap">Unused (0/{total})</span>;
+                      return <span className="text-[10px] px-2 py-[1px] rounded-full bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 font-bold whitespace-nowrap">Unused (0/{total})</span>;
                     }
-                    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
+                    return <span className="text-[10px] px-2 py-[1px] rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
                   })()}
                 </div>
               ))}

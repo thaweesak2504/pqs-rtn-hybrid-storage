@@ -907,13 +907,13 @@ const ReferenceDisplayCard: React.FC<{
         {/* Usage Badge — hidden in compact mode */}
         {!compact && ((data.usage_count || 0) > 0 ? (
           <Tooltip content={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
-            <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+            <span className="shrink-0 px-2 py-[1px] rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
               Used: {data.usage_count}
             </span>
           </Tooltip>
         ) : (
           <Tooltip content="ยังไม่ได้ถูกอ้างอิง">
-            <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
+            <span className="shrink-0 px-2 py-[1px] rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
               Unused
             </span>
           </Tooltip>
