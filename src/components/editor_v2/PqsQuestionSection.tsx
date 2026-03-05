@@ -76,6 +76,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [traineeAnswers, setTraineeAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bgSyncTrigger, setBgSyncTrigger] = useState(0);
 
   const [creatingAtParent, setCreatingAtParent] = useState<string | null>(null);
   const [insertingAfterId, setInsertingAfterId] = useState<string | null>(null); // New state
@@ -118,27 +119,29 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
       );
 
-      // For Section 300: recalculate group_score bottom-up (L2 → L1) so badges are always fresh
+      // Show questions immediately — children appear without waiting for group score calc
+      setQuestions(filtered);
+
+      // For Section 300: recalculate group_score bottom-up (L2 → L1) in a second pass
+      // so score badges stay fresh without blocking the initial render
       if (sectionGroup === 300) {
-        // First recalculate L2+ group headers (children with is_group_header)
-        const l2GroupHeaders = filtered.filter(q => q.parent_id && q.is_group_header);
+        const withScores = filtered.map(q => ({ ...q }));
+        const l2GroupHeaders = withScores.filter(q => q.parent_id && q.is_group_header);
         for (const gh of l2GroupHeaders) {
           try {
             const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
             gh.group_score = freshScore;
           } catch { /* keep existing value */ }
         }
-        // Then recalculate L1 group headers (top-level)
-        const l1GroupHeaders = filtered.filter(q => !q.parent_id && q.is_group_header);
+        const l1GroupHeaders = withScores.filter(q => !q.parent_id && q.is_group_header);
         for (const gh of l1GroupHeaders) {
           try {
             const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
             gh.group_score = freshScore;
           } catch { /* keep existing value */ }
         }
+        setQuestions(withScores);
       }
-
-      setQuestions(filtered);
 
       // --- Fetch Trainee Answers (NEW for Fluent Assessment) ---
       try {
@@ -155,7 +158,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     } catch (error) {
       console.error("Failed to fetch questions:", error);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -170,6 +173,13 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId, sectionId, refreshTrigger]);
+
+  // Background sync: fires after form state has been flushed by React
+  useEffect(() => {
+    if (bgSyncTrigger === 0) return;
+    fetchQuestions(true).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bgSyncTrigger]);
 
   const getAllIds = (nodes: QuestionDetail[]): string[] =>
     nodes.flatMap(n => [n.id, ...(n.children ? getAllIds(n.children) : [])]);
@@ -340,10 +350,38 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         }
       }
 
+      // Optimistic: add new question to local state immediately so tree updates without flicker
+      const optimisticQ: QuestionDetail = {
+        id: newId,
+        document_id: docId,
+        section_id: sectionId ?? null,
+        parent_id: parentId,
+        sequence: questions.filter(q => q.parent_id === parentId).length + 1,
+        content: data.content.trim(),
+        is_header: false,
+        description: data.description || null,
+        answer_type: 'text',
+        metadata: finalMetadata,
+        score: null,
+        question_type: 'normal',
+        group_score: null,
+        display_text: null,
+        is_group_header: false,
+        is_scored: false,
+        choices: [],
+        references: data.references || [],
+        children: [],
+      };
+      setQuestions(prev => {
+        // If parent exists, mark parent as group_header optimistically
+        const updated = prev.map(q =>
+          q.id === parentId ? { ...q, is_group_header: true, is_scored: false } : q
+        );
+        return [...updated, optimisticQ];
+      });
       resetForms();
-      await fetchQuestions(true);
-      onQuestionsUpdated?.();
-      onReferencesUpdated?.(); // Update references count after create
+      onReferencesUpdated?.();
+      setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
       console.error("Failed to create question:", err);
     }
@@ -419,10 +457,15 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         }
       }
 
+      // Optimistic: patch local state immediately
+      setQuestions(prev => prev.map(q =>
+        q.id === id
+          ? { ...q, content: content.trim(), description: finalDesc ?? q.description, metadata: finalMeta ?? q.metadata }
+          : q
+      ));
       resetForms();
-      await fetchQuestions(true);
-      onQuestionsUpdated?.();
-      onReferencesUpdated?.(); // Update references count after all changes
+      onReferencesUpdated?.();
+      setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
       console.error("Failed to update question:", err);
     }
@@ -436,9 +479,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       onConfirm: async () => {
         try {
           await invoke("delete_question", { id: question.id });
-          await fetchQuestions(true);
-          onQuestionsUpdated?.();
-          onReferencesUpdated?.(); // Update references count
+          // Optimistic: remove from local state immediately
+          setQuestions(prev => prev.filter(q => q.id !== question.id));
+          onReferencesUpdated?.();
+          setBgSyncTrigger(prev => prev + 1);
         } catch (err) {
           console.error("Failed to delete:", err);
         }
@@ -454,8 +498,13 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     const reordered = [...siblings];
     [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
     try {
+      // Optimistic: update sequence in local state
+      setQuestions(prev => prev.map(q => {
+        const ri = reordered.findIndex(r => r.id === q.id);
+        return ri >= 0 ? { ...q, sequence: ri + 1 } : q;
+      }));
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
-      await fetchQuestions(true);
+      setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
       console.error("Failed to reorder:", err);
     }
@@ -467,8 +516,13 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     const reordered = [...siblings];
     [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
     try {
+      // Optimistic: update sequence in local state
+      setQuestions(prev => prev.map(q => {
+        const ri = reordered.findIndex(r => r.id === q.id);
+        return ri >= 0 ? { ...q, sequence: ri + 1 } : q;
+      }));
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
-      await fetchQuestions(true);
+      setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
       console.error("Failed to reorder:", err);
     }

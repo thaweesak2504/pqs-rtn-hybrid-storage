@@ -169,6 +169,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     } catch { return parentSubQuestionList.map(sq => ({ sq, checked: false })); }
   }, [parentSubQuestionList, question.metadata]); // 200: show for L0 & L1, others: L0 only
 
+  // Section 200: questions with answerKeys should still show answer boxes/inline checkboxes
+  // even if Rust auto-set is_group_header=1 (happens when any child is created)
+  const metaHasAnswerKeys = useMemo(() => {
+    if (!question.metadata) return false;
+    try {
+      const m = JSON.parse(question.metadata);
+      return (m.answerKeys && typeof m.answerKeys === 'object' && Object.keys(m.answerKeys).length > 0) || !!m.answerKey;
+    } catch { return false; }
+  }, [question.metadata]);
+
   return (
     <div
       className={`
@@ -289,7 +299,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             </div>
           )}
           {/* Inline SubQ checkboxes — ชิดขวา (ซ่อนเมื่อ L2 เป็น group_header มี L3 จำนวนครั้ง) */}
-          {inlineSubQItems && !question.is_group_header && (
+          {inlineSubQItems && (!question.is_group_header || (is200 && metaHasAnswerKeys)) && (
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               {inlineSubQItems.map(({ sq, checked }, idx) => (
                 <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
@@ -368,7 +378,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               onImageClick={onImageClick}
               parentSubQuestionList={parentSubQuestionList}
               readOnly={readOnly}
-              showAnswerBox={(!is300 && !question.is_group_header && question.question_type !== 'exempted') && (viewMode !== 'visitor')}
+              showAnswerBox={(!is300 && (!question.is_group_header || (is200 && metaHasAnswerKeys)) && question.question_type !== 'exempted') && (viewMode !== 'visitor')}
               showAnswerKey={viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'print'}
               mode={viewMode === 'qualifier' ? 'qualifier' : viewMode === 'trainee' ? 'trainee' : 'viewer'}
               traineeAnswer={traineeAnswer}

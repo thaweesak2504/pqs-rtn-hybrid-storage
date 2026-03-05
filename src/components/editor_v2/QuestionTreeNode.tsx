@@ -302,7 +302,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       }
       onCancel();
       if (onRefresh) onRefresh();
-      if (onQuestionsUpdated) onQuestionsUpdated();
     };
     return (
       <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
@@ -410,7 +409,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialDisplayText={question.display_text || ''}
           initialIsGroupHeader={!!question.is_group_header}
           onRefresh={onRefresh}
-          onQuestionsUpdated={onQuestionsUpdated}
           parentId={question.parent_id || null}
           currentSectionNumber={sectionNumber}
         />
@@ -468,7 +466,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
-            onQuestionsUpdated={onQuestionsUpdated}
             currentSectionNumber={sectionNumber}
           />
         </div>
@@ -544,7 +541,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
-            onQuestionsUpdated={onQuestionsUpdated}
             currentSectionNumber={sectionNumber}
           />
         </div>
@@ -595,7 +591,6 @@ interface QuestionFormCardProps {
   initialDisplayText?: string;
   initialIsGroupHeader?: boolean;
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
-  onQuestionsUpdated?: () => void;
   currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
 }
 
@@ -630,7 +625,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialDisplayText = '',
   initialIsGroupHeader = false,
   onRefresh,
-  onQuestionsUpdated,
   currentSectionNumber,
 }) => {
   const is200 = sectionGroup === 200;
@@ -722,7 +716,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     } else if (isDefaultDescL1_200 && questionSequence !== undefined) {
       // Default description for 2xx.2 and 2xx.4 when not exempted (shown when toggle is off)
       const DEFAULT_200_DESC: Record<number, string> = {
-        2: 'จงอธิบายส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ ตามรายการที่กำหนด',
+        2: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
         4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
       };
       setDescription(DEFAULT_200_DESC[questionSequence] || '');
@@ -1636,9 +1630,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       } catch (err) {
         console.error('Failed to finalize background-saved L2:', err);
       }
-      // Refresh tree and close form
+      // Refresh tree and close form (silent — avoids full reload flicker in 300 editor)
       onRefresh?.();
-      onQuestionsUpdated?.();
       onCancel();
       return;
     }
@@ -1732,6 +1725,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         console.error('Failed to save question score for new L2:', err);
       }
     }
+
+    // Close form after save completes
+    onCancel();
   };
 
   // Cleanup background-saved L2 if user cancels
@@ -1931,7 +1927,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     } else {
                       setFormScoreDisplayText('');
                       const DEFAULT_200_DESC: Record<number, string> = {
-                        2: 'จงอธิบายส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ ตามรายการที่กำหนด',
+                        2: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
                         4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
                       };
                       if (questionSequence !== undefined) {

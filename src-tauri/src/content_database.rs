@@ -4345,7 +4345,11 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         "SELECT id, metadata FROM Questions
          WHERE section_id = ?1
            AND question_type != 'exempted'
-           AND is_group_header = 0"
+           AND (is_group_header = 0
+                OR (metadata IS NOT NULL
+                    AND (metadata LIKE '%\"answerKeys\"%'
+                         OR metadata LIKE '%\"answerKey\"%'
+                         OR metadata LIKE '%\"requireAnswerKey\"%')))"
     ).ok().and_then(|mut stmt| {
         stmt.query_map(params![section_id], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
