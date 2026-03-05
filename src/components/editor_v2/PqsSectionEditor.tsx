@@ -5,6 +5,7 @@ import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
 import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 import PqsSectionPreview100 from './PqsSectionPreview100';
+import ScoreProgressBanner from './ScoreProgressBanner';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -251,6 +252,18 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           updated_at: new Date().toISOString()
         }}
       />
+
+      {/* 1.5. Score Progress Banner (For Trainee & Qualifier) */}
+      {(viewMode === 'trainee' || viewMode === 'qualifier') && (
+        <div className="mb-6">
+          <ScoreProgressBanner
+            documentId={docId}
+            sectionId={sectionId}
+            sectionGroup={100}
+            refreshTrigger={refreshQuestionsTrigger}
+          />
+        </div>
+      )}
 
       {/* 2. Reference Section */}
       <div className="bg-white dark:bg-slate-900/50 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 md:p-8">
