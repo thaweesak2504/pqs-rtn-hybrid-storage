@@ -41,31 +41,23 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
       if (!sectionId) return;
       try {
         setLoading(true);
-        // We will call the Rust backend here.
-        // Assuming a command 'get_user_progress' that takes user_id, document_id, section_id
-        // For now, if it fails, fallback to a safe default.
-        const result = await invoke<ProgressData>('get_user_progress', {
+        const result = await invoke<ProgressData>('get_section_progress', {
           userId: MOCK_TRAINEE_ID,
           documentId: documentId,
-          sectionId: sectionId
+          sectionId: sectionId,
         }).catch((e) => {
-          console.warn("get_user_progress not implemented or failed:", e);
-          return null; // Fallback handled below
+          console.warn("get_section_progress failed:", e);
+          return null;
         });
 
         if (isMounted) {
-          if (result) {
-            setProgress(result);
-          } else {
-            // Null state indicates no progress calculated yet
-            setProgress({
-              earned_score: 0,
-              max_score: 0,
-              completion_percentage: 0.0,
-              is_passed: false,
-              passing_score: 70
-            });
-          }
+          setProgress(result ?? {
+            earned_score: 0,
+            max_score: 0,
+            completion_percentage: 0.0,
+            is_passed: false,
+            passing_score: 70
+          });
         }
       } catch (error) {
         console.error("Failed to fetch progress:", error);
@@ -75,7 +67,6 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
     };
 
     fetchProgress();
-
     return () => { isMounted = false; };
   }, [documentId, sectionId, refreshTrigger]);
 

@@ -4237,9 +4237,137 @@ pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<St
             updated_at = CURRENT_TIMESTAMP",
         params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.status, args.feedback, args.qualifier_id]
     ).map_err(|e| format!("Failed to save assessment: {}", e))?;
+
+    // Auto-recalculate progress for this section after each assessment save
+    let _ = recalculate_section_progress(args.user_id, args.document_id);
     
     Ok("Assessment saved successfully".to_string())
 }
+
+/// Recalculate UserProgress for all sections of a user/document by summing
+/// Questions.score for all passed answers. Updates UserProgress automatically.
+pub fn recalculate_section_progress(user_id: String, document_id: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Get all sections for this document
+    let mut sect_stmt = conn.prepare(
+        "SELECT id, total_score FROM Sections WHERE document_id = ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let sections: Vec<(i64, i32)> = sect_stmt.query_map(params![document_id], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1).unwrap_or(0)))
+    }).map_err(|e| e.to_string())?
+      .filter_map(|r| r.ok())
+      .collect();
+
+    for (section_id, max_score) in sections {
+        // Sum scores for all passed answered questions in this section
+        let earned: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(
+                CASE 
+                    WHEN q.is_group_header = 1 THEN 0
+                    WHEN q.is_scored = 1 THEN COALESCE(q.score, 0)
+                    ELSE 0
+                END
+             ), 0)
+             FROM UserAnswers ua
+             JOIN Questions q ON q.id = ua.question_id
+             WHERE ua.user_id = ?1 AND ua.document_id = ?2
+               AND q.section_id = ?3 AND ua.status = 'passed'",
+            params![user_id, document_id, section_id],
+            |row| row.get(0)
+        ).unwrap_or(0);
+
+        // Upsert the progress row
+        let pct = if max_score > 0 {
+            (earned as f64 / max_score as f64) * 100.0
+        } else {
+            0.0
+        };
+        let is_passed = pct >= 70.0;
+
+        let _ = conn.execute(
+            "INSERT INTO UserProgress (user_id, document_id, section_id, earned_score, max_score, completion_percentage, is_passed, passing_score, last_updated)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 70, CURRENT_TIMESTAMP)
+             ON CONFLICT(user_id, document_id, section_id) DO UPDATE SET
+                earned_score = ?4, max_score = ?5, completion_percentage = ?6, is_passed = ?7, last_updated = CURRENT_TIMESTAMP",
+            params![user_id, document_id, section_id, earned, max_score, pct, is_passed],
+        );
+    }
+
+    Ok(())
+}
+
+/// Get progress for a specific section for the ScoreProgressBanner
+#[tauri::command]
+pub fn get_section_progress(user_id: String, document_id: String, section_id: i64) -> Result<serde_json::Value, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Get max_score from Sections table
+    let max_score: i32 = conn.query_row(
+        "SELECT COALESCE(total_score, 0) FROM Sections WHERE id = ?1",
+        params![section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    // Get earned score from UserAnswers joined with Questions
+    let earned_score: i32 = conn.query_row(
+        "SELECT COALESCE(SUM(
+            CASE 
+                WHEN q.is_group_header = 1 THEN 0
+                WHEN q.is_scored = 1 THEN COALESCE(q.score, 0)
+                ELSE 0
+            END
+         ), 0)
+         FROM UserAnswers ua
+         JOIN Questions q ON q.id = ua.question_id
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2
+           AND q.section_id = ?3 AND ua.status = 'passed'",
+        params![user_id, document_id, section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    let pct = if max_score > 0 {
+        (earned_score as f64 / max_score as f64) * 100.0
+    } else {
+        0.0
+    };
+    let passing_score = 70;
+    let is_passed = pct >= passing_score as f64;
+
+    // Count total scoreable questions for completion tracking
+    let total_questions: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND is_scored = 1 AND is_group_header = 0 AND question_type != 'exempted'",
+        params![section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    let answered_questions: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM UserAnswers ua
+         JOIN Questions q ON q.id = ua.question_id
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2 AND q.section_id = ?3 
+           AND ua.status != 'pending' AND q.is_scored = 1 AND q.is_group_header = 0",
+        params![user_id, document_id, section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    let completion_pct = if total_questions > 0 {
+        (answered_questions as f64 / total_questions as f64) * 100.0
+    } else {
+        0.0
+    };
+
+    Ok(serde_json::json!({
+        "earned_score": earned_score,
+        "max_score": max_score,
+        "completion_percentage": completion_pct,
+        "is_passed": is_passed,
+        "passing_score": passing_score,
+        "total_questions": total_questions,
+        "answered_questions": answered_questions,
+    }))
+}
+
 
 /// Get all trainee answers for a document
 pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserAnswer>, String> {

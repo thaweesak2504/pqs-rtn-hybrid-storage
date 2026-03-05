@@ -1501,6 +1501,7 @@ fn main() {
             get_trainee_answers,
             content_database::clear_all_trainee_answers,
             content_database::get_sub_question_usage_counts,
+            content_database::get_section_progress,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
