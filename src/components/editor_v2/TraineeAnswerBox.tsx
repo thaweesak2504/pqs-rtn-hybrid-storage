@@ -295,7 +295,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             <div className="flex-1 italic flex items-start gap-2">
               <MessageSquare className="w-3.5 h-3.5 mt-0.5 shrink-0" />
               <div>
-                <span className="font-bold not-italic">คำแนะนำจากครู:</span> {localFeedback}
+                <span className="font-bold not-italic">คำแนะนำ:</span> {localFeedback}
               </div>
             </div>
 

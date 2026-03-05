@@ -249,7 +249,20 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
                 setIsEditingMeta(true);
               } : undefined}
             >
-              <Tooltip content="คลิ๊กเพื่อป้อน จำนวนและหน่วยของเวลา ในการปฏิบัติ" position="top-start">
+              {!readOnly ? (
+                <Tooltip content="คลิ๊กเพื่อป้อน จำนวนและหน่วยของเวลา ในการปฏิบัติ" position="top-start">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-purple-500" />
+                    <span className="text-sm text-gray-600 dark:text-gray-300">ระยะเวลาที่ใช้โดยประมาณ</span>
+                    <span className="text-lg font-bold text-purple-700 dark:text-purple-300 font-sarabun">
+                      {durationValue != null ? toThaiNumerals(durationValue) : '–'}
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                      {DURATION_UNIT_LABELS[durationUnit] || durationUnit}
+                    </span>
+                  </div>
+                </Tooltip>
+              ) : (
                 <div className="flex items-center gap-2">
                   <Clock className="w-4 h-4 text-purple-500" />
                   <span className="text-sm text-gray-600 dark:text-gray-300">ระยะเวลาที่ใช้โดยประมาณ</span>
@@ -260,7 +273,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
                     {DURATION_UNIT_LABELS[durationUnit] || durationUnit}
                   </span>
                 </div>
-              </Tooltip>
+              )}
               <div className="w-px h-5 bg-gray-300 dark:bg-gray-600" />
               <div className="flex items-center gap-2">
                 <Trophy className="w-4 h-4 text-yellow-500" />
