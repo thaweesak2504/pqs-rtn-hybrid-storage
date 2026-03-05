@@ -4345,10 +4345,9 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         "SELECT id, metadata FROM Questions
          WHERE section_id = ?1
            AND question_type != 'exempted'
-           AND is_group_header = 0
-           AND id NOT IN (SELECT DISTINCT parent_id FROM Questions WHERE parent_id IS NOT NULL AND section_id = ?2)"
+           AND is_group_header = 0"
     ).ok().and_then(|mut stmt| {
-        stmt.query_map(params![section_id, section_id], |row| {
+        stmt.query_map(params![section_id], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
         }).ok().map(|rows| rows.filter_map(|r| r.ok()).collect())
     }).unwrap_or_default();
