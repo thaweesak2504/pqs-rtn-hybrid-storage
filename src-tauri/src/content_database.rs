@@ -105,6 +105,8 @@ pub fn initialize_content_database() -> Result<String, String> {
     // Migration: add occupation_branch columns if not exist (safe to run multiple times)
     let _ = conn.execute("ALTER TABLE Documents ADD COLUMN occupation_branch_main VARCHAR(10)", []);
     let _ = conn.execute("ALTER TABLE Documents ADD COLUMN occupation_branch_sub VARCHAR(10)", []);
+    // Phase1: is_template flag — distinguishes seeded template docs from user-created ones
+    let _ = conn.execute("ALTER TABLE Documents ADD COLUMN is_template BOOLEAN DEFAULT 0", []);
 
     // Create Sections table
     conn.execute(
@@ -132,6 +134,8 @@ pub fn initialize_content_database() -> Result<String, String> {
     let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_value INTEGER", []);
     let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_unit VARCHAR(20) DEFAULT 'weeks'", []);
     let _ = conn.execute("ALTER TABLE Sections ADD COLUMN total_score INTEGER", []);
+    // Phase1: is_template flag — distinguishes seeded sections from user-created ones
+    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN is_template BOOLEAN DEFAULT 0", []);
 
     // Create indexes for Sections
     conn.execute(
@@ -164,6 +168,23 @@ pub fn initialize_content_database() -> Result<String, String> {
 
     // Seed OwnerUnits if empty
     seed_owner_units(&conn)?;
+
+    // Phase1: One-time migration — mark all seeded records with is_template=1
+    // Safe to run on every startup: WHERE clause limits to records not yet marked
+    // Mark all Sections as template (all sections in this app are system-defined)
+    let _ = conn.execute(
+        "UPDATE Sections SET is_template = 1 WHERE is_system_defined = 1 AND is_template = 0",
+        [],
+    );
+    // Mark Section 100/200/300 seeded Questions as template
+    let _ = conn.execute(
+        "UPDATE Questions SET is_template = 1
+         WHERE is_template = 0
+           AND section_id IN (
+               SELECT id FROM Sections WHERE is_system_defined = 1
+           )",
+        [],
+    );
 
     // Hotfix: Correct typo "ไฟฟ้าอาวุะ" to "ไฟฟ้าอาวุธ" in existing occupation branches
     let _ = conn.execute(
@@ -663,6 +684,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             display_text TEXT,
             is_group_header BOOLEAN DEFAULT 0,
             is_scored BOOLEAN DEFAULT 0,
+            is_template BOOLEAN DEFAULT 0,
             FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
             FOREIGN KEY(parent_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
@@ -678,6 +700,8 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN display_text TEXT", []);
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_group_header BOOLEAN DEFAULT 0", []);
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_scored BOOLEAN DEFAULT 0", []);
+    // Phase1: is_template flag — template-seeded questions are read-only
+    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_template BOOLEAN DEFAULT 0", []);
 
     // Data migration: Fix existing Section 300 questions with correct scoring flags
     // Rule: L1 questions (parent_id IS NULL) with sequence 2-6 in section 300 docs → group headers
