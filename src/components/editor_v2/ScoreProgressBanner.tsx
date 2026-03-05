@@ -77,7 +77,13 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
   }
 
   if (!progress || progress.max_score === 0) {
-    return null; // Don't show if there's no max score (no questions to score)
+    // Show a minimal banner indicating the section exists but has no scored questions yet
+    return (
+      <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-5 py-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+        <span>📊</span>
+        <span>ยังไม่มีข้อมูลคะแนนในส่วนนี้ — จะอัปเดตเมื่อ Qualifier ประเมินผล</span>
+      </div>
+    );
   }
 
   // Theme based on Section Group

@@ -4303,9 +4303,16 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
 pub fn get_section_progress(user_id: String, document_id: String, section_id: i64) -> Result<serde_json::Value, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Get max_score from Sections table
+    // Calculate max_score LIVE from Questions (don't rely on Sections.total_score being up-to-date)
     let max_score: i32 = conn.query_row(
-        "SELECT COALESCE(total_score, 0) FROM Sections WHERE id = ?1",
+        "SELECT COALESCE(SUM(
+            CASE
+                WHEN question_type = 'exempted' THEN 0
+                WHEN is_group_header = 1 THEN group_score
+                WHEN is_scored = 1 AND parent_id IS NULL THEN score
+                ELSE 0
+            END
+         ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
         params![section_id],
         |row| row.get(0)
     ).unwrap_or(0);
