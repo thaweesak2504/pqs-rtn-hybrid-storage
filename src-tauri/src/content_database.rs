@@ -4720,6 +4720,16 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         |row| row.get(0)
     ).unwrap_or(0);
 
+    let needs_improvement_questions: i32 = conn.query_row(
+        "SELECT COUNT(*)
+         FROM UserAnswers ua
+         JOIN Questions q ON q.id = ua.question_id
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2
+           AND q.section_id = ?3 AND ua.status = 'needs_improvement'",
+        params![user_id, document_id, section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
     let (display_earned, display_max, pct) = if max_score > 0 {
         let p = (earned_score / max_score as f64) * 100.0;
         (earned_score_i32, max_score, p)
@@ -4734,7 +4744,7 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
 
     let passing_score = 70;
     let completion_pct = if total_questions > 0 {
-        ((passed_questions + pending_with_answer) as f64 / total_questions as f64) * 100.0
+        ((passed_questions + pending_with_answer + needs_improvement_questions) as f64 / total_questions as f64) * 100.0
     } else {
         0.0
     };
@@ -4751,9 +4761,10 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         "is_passed": is_passed,
         "passing_score": passing_score,
         "total_questions": total_questions,
-        "answered_questions": passed_questions + pending_with_answer,
+        "answered_questions": passed_questions + pending_with_answer + needs_improvement_questions,
         "passed_questions": passed_questions,
         "pending_with_answer": pending_with_answer,
+        "needs_improvement_questions": needs_improvement_questions,
     }))
 }
 

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { AlertTriangle, Award, CheckCircle2, CircleDashed, Clock, FileCheck2 } from 'lucide-react';
+import { Award, CheckCircle2, Clock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 interface ScoreProgressBannerProps {
@@ -85,7 +85,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
 
   if (loading) {
     return (
-      <div className="w-full h-20 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"></div>
+      <div className="w-full h-14 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"></div>
     );
   }
 
@@ -93,136 +93,100 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
   const hasNoData = !progress || (progress.max_score === 0 && (progress.total_questions ?? 0) === 0);
   if (hasNoData) {
     return (
-      <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-5 py-3 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
+      <div className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 px-4 py-2 flex items-center gap-3 text-xs text-slate-400 dark:text-slate-500">
         <span>📊</span>
         <span>ยังไม่มีข้อมูลคะแนนในส่วนนี้ — จะอัปเดตเมื่อ Qualifier ประเมินผล</span>
       </div>
     );
   }
 
-  // Theme based on Section Group
-  const theme = sectionGroup === 100
-    ? {
-      bg: 'bg-emerald-50 dark:bg-emerald-900/10',
-      border: 'border-emerald-200 dark:border-emerald-800/50',
-      text: 'text-emerald-700 dark:text-emerald-400',
-      barFill: 'bg-emerald-500',
-      barBg: 'bg-emerald-100 dark:bg-emerald-900/30',
-      icon: 'text-emerald-500 dark:text-emerald-400',
-      ring: 'text-emerald-500',
-      passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700',
-    }
-    : sectionGroup === 300
-      ? {
-        bg: 'bg-purple-50 dark:bg-purple-900/10',
-        border: 'border-purple-200 dark:border-purple-800/50',
-        text: 'text-purple-700 dark:text-purple-400',
-        barFill: 'bg-purple-500',
-        barBg: 'bg-purple-100 dark:bg-purple-900/30',
-        icon: 'text-purple-500 dark:text-purple-400',
-        ring: 'text-purple-500',
-        passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700', // Success is always green
-      }
-      : {
-        bg: 'bg-orange-50 dark:bg-orange-900/10',
-        border: 'border-orange-200 dark:border-orange-800/50',
-        text: 'text-orange-700 dark:text-orange-400',
-        barFill: 'bg-orange-500',
-        barBg: 'bg-orange-100 dark:bg-orange-900/30',
-        icon: 'text-orange-500 dark:text-orange-400',
-        ring: 'text-orange-500',
-        passedBg: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700', // Success is always green
-      };
-
-  const isPassed = progress.is_passed;
   const isCountMode = progress.max_score === 0 && (progress.total_questions ?? 0) > 0;
   const completedCount = progress.answered_questions ?? 0;
   const totalCount = progress.total_questions ?? 0;
   const passedCount = progress.passed_questions ?? 0;
   const pendingCount = progress.pending_with_answer ?? 0;
   const needsImprovementCount = progress.needs_improvement_questions ?? Math.max(0, completedCount - passedCount - pendingCount);
-  const progressPercent = isCountMode
+
+  const completionPercent = isCountMode
     ? (Math.min(100, Math.round((completedCount / (totalCount || 1)) * 100)) || 0)
     : (Math.min(100, Math.round(progress.completion_percentage)) || 0);
+
   const performancePercent = isCountMode
     ? (Math.min(100, Math.round(((progress.passed_questions ?? 0) / (progress.total_questions ?? 1)) * 100)) || 0)
     : (Math.min(100, Math.round((progress.earned_score / progress.max_score) * 100)) || 0);
 
-  const statusConfig = isPassed
-    ? { label: 'ผ่านเกณฑ์', icon: <CheckCircle2 className="w-5 h-5 mr-1.5" />, style: theme.passedBg }
-    : progressPercent >= 100
-      ? { label: 'ต้องปรับปรุง', icon: <CircleDashed className="w-5 h-5 mr-1.5" />, style: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border-rose-300 dark:border-rose-700' }
-      : { label: 'รอดำเนินการ', icon: <Clock className="w-5 h-5 mr-1.5" />, style: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700' };
+  const isFinished = completionPercent >= 100;
 
-  const headlineLabel = isCountMode ? 'ความคืบหน้าการประเมิน' : 'คะแนนสะสม';
-  const headlineValue = isCountMode ? `${toThaiNumerals(completedCount)} / ${toThaiNumerals(totalCount)}` : `${toThaiNumerals(progress.earned_score)} / ${toThaiNumerals(progress.max_score)}`;
-  const headlineSuffix = isCountMode ? 'รายการที่ตรวจแล้ว' : 'คะแนน';
+  const statusConfig = isFinished
+    ? { label: 'แล้วเสร็จ', icon: <CheckCircle2 className="w-4 h-4 mr-1.5" />, style: 'bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-700/50' }
+    : { label: 'กำลังดำเนินการ', icon: <Clock className="w-4 h-4 mr-1.5" />, style: 'bg-orange-100/50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400 border-orange-200/50 dark:border-orange-700/50' };
+
+  const iconThemeColor = sectionGroup === 100
+    ? "text-emerald-500 dark:text-emerald-400"
+    : sectionGroup === 200
+      ? "text-orange-500 dark:text-orange-400"
+      : sectionGroup === 300
+        ? "text-purple-500 dark:text-purple-400"
+        : "text-slate-500 dark:text-slate-400";
+
+  const headlineLabel = isCountMode ? 'คะแนน' : 'คะแนนสะสม';
+  const headlineValue = isCountMode ? `${toThaiNumerals(completedCount)}/${toThaiNumerals(totalCount)}` : `${toThaiNumerals(progress.earned_score)}/${toThaiNumerals(progress.max_score)}`;
 
   return (
-    <div className={`w-full rounded-3xl border ${theme.border} ${theme.bg} shadow-sm backdrop-blur-md px-5 py-5 md:px-6 md:py-6 flex flex-col gap-5 transition-all`}>
-      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Award className={`w-5 h-5 ${theme.icon}`} />
-            <h3 className={`font-bold ${theme.text} text-sm md:text-base`}>{headlineLabel}</h3>
-          </div>
-          <div className="flex flex-wrap items-end gap-x-3 gap-y-1 mb-2">
-            <span className={`text-3xl font-bold font-sarabun leading-none ${theme.text}`}>{headlineValue}</span>
-            <span className="text-sm text-slate-500 dark:text-slate-400">{headlineSuffix}</span>
-          </div>
-          <div className={`w-full h-3 ${theme.barBg} rounded-full overflow-hidden`}>
-            <div
-              className={`h-full ${theme.barFill} transition-all duration-1000 ease-out`}
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span>ความคืบหน้า {toThaiNumerals(progressPercent)}%</span>
-            <span>{isCountMode ? 'ผ่านได้เมื่อทุกคำตอบผ่านครบทั้งหมด' : `เกณฑ์ขั้นต่ำ ${toThaiNumerals(progress.passing_score)}%`}</span>
-          </div>
+    <div className={`w-full rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 shadow-sm backdrop-blur-md px-4 py-2 flex flex-col xl:flex-row items-center justify-between gap-4 transition-all`}>
+      {/* Left Area: Title & Stats & Separator */}
+      <div className="flex flex-wrap items-center gap-2 md:gap-4 shrink-0 justify-center">
+        <div className="flex items-center gap-1.5 bg-slate-100/50 dark:bg-slate-700/50 px-2.5 py-1 rounded-md border border-slate-200/50 dark:border-slate-600/50 shrink-0">
+          <Award className={`w-4 h-4 ${iconThemeColor}`} />
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{headlineLabel}:</span>
+          <span className="text-base font-normal font-sarabun text-slate-800 dark:text-slate-200 ml-1">{headlineValue}</span>
         </div>
 
-        <div className="flex flex-col items-start lg:items-end shrink-0 gap-2">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-            สถานะผลประเมิน
-          </div>
-          <div className={`flex items-center px-4 py-2 border rounded-full font-bold shadow-sm transition-all ${statusConfig.style}`}>
-            {statusConfig.icon}
-            {statusConfig.label}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
-            {isCountMode
-              ? `ผ่านแล้ว ${toThaiNumerals(passedCount)} / ${toThaiNumerals(totalCount)} รายการ`
-              : `ผลสัมฤทธิ์ ${toThaiNumerals(performancePercent)}%`}
-          </div>
+        {/* Status Badge */}
+        <div className={`flex shrink-0 items-center px-2.5 py-1 border rounded-md font-semibold text-xs shadow-sm ${statusConfig.style}`}>
+          {statusConfig.icon}
+          {statusConfig.label}
+        </div>
+
+        {/* Vertical Separator */}
+        <div className="hidden xl:block w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2 shrink-0"></div>
+      </div>
+
+      {/* Middle Area: 4 Counter Stats */}
+      <div className="flex flex-wrap items-center justify-center gap-1.5 md:gap-3 text-xs md:text-sm font-medium">
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/60 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
+          <span className="opacity-80">ส่งคำตอบ:</span>
+          <span className="font-normal text-slate-800 dark:text-slate-100 font-sarabun">{toThaiNumerals(completedCount)}</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50/60 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
+          <span className="opacity-80">ผ่าน:</span>
+          <span className="font-normal font-sarabun">{toThaiNumerals(passedCount)}</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50/60 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
+          <span className="opacity-80">รอตรวจ:</span>
+          <span className="font-normal font-sarabun">{toThaiNumerals(pendingCount)}</span>
+        </div>
+        <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50/60 dark:bg-rose-900/20 border border-rose-200/60 dark:border-rose-800/40 text-rose-700 dark:text-rose-400">
+          <span className="opacity-80">ปรับปรุง:</span>
+          <span className="font-normal font-sarabun">{toThaiNumerals(needsImprovementCount)}</span>
         </div>
       </div>
 
-      {isCountMode && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="rounded-2xl border border-emerald-200/70 dark:border-emerald-800/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
-              <CheckCircle2 className="w-4 h-4" />
-              <span className="text-xs font-semibold">ผ่านแล้ว</span>
-            </div>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{toThaiNumerals(passedCount)}</div>
-          </div>
-          <div className="rounded-2xl border border-amber-200/70 dark:border-amber-800/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
-              <FileCheck2 className="w-4 h-4" />
-              <span className="text-xs font-semibold">รอตรวจ / รอดำเนินการ</span>
-            </div>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{toThaiNumerals(pendingCount)}</div>
-          </div>
-          <div className="rounded-2xl border border-rose-200/70 dark:border-rose-800/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
-            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 mb-1">
-              <AlertTriangle className="w-4 h-4" />
-              <span className="text-xs font-semibold">ต้องปรับปรุง</span>
-            </div>
-            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{toThaiNumerals(needsImprovementCount)}</div>
+      {/* Right Area: Progress Bar (Orange bg, Green fill based on PASS %) */}
+      <div className="flex items-center gap-2 w-full xl:w-auto xl:max-w-[12rem] xl:min-w-[10rem] ml-auto">
+        <div className="flex-1">
+          <div className="w-full h-2 bg-orange-100 dark:bg-orange-900/30 rounded-full overflow-hidden border border-orange-200/50 dark:border-orange-800/30">
+            <div
+              className={`h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-1000 ease-out`}
+              style={{ width: `${performancePercent}%` }}
+              title={`อัตราการสอบผ่าน ${performancePercent}%`}
+            />
           </div>
         </div>
-      )}
+        <div className="text-xs font-normal text-slate-600 dark:text-slate-400 shrink-0 min-w-[2.5rem] text-right">
+          {toThaiNumerals(performancePercent)}%
+        </div>
+      </div>
     </div>
   );
 };
