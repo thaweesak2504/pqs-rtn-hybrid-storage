@@ -1115,6 +1115,30 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // One-time data migration: extract answerKeys from JSON metadata -> QuestionAnswerKeys
     migrate_answer_keys_to_table(conn)?;
 
+    // Final cleanup: Remove legacy keys from JSON metadata once migrated
+    scrub_legacy_answer_keys_from_metadata(conn)?;
+
+    // Hotfix cleanup: convert all 'main' sub_question_code to '' (empty string)
+    // This merges records inadvertently created with 'main' code during previous debug steps.
+    let _ = conn.execute(
+        "UPDATE OR IGNORE QuestionAnswerKeys SET sub_question_code = '' WHERE sub_question_code = 'main'",
+        [],
+    );
+    let _ = conn.execute(
+        "DELETE FROM QuestionAnswerKeys WHERE sub_question_code = 'main'",
+        [],
+    );
+
+    // Also cleanup UserAnswers to maintain alignment and foreign key integrity
+    let _ = conn.execute(
+        "UPDATE OR IGNORE UserAnswers SET sub_question_code = '' WHERE sub_question_code = 'main'",
+        [],
+    );
+    let _ = conn.execute(
+        "DELETE FROM UserAnswers WHERE sub_question_code = 'main'",
+        [],
+    );
+
     Ok(())
 }
 
@@ -1240,6 +1264,42 @@ fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+/// Scrub legacy answer keys from JSON metadata.
+/// This should only be run AFTER migrate_answer_keys_to_table.
+fn scrub_legacy_answer_keys_from_metadata(conn: &Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, metadata FROM Questions 
+         WHERE metadata IS NOT NULL 
+           AND (metadata LIKE '%\"answerKey\"%' OR metadata LIKE '%\"answerKeys\"%')"
+    ).map_err(|e| format!("Failed to prepare scrub query: {}", e))?;
+
+    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| format!("Failed to query scrub rows: {}", e))?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    for (question_id, metadata_json) in rows {
+        if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+            if let Some(meta_obj) = v.as_object_mut() {
+                let mut changed = false;
+                if meta_obj.remove("answerKey").is_some() { changed = true; }
+                if meta_obj.remove("answerKeys").is_some() { changed = true; }
+
+                if changed {
+                    let new_metadata = serde_json::to_string(&v).unwrap_or_default();
+                    let _ = conn.execute(
+                        "UPDATE Questions SET metadata = ?1 WHERE id = ?2",
+                        params![new_metadata, question_id],
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Seed template questions for a new document
 pub fn seed_document_template(conn: &Connection, doc_id: &str, unit_name: &str) -> Result<(), String> {
     // 100 Introduction
@@ -1319,13 +1379,10 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
                     meta_obj.insert("answerKey".to_string(), serde_json::Value::String(keys[0].1.clone()));
                     meta_obj.remove("answerKeys");
                 } else {
-                    // Otherwise, set "answerKeys" object
+                    // Otherwise, set "answerKeys" object mapping code -> text string
                     let mut keys_obj = serde_json::Map::new();
-                    for (code, text, req) in keys {
-                        keys_obj.insert(code.clone(), serde_json::json!({
-                            "text": text,
-                            "is_required": req
-                        }));
+                    for (code, text, _req) in keys {
+                        keys_obj.insert(code.clone(), serde_json::Value::String(text.clone()));
                     }
                     meta_obj.insert("answerKeys".to_string(), serde_json::Value::Object(keys_obj));
                     meta_obj.remove("answerKey");
@@ -1430,11 +1487,8 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
                     meta_obj.remove("answerKeys");
                 } else {
                     let mut keys_obj = serde_json::Map::new();
-                    for (code, text, req) in keys {
-                        keys_obj.insert(code.clone(), serde_json::json!({
-                            "text": text,
-                            "is_required": req
-                        }));
+                    for (code, text, _req) in keys {
+                        keys_obj.insert(code.clone(), serde_json::Value::String(text.clone()));
                     }
                     meta_obj.insert("answerKeys".to_string(), serde_json::Value::Object(keys_obj));
                     meta_obj.remove("answerKey");
@@ -4986,8 +5040,17 @@ pub fn update_answer_key(question_id: String, sub_code: String, new_text: String
          VALUES (?1, ?2, ?3, 1, 0)
          ON CONFLICT(question_id, sub_question_code) DO UPDATE SET
             answer_key_text = excluded.answer_key_text",
-        params![question_id, sub_code, new_text]
+        params![question_id, sub_code, new_text],
     ).map_err(|e| format!("Failed to update answer key: {}", e))?;
+
+    // Cleanup: If this is a single-part question (empty sub_code), 
+    // remove any legacy 'main' entries that might have been created by mistake
+    if sub_code.is_empty() {
+        let _ = conn.execute(
+            "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = 'main'",
+            params![question_id],
+        );
+    }
 
     Ok("Answer key updated successfully".to_string())
 }

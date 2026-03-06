@@ -1694,7 +1694,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         try {
           await invoke('update_answer_key', {
             questionId: questionId,
-            subCode: 'main',
+            subCode: '', // Use empty string for single questions to match DB default
             newText: answerKey.trim()
           });
         } catch (err) {
