@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { Award, CheckCircle2, CircleDashed, Clock } from 'lucide-react';
+import { AlertTriangle, Award, CheckCircle2, CircleDashed, Clock, FileCheck2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
 interface ScoreProgressBannerProps {
@@ -19,6 +19,7 @@ interface ProgressData {
   answered_questions?: number;
   passed_questions?: number;
   pending_with_answer?: number;
+  needs_improvement_questions?: number;
 }
 
 const toThaiNumerals = (num: number | string | undefined | null): string => {
@@ -63,7 +64,12 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
             max_score: 0,
             completion_percentage: 0.0,
             is_passed: false,
-            passing_score: 70
+            passing_score: 70,
+            total_questions: 0,
+            answered_questions: 0,
+            passed_questions: 0,
+            pending_with_answer: 0,
+            needs_improvement_questions: 0,
           });
         }
       } catch (error) {
@@ -129,67 +135,94 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
       };
 
   const isPassed = progress.is_passed;
-  // Use count-based mode when max_score=0 but total_questions>0
   const isCountMode = progress.max_score === 0 && (progress.total_questions ?? 0) > 0;
-  const scorePercent = isCountMode
+  const completedCount = progress.answered_questions ?? 0;
+  const totalCount = progress.total_questions ?? 0;
+  const passedCount = progress.passed_questions ?? 0;
+  const pendingCount = progress.pending_with_answer ?? 0;
+  const needsImprovementCount = progress.needs_improvement_questions ?? Math.max(0, completedCount - passedCount - pendingCount);
+  const progressPercent = isCountMode
+    ? (Math.min(100, Math.round((completedCount / (totalCount || 1)) * 100)) || 0)
+    : (Math.min(100, Math.round(progress.completion_percentage)) || 0);
+  const performancePercent = isCountMode
     ? (Math.min(100, Math.round(((progress.passed_questions ?? 0) / (progress.total_questions ?? 1)) * 100)) || 0)
     : (Math.min(100, Math.round((progress.earned_score / progress.max_score) * 100)) || 0);
 
-  // Status Badge Logic
   const statusConfig = isPassed
     ? { label: 'ผ่านเกณฑ์', icon: <CheckCircle2 className="w-5 h-5 mr-1.5" />, style: theme.passedBg }
-    : progress.completion_percentage >= 100
-      ? { label: 'ไม่ผ่านเกณฑ์', icon: <CircleDashed className="w-5 h-5 mr-1.5" />, style: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border-rose-300 dark:border-rose-700' }
-      : { label: 'กำลังดำเนินการ', icon: <Clock className="w-5 h-5 mr-1.5" />, style: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300 dark:border-slate-600' };
+    : progressPercent >= 100
+      ? { label: 'ต้องปรับปรุง', icon: <CircleDashed className="w-5 h-5 mr-1.5" />, style: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400 border-rose-300 dark:border-rose-700' }
+      : { label: 'รอดำเนินการ', icon: <Clock className="w-5 h-5 mr-1.5" />, style: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700' };
+
+  const headlineLabel = isCountMode ? 'ความคืบหน้าการประเมิน' : 'คะแนนสะสม';
+  const headlineValue = isCountMode ? `${toThaiNumerals(completedCount)} / ${toThaiNumerals(totalCount)}` : `${toThaiNumerals(progress.earned_score)} / ${toThaiNumerals(progress.max_score)}`;
+  const headlineSuffix = isCountMode ? 'รายการที่ตรวจแล้ว' : 'คะแนน';
 
   return (
-    <div className={`w-full rounded-2xl border ${theme.border} ${theme.bg} shadow-sm backdrop-blur-md px-5 py-4 flex flex-col sm:flex-row items-center justify-between gap-6 transition-all`}>
-
-      {/* 1. Score Bar (Left/Main) */}
-      <div className="flex-1 w-full flex flex-col gap-2">
-        <div className="flex items-end justify-between mb-1">
-          <div className="flex items-center gap-2">
+    <div className={`w-full rounded-3xl border ${theme.border} ${theme.bg} shadow-sm backdrop-blur-md px-5 py-5 md:px-6 md:py-6 flex flex-col gap-5 transition-all`}>
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
             <Award className={`w-5 h-5 ${theme.icon}`} />
-            <h3 className={`font-bold ${theme.text} text-sm`}>{isCountMode ? 'ข้อที่ผ่าน' : 'คะแนนสะสม'}</h3>
+            <h3 className={`font-bold ${theme.text} text-sm md:text-base`}>{headlineLabel}</h3>
           </div>
-          <div className="flex items-baseline gap-1">
-            <span className={`text-2xl font-bold font-sarabun leading-none ${theme.text}`}>
-              {isCountMode ? toThaiNumerals(progress.passed_questions ?? 0) : toThaiNumerals(progress.earned_score)}
-            </span>
-            <span className="text-sm font-sarabun text-slate-500 dark:text-slate-400">
-              / {isCountMode ? toThaiNumerals(progress.total_questions ?? 0) : toThaiNumerals(progress.max_score)}
-              {isCountMode ? ' ข้อ' : ''}
-            </span>
+          <div className="flex flex-wrap items-end gap-x-3 gap-y-1 mb-2">
+            <span className={`text-3xl font-bold font-sarabun leading-none ${theme.text}`}>{headlineValue}</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400">{headlineSuffix}</span>
+          </div>
+          <div className={`w-full h-3 ${theme.barBg} rounded-full overflow-hidden`}>
+            <div
+              className={`h-full ${theme.barFill} transition-all duration-1000 ease-out`}
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span>ความคืบหน้า {toThaiNumerals(progressPercent)}%</span>
+            <span>{isCountMode ? 'ผ่านได้เมื่อทุกคำตอบผ่านครบทั้งหมด' : `เกณฑ์ขั้นต่ำ ${toThaiNumerals(progress.passing_score)}%`}</span>
           </div>
         </div>
 
-        {/* Progress Bar Container */}
-        <div className={`w-full h-2.5 ${theme.barBg} rounded-full overflow-hidden`}>
-          <div
-            className={`h-full ${theme.barFill} transition-all duration-1000 ease-out`}
-            style={{ width: `${scorePercent}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-          <span>ความสำเร็จ: {scorePercent}%</span>
-          <span>เกณฑ์ขั้นต่ำ: {toThaiNumerals(progress.passing_score)}%</span>
+        <div className="flex flex-col items-start lg:items-end shrink-0 gap-2">
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            สถานะผลประเมิน
+          </div>
+          <div className={`flex items-center px-4 py-2 border rounded-full font-bold shadow-sm transition-all ${statusConfig.style}`}>
+            {statusConfig.icon}
+            {statusConfig.label}
+          </div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">
+            {isCountMode
+              ? `ผ่านแล้ว ${toThaiNumerals(passedCount)} / ${toThaiNumerals(totalCount)} รายการ`
+              : `ผลสัมฤทธิ์ ${toThaiNumerals(performancePercent)}%`}
+          </div>
         </div>
       </div>
 
-      {/* 2. Divider (Desktop only) */}
-      <div className={`hidden sm:block w-px h-12 bg-slate-200 dark:bg-slate-700/50`}></div>
-
-      {/* 3. Status Badge (Right) */}
-      <div className="flex flex-col items-end shrink-0">
-        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">
-          สถานะประเมินผล
+      {isCountMode && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-emerald-200/70 dark:border-emerald-800/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-xs font-semibold">ผ่านแล้ว</span>
+            </div>
+            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{toThaiNumerals(passedCount)}</div>
+          </div>
+          <div className="rounded-2xl border border-amber-200/70 dark:border-amber-800/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
+              <FileCheck2 className="w-4 h-4" />
+              <span className="text-xs font-semibold">รอตรวจ / รอดำเนินการ</span>
+            </div>
+            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{toThaiNumerals(pendingCount)}</div>
+          </div>
+          <div className="rounded-2xl border border-rose-200/70 dark:border-rose-800/60 bg-white/70 dark:bg-slate-900/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400 mb-1">
+              <AlertTriangle className="w-4 h-4" />
+              <span className="text-xs font-semibold">ต้องปรับปรุง</span>
+            </div>
+            <div className="text-2xl font-bold text-slate-800 dark:text-slate-100">{toThaiNumerals(needsImprovementCount)}</div>
+          </div>
         </div>
-        <div className={`flex items-center px-4 py-2 border rounded-full font-bold shadow-sm transition-all ${statusConfig.style}`}>
-          {statusConfig.icon}
-          {statusConfig.label}
-        </div>
-      </div>
-
+      )}
     </div>
   );
 };

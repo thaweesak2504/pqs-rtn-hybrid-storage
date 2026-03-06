@@ -4516,6 +4516,42 @@ pub struct UserAnswer {
     pub answer_key: Option<String>,
 }
 
+/// Get all trainee answers for a document
+pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserAnswer>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT ua.user_id, ua.question_id, ua.document_id, ua.sub_question_code, ua.answer_text,
+                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text
+         FROM UserAnswers ua
+         LEFT JOIN QuestionAnswerKeys ak ON ak.question_id = ua.question_id AND ak.sub_question_code = ua.sub_question_code
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map(params![user_id, document_id], |row| {
+        Ok(UserAnswer {
+            user_id: row.get(0)?,
+            question_id: row.get(1)?,
+            document_id: row.get(2)?,
+            sub_question_code: row.get(3)?,
+            answer_text: row.get(4)?,
+            status: row.get(5)?,
+            feedback: row.get(6)?,
+            assessed_at: row.get(7)?,
+            assessed_by: row.get(8)?,
+            updated_at: row.get(9)?,
+            answer_key: row.get(10)?,
+        })
+    }).map_err(|e| e.to_string())?;
+
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row.map_err(|e| e.to_string())?);
+    }
+
+    Ok(result)
+}
+
 /// Save or update a trainee's answer
 pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -4622,9 +4658,6 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
 pub fn get_section_progress(user_id: String, document_id: String, section_id: i64) -> Result<serde_json::Value, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // ------------------------------------------------------------------
-    // Strategy 1: Score-based (when is_scored=1 and score>0 are populated)
-    // ------------------------------------------------------------------
     let max_score: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE
@@ -4657,14 +4690,7 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
     ).unwrap_or(0.0);
     let earned_score_i32 = earned_score.round() as i32;
 
-    // ------------------------------------------------------------------
-    // Strategy 2: Count-based (always works, used when score columns = 0)
-    // Count Answer Key boxes = each (question_id, sub_question_code) pair that has an answer key.
-    // We now count directly from QuestionAnswerKeys table, plus any 'requireAnswerKey' questions not migrated.
-    // ------------------------------------------------------------------
-    
-    // 1. Count from QuestionAnswerKeys for this section
-    let keys_count: i32 = conn.query_row(
+    let total_questions: i32 = conn.query_row(
         "SELECT COUNT(*)
          FROM QuestionAnswerKeys ak
          JOIN Questions q ON q.id = ak.question_id
@@ -4673,24 +4699,6 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         |row| row.get(0)
     ).unwrap_or(0);
 
-    // 2. Count questions that ONLY have requireAnswerKey in metadata (for Section 300)
-    // and aren't already represented in QuestionAnswerKeys
-    let req_keys_count: i32 = conn.query_row(
-        "SELECT COUNT(*)
-         FROM Questions q
-         WHERE q.section_id = ?1 
-           AND q.question_type != 'exempted'
-           AND q.is_group_header = 0
-           AND q.metadata IS NOT NULL 
-           AND q.metadata LIKE '%\"requireAnswerKey\"%'
-           AND q.id NOT IN (SELECT question_id FROM QuestionAnswerKeys)",
-        params![section_id],
-        |row| row.get(0)
-    ).unwrap_or(0);
-
-    let total_questions = keys_count + req_keys_count;
-
-    // passed = COUNT(*) of (question_id, sub_question_code) pairs with status='passed'
     let passed_questions: i32 = conn.query_row(
         "SELECT COUNT(*)
          FROM UserAnswers ua
@@ -4712,12 +4720,10 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         |row| row.get(0)
     ).unwrap_or(0);
 
-    // Determine which strategy to use for percentage display
     let (display_earned, display_max, pct) = if max_score > 0 {
         let p = (earned_score / max_score as f64) * 100.0;
         (earned_score_i32, max_score, p)
     } else {
-        // Fall back to count-based: treat each question as 1 point
         let p = if total_questions > 0 {
             (passed_questions as f64 / total_questions as f64) * 100.0
         } else {
@@ -4727,11 +4733,15 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
     };
 
     let passing_score = 70;
-    let is_passed = pct >= passing_score as f64 && display_max > 0;
     let completion_pct = if total_questions > 0 {
         ((passed_questions + pending_with_answer) as f64 / total_questions as f64) * 100.0
     } else {
         0.0
+    };
+    let is_passed = if max_score > 0 {
+        pct >= passing_score as f64 && display_max > 0
+    } else {
+        total_questions > 0 && passed_questions >= total_questions
     };
 
     Ok(serde_json::json!({
@@ -4747,53 +4757,18 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
     }))
 }
 
-
-
-/// Get all trainee answers for a document
-pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserAnswer>, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    let mut stmt = conn.prepare(
-        "SELECT ua.user_id, ua.question_id, ua.document_id, ua.sub_question_code, ua.answer_text, 
-                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text 
-         FROM UserAnswers ua
-         LEFT JOIN QuestionAnswerKeys ak ON ak.question_id = ua.question_id AND ak.sub_question_code = ua.sub_question_code
-         WHERE ua.user_id = ?1 AND ua.document_id = ?2"
-    ).map_err(|e| e.to_string())?;
-    
-    let rows = stmt.query_map(params![user_id, document_id], |row| {
-        Ok(UserAnswer {
-            user_id: row.get(0)?,
-            question_id: row.get(1)?,
-            document_id: row.get(2)?,
-            sub_question_code: row.get(3)?,
-            answer_text: row.get(4)?,
-            status: row.get(5)?,
-            feedback: row.get(6)?,
-            assessed_at: row.get(7)?,
-            assessed_by: row.get(8)?,
-            updated_at: row.get(9)?,
-            answer_key: row.get(10)?,
-        })
-    }).map_err(|e| e.to_string())?;
-    
-    let mut result = Vec::new();
-    for row in rows {
-        result.push(row.map_err(|e| e.to_string())?);
-    }
-    
-    Ok(result)
-}
-
 /// Developer verification metrics for Section
 #[derive(serde::Serialize, Debug)]
 pub struct DevSectionMetrics {
     pub total_questions_raw: i32,
     pub total_leaf_questions: i32,
     pub total_exempted: i32,
+    pub total_required_questions: i32,
     pub total_with_answer_keys: i32,
     pub total_sub_questions: i32,
+    pub total_answer_targets: i32,
     pub total_answers: i32,
+    pub answers_assessed: i32,
     pub answers_passed: i32,
     pub answers_pending: i32,
     pub answers_needs_improvement: i32,
@@ -4806,14 +4781,12 @@ pub fn get_section_dev_metrics(
 ) -> Result<DevSectionMetrics, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // Raw total questions in section
     let total_questions_raw: i32 = conn.query_row(
         "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND document_id = ?2",
         params![section_id, document_id],
         |row| row.get(0),
     ).unwrap_or(0);
 
-    // Leaf questions (no children)
     let total_leaf_questions: i32 = conn.query_row(
         "SELECT COUNT(*) FROM Questions
          WHERE section_id = ?1 AND document_id = ?2
@@ -4822,49 +4795,33 @@ pub fn get_section_dev_metrics(
         |row| row.get(0),
     ).unwrap_or(0);
 
-    // Exempted questions
     let total_exempted: i32 = conn.query_row(
         "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND document_id = ?2 AND question_type = 'exempted'",
         params![section_id, document_id],
         |row| row.get(0),
     ).unwrap_or(0);
 
-    // Questions with answer keys (count distinct questions in QuestionAnswerKeys)
-    let keys_question_count: i32 = conn.query_row(
-        "SELECT COUNT(DISTINCT question_id) 
+    let total_with_answer_keys: i32 = conn.query_row(
+        "SELECT COUNT(DISTINCT question_id)
          FROM QuestionAnswerKeys ak
          JOIN Questions q ON q.id = ak.question_id
-         WHERE q.section_id = ?1 AND q.document_id = ?2",
-         params![section_id, document_id],
-         |row| row.get(0)
-    ).unwrap_or(0);
-
-    // Questions with requireAnswerKey (Section 300 fallback that aren't in AnswerKeys table)
-    let req_keys_question_count: i32 = conn.query_row(
-        "SELECT COUNT(*) 
-         FROM Questions q
-         WHERE q.section_id = ?1 AND q.document_id = ?2
-           AND q.metadata LIKE '%\"requireAnswerKey\"%'
-           AND q.id NOT IN (SELECT question_id FROM QuestionAnswerKeys)",
+         WHERE q.section_id = ?1 AND q.document_id = ?2 AND q.question_type != 'exempted'",
         params![section_id, document_id],
-        |row| row.get(0)
+        |row| row.get(0),
     ).unwrap_or(0);
-    
-    let total_with_answer_keys = keys_question_count + req_keys_question_count;
 
-    // Total sub questions = total rows in QuestionAnswerKeys + requireAnswerKey fallback
-    let keys_sub_count: i32 = conn.query_row(
-        "SELECT COUNT(*) 
+    let total_sub_questions: i32 = conn.query_row(
+        "SELECT COUNT(*)
          FROM QuestionAnswerKeys ak
          JOIN Questions q ON q.id = ak.question_id
-         WHERE q.section_id = ?1 AND q.document_id = ?2",
-         params![section_id, document_id],
-         |row| row.get(0)
+         WHERE q.section_id = ?1 AND q.document_id = ?2 AND q.question_type != 'exempted'",
+        params![section_id, document_id],
+        |row| row.get(0),
     ).unwrap_or(0);
 
-    let total_sub_questions = keys_sub_count + req_keys_question_count;
+    let total_required_questions = total_leaf_questions - total_exempted;
+    let total_answer_targets = total_sub_questions;
 
-    // Answers metrics
     let total_answers: i32 = conn.query_row(
         "SELECT COUNT(*) FROM UserAnswers ua JOIN Questions q ON q.id = ua.question_id WHERE ua.document_id = ?1 AND q.section_id = ?2",
         params![document_id, section_id],
@@ -4888,14 +4845,18 @@ pub fn get_section_dev_metrics(
         params![document_id, section_id],
         |row| row.get(0),
     ).unwrap_or(0);
+    let answers_assessed = answers_passed + answers_needs_improvement;
 
     Ok(DevSectionMetrics {
         total_questions_raw,
         total_leaf_questions,
         total_exempted,
+        total_required_questions,
         total_with_answer_keys,
         total_sub_questions,
+        total_answer_targets,
         total_answers,
+        answers_assessed,
         answers_passed,
         answers_pending,
         answers_needs_improvement,
