@@ -1044,9 +1044,33 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create index on QuestionSubQuestionLinks: {}", e))?;
 
+    // QuestionAnswerKeys Table - Normalized storage for answer keys
+    // Replaces JSON 'answerKeys' and 'answerKey' in Questions.metadata
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS QuestionAnswerKeys (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            question_id TEXT NOT NULL,
+            sub_question_code TEXT NOT NULL,
+            answer_key_text TEXT,
+            is_required BOOLEAN DEFAULT 1,
+            order_index INTEGER DEFAULT 0,
+            FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+            UNIQUE(question_id, sub_question_code)
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create QuestionAnswerKeys table: {}", e))?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_qak_question ON QuestionAnswerKeys(question_id)",
+        [],
+    ).map_err(|e| format!("Failed to create index on QuestionAnswerKeys: {}", e))?;
+
     // One-time data migration: extract selectedSubQuestions from JSON metadata → QuestionSubQuestionLinks
     // This is safe to run on every startup — it only processes questions not yet in the links table.
     migrate_selected_sub_questions_to_table(conn)?;
+
+    // One-time data migration: extract answerKeys from JSON metadata -> QuestionAnswerKeys
+    migrate_answer_keys_to_table(conn)?;
 
     Ok(())
 }
@@ -1080,6 +1104,68 @@ fn migrate_selected_sub_questions_to_table(conn: &Connection) -> Result<(), Stri
                             params![question_id, code],
                         );
                     }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Migrate answer keys from JSON metadata to QuestionAnswerKeys table.
+/// Safe to run multiple times; skips questions that already have entries.
+fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, metadata FROM Questions
+         WHERE metadata IS NOT NULL
+           AND (metadata LIKE '%\"answerKeys\"%' OR metadata LIKE '%\"answerKey\"%')
+           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionAnswerKeys)"
+    ).map_err(|e| format!("Failed to prepare answer key migration query: {}", e))?;
+
+    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }).map_err(|e| format!("Failed to query migration rows: {}", e))?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    for (question_id, metadata_json) in rows {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+            let mut order_index = 0;
+            
+            // Multiple answer keys object
+            if let Some(keys) = v.get("answerKeys").and_then(|c| c.as_object()) {
+                // Determine order by sorting the keys string (e.g. "ก.", "ข.")
+                let mut sorted_keys: Vec<_> = keys.iter().collect();
+                sorted_keys.sort_by_key(|&(k, _)| k);
+                
+                for (code, key_data) in sorted_keys {
+                    let mut text = String::new();
+                    let mut is_required = true;
+
+                    if let Some(data_obj) = key_data.as_object() {
+                        text = data_obj.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string();
+                        is_required = data_obj.get("is_required").and_then(|b| b.as_bool()).unwrap_or(true);
+                    } else if let Some(s) = key_data.as_str() {
+                        text = s.to_string();
+                    }
+
+                    if !code.trim().is_empty() {
+                        let _ = conn.execute(
+                            "INSERT OR IGNORE INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+                             VALUES (?1, ?2, ?3, ?4, ?5)",
+                            params![&question_id, code, text, is_required, order_index],
+                        );
+                        order_index += 1;
+                    }
+                }
+            } else if let Some(single_key) = v.get("answerKey").and_then(|c| c.as_str()) {
+                // Single question without subdivisions -> empty sub_question_code
+                if !single_key.is_empty() {
+                    let _ = conn.execute(
+                        "INSERT OR IGNORE INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+                         VALUES (?1, ?2, ?3, 1, ?4)",
+                        params![&question_id, "", single_key, order_index],
+                    );
                 }
             }
         }
@@ -1125,9 +1211,65 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
+    let mut answer_keys_stmt = conn.prepare(
+        "SELECT question_id, sub_question_code, answer_key_text, is_required, order_index
+         FROM QuestionAnswerKeys
+         WHERE question_id IN (SELECT id FROM Questions WHERE document_id = ?1)
+         ORDER BY question_id, order_index"
+    ).map_err(|e| format!("Failed to prepare answer keys query: {}", e))?;
+
+    // Group answer keys by question_id
+    let mut answer_keys_map: std::collections::HashMap<String, Vec<(String, String, bool)>> = std::collections::HashMap::new();
+    let ak_rows = answer_keys_stmt.query_map(params![doc_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?, // question_id
+            row.get::<_, String>(1)?, // sub_question_code
+            row.get::<_, String>(2)?, // answer_key_text
+            row.get::<_, bool>(3)?,   // is_required
+        ))
+    }).map_err(|e| format!("Failed to query answer keys: {}", e))?;
+
+    for ak_res in ak_rows {
+        if let Ok((qid, code, text, required)) = ak_res {
+            answer_keys_map.entry(qid).or_default().push((code, text, required));
+        }
+    }
+
     let question_iter = stmt.query_map(params![doc_id], |row| {
+        let qid: String = row.get(0)?;
+        let mut metadata: Option<String> = row.get(9)?;
+
+        // Inject answer keys into metadata JSON
+        if let Some(keys) = answer_keys_map.get(&qid) {
+            let mut meta_val = if let Some(meta_str) = &metadata {
+                serde_json::from_str::<serde_json::Value>(meta_str).unwrap_or(serde_json::json!({}))
+            } else {
+                serde_json::json!({})
+            };
+
+            if let Some(meta_obj) = meta_val.as_object_mut() {
+                // If there's only one key and it has no sub_question_code, set "answerKey"
+                if keys.len() == 1 && keys[0].0.is_empty() {
+                    meta_obj.insert("answerKey".to_string(), serde_json::Value::String(keys[0].1.clone()));
+                    meta_obj.remove("answerKeys");
+                } else {
+                    // Otherwise, set "answerKeys" object
+                    let mut keys_obj = serde_json::Map::new();
+                    for (code, text, req) in keys {
+                        keys_obj.insert(code.clone(), serde_json::json!({
+                            "text": text,
+                            "is_required": req
+                        }));
+                    }
+                    meta_obj.insert("answerKeys".to_string(), serde_json::Value::Object(keys_obj));
+                    meta_obj.remove("answerKey");
+                }
+                metadata = Some(serde_json::to_string(meta_obj).unwrap_or_default());
+            }
+        }
+
         Ok(Question {
-            id: row.get(0)?,
+            id: qid,
             document_id: row.get(1)?,
             section_id: row.get(2)?,
             parent_id: row.get(3)?,
@@ -1136,7 +1278,7 @@ pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
             is_header: row.get(6)?,
             description: row.get(7)?,
             answer_type: row.get(8)?,
-            metadata: row.get(9)?,
+            metadata,
             score: row.get(10)?,
             question_type: row.get(11)?,
             group_score: row.get(12)?,
@@ -1182,9 +1324,61 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
+    let mut answer_keys_stmt = conn.prepare(
+        "SELECT question_id, sub_question_code, answer_key_text, is_required, order_index
+         FROM QuestionAnswerKeys
+         WHERE question_id IN (SELECT id FROM Questions WHERE document_id = ?1)
+         ORDER BY question_id, order_index"
+    ).map_err(|e| format!("Failed to prepare answer keys query: {}", e))?;
+
+    let mut answer_keys_map: std::collections::HashMap<String, Vec<(String, String, bool)>> = std::collections::HashMap::new();
+    let ak_rows = answer_keys_stmt.query_map(params![doc_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, bool>(3)?,
+        ))
+    }).map_err(|e| format!("Failed to query answer keys: {}", e))?;
+
+    for ak_res in ak_rows {
+        if let Ok((qid, code, text, required)) = ak_res {
+            answer_keys_map.entry(qid).or_default().push((code, text, required));
+        }
+    }
+
     let questions_iter = stmt.query_map(params![doc_id], |row| {
+        let qid: String = row.get(0)?;
+        let mut metadata: Option<String> = row.get(9)?;
+
+        if let Some(keys) = answer_keys_map.get(&qid) {
+            let mut meta_val = if let Some(meta_str) = &metadata {
+                serde_json::from_str::<serde_json::Value>(meta_str).unwrap_or(serde_json::json!({}))
+            } else {
+                serde_json::json!({})
+            };
+
+            if let Some(meta_obj) = meta_val.as_object_mut() {
+                if keys.len() == 1 && keys[0].0.is_empty() {
+                    meta_obj.insert("answerKey".to_string(), serde_json::Value::String(keys[0].1.clone()));
+                    meta_obj.remove("answerKeys");
+                } else {
+                    let mut keys_obj = serde_json::Map::new();
+                    for (code, text, req) in keys {
+                        keys_obj.insert(code.clone(), serde_json::json!({
+                            "text": text,
+                            "is_required": req
+                        }));
+                    }
+                    meta_obj.insert("answerKeys".to_string(), serde_json::Value::Object(keys_obj));
+                    meta_obj.remove("answerKey");
+                }
+                metadata = Some(serde_json::to_string(meta_obj).unwrap_or_default());
+            }
+        }
+
         Ok(Question {
-            id: row.get(0)?,
+            id: qid,
             document_id: row.get(1)?,
             section_id: row.get(2)?,
             parent_id: row.get(3)?,
@@ -1193,7 +1387,7 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
             is_header: row.get(6)?,
             description: row.get(7)?,
             answer_type: row.get(8)?,
-            metadata: row.get(9)?,
+            metadata,
             score: row.get(10)?,
             question_type: row.get(11)?,
             group_score: row.get(12)?,
@@ -4338,48 +4532,35 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
     // ------------------------------------------------------------------
     // Strategy 2: Count-based (always works, used when score columns = 0)
     // Count Answer Key boxes = each (question_id, sub_question_code) pair that has an answer key.
-    // For questions with `answerKeys` (multi-sub): count keys in JSON.
-    // For questions with single `answerKey`: count as 1.
+    // We now count directly from QuestionAnswerKeys table, plus any 'requireAnswerKey' questions not migrated.
     // ------------------------------------------------------------------
-    let leaf_questions: Vec<(String, Option<String>)> = conn.prepare(
-        "SELECT id, metadata FROM Questions
-         WHERE section_id = ?1
-           AND question_type != 'exempted'
-           AND (is_group_header = 0
-                OR (metadata IS NOT NULL
-                    AND (metadata LIKE '%\"answerKeys\"%'
-                         OR metadata LIKE '%\"answerKey\"%'
-                         OR metadata LIKE '%\"requireAnswerKey\"%')))"
-    ).ok().and_then(|mut stmt| {
-        stmt.query_map(params![section_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
-        }).ok().map(|rows| rows.filter_map(|r| r.ok()).collect())
-    }).unwrap_or_default();
+    
+    // 1. Count from QuestionAnswerKeys for this section
+    let keys_count: i32 = conn.query_row(
+        "SELECT COUNT(*)
+         FROM QuestionAnswerKeys ak
+         JOIN Questions q ON q.id = ak.question_id
+         WHERE q.section_id = ?1 AND q.question_type != 'exempted'",
+        params![section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
 
-    let total_questions: i32 = leaf_questions.iter().map(|(_, meta_opt)| {
-        match meta_opt {
-            None => 0,
-            Some(meta_str) => {
-                match serde_json::from_str::<serde_json::Value>(meta_str) {
-                    Ok(m) => {
-                        if let Some(keys) = m.get("answerKeys").and_then(|v| v.as_object()) {
-                            // Multi-sub-question: count each sub-code as 1 box
-                            keys.len() as i32
-                        } else if m.get("answerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
-                            // Single answer key
-                            1
-                        } else if m.get("requireAnswerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
-                            // Section 300 required_instance questions
-                            1
-                        } else {
-                            0
-                        }
-                    },
-                    Err(_) => 0,
-                }
-            }
-        }
-    }).sum();
+    // 2. Count questions that ONLY have requireAnswerKey in metadata (for Section 300)
+    // and aren't already represented in QuestionAnswerKeys
+    let req_keys_count: i32 = conn.query_row(
+        "SELECT COUNT(*)
+         FROM Questions q
+         WHERE q.section_id = ?1 
+           AND q.question_type != 'exempted'
+           AND q.is_group_header = 0
+           AND q.metadata IS NOT NULL 
+           AND q.metadata LIKE '%\"requireAnswerKey\"%'
+           AND q.id NOT IN (SELECT question_id FROM QuestionAnswerKeys)",
+        params![section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+
+    let total_questions = keys_count + req_keys_count;
 
     // passed = COUNT(*) of (question_id, sub_question_code) pairs with status='passed'
     let passed_questions: i32 = conn.query_row(
@@ -4517,40 +4698,40 @@ pub fn get_section_dev_metrics(
         |row| row.get(0),
     ).unwrap_or(0);
 
-    // Questions with answer keys and total sub questions
-    let metadata_rows: Vec<String> = conn.prepare(
-        "SELECT metadata FROM Questions WHERE section_id = ?1 AND document_id = ?2 AND metadata IS NOT NULL"
-    ).ok().and_then(|mut stmt| {
-        stmt.query_map(params![section_id, document_id], |row| {
-            row.get::<_, String>(0)
-        }).ok().map(|rows| rows.filter_map(|r| r.ok()).collect())
-    }).unwrap_or_default();
+    // Questions with answer keys (count distinct questions in QuestionAnswerKeys)
+    let keys_question_count: i32 = conn.query_row(
+        "SELECT COUNT(DISTINCT question_id) 
+         FROM QuestionAnswerKeys ak
+         JOIN Questions q ON q.id = ak.question_id
+         WHERE q.section_id = ?1 AND q.document_id = ?2",
+         params![section_id, document_id],
+         |row| row.get(0)
+    ).unwrap_or(0);
 
-    let mut total_with_answer_keys = 0;
-    let mut total_sub_questions = 0;
+    // Questions with requireAnswerKey (Section 300 fallback that aren't in AnswerKeys table)
+    let req_keys_question_count: i32 = conn.query_row(
+        "SELECT COUNT(*) 
+         FROM Questions q
+         WHERE q.section_id = ?1 AND q.document_id = ?2
+           AND q.metadata LIKE '%\"requireAnswerKey\"%'
+           AND q.id NOT IN (SELECT question_id FROM QuestionAnswerKeys)",
+        params![section_id, document_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+    
+    let total_with_answer_keys = keys_question_count + req_keys_question_count;
 
-    for meta_str in metadata_rows {
-        if let Ok(m) = serde_json::from_str::<serde_json::Value>(&meta_str) {
-            let mut has_key = false;
-            
-            if let Some(keys) = m.get("answerKeys").and_then(|v| v.as_object()) {
-                if !keys.is_empty() {
-                    has_key = true;
-                    total_sub_questions += keys.len() as i32;
-                }
-            } else if m.get("answerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
-                has_key = true;
-                total_sub_questions += 1;
-            } else if m.get("requireAnswerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
-                has_key = true;
-                total_sub_questions += 1;
-            }
+    // Total sub questions = total rows in QuestionAnswerKeys + requireAnswerKey fallback
+    let keys_sub_count: i32 = conn.query_row(
+        "SELECT COUNT(*) 
+         FROM QuestionAnswerKeys ak
+         JOIN Questions q ON q.id = ak.question_id
+         WHERE q.section_id = ?1 AND q.document_id = ?2",
+         params![section_id, document_id],
+         |row| row.get(0)
+    ).unwrap_or(0);
 
-            if has_key {
-                total_with_answer_keys += 1;
-            }
-        }
-    }
+    let total_sub_questions = keys_sub_count + req_keys_question_count;
 
     // Answers metrics
     let total_answers: i32 = conn.query_row(
@@ -4679,4 +4860,57 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
         usage_map,
         total_children,
     })
+}
+
+#[derive(serde::Serialize)]
+pub struct AnswerKey {
+    pub id: i64,
+    pub question_id: String,
+    pub sub_question_code: String,
+    pub answer_key_text: Option<String>,
+    pub is_required: bool,
+    pub order_index: i32,
+}
+
+#[tauri::command]
+pub fn get_question_answer_keys(question_id: String) -> Result<Vec<AnswerKey>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT id, question_id, sub_question_code, answer_key_text, is_required, order_index
+         FROM QuestionAnswerKeys
+         WHERE question_id = ?1
+         ORDER BY order_index"
+    ).map_err(|e| e.to_string())?;
+
+    let keys = stmt.query_map(params![question_id], |row| {
+        Ok(AnswerKey {
+            id: row.get(0)?,
+            question_id: row.get(1)?,
+            sub_question_code: row.get(2)?,
+            answer_key_text: row.get(3)?,
+            is_required: row.get(4)?,
+            order_index: row.get(5)?,
+        })
+    }).map_err(|e| e.to_string())?
+      .collect::<Result<Vec<_>, _>>()
+      .map_err(|e| e.to_string())?;
+
+    Ok(keys)
+}
+
+#[tauri::command]
+pub fn update_answer_key(question_id: String, sub_code: String, new_text: String) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Upsert into AnswerKeys table
+    conn.execute(
+        "INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+         VALUES (?1, ?2, ?3, 1, 0)
+         ON CONFLICT(question_id, sub_question_code) DO UPDATE SET
+            answer_key_text = excluded.answer_key_text",
+        params![question_id, sub_code, new_text]
+    ).map_err(|e| format!("Failed to update answer key: {}", e))?;
+
+    Ok("Answer key updated successfully".to_string())
 }

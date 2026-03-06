@@ -1503,6 +1503,8 @@ fn main() {
             content_database::get_sub_question_usage_counts,
             content_database::get_section_progress,
             content_database::get_section_dev_metrics,
+            content_database::get_question_answer_keys,
+            content_database::update_answer_key,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

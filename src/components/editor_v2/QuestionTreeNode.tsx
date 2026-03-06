@@ -1518,29 +1518,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     else delete newMeta.requireRef;
     if (!requireAnswerKey) newMeta.requireAnswerKey = false;
     else delete newMeta.requireAnswerKey;
-    // Save answer key
-    if (requireAnswerKey) {
-      if (hasParentSubQ && selectedSubQCodes.length > 0) {
-        // save per-subQ answer keys
-        const filtered: Record<string, string> = {};
-        for (const code of selectedSubQCodes) {
-          const v = (answerKeys[code] || "").trim();
-          if (v) filtered[code] = v;
-        }
-        if (Object.keys(filtered).length > 0) newMeta.answerKeys = filtered;
-        else delete newMeta.answerKeys;
-        delete newMeta.answerKey;
-      } else if (answerKey.trim()) {
-        newMeta.answerKey = answerKey.trim();
-        delete newMeta.answerKeys;
-      } else {
-        delete newMeta.answerKey;
-        delete newMeta.answerKeys;
-      }
-    } else {
-      delete newMeta.answerKey;
-      delete newMeta.answerKeys;
-    }
+    // Save answer key -> Removed from JSON. Now stored in QuestionAnswerKeys table via update_answer_key API.
+    delete newMeta.answerKey;
+    delete newMeta.answerKeys;
     // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
     // Skip if exempted - metadata already cleared above
     const alwaysCodesInBranch = is300 ? filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code) : [];
@@ -1690,6 +1670,38 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       metadata: metadataString,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
+
+    // Save relational answer keys AFTER onSave so that the question record is guaranteed to exist
+    if (requireAnswerKey) {
+      if (hasParentSubQ && selectedSubQCodes.length > 0) {
+        // Multi-part question
+        for (const code of selectedSubQCodes) {
+          const val = answerKeys[code] || '';
+          if (val.trim()) {
+            try {
+              await invoke('update_answer_key', {
+                questionId: questionId,
+                subCode: code,
+                newText: val.trim()
+              });
+            } catch (err) {
+              console.error('Failed to save answer key for subcode', code, err);
+            }
+          }
+        }
+      } else if (answerKey.trim()) {
+        // Single part question
+        try {
+          await invoke('update_answer_key', {
+            questionId: questionId,
+            subCode: 'main',
+            newText: answerKey.trim()
+          });
+        } catch (err) {
+          console.error('Failed to save main answer key:', err);
+        }
+      }
+    }
 
     // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6, or L1 of 3xx.6)
     if ((isPerformanceL2 || is306L1) && sectionId && questionId && requiredCount > 0) {
