@@ -234,6 +234,16 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     }
   }, [question.metadata]);
 
+  const questionUsesOwnSubQuestions = useMemo(() => {
+    if (!question.metadata) return false;
+    try {
+      const meta = JSON.parse(question.metadata);
+      return meta.useSubQuestions === true;
+    } catch {
+      return false;
+    }
+  }, [question.metadata]);
+
   // Extract parentSubQuestionList from DB (for passing to children)
   const [ownSubQuestionList, setOwnSubQuestionList] = useState<SubQuestionItem[]>([]);
   useEffect(() => {
@@ -261,6 +271,10 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
     } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
   }, [question.metadata, is300, question.sequence]);
+
+  const effectiveChildSubQuestionList = questionUsesOwnSubQuestions
+    ? ownSubQuestionList
+    : parentSubQuestionList;
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
@@ -462,7 +476,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             parentId={question.parent_id || null}
             sectionId={sectionId}
             onAlert={onAlert}
-            parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
+            parentSubQuestionList={effectiveChildSubQuestionList}
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
@@ -486,7 +500,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 parentSequence={question.sequence as number}
-                parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
+                parentSubQuestionList={effectiveChildSubQuestionList}
                 collapsedIds={collapsedIds}
                 onToggleCollapse={onToggleCollapse}
                 isParentDefault300L1={is300 && level === 0 && (qSeqNum === 1 || qSeqNum === 7)}
@@ -537,7 +551,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             parentId={question.id}
             sectionId={sectionId}
             onAlert={onAlert}
-            parentSubQuestionList={ownSubQuestionList.length > 0 ? ownSubQuestionList : parentSubQuestionList}
+            parentSubQuestionList={effectiveChildSubQuestionList}
             sectionOccupationBranches={sectionOccupationBranches}
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
@@ -1463,12 +1477,38 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const handleRemoveImage = async () => {
     if (imagePath) {
       try {
-        await invoke("delete_question_image", { path: imagePath });
+        await invoke('delete_question_image', { path: imagePath });
       } catch (err) {
         console.error("Failed to delete image file:", err);
       }
     }
     setImagePath(null);
+  };
+
+  const persistAnswerKeys = async (questionId: string) => {
+    try {
+      if (requireAnswerKey) {
+        if (hasParentSubQ && selectedSubQCodes.length > 0) {
+          await invoke('replace_question_answer_keys', {
+            questionId,
+            items: selectedSubQCodes.map(code => ({
+              subCode: code,
+              text: answerKeys[code] || '',
+              isRequired: true,
+            }))
+          });
+        } else {
+          await invoke('replace_question_answer_keys', {
+            questionId,
+            items: [{ subCode: '', text: answerKey, isRequired: true }]
+          });
+        }
+      } else {
+        await invoke('replace_question_answer_keys', { questionId, items: [] });
+      }
+    } catch (err) {
+      console.error('Failed to reconcile answer keys:', err);
+    }
   };
 
   const handleSave = async () => {
@@ -1627,6 +1667,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }
           });
         }
+        await persistAnswerKeys(generatedId);
       } catch (err) {
         console.error('Failed to finalize background-saved L2:', err);
       }
@@ -1692,28 +1733,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     });
 
     // Save relational answer keys AFTER onSave so that the question record is guaranteed to exist
-    try {
-      if (requireAnswerKey) {
-        if (hasParentSubQ && selectedSubQCodes.length > 0) {
-          await invoke('replace_question_answer_keys', {
-            questionId,
-            items: selectedSubQCodes.map(code => ({
-              subCode: code,
-              text: answerKeys[code] || '',
-              isRequired: true,
-            }))
-          });
-        } else {
-          await invoke('replace_question_answer_keys', {
-            questionId,
-            items: [{ subCode: '', text: answerKey, isRequired: true }]
-          });
-        }
-      } else {
-        await invoke('replace_question_answer_keys', { questionId, items: [] });
-      }
-    } catch (err) {
-      console.error('Failed to reconcile answer keys:', err);
+    if (questionId) {
+      await persistAnswerKeys(questionId);
     }
 
     // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6, or L1 of 3xx.6)
