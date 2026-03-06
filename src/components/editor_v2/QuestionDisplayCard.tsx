@@ -98,7 +98,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
+  // Regression guard: 200Template parents can become group headers after Add Sub-Question,
+  // but their inline SubQ badges must remain visible. Only hide for the intended 300Template case.
   const shouldHideInlineSubQBadges = is300 && question.is_group_header;
+  // Regression guard: 200Template parents still need answer boxes in Qualifier/Trainee views
+  // even after becoming group headers, so do not gate them on !question.is_group_header.
+  const shouldShowAnswerBox = question.question_type !== 'exempted' && viewMode !== 'visitor' && (is200 || !question.is_group_header);
 
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
@@ -371,7 +376,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               onImageClick={onImageClick}
               parentSubQuestionList={parentSubQuestionList}
               readOnly={readOnly}
-              showAnswerBox={(!is300 && !question.is_group_header && question.question_type !== 'exempted') && (viewMode !== 'visitor')}
+              showAnswerBox={shouldShowAnswerBox}
               showAnswerKey={viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'print'}
               mode={viewMode === 'qualifier' ? 'qualifier' : viewMode === 'trainee' ? 'trainee' : 'viewer'}
               traineeAnswer={traineeAnswer}
