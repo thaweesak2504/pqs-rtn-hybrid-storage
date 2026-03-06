@@ -869,7 +869,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create QuestionSectionLinks index: {}", e))?;
 
-    // UserAnswers Table (Data Storage) - NEW
+    // UserAnswers Table (Data Storage) - Refactored for Integrity
     conn.execute(
         "CREATE TABLE IF NOT EXISTS UserAnswers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -884,10 +884,53 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             assessed_by TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, question_id, document_id, sub_question_code),
-            FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE
+            FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+            FOREIGN KEY(question_id, sub_question_code) REFERENCES QuestionAnswerKeys(question_id, sub_question_code) ON DELETE CASCADE
         )",
         [],
     ).map_err(|e| format!("Failed to create UserAnswers table: {}", e))?;
+
+    // Check if we need to migrate UserAnswers to add the composite FK (Post-init migration)
+    let needs_ua_fk_migration = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_foreign_key_list('UserAnswers') WHERE \"table\" = 'QuestionAnswerKeys'",
+        [],
+        |row| row.get::<_, i32>(0)
+    ).unwrap_or(0) == 0;
+
+    if needs_ua_fk_migration {
+        println!("Migrating UserAnswers to add QuestionAnswerKeys foreign key...");
+        // 1. Rename existing
+        let _ = conn.execute("ALTER TABLE UserAnswers RENAME TO UserAnswers_old", []);
+        // 2. Create new (with the new schema)
+        conn.execute(
+            "CREATE TABLE UserAnswers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                document_id VARCHAR(11) NOT NULL,
+                sub_question_code VARCHAR(20) DEFAULT '',
+                answer_text TEXT,
+                status VARCHAR(20) DEFAULT 'pending',
+                feedback TEXT,
+                assessed_at DATETIME,
+                assessed_by TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, question_id, document_id, sub_question_code),
+                FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+                FOREIGN KEY(question_id, sub_question_code) REFERENCES QuestionAnswerKeys(question_id, sub_question_code) ON DELETE CASCADE
+            )",
+            [],
+        ).map_err(|e| format!("Failed to create new UserAnswers table: {}", e))?;
+        // 3. Copy data
+        let _ = conn.execute(
+            "INSERT INTO UserAnswers (id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at)
+             SELECT id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at
+             FROM UserAnswers_old",
+            [],
+        );
+        // 4. Drop old
+        let _ = conn.execute("DROP TABLE UserAnswers_old", []);
+    }
 
     // Migration: Add new assessment columns if missing
     let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN answer_text TEXT", []);
@@ -1134,7 +1177,7 @@ fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
             
             // Multiple answer keys object
             if let Some(keys) = v.get("answerKeys").and_then(|c| c.as_object()) {
-                // Determine order by sorting the keys string (e.g. "ก.", "ข.")
+                // Determine order by sorting the keys string (e.g. \"ก.\", \"ข.\")
                 let mut sorted_keys: Vec<_> = keys.iter().collect();
                 sorted_keys.sort_by_key(|&(k, _)| k);
                 
@@ -1169,6 +1212,29 @@ fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
                 }
             }
         }
+    }
+
+    // 2. Handle metadata placeholders (requireAnswerKey: true but no key text yet)
+    let mut placeholder_stmt = conn.prepare(
+        "SELECT id FROM Questions
+         WHERE metadata IS NOT NULL
+           AND metadata LIKE '%\"requireAnswerKey\"%'
+           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionAnswerKeys)"
+    ).map_err(|e| e.to_string())?;
+
+    let placeholder_rows: Vec<String> = placeholder_stmt.query_map([], |row| {
+        row.get(0)
+    }).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    for q_id in placeholder_rows {
+        // Insert a "main" placeholder entry so foreign keys work
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+             VALUES (?1, ?2, ?3, 1, 0)",
+            params![&q_id, "", "", true, 0],
+        );
     }
 
     Ok(())
@@ -4393,6 +4459,7 @@ pub struct UserAnswer {
     pub assessed_at: Option<String>,
     pub assessed_by: Option<String>,
     pub updated_at: String,
+    pub answer_key: Option<String>,
 }
 
 /// Save or update a trainee's answer
@@ -4456,23 +4523,27 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
 
     for (section_id, max_score) in sections {
         // Sum scores for all passed answered questions in this section
-        let earned: i32 = conn.query_row(
+        // Note: For questions with multiple answer keys, we distribute the question score evenly
+        let earned: f64 = conn.query_row(
             "SELECT COALESCE(SUM(
                 CASE 
                     WHEN q.is_group_header = 1 THEN 0
-                    WHEN q.is_scored = 1 THEN COALESCE(q.score, 0)
+                    WHEN q.is_scored = 1 THEN 
+                        CAST(COALESCE(q.score, 0) AS FLOAT) / 
+                        COALESCE((SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = q.id), 1)
                     ELSE 0
                 END
-             ), 0)
+             ), 0.0)
              FROM UserAnswers ua
              JOIN Questions q ON q.id = ua.question_id
              WHERE ua.user_id = ?1 AND ua.document_id = ?2
                AND q.section_id = ?3 AND ua.status = 'passed'",
             params![user_id, document_id, section_id],
             |row| row.get(0)
-        ).unwrap_or(0);
+        ).unwrap_or(0.0);
 
         // Upsert the progress row
+        let earned_i32 = earned.round() as i32;
         let pct = if max_score > 0 {
             (earned as f64 / max_score as f64) * 100.0
         } else {
@@ -4485,7 +4556,7 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 70, CURRENT_TIMESTAMP)
              ON CONFLICT(user_id, document_id, section_id) DO UPDATE SET
                 earned_score = ?4, max_score = ?5, completion_percentage = ?6, is_passed = ?7, last_updated = CURRENT_TIMESTAMP",
-            params![user_id, document_id, section_id, earned, max_score, pct, is_passed],
+            params![user_id, document_id, section_id, earned_i32, max_score, pct, is_passed],
         );
     }
 
@@ -4513,21 +4584,24 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
         |row| row.get(0)
     ).unwrap_or(0);
 
-    let earned_score: i32 = conn.query_row(
+    let earned_score: f64 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE
                 WHEN q.is_group_header = 1 THEN 0
-                WHEN q.is_scored = 1 THEN COALESCE(q.score, 0)
+                WHEN q.is_scored = 1 THEN 
+                    CAST(COALESCE(q.score, 0) AS FLOAT) / 
+                    COALESCE((SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = q.id), 1)
                 ELSE 0
             END
-         ), 0)
+         ), 0.0)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
          WHERE ua.user_id = ?1 AND ua.document_id = ?2
            AND q.section_id = ?3 AND ua.status = 'passed'",
         params![user_id, document_id, section_id],
         |row| row.get(0)
-    ).unwrap_or(0);
+    ).unwrap_or(0.0);
+    let earned_score_i32 = earned_score.round() as i32;
 
     // ------------------------------------------------------------------
     // Strategy 2: Count-based (always works, used when score columns = 0)
@@ -4586,8 +4660,8 @@ pub fn get_section_progress(user_id: String, document_id: String, section_id: i6
 
     // Determine which strategy to use for percentage display
     let (display_earned, display_max, pct) = if max_score > 0 {
-        let p = (earned_score as f64 / max_score as f64) * 100.0;
-        (earned_score, max_score, p)
+        let p = (earned_score / max_score as f64) * 100.0;
+        (earned_score_i32, max_score, p)
     } else {
         // Fall back to count-based: treat each question as 1 point
         let p = if total_questions > 0 {
@@ -4626,9 +4700,11 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
     let mut stmt = conn.prepare(
-        "SELECT user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at 
-         FROM UserAnswers 
-         WHERE user_id = ?1 AND document_id = ?2"
+        "SELECT ua.user_id, ua.question_id, ua.document_id, ua.sub_question_code, ua.answer_text, 
+                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text 
+         FROM UserAnswers ua
+         LEFT JOIN QuestionAnswerKeys ak ON ak.question_id = ua.question_id AND ak.sub_question_code = ua.sub_question_code
+         WHERE ua.user_id = ?1 AND ua.document_id = ?2"
     ).map_err(|e| e.to_string())?;
     
     let rows = stmt.query_map(params![user_id, document_id], |row| {
@@ -4643,6 +4719,7 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
             assessed_at: row.get(7)?,
             assessed_by: row.get(8)?,
             updated_at: row.get(9)?,
+            answer_key: row.get(10)?,
         })
     }).map_err(|e| e.to_string())?;
     
