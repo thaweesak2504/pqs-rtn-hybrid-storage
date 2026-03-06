@@ -6,6 +6,15 @@ import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
 
+interface AnswerKeyRow {
+  id: number;
+  question_id: string;
+  sub_question_code: string;
+  answer_key_text: string | null;
+  is_required: boolean;
+  order_index: number;
+}
+
 type PrintSubView = 'question-only' | 'question-with-key';
 
 // ============ Helpers ============
@@ -232,8 +241,17 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
     }
   }, [question.metadata]);
 
-  const answerKey = meta.answerKey || '';
   const hasChildren = question.children && question.children.length > 0;
+  const [answerKey, setAnswerKey] = useState('');
+
+  useEffect(() => {
+    invoke<AnswerKeyRow[]>('get_question_answer_keys', { questionId: question.id })
+      .then(rows => {
+        const single = rows.find(r => (r.sub_question_code || '') === '');
+        setAnswerKey(single?.answer_key_text || '');
+      })
+      .catch(() => setAnswerKey(''));
+  }, [question.id]);
 
   const formatAnswerKeyForDisplay = (raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");

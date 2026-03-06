@@ -563,6 +563,7 @@ interface QuestionFormCardProps {
   initialDescription?: string;
   initialImage?: string;
   initialMetadata?: string | null; // Added initialMetadata
+  initialAnswerKeys?: AnswerKeyRow[];
   initialReferences?: QuestionReferenceDetail[];
   onSave: (data: {
     content: string;
@@ -571,6 +572,7 @@ interface QuestionFormCardProps {
     id?: string;
     references?: QuestionReferenceDetail[];
     metadata?: string;
+    answerKeys?: AnswerKeyRow[];
     childLayout?: "list" | "grid";
   }) => void; // Added references, metadata & childLayout
   onCancel: () => void;
@@ -592,6 +594,15 @@ interface QuestionFormCardProps {
   initialIsGroupHeader?: boolean;
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
   currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
+}
+
+interface AnswerKeyRow {
+  id: number;
+  question_id: string;
+  sub_question_code: string;
+  answer_key_text: string | null;
+  is_required: boolean;
+  order_index: number;
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
@@ -1206,25 +1217,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
   const [selectedRefId, setSelectedRefId] = useState<string>("");
   const [pageInput, setPageInput] = useState<string>("");
-  const [answerKey, setAnswerKey] = useState<string>(() => {
-    if (!initialMetadata) return "";
-    try {
-      const meta = JSON.parse(initialMetadata);
-      return meta.answerKey || "";
-    } catch {
-      return "";
-    }
-  });
-  // answerKeys: per-subQ answer key map {code: text} — used when hasParentSubQ
-  const [answerKeys, setAnswerKeys] = useState<Record<string, string>>(() => {
-    if (!initialMetadata) return {};
-    try {
-      const meta = JSON.parse(initialMetadata);
-      return (meta.answerKeys && typeof meta.answerKeys === "object") ? meta.answerKeys : {};
-    } catch {
-      return {};
-    }
-  });
+  const [answerKey, setAnswerKey] = useState<string>("");
+  const [answerKeys, setAnswerKeys] = useState<Record<string, string>>({});
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
@@ -1255,6 +1249,32 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [errors, setErrors] = useState<{ content?: boolean; answerKey?: boolean; refs?: boolean }>(
     {},
   ); // Inline Validation State
+
+  useEffect(() => {
+    if (!existingId) {
+      setAnswerKey("");
+      setAnswerKeys({});
+      return;
+    }
+
+    invoke<AnswerKeyRow[]>('get_question_answer_keys', { questionId: existingId })
+      .then(rows => {
+        const single = rows.find(r => (r.sub_question_code || '') === '');
+        const multi = rows
+          .filter(r => (r.sub_question_code || '') !== '')
+          .sort((a, b) => a.order_index - b.order_index)
+          .reduce<Record<string, string>>((acc, row) => {
+            acc[row.sub_question_code] = row.answer_key_text || '';
+            return acc;
+          }, {});
+        setAnswerKey(single?.answer_key_text || '');
+        setAnswerKeys(multi);
+      })
+      .catch(() => {
+        setAnswerKey('');
+        setAnswerKeys({});
+      });
+  }, [existingId]);
 
   const showExtraButtons = is200or300 ? (level === 0 || level === 1) : isL1; // 200/300: show for L0 & L1, others: L0 only
 
@@ -1672,35 +1692,28 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     });
 
     // Save relational answer keys AFTER onSave so that the question record is guaranteed to exist
-    if (requireAnswerKey) {
-      if (hasParentSubQ && selectedSubQCodes.length > 0) {
-        // Multi-part question
-        for (const code of selectedSubQCodes) {
-          const val = answerKeys[code] || '';
-          if (val.trim()) {
-            try {
-              await invoke('update_answer_key', {
-                questionId: questionId,
-                subCode: code,
-                newText: val.trim()
-              });
-            } catch (err) {
-              console.error('Failed to save answer key for subcode', code, err);
-            }
-          }
-        }
-      } else if (answerKey.trim()) {
-        // Single part question
-        try {
-          await invoke('update_answer_key', {
-            questionId: questionId,
-            subCode: '', // Use empty string for single questions to match DB default
-            newText: answerKey.trim()
+    try {
+      if (requireAnswerKey) {
+        if (hasParentSubQ && selectedSubQCodes.length > 0) {
+          await invoke('replace_question_answer_keys', {
+            questionId,
+            items: selectedSubQCodes.map(code => ({
+              subCode: code,
+              text: answerKeys[code] || '',
+              isRequired: true,
+            }))
           });
-        } catch (err) {
-          console.error('Failed to save main answer key:', err);
+        } else {
+          await invoke('replace_question_answer_keys', {
+            questionId,
+            items: [{ subCode: '', text: answerKey, isRequired: true }]
+          });
         }
+      } else {
+        await invoke('replace_question_answer_keys', { questionId, items: [] });
       }
+    } catch (err) {
+      console.error('Failed to reconcile answer keys:', err);
     }
 
     // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6, or L1 of 3xx.6)

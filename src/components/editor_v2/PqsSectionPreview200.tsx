@@ -7,6 +7,15 @@ import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
 import TraineeAnswerBox from './TraineeAnswerBox';
 
+interface AnswerKeyRow {
+  id: number;
+  question_id: string;
+  sub_question_code: string;
+  answer_key_text: string | null;
+  is_required: boolean;
+  order_index: number;
+}
+
 type PrintSubView = 'question-only' | 'question-with-key';
 
 // ============ Helpers ============
@@ -239,9 +248,29 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
     }
   }, [question.metadata]);
 
-  const answerKey = meta.answerKey || '';
-  const answerKeys = meta.answerKeys && typeof meta.answerKeys === "object" ? meta.answerKeys as Record<string, string> : {};
   const hasChildren = question.children && question.children.length > 0;
+  const [answerKey, setAnswerKey] = useState('');
+  const [answerKeys, setAnswerKeys] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    invoke<AnswerKeyRow[]>('get_question_answer_keys', { questionId: question.id })
+      .then(rows => {
+        const single = rows.find(r => (r.sub_question_code || '') === '');
+        const multi = rows
+          .filter(r => (r.sub_question_code || '') !== '')
+          .sort((a, b) => a.order_index - b.order_index)
+          .reduce<Record<string, string>>((acc, row) => {
+            acc[row.sub_question_code] = row.answer_key_text || '';
+            return acc;
+          }, {});
+        setAnswerKey(single?.answer_key_text || '');
+        setAnswerKeys(multi);
+      })
+      .catch(() => {
+        setAnswerKey('');
+        setAnswerKeys({});
+      });
+  }, [question.id]);
 
   // Fetch ownSubQuestionList via invoke (same as QuestionTreeNode) for L0 nodes with useSubQuestions
   const [ownSubQuestionList, setOwnSubQuestionList] = useState<Array<{ code: string; text: string; alwaysChecked?: boolean }>>([]);

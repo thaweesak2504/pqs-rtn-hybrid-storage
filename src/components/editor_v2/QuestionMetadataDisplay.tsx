@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo } from "react";
+import { invoke } from "@tauri-apps/api/tauri";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
@@ -26,6 +27,15 @@ interface QuestionMetadataDisplayProps {
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
   onRefresh?: () => void;
+}
+
+interface AnswerKeyRow {
+  id: number;
+  question_id: string;
+  sub_question_code: string;
+  answer_key_text: string | null;
+  is_required: boolean;
+  order_index: number;
 }
 
 // ============ Helpers ============
@@ -105,7 +115,30 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
     }
   }, [metadata]);
 
-  if (!data.image && !data.answerKey && !data.answerKeys) return null;
+  const [singleAnswerKey, setSingleAnswerKey] = useState("");
+  const [multiAnswerKeys, setMultiAnswerKeys] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    invoke<AnswerKeyRow[]>('get_question_answer_keys', { questionId })
+      .then(rows => {
+        const single = rows.find(r => (r.sub_question_code || '') === '');
+        const multi = rows
+          .filter(r => (r.sub_question_code || '') !== '')
+          .sort((a, b) => a.order_index - b.order_index)
+          .reduce<Record<string, string>>((acc, row) => {
+            acc[row.sub_question_code] = row.answer_key_text || '';
+            return acc;
+          }, {});
+        setSingleAnswerKey(single?.answer_key_text || '');
+        setMultiAnswerKeys(multi);
+      })
+      .catch(() => {
+        setSingleAnswerKey('');
+        setMultiAnswerKeys({});
+      });
+  }, [questionId]);
+
+  if (!data.image && !singleAnswerKey && Object.keys(multiAnswerKeys).length === 0) return null;
 
   return (
     <div className="mt-2 space-y-2">
@@ -120,11 +153,11 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
 
       {/* Answer Area Display */}
       {(() => {
-        const hasAnswerKeysObj = data.answerKeys && typeof data.answerKeys === "object" && Object.keys(data.answerKeys).length > 0;
+        const hasAnswerKeysObj = Object.keys(multiAnswerKeys).length > 0;
 
         if (hasAnswerKeysObj) {
           // Per-subQ mode
-          const keys = data.answerKeys as Record<string, string>;
+          const keys = multiAnswerKeys;
           const ordered: string[] = parentSubQuestionList
             ? parentSubQuestionList.map(s => s.code).filter(c => c in keys)
             : Array.isArray(data.selectedSubQuestions)
@@ -168,7 +201,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
               })}
             </div>
           );
-        } else if (data.answerKey || showAnswerBox) {
+        } else if (singleAnswerKey || showAnswerBox) {
           // Single mode
           return (
             <div className="flex flex-col gap-1.5">
@@ -183,7 +216,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                   onAssessmentSaved={onRefresh}
                 />
               )}
-              {showAnswerKey && data.answerKey && (
+              {showAnswerKey && singleAnswerKey && (
                 <div className="text-sm font-normal text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1.5 rounded-md border border-emerald-100 dark:border-emerald-800/50">
                   <div className="flex items-start gap-2">
                     <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย:</span>
@@ -192,7 +225,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeRaw]}
                       >
-                        {formatAnswerKeyForDisplay(data.answerKey).replace(/\n/g, "  \n")}
+                        {formatAnswerKeyForDisplay(singleAnswerKey).replace(/\n/g, "  \n")}
                       </ReactMarkdown>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { X, BookOpen, Save, AlertCircle, Table, HelpCircle } from 'lucide-react'; // Added HelpCircle icon
+import { AlertCircle, BookOpen, HelpCircle, Save, Table, X } from 'lucide-react'; // Added HelpCircle icon
+import React, { useEffect, useState } from 'react';
 import { QuestionDetail } from '../../types/content'; // Ensure this import exists
 
 interface DocumentReference {
@@ -13,6 +13,15 @@ interface SectionReferenceDetail {
   id: number;
   reference: DocumentReference;
   thai_letter: string;
+}
+
+interface AnswerKeyRow {
+  id: number;
+  question_id: string;
+  sub_question_code: string;
+  answer_key_text: string | null;
+  is_required: boolean;
+  order_index: number;
 }
 
 interface AddQuestionModalProps {
@@ -88,8 +97,19 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
       : `${thaiNumber}.${thaiSeq}`;
 
 
-
   useEffect(() => {
+    const loadReferences = async () => {
+      try {
+        setLoading(true);
+        const refs = await invoke<SectionReferenceDetail[]>('get_section_references', { sectionId });
+        setAvailableRefs(refs);
+      } catch (err) {
+        console.error('Failed to load references:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     if (isOpen) {
       loadReferences();
 
@@ -106,14 +126,12 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
         if (loadedContent.startsWith(prefix)) {
           loadedContent = loadedContent.slice(prefix.length);
         }
-        if (initialData.metadata) {
-          try {
-            const meta = JSON.parse(initialData.metadata);
-            if (meta.answerKey) {
-              setAnswerKey(meta.answerKey);
-            }
-          } catch (e) { console.error('Error parsing metadata', e); }
-        }
+        invoke<AnswerKeyRow[]>('get_question_answer_keys', { questionId: initialData.id })
+          .then(rows => {
+            const single = rows.find(r => (r.sub_question_code || '') === '');
+            setAnswerKey(single?.answer_key_text || '');
+          })
+          .catch(() => setAnswerKey(''));
         setContent(loadedContent);
 
         // 2. References
@@ -140,19 +158,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
         setSelectedRefs(new Map());
       }
     }
-  }, [isOpen, sectionId, initialData]);
-
-  const loadReferences = async () => {
-    try {
-      setLoading(true);
-      const refs = await invoke<SectionReferenceDetail[]>('get_section_references', { sectionId });
-      setAvailableRefs(refs);
-    } catch (err) {
-      console.error('Failed to load references:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [isOpen, sectionId, initialData, sectionNumber]);
 
   const toggleReference = (refId: number) => {
     setSelectedRefs(prev => {
@@ -203,8 +209,9 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
 
       const metadata = {
         references: referencesMeta,
-        answerKey: answerKey.trim() || null
       };
+
+      let questionId = initialData?.id || '';
 
       if (initialData) {
         // Update Mode
@@ -221,9 +228,11 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
       } else {
         // Create Mode
         const finalContent = content.trim();
+        questionId = crypto.randomUUID();
 
         await invoke('create_question', {
           args: {
+            id: questionId,
             document_id: docId,
             section_id: sectionId,
             parent_id: parentId || null,
@@ -235,6 +244,11 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
           }
         });
       }
+
+      await invoke('replace_question_answer_keys', {
+        questionId,
+        items: answerKey.trim() ? [{ subCode: '', text: answerKey.trim(), isRequired: true }] : []
+      });
 
       onSuccess();
       onClose();

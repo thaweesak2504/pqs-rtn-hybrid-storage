@@ -5003,6 +5003,13 @@ pub struct AnswerKey {
     pub order_index: i32,
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct ReplaceAnswerKeyItem {
+    pub sub_code: String,
+    pub text: String,
+    pub is_required: Option<bool>,
+}
+
 #[tauri::command]
 pub fn get_question_answer_keys(question_id: String) -> Result<Vec<AnswerKey>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -5034,13 +5041,31 @@ pub fn get_question_answer_keys(question_id: String) -> Result<Vec<AnswerKey>, S
 pub fn update_answer_key(question_id: String, sub_code: String, new_text: String) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
+    let trimmed = new_text.trim().to_string();
+
+    if trimmed.is_empty() {
+        conn.execute(
+            "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = ?2",
+            params![question_id, sub_code],
+        ).map_err(|e| format!("Failed to delete answer key: {}", e))?;
+
+        if sub_code.is_empty() {
+            let _ = conn.execute(
+                "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = 'main'",
+                params![question_id],
+            );
+        }
+
+        return Ok("Answer key deleted successfully".to_string());
+    }
+
     // Upsert into AnswerKeys table
     conn.execute(
         "INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
          VALUES (?1, ?2, ?3, 1, 0)
          ON CONFLICT(question_id, sub_question_code) DO UPDATE SET
             answer_key_text = excluded.answer_key_text",
-        params![question_id, sub_code, new_text],
+        params![question_id, sub_code, trimmed],
     ).map_err(|e| format!("Failed to update answer key: {}", e))?;
 
     // Cleanup: If this is a single-part question (empty sub_code), 
@@ -5053,4 +5078,32 @@ pub fn update_answer_key(question_id: String, sub_code: String, new_text: String
     }
 
     Ok("Answer key updated successfully".to_string())
+}
+
+#[tauri::command]
+pub fn replace_question_answer_keys(question_id: String, items: Vec<ReplaceAnswerKeyItem>) -> Result<String, String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+
+    tx.execute(
+        "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1",
+        params![question_id],
+    ).map_err(|e| format!("Failed to clear answer keys: {}", e))?;
+
+    for (idx, item) in items.iter().enumerate() {
+        let text = item.text.trim();
+        let sub_code = item.sub_code.trim();
+        if text.is_empty() {
+            continue;
+        }
+
+        tx.execute(
+            "INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![question_id, sub_code, text, item.is_required.unwrap_or(true), idx as i32],
+        ).map_err(|e| format!("Failed to insert answer key: {}", e))?;
+    }
+
+    tx.commit().map_err(|e| format!("Failed to commit answer key replacement: {}", e))?;
+    Ok("Answer keys replaced successfully".to_string())
 }

@@ -1159,8 +1159,6 @@ fn get_occupation_sub_branches(
     content_database::get_occupation_sub_branches(branch_code)
 }
 
-
-
 #[tauri::command]
 fn create_occupation_sub_branch(
     code: String,
@@ -1178,8 +1176,6 @@ fn update_occupation_sub_branch(
 ) -> Result<(), String> {
     content_database::update_occupation_sub_branch(code, branch_code, name)
 }
-
-
 
 #[tauri::command]
 fn delete_occupation_sub_branch(code: String, branch_code: String) -> Result<(), String> {
@@ -1324,12 +1320,17 @@ fn save_trainee_answer(args: content_database::SaveTraineeAnswerArgs) -> Result<
 }
 
 #[tauri::command]
-fn save_qualifier_assessment(args: content_database::SaveQualifierAssessmentArgs) -> Result<String, String> {
+fn save_qualifier_assessment(
+    args: content_database::SaveQualifierAssessmentArgs,
+) -> Result<String, String> {
     content_database::save_qualifier_assessment(args)
 }
 
 #[tauri::command]
-fn get_trainee_answers(user_id: String, document_id: String) -> Result<Vec<content_database::UserAnswer>, String> {
+fn get_trainee_answers(
+    user_id: String,
+    document_id: String,
+) -> Result<Vec<content_database::UserAnswer>, String> {
     content_database::get_trainee_answers(&user_id, &document_id)
 }
 
@@ -1505,6 +1506,7 @@ fn main() {
             content_database::get_section_dev_metrics,
             content_database::get_question_answer_keys,
             content_database::update_answer_key,
+            content_database::replace_question_answer_keys,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");
