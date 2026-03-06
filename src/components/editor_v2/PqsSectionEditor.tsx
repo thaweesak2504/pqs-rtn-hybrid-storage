@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useState } from 'react';
+import DevProgressVerificationTable from './DevProgressVerificationTable';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
@@ -298,6 +299,15 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           viewMode={viewMode}
         />
       </div>
+
+      {/* 4. Developer Verification Table */}
+      {(viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'trainee') && (
+        <DevProgressVerificationTable
+          documentId={docId}
+          sectionId={sectionId}
+          refreshTrigger={progressRefreshKey}
+        />
+      )}
 
     </PqsEditorLayout>
   );

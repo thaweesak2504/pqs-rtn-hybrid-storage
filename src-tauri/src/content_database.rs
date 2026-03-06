@@ -4473,6 +4473,123 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
     Ok(result)
 }
 
+/// Developer verification metrics for Section
+#[derive(serde::Serialize, Debug)]
+pub struct DevSectionMetrics {
+    pub total_questions_raw: i32,
+    pub total_leaf_questions: i32,
+    pub total_exempted: i32,
+    pub total_with_answer_keys: i32,
+    pub total_sub_questions: i32,
+    pub total_answers: i32,
+    pub answers_passed: i32,
+    pub answers_pending: i32,
+    pub answers_needs_improvement: i32,
+}
+
+#[tauri::command]
+pub fn get_section_dev_metrics(
+    document_id: String,
+    section_id: i64,
+) -> Result<DevSectionMetrics, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Raw total questions in section
+    let total_questions_raw: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND document_id = ?2",
+        params![section_id, document_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    // Leaf questions (no children)
+    let total_leaf_questions: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM Questions
+         WHERE section_id = ?1 AND document_id = ?2
+           AND id NOT IN (SELECT DISTINCT parent_id FROM Questions WHERE parent_id IS NOT NULL AND section_id = ?1 AND document_id = ?2)",
+        params![section_id, document_id, section_id, document_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    // Exempted questions
+    let total_exempted: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND document_id = ?2 AND question_type = 'exempted'",
+        params![section_id, document_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    // Questions with answer keys and total sub questions
+    let metadata_rows: Vec<String> = conn.prepare(
+        "SELECT metadata FROM Questions WHERE section_id = ?1 AND document_id = ?2 AND metadata IS NOT NULL"
+    ).ok().and_then(|mut stmt| {
+        stmt.query_map(params![section_id, document_id], |row| {
+            row.get::<_, String>(0)
+        }).ok().map(|rows| rows.filter_map(|r| r.ok()).collect())
+    }).unwrap_or_default();
+
+    let mut total_with_answer_keys = 0;
+    let mut total_sub_questions = 0;
+
+    for meta_str in metadata_rows {
+        if let Ok(m) = serde_json::from_str::<serde_json::Value>(&meta_str) {
+            let mut has_key = false;
+            
+            if let Some(keys) = m.get("answerKeys").and_then(|v| v.as_object()) {
+                if !keys.is_empty() {
+                    has_key = true;
+                    total_sub_questions += keys.len() as i32;
+                }
+            } else if m.get("answerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
+                has_key = true;
+                total_sub_questions += 1;
+            } else if m.get("requireAnswerKey").and_then(|v| v.as_str()).map(|s| !s.is_empty()).unwrap_or(false) {
+                has_key = true;
+                total_sub_questions += 1;
+            }
+
+            if has_key {
+                total_with_answer_keys += 1;
+            }
+        }
+    }
+
+    // Answers metrics
+    let total_answers: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM UserAnswers ua JOIN Questions q ON q.id = ua.question_id WHERE ua.document_id = ?1 AND q.section_id = ?2",
+        params![document_id, section_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    let answers_passed: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM UserAnswers ua JOIN Questions q ON q.id = ua.question_id WHERE ua.document_id = ?1 AND q.section_id = ?2 AND ua.status = 'passed'",
+        params![document_id, section_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    let answers_pending: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM UserAnswers ua JOIN Questions q ON q.id = ua.question_id WHERE ua.document_id = ?1 AND q.section_id = ?2 AND ua.status = 'pending'",
+        params![document_id, section_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    let answers_needs_improvement: i32 = conn.query_row(
+        "SELECT COUNT(*) FROM UserAnswers ua JOIN Questions q ON q.id = ua.question_id WHERE ua.document_id = ?1 AND q.section_id = ?2 AND ua.status = 'needs_improvement'",
+        params![document_id, section_id],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    Ok(DevSectionMetrics {
+        total_questions_raw,
+        total_leaf_questions,
+        total_exempted,
+        total_with_answer_keys,
+        total_sub_questions,
+        total_answers,
+        answers_passed,
+        answers_pending,
+        answers_needs_improvement,
+    })
+}
+
 #[tauri::command]
 pub fn clear_all_trainee_answers() -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;

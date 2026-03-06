@@ -1502,6 +1502,7 @@ fn main() {
             content_database::clear_all_trainee_answers,
             content_database::get_sub_question_usage_counts,
             content_database::get_section_progress,
+            content_database::get_section_dev_metrics,
         ])
         .setup(|app| {
             logger::info("Starting application setup...");

@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { Clock, Trophy } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import Tooltip from '../ui/Tooltip';
+import DevProgressVerificationTable from './DevProgressVerificationTable';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
@@ -311,6 +312,15 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
           docBranchSub={docBranchSub}
         />
       </div>
+
+      {/* 4. Developer Verification Table */}
+      {(viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'trainee') && (
+        <DevProgressVerificationTable
+          documentId={docId}
+          sectionId={sectionId}
+          refreshTrigger={refreshQuestionsTrigger}
+        />
+      )}
 
     </PqsEditorLayout>
   );
