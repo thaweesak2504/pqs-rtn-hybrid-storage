@@ -4638,13 +4638,28 @@ fn extract_ref_section_id(metadata: Option<String>) -> Option<i64> {
 }
 
 fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str, section_id: i64) -> Result<ComputedSectionProgress, String> {
-    let (section_group, section_total_score): (i32, i32) = conn.query_row(
-        "SELECT section_group, COALESCE(total_score, 0) FROM Sections WHERE id = ?1",
+    let section_group: i32 = conn.query_row(
+        "SELECT section_group FROM Sections WHERE id = ?1",
         params![section_id],
-        |row| Ok((row.get(0)?, row.get(1).unwrap_or(0)))
+        |row| row.get(0)
     ).map_err(|e| e.to_string())?;
-
+ 
     if section_group == 300 {
+        let section_total_score: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(
+                CASE
+                    WHEN question_type = 'exempted' THEN 0
+                    WHEN is_group_header = 1 THEN COALESCE(group_score, 0)
+                    WHEN is_scored = 1 AND parent_id IS NULL THEN COALESCE(score, 0)
+                    ELSE 0
+                END
+             ), 0)
+             FROM Questions
+             WHERE section_id = ?1 AND parent_id IS NULL",
+            params![section_id],
+            |row| row.get(0)
+        ).unwrap_or(0);
+ 
         let mut stmt = conn.prepare(
             "SELECT id, metadata, COALESCE(score, 0), question_type
              FROM Questions
@@ -4654,6 +4669,7 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
                AND is_scored = 1
              ORDER BY sequence, id"
         ).map_err(|e| e.to_string())?;
+ 
 
         let rows = stmt.query_map(params![section_id], |row| {
             Ok((
