@@ -219,11 +219,15 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     return null;
   }, [linkedSectionMeta?.refSectionNumber]);
 
+  const shouldShowLinkedSectionProgress = !!linkedSectionMeta?.refSectionId
+    && !!linkedSectionGroup
+    && (viewMode === 'trainee' || viewMode === 'qualifier');
+
   const [linkedSectionProgress, setLinkedSectionProgress] = useState<LinkedSectionProgressData | null>(null);
   const [linkedSectionProgressLoading, setLinkedSectionProgressLoading] = useState(false);
 
   useEffect(() => {
-    if (!linkedSectionMeta?.refSectionId || !linkedSectionGroup) {
+    if (!shouldShowLinkedSectionProgress || !linkedSectionMeta?.refSectionId || !linkedSectionGroup) {
       setLinkedSectionProgress(null);
       setLinkedSectionProgressLoading(false);
       return;
@@ -257,7 +261,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     };
     fetchLinkedSectionProgress();
     return () => { isMounted = false; };
-  }, [documentId, linkedSectionGroup, linkedSectionMeta?.refSectionId]);
+  }, [documentId, linkedSectionGroup, linkedSectionMeta?.refSectionId, shouldShowLinkedSectionProgress]);
 
   const linkedSectionIsCountMode = !!linkedSectionProgress && linkedSectionProgress.max_score === 0 && (linkedSectionProgress.total_questions ?? 0) > 0;
   const linkedSectionCompletionPercent = linkedSectionProgress
@@ -387,7 +391,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   {question.display_text || "(ไม่ต้องปฏิบัติ)"}
                 </span>
               )}
-              {linkedSectionMeta?.refSectionId && linkedSectionGroup && (
+              {shouldShowLinkedSectionProgress && (
                 linkedSectionProgressLoading ? (
                   <span className="inline-flex items-center h-5 w-28 rounded bg-slate-100/70 dark:bg-slate-800/70 animate-pulse" />
                 ) : (
@@ -498,7 +502,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   <span className="flex-1">{sq.text}</span>
                   {sq.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
                   {/* Usage badge from relational table */}
-                  {!sq.alwaysChecked && (() => {
+                  {viewMode === 'edit' && !sq.alwaysChecked && (() => {
                     const count = subQUsedData.usage_map[sq.code] || 0;
                     const total = subQUsedData.total_children;
                     if (count === 0) {
