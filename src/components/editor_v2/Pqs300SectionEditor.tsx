@@ -23,6 +23,21 @@ const toThaiNumerals = (num: number | string): string => {
   return num.toString().replace(/[0-9]/g, (m) => thaiMap[parseInt(m)]);
 };
 
+interface ProgressData {
+  earned_score: number;
+  max_score: number;
+  completion_percentage: number;
+  is_passed: boolean;
+  passing_score: number;
+  total_questions?: number;
+  answered_questions?: number;
+  passed_questions?: number;
+  pending_with_answer?: number;
+  needs_improvement_questions?: number;
+}
+
+const MOCK_TRAINEE_ID = 'T-001';
+
 // ============ Component ============
 
 interface Pqs300SectionEditorProps {
@@ -66,6 +81,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   const [isEditingMeta, setIsEditingMeta] = useState(false);
   const [tempDuration, setTempDuration] = useState<string>('');
   const [tempUnit, setTempUnit] = useState<DurationUnit>('weeks');
+  const [progress, setProgress] = useState<ProgressData | null>(null);
 
   const refreshSectionTotalScore = useCallback(async () => {
     if (!sectionId) return;
@@ -76,6 +92,39 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       console.error('Failed to refresh section total score:', error);
     }
   }, [sectionId]);
+
+  const refreshSectionProgress = useCallback(async () => {
+    if (!sectionId) {
+      setProgress(null);
+      return;
+    }
+    try {
+      const result = await invoke<ProgressData>('get_section_progress', {
+        userId: MOCK_TRAINEE_ID,
+        documentId: docId,
+        sectionId,
+      }).catch(() => null);
+
+      setProgress(result ?? {
+        earned_score: 0,
+        max_score: 0,
+        completion_percentage: 0,
+        is_passed: false,
+        passing_score: 70,
+        total_questions: 0,
+        answered_questions: 0,
+        passed_questions: 0,
+        pending_with_answer: 0,
+        needs_improvement_questions: 0,
+      });
+    } catch (error) {
+      console.error('Failed to refresh section progress:', error);
+    }
+  }, [docId, sectionId]);
+
+  const refreshSectionMetaBar = useCallback(async () => {
+    await Promise.all([refreshSectionTotalScore(), refreshSectionProgress()]);
+  }, [refreshSectionProgress, refreshSectionTotalScore]);
 
   const handleTitleChange = async (newTitle: string) => {
     try {
@@ -167,6 +216,17 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   useEffect(() => {
     refreshSectionTotalScore();
   }, [refreshSectionTotalScore]);
+
+  useEffect(() => {
+    refreshSectionProgress();
+  }, [refreshSectionProgress]);
+
+  const earnedScore = progress?.earned_score ?? 0;
+  const maxScore = progress?.max_score ?? totalScore ?? 0;
+  const performancePercent = maxScore > 0
+    ? (Math.min(100, Math.round((earnedScore / maxScore) * 100)) || 0)
+    : 0;
+  const shouldShowAccumulatedProgress = viewMode === 'trainee' || viewMode === 'qualifier';
 
   // Preview Mode: Render A4 paper view
   if (viewMode === 'print') {
@@ -266,6 +326,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
                 setIsEditingMeta(true);
               } : undefined}
             >
+              <div className="flex flex-wrap items-center gap-6 min-w-0">
               {!readOnly ? (
                 <Tooltip content="คลิ๊กเพื่อป้อน จำนวนและหน่วยของเวลา ในการปฏิบัติ" position="top-start">
                   <div className="flex items-center gap-2">
@@ -300,8 +361,29 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
                 </span>
                 <span className="text-sm text-gray-600 dark:text-gray-300">คะแนน</span>
               </div>
+              </div>
+              {shouldShowAccumulatedProgress && (
+                <div className="ml-auto flex items-center gap-3 min-w-[16rem] max-w-full">
+                  <div className="shrink-0 text-sm font-semibold text-slate-700 dark:text-slate-200 whitespace-nowrap">
+                    <span className="text-purple-600 dark:text-purple-400">คะแนนสะสม:</span>{' '}
+                    <span className="font-sarabun">{toThaiNumerals(earnedScore)}/{toThaiNumerals(maxScore)}</span>
+                  </div>
+                  <div className="flex-1 min-w-[8rem]">
+                    <div className="w-full h-2 bg-purple-100 dark:bg-purple-900/30 rounded-full overflow-hidden border border-purple-200/60 dark:border-purple-800/40">
+                      <div
+                        className="h-full bg-emerald-500 dark:bg-emerald-400 transition-all duration-700 ease-out"
+                        style={{ width: `${performancePercent}%` }}
+                        title={`คะแนนสะสม ${performancePercent}%`}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 font-sarabun min-w-[3rem] text-right whitespace-nowrap">
+                    {toThaiNumerals(performancePercent)}%
+                  </span>
+                </div>
+              )}
               {!readOnly && (
-                <span className="text-xs text-gray-400 ml-auto">คลิกเพื่อแก้ไข</span>
+                <span className={`text-xs text-gray-400 whitespace-nowrap ${shouldShowAccumulatedProgress ? 'w-full text-right' : 'ml-auto'}`}>คลิกเพื่อแก้ไข</span>
               )}
             </div>
           )}
@@ -321,7 +403,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
             fetchSectionData();
             setRefreshQuestionsTrigger(prev => prev + 1);
           }}
-          onProgressUpdate={refreshSectionTotalScore}
+          onProgressUpdate={refreshSectionMetaBar}
           viewMode={viewMode}
           docBranchMain={docBranchMain}
           docBranchSub={docBranchSub}
