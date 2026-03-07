@@ -14,6 +14,19 @@ interface SubQuestionItem {
   alwaysChecked?: boolean;
 }
 
+interface LinkedSectionProgressData {
+  earned_score: number;
+  max_score: number;
+  completion_percentage: number;
+  is_passed: boolean;
+  passing_score: number;
+  total_questions?: number;
+  answered_questions?: number;
+  passed_questions?: number;
+  pending_with_answer?: number;
+  needs_improvement_questions?: number;
+}
+
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
 interface QuestionDisplayCardProps {
@@ -177,6 +190,89 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     }
   }, [parentSubQuestionList, question.metadata]);
 
+  const linkedSectionMeta = useMemo(() => {
+    if (!isSectionRefChild || !question.metadata) return null;
+    try {
+      const meta = JSON.parse(question.metadata);
+      const refSectionId = Number(meta.refSectionId || 0);
+      const refSectionNumber = Number(meta.refSectionNumber || 0);
+      return refSectionId > 0 ? { refSectionId, refSectionNumber } : null;
+    } catch {
+      return null;
+    }
+  }, [isSectionRefChild, question.metadata]);
+
+  const linkedSectionGroup = useMemo(() => {
+    if (!linkedSectionMeta?.refSectionNumber) return null;
+    if (linkedSectionMeta.refSectionNumber >= 100 && linkedSectionMeta.refSectionNumber < 200) return 100;
+    if (linkedSectionMeta.refSectionNumber >= 200 && linkedSectionMeta.refSectionNumber < 300) return 200;
+    return null;
+  }, [linkedSectionMeta?.refSectionNumber]);
+
+  const [linkedSectionProgress, setLinkedSectionProgress] = useState<LinkedSectionProgressData | null>(null);
+  const [linkedSectionProgressLoading, setLinkedSectionProgressLoading] = useState(false);
+
+  useEffect(() => {
+    if (!linkedSectionMeta?.refSectionId || !linkedSectionGroup) {
+      setLinkedSectionProgress(null);
+      setLinkedSectionProgressLoading(false);
+      return;
+    }
+    let isMounted = true;
+    const fetchLinkedSectionProgress = async () => {
+      try {
+        setLinkedSectionProgressLoading(true);
+        const result = await invoke<LinkedSectionProgressData>('get_section_progress', {
+          userId: 'T-001',
+          documentId,
+          sectionId: linkedSectionMeta.refSectionId,
+        }).catch(() => null);
+        if (isMounted) {
+          setLinkedSectionProgress(result ?? {
+            earned_score: 0,
+            max_score: 0,
+            completion_percentage: 0,
+            is_passed: false,
+            passing_score: 70,
+            total_questions: 0,
+            answered_questions: 0,
+            passed_questions: 0,
+            pending_with_answer: 0,
+            needs_improvement_questions: 0,
+          });
+        }
+      } finally {
+        if (isMounted) setLinkedSectionProgressLoading(false);
+      }
+    };
+    fetchLinkedSectionProgress();
+    return () => { isMounted = false; };
+  }, [documentId, linkedSectionGroup, linkedSectionMeta?.refSectionId]);
+
+  const linkedSectionIsCountMode = !!linkedSectionProgress && linkedSectionProgress.max_score === 0 && (linkedSectionProgress.total_questions ?? 0) > 0;
+  const linkedSectionCompletionPercent = linkedSectionProgress
+    ? (linkedSectionIsCountMode
+      ? (Math.min(100, Math.round(((linkedSectionProgress.answered_questions ?? 0) / ((linkedSectionProgress.total_questions ?? 1) || 1)) * 100)) || 0)
+      : (Math.min(100, Math.round(linkedSectionProgress.completion_percentage)) || 0))
+    : 0;
+  const linkedSectionPerformancePercent = linkedSectionProgress
+    ? (linkedSectionIsCountMode
+      ? (Math.min(100, Math.round(((linkedSectionProgress.passed_questions ?? 0) / ((linkedSectionProgress.total_questions ?? 1) || 1)) * 100)) || 0)
+      : (Math.min(100, Math.round((linkedSectionProgress.earned_score / (linkedSectionProgress.max_score || 1)) * 100)) || 0))
+    : 0;
+  const linkedSectionFinished = linkedSectionCompletionPercent >= 100;
+  const linkedSectionTheme = linkedSectionGroup === 100
+    ? {
+      rail: 'bg-emerald-100 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-900/40',
+      fill: 'bg-emerald-500 dark:bg-emerald-400',
+      label: 'text-emerald-700 dark:text-emerald-400',
+    }
+    : {
+      rail: 'bg-orange-100 dark:bg-orange-950/40 border-orange-200/60 dark:border-orange-900/40',
+      fill: 'bg-orange-500 dark:bg-orange-400',
+      label: 'text-orange-700 dark:text-orange-400',
+    };
+
   return (
     <div
       className={`
@@ -255,22 +351,45 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
         <div className="flex items-start gap-2 min-w-0 pr-2">
           <div className="flex-1 min-w-0">
-            <span className={isL1 ? "font-semibold" : ""}>{question.content}</span>
-            {question.references && question.references.length > 0 && (
-              <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
-                (
-                {question.references
-                  .map((ref) => `${ref.thai_letter || "?"}.${ref.location_text || "-"}`)
-                  .join(", ")}
+            <div className="flex items-center gap-x-2 gap-y-1 min-w-0 flex-wrap">
+              <span className={isL1 ? "font-semibold" : ""}>{question.content}</span>
+              {question.references && question.references.length > 0 && (
+                <span className="text-sm text-slate-500 dark:text-slate-400 font-normal">
+                  (
+                  {question.references
+                    .map((ref) => `${ref.thai_letter || "?"}.${ref.location_text || "-"}`)
+                    .join(", ")}
+                  )
+                </span>
+              )}
+              {question.question_type === 'exempted' && (
+                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
+                  {question.display_text || "(ไม่ต้องปฏิบัติ)"}
+                </span>
+              )}
+              {linkedSectionMeta?.refSectionId && linkedSectionGroup && (
+                linkedSectionProgressLoading ? (
+                  <span className="inline-flex items-center h-5 w-28 rounded bg-slate-100/70 dark:bg-slate-800/70 animate-pulse" />
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 max-w-full align-middle">
+                    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap ${linkedSectionFinished
+                      ? 'bg-emerald-100/60 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/40'
+                      : 'bg-amber-100/60 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/40'}`}>
+                      {linkedSectionFinished ? 'แล้วเสร็จ' : 'กำลังดำเนินการ'}
+                    </span>
+                    <span className={`text-[10px] font-medium whitespace-nowrap ${linkedSectionTheme.label}`}>
+                      Progress {toThaiNumber(linkedSectionPerformancePercent)}%
+                    </span>
+                    <span className={`w-16 h-1.5 rounded-full overflow-hidden border shrink-0 ${linkedSectionTheme.rail}`}>
+                      <span
+                        className={`block h-full transition-all duration-500 ease-out ${linkedSectionTheme.fill}`}
+                        style={{ width: `${linkedSectionPerformancePercent}%` }}
+                      />
+                    </span>
+                  </span>
                 )
-              </span>
-            )}
-            {/* Exempted badge */}
-            {question.question_type === 'exempted' && (
-              <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
-                {question.display_text || "(ไม่ต้องปฏิบัติ)"}
-              </span>
-            )}
+              )}
+            </div>
           </div>
           {/* Score badges — aligned right, purple theme for 300 */}
           {is300 && (
