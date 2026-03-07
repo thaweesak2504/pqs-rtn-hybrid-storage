@@ -67,6 +67,16 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   const [tempDuration, setTempDuration] = useState<string>('');
   const [tempUnit, setTempUnit] = useState<DurationUnit>('weeks');
 
+  const refreshSectionTotalScore = useCallback(async () => {
+    if (!sectionId) return;
+    try {
+      const freshTotal = await invoke<number>('calculate_section_total_score', { sectionId });
+      setTotalScore(freshTotal);
+    } catch (error) {
+      console.error('Failed to refresh section total score:', error);
+    }
+  }, [sectionId]);
+
   const handleTitleChange = async (newTitle: string) => {
     try {
       await invoke('update_section', {
@@ -153,6 +163,10 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   useEffect(() => {
     fetchSectionData();
   }, [fetchSectionData]);
+
+  useEffect(() => {
+    refreshSectionTotalScore();
+  }, [refreshSectionTotalScore]);
 
   // Preview Mode: Render A4 paper view
   if (viewMode === 'print') {
@@ -307,6 +321,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
             fetchSectionData();
             setRefreshQuestionsTrigger(prev => prev + 1);
           }}
+          onProgressUpdate={refreshSectionTotalScore}
           viewMode={viewMode}
           docBranchMain={docBranchMain}
           docBranchSub={docBranchSub}
