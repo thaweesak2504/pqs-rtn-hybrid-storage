@@ -689,9 +689,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                     cancelText: "",
                   })
                 }
-                onRefresh={() => fetchQuestions(true)}
+                onRefresh={() => setBgSyncTrigger(prev => prev + 1)}
                 onQuestionsUpdated={onQuestionsUpdated}
-                traineeAnswer={answerMap.get(`${question.id}:`)}
+                usageRefreshKey={bgSyncTrigger}
+                traineeAnswer={answerMap?.get(`${question.id}:`)}
                 answerMap={answerMap}
               />
             ))}

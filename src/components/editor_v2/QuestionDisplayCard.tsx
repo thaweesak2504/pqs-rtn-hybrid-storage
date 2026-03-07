@@ -59,6 +59,7 @@ interface QuestionDisplayCardProps {
   answerMap?: Map<string, UserAnswer>;
   documentId: string;
   onRefresh?: () => void;
+  usageRefreshKey?: number;
 }
 
 // ============ Helpers ============
@@ -107,6 +108,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   answerMap,
   documentId,
   onRefresh,
+  usageRefreshKey = 0,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -183,7 +185,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     invoke<SubQuestionUsageResponse>('get_sub_question_usage_counts', { parentId: question.id })
       .then(data => setSubQUsedData(data))
       .catch(() => setSubQUsedData({ usage_map: {}, total_children: 0 }));
-  }, [is200or300, isL1, displaySubQList.length, question.id]);
+  }, [is200or300, isL1, displaySubQList.length, question.id, usageRefreshKey]);
 
   const showDescriptionImage = is200or300 ? (level === 0 || level === 1) : isL1;
 

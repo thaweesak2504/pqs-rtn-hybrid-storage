@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  QuestionDetail,
-  QuestionReferenceDetail,
-  SectionReferenceDetail
+    QuestionDetail,
+    QuestionReferenceDetail,
+    SectionReferenceDetail
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -138,6 +138,7 @@ interface QuestionTreeNodeProps {
   isParentDefault300L1?: boolean;
   onRefresh?: () => void;
   onQuestionsUpdated?: () => void;
+  usageRefreshKey?: number;
   viewMode?: ViewMode;
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
@@ -178,6 +179,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   isParentDefault300L1 = false,
   onRefresh,
   onQuestionsUpdated,
+  usageRefreshKey = 0,
   viewMode = 'edit',
   traineeAnswer,
   answerMap,
@@ -425,6 +427,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           onRefresh={onRefresh}
           parentId={question.parent_id || null}
           currentSectionNumber={sectionNumber}
+          usageRefreshKey={usageRefreshKey}
         />
       </div>
     );
@@ -461,6 +464,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         answerMap={answerMap}
         documentId={documentId}
         onRefresh={onRefresh}
+        usageRefreshKey={usageRefreshKey}
       />
 
       {/* Insert After Form */}
@@ -481,6 +485,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
             currentSectionNumber={sectionNumber}
+            usageRefreshKey={usageRefreshKey}
           />
         </div>
       )}
@@ -530,6 +535,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionSelectedBranch={sectionSelectedBranch}
                 onRefresh={onRefresh}
                 onQuestionsUpdated={onQuestionsUpdated}
+                usageRefreshKey={usageRefreshKey}
                 traineeAnswer={answerMap?.get(`${child.id}:`)}
                 answerMap={answerMap}
               />
@@ -556,6 +562,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             sectionSelectedBranch={sectionSelectedBranch}
             onRefresh={onRefresh}
             currentSectionNumber={sectionNumber}
+            usageRefreshKey={usageRefreshKey}
           />
         </div>
       )}
@@ -588,7 +595,7 @@ interface QuestionFormCardProps {
     metadata?: string;
     answerKeys?: AnswerKeyRow[];
     childLayout?: "list" | "grid";
-  }) => void; // Added references, metadata & childLayout
+  }) => void | Promise<void>; // Added references, metadata & childLayout
   onCancel: () => void;
   documentId: string; // Added documentId
   existingId?: string; // Edit mode ID
@@ -608,6 +615,7 @@ interface QuestionFormCardProps {
   initialIsGroupHeader?: boolean;
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
   currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
+  usageRefreshKey?: number;
 }
 
 interface AnswerKeyRow {
@@ -651,6 +659,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   initialIsGroupHeader = false,
   onRefresh,
   currentSectionNumber,
+  usageRefreshKey = 0,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -1210,7 +1219,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     invoke<SubQuestionUsageResponse>('get_sub_question_usage_counts', { parentId })
       .then(data => setSubQUsageData(data))
       .catch(() => setSubQUsageData({ usage_map: {}, total_children: 0 }));
-  }, [hasParentSubQ, parentId]);
+  }, [hasParentSubQ, parentId, usageRefreshKey]);
 
   // Sync selectedSubQCodes เมื่อ parentSubQuestionList เปลี่ยน (reorder/delete)
   // For 300Template: also inject alwaysChecked codes
@@ -1730,7 +1739,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
 
-    onSave({
+    await onSave({
       content,
       description: showExtraButtons ? description : undefined,
       image: showExtraButtons ? imagePath || undefined : undefined,
@@ -1779,6 +1788,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         console.error('Failed to save question score for new L2:', err);
       }
     }
+
+    await onRefresh?.();
 
     // Close form after save completes
     onCancel();

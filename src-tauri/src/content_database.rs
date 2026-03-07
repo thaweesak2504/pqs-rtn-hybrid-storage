@@ -4433,6 +4433,8 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, ?8, ?9, 'required_instance', 0, 0, 1)",
                 params![id, args.document_id, args.section_id, args.parent_id, i, content, parent_answer_type, parent_metadata, args.score_per_instance],
             ).map_err(|e| e.to_string())?;
+
+            sync_question_sub_question_links(&conn, &id, parent_metadata.as_deref())?;
         }
     } else if args.desired_count < current_count {
         // Delete excess children (from the end)
@@ -4459,6 +4461,8 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
             "UPDATE Questions SET score = ?1, content = ?2, metadata = ?3, answer_type = ?4 WHERE id = ?5 AND question_type = 'required_instance'",
             params![args.score_per_instance, new_content, parent_metadata, parent_answer_type, child.id],
         ).map_err(|e| e.to_string())?;
+
+        sync_question_sub_question_links(&conn, &child.id, parent_metadata.as_deref())?;
     }
 
     // Mark parent as group_header if it has children, or unmark if count == 0
