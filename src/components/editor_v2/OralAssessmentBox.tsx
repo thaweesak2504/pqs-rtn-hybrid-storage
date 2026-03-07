@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { CheckCircle2, Edit3, FileText, Save, X } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type AssessmentStatus = "pending" | "passed" | "needs_improvement";
 
@@ -28,6 +28,7 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
   const [draftFeedback, setDraftFeedback] = useState(feedback || "");
   const [isEditorOpen, setIsEditorOpen] = useState(!(feedback || "").trim());
   const [isSaving, setIsSaving] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     const nextFeedback = feedback || "";
@@ -37,6 +38,12 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
     setDraftFeedback(nextFeedback);
     setIsEditorOpen(!nextFeedback.trim());
   }, [feedback, status]);
+
+  useEffect(() => {
+    if (!isEditorOpen || !textareaRef.current) return;
+    textareaRef.current.style.height = "auto";
+    textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+  }, [draftFeedback, isEditorOpen]);
 
   const trimmedDraft = useMemo(() => draftFeedback.trim(), [draftFeedback]);
   const hasSavedReport = localFeedback.trim().length > 0;
@@ -81,8 +88,8 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
   };
 
   return (
-    <div className="mt-2 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/20 px-3 py-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="mt-2 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/20 px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             <FileText className="w-3.5 h-3.5" />
@@ -95,7 +102,35 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
           )}
         </div>
 
-        {!isEditorOpen && !hasSavedReport && (
+        {isEditorOpen ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDraftFeedback(localFeedback);
+                setIsEditorOpen(!hasSavedReport);
+              }}
+              disabled={isSaving}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
+            >
+              <X className="w-3.5 h-3.5" />
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSaveReport();
+              }}
+              disabled={isSaving || !trimmedDraft}
+              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              บันทึก
+            </button>
+          </div>
+        ) : !hasSavedReport ? (
           <button
             type="button"
             onClick={(e) => {
@@ -108,51 +143,8 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
             <FileText className="w-3.5 h-3.5" />
             รายงานการประเมิน
           </button>
-        )}
-      </div>
-
-      {isEditorOpen ? (
-        <div className="mt-3 space-y-2" onClick={(e) => e.stopPropagation()}>
-          <textarea
-            value={draftFeedback}
-            onChange={(e) => setDraftFeedback(e.target.value)}
-            placeholder="พิมพ์รายงานการประเมินที่นี่..."
-            className="w-full min-h-[88px] resize-y rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
-          />
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDraftFeedback(localFeedback);
-                setIsEditorOpen(!hasSavedReport);
-              }}
-              disabled={isSaving}
-              className="inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors disabled:opacity-50"
-            >
-              <X className="w-3.5 h-3.5" />
-              ยกเลิก
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSaveReport();
-              }}
-              disabled={isSaving || !trimmedDraft}
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
-            >
-              <Save className="w-3.5 h-3.5" />
-              บันทึก
-            </button>
-          </div>
-        </div>
-      ) : hasSavedReport ? (
-        <div className="mt-3 space-y-3" onClick={(e) => e.stopPropagation()}>
-          <div className="rounded-md border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-800/70 px-3 py-2.5 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
-            {localFeedback}
-          </div>
-          <div className="flex items-center justify-end gap-2 flex-wrap">
+        ) : (
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={(e) => {
@@ -160,7 +152,7 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
                 setDraftFeedback(localFeedback);
                 setIsEditorOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               <Edit3 className="w-3.5 h-3.5" />
               แก้ไข
@@ -172,7 +164,7 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
                 handleMarkPassed();
               }}
               disabled={isSaving}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${localStatus === "passed"
+              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${localStatus === "passed"
                 ? "bg-emerald-600 text-white hover:bg-emerald-700"
                 : "border border-emerald-200 dark:border-emerald-800/50 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
             >
@@ -180,8 +172,35 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
               ผ่าน
             </button>
           </div>
+        )}
+      </div>
+
+      {isEditorOpen && (
+        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+          <textarea
+            ref={textareaRef}
+            rows={1}
+            value={draftFeedback}
+            onChange={(e) => setDraftFeedback(e.target.value)}
+            placeholder="พิมพ์รายงานการประเมินที่นี่..."
+            className="w-full resize-none overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm leading-5 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
+            style={{ minHeight: '2rem', height: '2rem' }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${target.scrollHeight}px`;
+            }}
+          />
         </div>
-      ) : null}
+      )}
+
+      {!isEditorOpen && hasSavedReport && (
+        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-md border border-slate-200/70 dark:border-slate-700/70 bg-white/80 dark:bg-slate-800/70 px-3 py-2 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap leading-relaxed">
+            {localFeedback}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
