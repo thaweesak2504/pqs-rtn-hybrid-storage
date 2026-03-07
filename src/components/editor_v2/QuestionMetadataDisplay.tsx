@@ -138,7 +138,9 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
       });
   }, [questionId]);
 
-  if (!data.image && !singleAnswerKey && Object.keys(multiAnswerKeys).length === 0) return null;
+  const hasAnswerKeyData = !!singleAnswerKey || Object.keys(multiAnswerKeys).length > 0;
+
+  if (!data.image && !showAnswerBox && !(showAnswerKey && hasAnswerKeyData)) return null;
 
   return (
     <div className="mt-2 space-y-2">

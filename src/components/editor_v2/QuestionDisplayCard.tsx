@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus,
 import React, { useEffect, useMemo, useState } from "react";
 import { QuestionDetail } from "../../types/content";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
+import OralAssessmentBox from "./OralAssessmentBox";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionMetadataDisplay from "./QuestionMetadataDisplay";
 
@@ -114,9 +115,18 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   // Regression guard: 200Template parents can become group headers after Add Sub-Question,
   // but their inline SubQ badges must remain visible. Only hide for the intended 300Template case.
   const shouldHideInlineSubQBadges = is300 && question.is_group_header;
+  const isOralAssessmentQuestion = is300
+    && !isL1
+    && !question.is_group_header
+    && question.question_type !== 'exempted'
+    && !!question.is_scored
+    && (question.score ?? 0) > 0;
   // Regression guard: 200Template parents still need answer boxes in Qualifier/Trainee views
   // even after becoming group headers, so do not gate them on !question.is_group_header.
-  const shouldShowAnswerBox = question.question_type !== 'exempted' && viewMode !== 'visitor' && (is200 || !question.is_group_header);
+  const shouldShowAnswerBox = question.question_type !== 'exempted'
+    && viewMode !== 'visitor'
+    && (is200 || !question.is_group_header)
+    && !(isOralAssessmentQuestion && (viewMode === 'trainee' || viewMode === 'qualifier'));
 
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
@@ -273,6 +283,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       label: 'text-orange-700 dark:text-orange-400',
     };
 
+  const manualOralAssessment = traineeAnswer && (traineeAnswer.sub_question_code || '') === ''
+    ? traineeAnswer
+    : undefined;
+  const isAutoLinkedOralQuestion = isOralAssessmentQuestion && !!linkedSectionMeta?.refSectionId && !!linkedSectionGroup;
+  const oralAssessmentStatus = isAutoLinkedOralQuestion
+    ? (linkedSectionProgress?.is_passed ? 'passed' : 'pending')
+    : (manualOralAssessment?.status === 'passed' ? 'passed' : 'pending');
+  const shouldShowOralStatus = isOralAssessmentQuestion && !isAutoLinkedOralQuestion && (viewMode === 'trainee' || viewMode === 'qualifier');
+  const shouldShowOralQualifierBox = viewMode === 'qualifier' && isOralAssessmentQuestion && !isAutoLinkedOralQuestion;
+
   return (
     <div
       className={`
@@ -413,6 +433,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                   {toThaiNumber(question.score)} คะแนน
                 </span>
               )}
+              {shouldShowOralStatus && (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${oralAssessmentStatus === 'passed'
+                  ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40'
+                  : 'text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-800/40'}`}>
+                  {oralAssessmentStatus === 'passed' ? 'ผ่าน' : 'รอประเมิน'}
+                </span>
+              )}
             </div>
           )}
           {/* Inline SubQ checkboxes — ชิดขวา (ซ่อนเมื่อ L2 เป็น group_header มี L3 จำนวนครั้ง) */}
@@ -501,6 +528,17 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               traineeAnswer={traineeAnswer}
               answerMap={answerMap}
               onRefresh={onRefresh}
+            />
+          </div>
+        )}
+        {shouldShowOralQualifierBox && (
+          <div onClick={(e) => e.stopPropagation()}>
+            <OralAssessmentBox
+              questionId={question.id}
+              documentId={documentId}
+              status={manualOralAssessment?.status}
+              feedback={manualOralAssessment?.feedback}
+              onSaved={onRefresh}
             />
           </div>
         )}
