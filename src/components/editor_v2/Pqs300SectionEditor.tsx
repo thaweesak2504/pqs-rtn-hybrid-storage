@@ -377,6 +377,11 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
                   <span className="text-sm font-semibold text-slate-600 dark:text-slate-300 shrink-0 font-sarabun min-w-[3rem] text-right whitespace-nowrap">
                     {toThaiNumerals(performancePercent)}%
                   </span>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded whitespace-nowrap ${performancePercent >= 100
+                    ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-900/30 border border-emerald-200/60 dark:border-emerald-800/40'
+                    : 'text-amber-700 dark:text-amber-400 bg-amber-100/60 dark:bg-amber-900/30 border border-amber-200/60 dark:border-amber-800/40'}`}>
+                    {performancePercent >= 100 ? 'แล้วเสร็จ' : 'กำลังดำเนินการ'}
+                  </span>
                 </div>
               )}
               {!readOnly && (
