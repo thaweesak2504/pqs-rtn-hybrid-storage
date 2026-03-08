@@ -906,12 +906,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [isSection300Selector, isSection100Selector, isSection200Selector, existingId, formScoreType, fetchSectionRefChildren]);
 
-  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2 only) ----
+  // ---- SubQuestionList Editor State (for L1 headers 2xx.2, 2xx.4, 3xx.2-3xx.5) ----
   // Base condition for showing sub-question editor
-  // NOTE: 3xx.1.3/1.4/1.5 are section selectors, NOT sub-question editors
+  // NOTE: 3xx.1.3/1.4/1.5 are section selectors (children of 3xx.1), NOT sub-question editors
   const baseShowSubQuestionEditor = level === 0 && (
     (is200 && (questionSequence === 2 || questionSequence === 4)) ||
-    (is300 && questionSequence === 2)
+    (is300 && questionSequence && questionSequence >= 2 && questionSequence <= 5)
   );
 
   // Disable for exempted prerequisite questions OR exempted 2xx.2/2xx.4
