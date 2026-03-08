@@ -132,7 +132,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
 
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
-  const isSection100or200Selector = is300 && questionSequence && !isL1 && (questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
+  const isSectionSelector = is300 && questionSequence && !isL1 && (questionSequence === 3 || questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.
@@ -218,6 +218,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     if (!linkedSectionMeta?.refSectionNumber) return null;
     if (linkedSectionMeta.refSectionNumber >= 100 && linkedSectionMeta.refSectionNumber < 200) return 100;
     if (linkedSectionMeta.refSectionNumber >= 200 && linkedSectionMeta.refSectionNumber < 300) return 200;
+    if (linkedSectionMeta.refSectionNumber >= 300 && linkedSectionMeta.refSectionNumber < 400) return 300;
     return null;
   }, [linkedSectionMeta?.refSectionNumber]);
 
@@ -282,6 +283,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       rail: 'bg-emerald-100 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-900/40',
       fill: 'bg-emerald-500 dark:bg-emerald-400',
       label: 'text-emerald-700 dark:text-emerald-400',
+    }
+    : linkedSectionGroup === 300
+    ? {
+      rail: 'bg-purple-100 dark:bg-purple-950/40 border-purple-200/60 dark:border-purple-900/40',
+      fill: 'bg-purple-500 dark:bg-purple-400',
+      label: 'text-purple-700 dark:text-purple-400',
     }
     : {
       rail: 'bg-orange-100 dark:bg-orange-950/40 border-orange-200/60 dark:border-orange-900/40',
@@ -468,13 +475,13 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           )}
         </div>
 
-        {showDescriptionImage && question.description && question.description !== 'undefined' && question.description !== 'null' && question.question_type !== 'exempted' && !(isSection100or200Selector && question.question_type === 'exempted') && (
+        {showDescriptionImage && question.description && question.description !== 'undefined' && question.description !== 'null' && question.question_type !== 'exempted' && !(isSectionSelector && question.question_type === 'exempted') && (
           <div className="mt-1 text-sm font-normal text-slate-700 dark:text-slate-400 whitespace-pre-wrap">
             {question.description}
           </div> // Description: Match L2 style
         )}
         {/* Section-ref L3 children for 3xx.1.4/1.5 are rendered via QuestionTreeNode as normal children */}
-        {isSection100or200Selector && question.question_type !== 'exempted' && !(question.children && question.children.length > 0) && (
+        {isSectionSelector && question.question_type !== 'exempted' && !(question.children && question.children.length > 0) && (
           <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded inline-block">
             ⚠ ยังไม่ได้เลือก Section
           </div>

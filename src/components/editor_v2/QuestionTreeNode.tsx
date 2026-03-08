@@ -3000,8 +3000,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
                         <span className="font-medium">{toThaiNumber(child.ref_section_number)}</span>
                         <span className="flex-1">{child.content}</span>
-                        {/* Show score only for 3xx.1.4/3xx.1.5 (not 3xx.1.3 — no score) */}
-                        {isEdit && !isSection300Selector && (
+                        {/* Show score for 3xx.1.3/3xx.1.4/3xx.1.5 */}
+                        {isEdit && (
                           <Tooltip content="คะแนน">
                             <input
                               type="number"
@@ -3018,15 +3018,15 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                             />
                           </Tooltip>
                         )}
-                        {!isEdit && !isSection300Selector && child.score > 0 && (
+                        {!isEdit && child.score > 0 && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
                             {child.score} คะแนน
                           </span>
                         )}
                       </div>
                     ))}
-                    {/* Only show total score for 3xx.1.4/3xx.1.5 (not 3xx.1.3) */}
-                    {!isSection300Selector && (
+                    {/* Show total score for 3xx.1.3/3xx.1.4/3xx.1.5 */}
+                    {(
                       <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
                         <span>รวม</span>
                         <span className="ml-auto">{sectionRefChildren.reduce((sum, c) => sum + c.score, 0)} คะแนน</span>
