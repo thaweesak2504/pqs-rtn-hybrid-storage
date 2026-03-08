@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import {
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    FileDigit,
-    FileText,
-    Globe,
-    GripVertical,
-    ImageIcon,
-    ListChecks,
-    Lock as LockIcon,
-    Mic,
-    Pencil,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  FileDigit,
+  FileText,
+  Globe,
+  GripVertical,
+  ImageIcon,
+  ListChecks,
+  Lock as LockIcon,
+  Mic,
+  Pencil,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-    QuestionDetail,
-    QuestionReferenceDetail,
-    SectionReferenceDetail
+  QuestionDetail,
+  QuestionReferenceDetail,
+  SectionReferenceDetail
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -1600,27 +1600,31 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     delete newMeta.answerKey;
     delete newMeta.answerKeys;
     // Save SubQuestionList data (for 2xx.2 and 2xx.4 L1 headers)
-    // Skip if exempted - metadata already cleared above
     const alwaysCodesInBranch = is300 ? filteredItems.filter((sq) => sq.alwaysChecked).map((sq) => sq.code) : [];
     const effectiveActiveSubQCodes = Array.from(new Set([...activeSubQCodes, ...alwaysCodesInBranch]));
-    if (!(isL1 && formScoreType === 'exempted')) {
-      if (showSubQuestionEditor) {
-        if (useSubQuestions) {
-          newMeta.useSubQuestions = true;
-          // Branches and sub-questions are now stored in DB tables, not metadata
-          delete newMeta.subQuestionList;
-          delete newMeta.occupationBranches;
-          // Always save selectedBranch for both 2xx.2 and 2xx.4 (needed for display)
-          if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
-          else delete newMeta.selectedBranch;
-          newMeta.activeSubQuestions = effectiveActiveSubQCodes;
-        } else {
-          delete newMeta.useSubQuestions;
-          delete newMeta.subQuestionList;
-          delete newMeta.occupationBranches;
-          delete newMeta.activeSubQuestions;
-          delete newMeta.selectedBranch;
-        }
+    if (isL1 && formScoreType === 'exempted') {
+      // Clear all SubQ metadata when exempted
+      delete newMeta.useSubQuestions;
+      delete newMeta.subQuestionList;
+      delete newMeta.occupationBranches;
+      delete newMeta.activeSubQuestions;
+      delete newMeta.selectedBranch;
+    } else if (showSubQuestionEditor) {
+      if (useSubQuestions) {
+        newMeta.useSubQuestions = true;
+        // Branches and sub-questions are now stored in DB tables, not metadata
+        delete newMeta.subQuestionList;
+        delete newMeta.occupationBranches;
+        // Always save selectedBranch for both 2xx.2 and 2xx.4 (needed for display)
+        if (selMainBranch) newMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
+        else delete newMeta.selectedBranch;
+        newMeta.activeSubQuestions = effectiveActiveSubQCodes;
+      } else {
+        delete newMeta.useSubQuestions;
+        delete newMeta.subQuestionList;
+        delete newMeta.occupationBranches;
+        delete newMeta.activeSubQuestions;
+        delete newMeta.selectedBranch;
       }
     }
     // Save selectedSubQuestions (for child questions of L1 with SubQuestionList)
