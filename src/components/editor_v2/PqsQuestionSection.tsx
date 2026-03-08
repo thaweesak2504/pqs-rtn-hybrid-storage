@@ -480,9 +480,11 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       }
 
       // Optimistic: patch local state immediately
+      // IMPORTANT: use explicit null check (!==undefined), not ?? operator,
+      // so that null/empty metadata actually clears the field instead of falling back to old value
       setQuestions(prev => prev.map(q =>
         q.id === id
-          ? { ...q, content: content.trim(), description: finalDesc ?? q.description, metadata: finalMeta ?? q.metadata }
+          ? { ...q, content: content.trim(), description: finalDesc !== undefined ? finalDesc : q.description, metadata: finalMeta !== undefined ? finalMeta : q.metadata }
           : q
       ));
       resetForms();

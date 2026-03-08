@@ -399,7 +399,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             } else {
               delete metaObj.image;
             }
-            const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
+            // Always send metadata string so backend can clear SubQ fields;
+            // use '{}' instead of null to prevent optimistic-update fallback
+            const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
             onUpdate(
               question.id,
               data.content,
