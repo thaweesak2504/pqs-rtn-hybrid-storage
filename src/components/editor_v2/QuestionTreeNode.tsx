@@ -384,7 +384,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialDescription={question.description || undefined}
           initialImage={initialImage}
           initialMetadata={question.metadata}
-          onSave={(data) => {
+          onSave={async (data) => {
             let metaObj: any = {};
             if (data.metadata) {
               try {
@@ -402,7 +402,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             // Always send metadata string so backend can clear SubQ fields;
             // use '{}' instead of null to prevent optimistic-update fallback
             const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
-            onUpdate(
+            await onUpdate(
               question.id,
               data.content,
               data.description || null,
