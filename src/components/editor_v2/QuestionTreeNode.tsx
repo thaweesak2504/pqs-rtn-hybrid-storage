@@ -1581,16 +1581,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         newMeta = JSON.parse(initialMetadata);
       } catch { }
     }
-    // If exempted, clear all sub-question and scoring metadata
-    if (isL1 && formScoreType === 'exempted') {
-      delete newMeta.useSubQuestions;
-      delete newMeta.subQuestionList;
-      delete newMeta.occupationBranches;
-      delete newMeta.activeSubQuestions;
-      delete newMeta.selectedBranch;
-      delete newMeta.answerKey;
-      delete newMeta.answerKeys;
-    }
     // Save toggle states (only store non-default values)
     if (!requireRef) newMeta.requireRef = false;
     else delete newMeta.requireRef;
@@ -1636,7 +1626,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       if (effectiveSelected.length > 0) newMeta.selectedSubQuestions = effectiveSelected;
       else delete newMeta.selectedSubQuestions;
     }
-    const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : undefined;
+    // CRITICAL: Always send metadata even if empty to ensure DB update (empty JSON clears metadata)
+    const metadataString = Object.keys(newMeta).length > 0 ? JSON.stringify(newMeta) : '{}';
 
     // Validation: warn if useSubQuestions=true but no active items selected
     if (showSubQuestionEditor && useSubQuestions && effectiveActiveSubQCodes.length === 0) {
@@ -1655,7 +1646,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
         if (imagePath) metaObj.image = imagePath;
         if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
-        const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
+        const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
 
         await invoke('update_question', {
           args: {
