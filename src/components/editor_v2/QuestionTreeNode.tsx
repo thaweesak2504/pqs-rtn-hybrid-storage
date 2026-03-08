@@ -188,11 +188,17 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
   const isExpanded = !collapsedIds.has(question.id);
+  // Parse question.metadata ONCE — all derived values below use this
+  const parsedQuestionMeta = useMemo(() => {
+    if (!question.metadata) return null;
+    try { return JSON.parse(question.metadata); } catch { return null; }
+  }, [question.metadata]);
+
   // Section-ref children (3xx.1.4/1.5 children) use section_number as prefix instead of ก.ข.ค.
   const refSectionMeta = useMemo(() => {
-    if (!is300 || !question.metadata) return null;
-    try { const m = JSON.parse(question.metadata); return m.refSectionId ? m : null; } catch { return null; }
-  }, [is300, question.metadata]);
+    if (!is300 || !parsedQuestionMeta) return null;
+    return parsedQuestionMeta.refSectionId ? parsedQuestionMeta : null;
+  }, [is300, parsedQuestionMeta]);
   const prefix = refSectionMeta?.refSectionNumber
     ? `${toThaiNumber(refSectionMeta.refSectionNumber)}.`
     : is200or300
@@ -228,51 +234,38 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const [childLayout, setChildLayout] = useState<"list" | "grid">("list");
 
   useEffect(() => {
-    if (question.metadata) {
-      try {
-        const meta = JSON.parse(question.metadata);
-        setChildLayout(meta.childLayout || "list");
-      } catch { }
+    if (parsedQuestionMeta) {
+      setChildLayout(parsedQuestionMeta.childLayout || "list");
     }
-  }, [question.metadata]);
+  }, [parsedQuestionMeta]);
 
   const questionUsesOwnSubQuestions = useMemo(() => {
-    if (!question.metadata) return false;
-    try {
-      const meta = JSON.parse(question.metadata);
-      return meta.useSubQuestions === true;
-    } catch {
-      return false;
-    }
-  }, [question.metadata]);
+    return parsedQuestionMeta?.useSubQuestions === true;
+  }, [parsedQuestionMeta]);
 
   // Extract parentSubQuestionList from DB (for passing to children)
   const [ownSubQuestionList, setOwnSubQuestionList] = useState<SubQuestionItem[]>([]);
   useEffect(() => {
-    if (!question.metadata) { setOwnSubQuestionList([]); return; }
-    try {
-      const meta = JSON.parse(question.metadata);
-      if (!meta.useSubQuestions) { setOwnSubQuestionList([]); return; }
-      const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-      const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
-      if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
-      // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
-      // This is the reliable way — activeCodes[0] may be from a different prefix
-      const sCode = is300 ? "3" : "2";
-      const lCode = question.sequence?.toString() || "0";
-      const derivedPrefix = `${sCode}${lCode}${selectedBranch.main}${selectedBranch.sub}`;
-      invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
-        'get_all_sub_questions_for_branch',
-        { branchCode: selectedBranch.main }
-      ).then(dbSqs => {
-        const prefixFiltered = derivedPrefix ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix)) : dbSqs;
-        const filtered = prefixFiltered
-          .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
-          .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
-        setOwnSubQuestionList(filtered);
-      }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
-    } catch (e) { console.error('[ownSubQuestionList] parse error:', e); setOwnSubQuestionList([]); }
-  }, [question.metadata, is300, question.sequence]);
+    if (!parsedQuestionMeta || !parsedQuestionMeta.useSubQuestions) { setOwnSubQuestionList([]); return; }
+    const activeCodes: string[] = Array.isArray(parsedQuestionMeta.activeSubQuestions) ? parsedQuestionMeta.activeSubQuestions : [];
+    const selectedBranch: { main: string; sub: string } | undefined = parsedQuestionMeta.selectedBranch;
+    if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
+    // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
+    // This is the reliable way — activeCodes[0] may be from a different prefix
+    const sCode = is300 ? "3" : "2";
+    const lCode = question.sequence?.toString() || "0";
+    const derivedPrefix = `${sCode}${lCode}${selectedBranch.main}${selectedBranch.sub}`;
+    invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
+      'get_all_sub_questions_for_branch',
+      { branchCode: selectedBranch.main }
+    ).then(dbSqs => {
+      const prefixFiltered = derivedPrefix ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix)) : dbSqs;
+      const filtered = prefixFiltered
+        .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
+        .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
+      setOwnSubQuestionList(filtered);
+    }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
+  }, [parsedQuestionMeta, is300, question.sequence]);
 
   const effectiveChildSubQuestionList = questionUsesOwnSubQuestions
     ? ownSubQuestionList
@@ -280,14 +273,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
-    if (!question.metadata) return undefined;
-    try {
-      const meta = JSON.parse(question.metadata);
-      return meta.image || undefined;
-    } catch {
-      return undefined;
-    }
-  }, [question.metadata]);
+    return parsedQuestionMeta?.image || undefined;
+  }, [parsedQuestionMeta]);
 
   // ── Score-only inline form for: 3xx.6 L2 (required_instance) + 3xx.1.4/1.5 L3 (section_ref) ──
   const is306L2Child = isRequiredCountChild && is300 && level === 1 && pSeqNum === 6;
@@ -669,6 +656,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isL1 = level === 0;
   const isEdit = !!existingId;
 
+  // Parse initialMetadata ONCE — all derived state initializers below use this
+  const parsedInitialMeta = useMemo(() => {
+    if (!initialMetadata) return null;
+    try { return JSON.parse(initialMetadata); } catch { return null; }
+  }, [initialMetadata]);
+
   // Special question type detection for Section 300
   const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
   // We need to know if its parent is 3xx.1. We can check prefix!
@@ -846,7 +839,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
 
   // Update question score when formScoreType changes for prerequisite children (3xx.1.1-1.3)
+  const prereqChildMountRef = useRef(true);
   useEffect(() => {
+    if (prereqChildMountRef.current) { prereqChildMountRef.current = false; return; }
     if (isPrerequisiteChild && existingId) {
       const updateScore = async () => {
         try {
@@ -934,8 +929,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     );
   }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, isDefaultDescL1_200, formScoreType]);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
-    if (!initialMetadata) return false;
-    try { return JSON.parse(initialMetadata).useSubQuestions === true; } catch { return false; }
+    return parsedInitialMeta?.useSubQuestions === true;
   });
 
   // Reset useSubQuestions when formScoreType becomes exempted
@@ -978,29 +972,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Keep legacy subQuestionList for backward compat display only
   const [subQuestionList, setSubQuestionList] = useState<SubQuestionItem[]>(() => {
-    if (!initialMetadata) return [];
-    try { const m = JSON.parse(initialMetadata); return Array.isArray(m.subQuestionList) ? m.subQuestionList : []; } catch { return []; }
+    return Array.isArray(parsedInitialMeta?.subQuestionList) ? parsedInitialMeta.subQuestionList : [];
   });
 
   const [selMainBranch, setSelMainBranch] = useState<string>(() => {
     if (sectionSelectedBranch) return sectionSelectedBranch.main;
-    if (!initialMetadata) return "";
-    try { return JSON.parse(initialMetadata).selectedBranch?.main || ""; } catch { return ""; }
+    return parsedInitialMeta?.selectedBranch?.main || "";
   });
   const [selSubBranch, setSelSubBranch] = useState<string>(() => {
     if (sectionSelectedBranch) return sectionSelectedBranch.sub;
-    if (!initialMetadata) return "";
-    try { return JSON.parse(initialMetadata).selectedBranch?.sub || ""; } catch { return ""; }
+    return parsedInitialMeta?.selectedBranch?.sub || "";
   });
   const [activeSubQCodes, setActiveSubQCodes] = useState<string[]>(() => {
-    if (!initialMetadata) return [];
-    try { const m = JSON.parse(initialMetadata); return Array.isArray(m.activeSubQuestions) ? m.activeSubQuestions : []; } catch { return []; }
+    return Array.isArray(parsedInitialMeta?.activeSubQuestions) ? parsedInitialMeta.activeSubQuestions : [];
   });
   const [selectedSubQCodes, setSelectedSubQCodes] = useState<string[]>(() => {
-    const saved: string[] = (() => {
-      if (!initialMetadata) return [];
-      try { const m = JSON.parse(initialMetadata); return Array.isArray(m.selectedSubQuestions) ? m.selectedSubQuestions : []; } catch { return []; }
-    })();
+    const saved: string[] = Array.isArray(parsedInitialMeta?.selectedSubQuestions) ? parsedInitialMeta.selectedSubQuestions : [];
     // For 300Template: auto-include alwaysChecked items from parentSubQuestionList
     const alwaysCodes = (sectionGroup === 300 && parentSubQuestionList)
       ? parentSubQuestionList.filter(sq => sq.alwaysChecked).map(sq => sq.code)
@@ -1248,25 +1235,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
-    if (!initialMetadata) return is300 ? false : true; // Default: Unrequired for 300, Required for others (100, 200)
-    try {
-      const meta = JSON.parse(initialMetadata);
-      if (meta.requireRef !== undefined) return meta.requireRef;
-      return is300 ? false : true;
-    } catch {
-      return is300 ? false : true;
-    }
+    if (parsedInitialMeta?.requireRef !== undefined) return parsedInitialMeta.requireRef;
+    return is300 ? false : true; // Default: Unrequired for 300, Required for others (100, 200)
   });
 
   const [requireAnswerKey, setRequireAnswerKey] = useState<boolean>(() => {
-    if (!initialMetadata) return is300 ? false : true; // Default: Unrequired for 300, Required for others
-    try {
-      const meta = JSON.parse(initialMetadata);
-      if (meta.requireAnswerKey !== undefined) return meta.requireAnswerKey;
-      return is300 ? false : true;
-    } catch {
-      return is300 ? false : true;
-    }
+    if (parsedInitialMeta?.requireAnswerKey !== undefined) return parsedInitialMeta.requireAnswerKey;
+    return is300 ? false : true; // Default: Unrequired for 300, Required for others
   });
 
   const [isRefExpanded, setIsRefExpanded] = useState(false); // Collapsible State
@@ -1303,6 +1278,25 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [existingId]);
 
   const showExtraButtons = is200or300 ? (level === 0 || level === 1) : isL1; // 200/300: show for L0 & L1, others: L0 only
+
+  // Shared handler: create a new sub-question in DB (used by Enter key + "เพิ่ม" button)
+  const handleAddSubQuestion = useCallback(async () => {
+    if (!newSqText.trim() || !autoCode) return;
+    try {
+      let subBranchCode = selSubBranch;
+      if (sectionOccupationBranches && dbSubQuestions.length > 0) {
+        const firstCode = dbSubQuestions[0].code;
+        if (firstCode.length >= 4) {
+          subBranchCode = firstCode.substring(3, 4);
+        }
+      }
+      const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
+        req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
+      });
+      setDbSubQuestions(prev => [...prev, created]);
+    } catch (err: any) { console.error(err); }
+    setNewSqText("");
+  }, [newSqText, autoCode, selSubBranch, sectionOccupationBranches, dbSubQuestions, selMainBranch]);
 
   // Refs for auto-resizing
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -1433,15 +1427,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       thai_letter: selectedRef.thai_letter,
     };
 
-    if (existingId) {
-      setLinkedRefs([...linkedRefs, newRef]);
-      setSelectedRefId("");
-      setPageInput("");
-    } else {
-      setLinkedRefs([...linkedRefs, newRef]);
-      setSelectedRefId("");
-      setPageInput("");
-    }
+    setLinkedRefs([...linkedRefs, newRef]);
+    setSelectedRefId("");
+    setPageInput("");
 
     // Clear reference validation error if it exists
     if (errors.refs) setErrors((prev) => ({ ...prev, refs: false }));
@@ -1542,7 +1530,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       newErrors.content = true;
       hasError = true;
     }
-    const is300 = sectionGroup === 300;
+    // NOTE: is300 from outer scope (line 654) is reused here — no redeclaration needed
     const showAnswerKey = !is300 && (!isDefaultL1 && requireAnswerKey && !useSubQuestions && (!hasParentSubQ || activeSubQCodes.length > 0));
     if (showAnswerKey) {
       if (hasParentSubQ && selectedSubQCodes.length > 0) {
@@ -1787,7 +1775,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
 
-    await onRefresh?.();
+    // NOTE: onRefresh removed — onSave → handleUpdate already triggers setBgSyncTrigger → fetchQuestions.
+    // Calling onRefresh here caused a redundant second fetch from DB.
 
     // Close form after save completes
     onCancel();
@@ -2322,45 +2311,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           placeholder="พิมพ์คำถามย่อย..."
                           className={`w-full px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600`}
                           onKeyDown={async (e) => {
-                            if (e.key === "Enter" && newSqText.trim()) {
-                              try {
-                                // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
-                                let subBranchCode = selSubBranch;
-                                if (sectionOccupationBranches && dbSubQuestions.length > 0) {
-                                  // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
-                                  const firstCode = dbSubQuestions[0].code;
-                                  if (firstCode.length >= 4) {
-                                    subBranchCode = firstCode.substring(3, 4); // Y position
-                                  }
-                                }
-                                const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
-                                  req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
-                                });
-                                setDbSubQuestions(prev => [...prev, created]);
-                              } catch (err: any) { console.error(err); }
-                              setNewSqText("");
-                            }
+                            if (e.key === "Enter") await handleAddSubQuestion();
                           }} />
                       </div>
-                      <button onClick={async () => {
-                        if (!newSqText.trim()) return;
-                        try {
-                          // For 2xx.4, determine sub_branch_code from existing codes or use selSubBranch
-                          let subBranchCode = selSubBranch;
-                          if (sectionOccupationBranches && dbSubQuestions.length > 0) {
-                            // Extract sub_branch_code from first existing sub-question (format: S+L+X+Y+Z)
-                            const firstCode = dbSubQuestions[0].code;
-                            if (firstCode.length >= 4) {
-                              subBranchCode = firstCode.substring(3, 4); // Y position
-                            }
-                          }
-                          const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
-                            req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
-                          });
-                          setDbSubQuestions(prev => [...prev, created]);
-                        } catch (err: any) { console.error(err); }
-                        setNewSqText("");
-                      }}
+                      <button onClick={handleAddSubQuestion}
                         disabled={!newSqText.trim()}
                         className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border ${sqClr.addBtn} disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}>
                         <Plus className="w-3 h-3" /> เพิ่ม
@@ -3005,11 +2959,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               type="number"
                               min={0}
                               value={child.score}
-                              onChange={async (e) => {
+                              onChange={(e) => {
+                                const newScore = parseInt(e.target.value) || 0;
+                                setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
+                              }}
+                              onBlur={async (e) => {
                                 const newScore = parseInt(e.target.value) || 0;
                                 try {
                                   await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
-                                  setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
                                 } catch (err) { console.error('Failed to update section ref score:', err); }
                               }}
                               className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"

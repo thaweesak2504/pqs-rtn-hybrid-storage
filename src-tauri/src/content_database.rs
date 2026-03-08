@@ -4696,18 +4696,25 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
             total_questions += 1;
 
             if question_type == "section_ref" {
-                if let Some(ref_section_id) = extract_ref_section_id(metadata) {
-                    let linked_progress = compute_section_progress(conn, user_id, document_id, ref_section_id)?;
-                    if linked_progress.is_passed {
-                        earned_score += score;
-                        answered_questions += 1;
-                        passed_questions += 1;
-                    } else if linked_progress.answered_questions > 0
-                        || linked_progress.pending_with_answer > 0
-                        || linked_progress.needs_improvement_questions > 0
-                        || linked_progress.completion_percentage > 0.0 {
-                        answered_questions += 1;
-                        pending_with_answer += 1;
+                if let Some(ref_section_id) = extract_ref_section_id(metadata.clone()) {
+                    match compute_section_progress(conn, user_id, document_id, ref_section_id) {
+                        Ok(linked_progress) => {
+                            if linked_progress.is_passed {
+                                earned_score += score;
+                                answered_questions += 1;
+                                passed_questions += 1;
+                            } else if linked_progress.answered_questions > 0
+                                || linked_progress.pending_with_answer > 0
+                                || linked_progress.needs_improvement_questions > 0
+                                || linked_progress.completion_percentage > 0.0 {
+                                answered_questions += 1;
+                                pending_with_answer += 1;
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[compute_section_progress] WARN: Failed to compute linked section {} for question {}: {}", ref_section_id, question_id, e);
+                            // Skip this child gracefully instead of failing the entire section
+                        }
                     }
                 }
                 continue;

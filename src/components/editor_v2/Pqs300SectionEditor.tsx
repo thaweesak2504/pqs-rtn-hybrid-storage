@@ -219,7 +219,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   }, [refreshSectionMetaBar]);
 
   const earnedScore = progress?.earned_score ?? 0;
-  const maxScore = (progress?.max_score && progress.max_score > 0 ? progress.max_score : totalScore) ?? 0;
+  const maxScore = Math.max(progress?.max_score ?? 0, totalScore ?? 0);
   const performancePercent = maxScore > 0
     ? (Math.min(100, Math.round((earnedScore / maxScore) * 100)) || 0)
     : 0;

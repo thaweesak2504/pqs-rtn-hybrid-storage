@@ -35,7 +35,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
   refreshTrigger = 0
 }) => {
   const [progress, setProgress] = useState<ProgressData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
 
   // MOCK User ID for now (Matches TraineeAnswerBox MOCK_TRAINEE_ID)
   const MOCK_TRAINEE_ID = "T-001";
@@ -44,11 +44,10 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
     let isMounted = true;
     const fetchProgress = async () => {
       if (!sectionId) {
-        if (isMounted) setLoading(false);
+        if (isMounted) setInitialLoading(false);
         return;
       }
       try {
-        setLoading(true);
         const result = await invoke<ProgressData>('get_section_progress', {
           userId: MOCK_TRAINEE_ID,
           documentId: documentId,
@@ -75,7 +74,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
       } catch (error) {
         console.error("Failed to fetch progress:", error);
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) setInitialLoading(false);
       }
     };
 
@@ -83,7 +82,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
     return () => { isMounted = false; };
   }, [documentId, sectionId, refreshTrigger]);
 
-  if (loading) {
+  if (initialLoading && !progress) {
     return (
       <div className="w-full h-14 animate-pulse bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"></div>
     );
