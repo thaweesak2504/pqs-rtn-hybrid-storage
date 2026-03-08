@@ -117,6 +117,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   // Regression guard: 200Template parents can become group headers after Add Sub-Question,
   // but their inline SubQ badges must remain visible. Only hide for the intended 300Template case.
   const shouldHideInlineSubQBadges = is300 && question.is_group_header;
+  // Special question type detection for Section 300
+  const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
+  const isSectionSelector = is300 && questionSequence && !isL1 && (questionSequence === 3 || questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
+
   const isOralAssessmentQuestion = is300
     && !isL1
     && !question.is_group_header
@@ -125,14 +129,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && (question.score ?? 0) > 0;
   // Regression guard: 200Template parents still need answer boxes in Qualifier/Trainee views
   // even after becoming group headers, so do not gate them on !question.is_group_header.
+  // Section selectors (3xx.1.3/1.4/1.5) have no answer box since 300Template has no answer keys
   const shouldShowAnswerBox = question.question_type !== 'exempted'
     && viewMode !== 'visitor'
     && (is200 || !question.is_group_header)
-    && !(isOralAssessmentQuestion && (viewMode === 'trainee' || viewMode === 'qualifier'));
-
-  // Special question type detection for Section 300
-  const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
-  const isSectionSelector = is300 && questionSequence && !isL1 && (questionSequence === 3 || questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
+    && !(isOralAssessmentQuestion && (viewMode === 'trainee' || viewMode === 'qualifier'))
+    && !isSectionSelector;
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.
