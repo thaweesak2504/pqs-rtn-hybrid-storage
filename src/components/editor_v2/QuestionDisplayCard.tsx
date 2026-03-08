@@ -127,14 +127,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && question.question_type !== 'exempted'
     && !!question.is_scored
     && (question.score ?? 0) > 0;
-  // Regression guard: 200Template parents still need answer boxes in Qualifier/Trainee views
-  // even after becoming group headers, so do not gate them on !question.is_group_header.
-  // Section selectors (3xx.1.3/1.4/1.5) have no answer box since 300Template has no answer keys
+  // 300Template has no answer keys at all - no answer boxes anywhere
+  // 200Template parents still need answer boxes in Qualifier/Trainee views even after becoming group headers
   const shouldShowAnswerBox = question.question_type !== 'exempted'
     && viewMode !== 'visitor'
-    && (is200 || !question.is_group_header)
-    && !(isOralAssessmentQuestion && (viewMode === 'trainee' || viewMode === 'qualifier'))
-    && !isSectionSelector;
+    && !is300
+    && (is200 || !question.is_group_header);
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.
