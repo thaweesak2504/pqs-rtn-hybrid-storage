@@ -433,33 +433,18 @@ pub struct SystemStateInfo {
 
 /// Check system state and backups for initialization decision
 pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String> {
-    logger::info("🔍 Checking system state for initialization");
-    
-    // Check database state
     let database_exists_and_valid = crate::database::check_database_exists_and_valid()
         .unwrap_or(false);
-    logger::debug(&format!("📊 Database valid: {}", database_exists_and_valid));
-    
     // Check media state (without creating directories)
     let media_exists_and_valid = crate::file_manager::FileManager::check_media_exists_and_valid_no_create()
         .unwrap_or(false);
-    logger::debug(&format!("📊 Media valid: {}", media_exists_and_valid));
-    
     // Check backup info
     let backup_info = check_backup_for_initialization()?;
-    logger::debug(&format!("📊 Backups available: {}", backup_info.has_backups));
-    
     let result = SystemStateInfo {
         database_exists_and_valid,
         media_exists_and_valid,
         backup_info,
     };
-    
-    logger::info(&format!("📈 System state result: DB={}, Media={}, Backups={}", 
-        result.database_exists_and_valid, 
-        result.media_exists_and_valid, 
-        result.backup_info.has_backups));
-    
     Ok(result)
 }
 

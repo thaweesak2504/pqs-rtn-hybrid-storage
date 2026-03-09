@@ -163,7 +163,6 @@ pub fn get_connection_readonly() -> SqlResult<Connection> {
 }
 
 pub fn initialize_database() -> Result<String, String> {
-    logger::debug("Starting database initialization...");
     
     // Initialize database with comprehensive error handling
     match initialize_database_internal() {
@@ -185,7 +184,6 @@ pub fn check_database_exists_and_valid() -> Result<bool, String> {
     // Check if database file exists FIRST before trying to open it
     // Important: Connection::open() will CREATE an empty file if it doesn't exist!
     if !db_path.exists() {
-        logger::debug("Database file does not exist");
         return Ok(false);
     }
     
@@ -230,7 +228,6 @@ pub fn check_database_exists_and_valid() -> Result<bool, String> {
             let is_valid = users_table_exists && officers_table_exists && admin_exists;
             
             if is_valid {
-                logger::debug("Database exists and is valid");
                 Ok(true)
             } else {
                 logger::warn("Database exists but is missing required tables or data");

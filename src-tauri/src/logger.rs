@@ -38,7 +38,3 @@ pub fn critical<T: Display>(message: T) {
     eprintln!("🚨 [CRITICAL ERROR] {}", message);
 }
 
-/// Log success message (always shown)
-pub fn success<T: Display>(message: T) {
-    println!("[SUCCESS] 🎉 {}", message);
-}

@@ -63,9 +63,6 @@ impl FileManager {
             }
         }
         
-        logger::debug(&format!("Media dir: {:?}", media_dir));
-        logger::debug(&format!("Avatars dir: {:?}", avatars_dir));
-        logger::debug(&format!("High ranks dir: {:?}", high_ranks_dir));
         
         Ok(FileManager {
             media_dir,
@@ -101,7 +98,6 @@ impl FileManager {
         let new_instance = Arc::new(Self::new()?);
         *instance = Some(Arc::clone(&new_instance));
         
-        logger::debug("FileManager singleton instance created with Arc<T>");
         
         Ok(new_instance)
     }
@@ -319,7 +315,6 @@ impl FileManager {
         
         // Check if media directory exists
         if !media_dir.exists() {
-            logger::debug("Media directory does not exist");
             return Ok(false);
         }
         
@@ -338,10 +333,8 @@ impl FileManager {
         let has_content = avatars_exist || high_ranks_exist;
         
         if has_content {
-            logger::debug("Media directory exists and has content");
             Ok(true)
         } else {
-            logger::debug("Media directory exists but is empty");
             Ok(false)
         }
     }

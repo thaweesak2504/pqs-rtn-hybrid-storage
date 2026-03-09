@@ -686,10 +686,8 @@ fn initialize_database_if_needed() -> Result<String, String> {
         !(system_state.database_exists_and_valid && system_state.media_exists_and_valid);
 
     if should_initialize {
-        logger::info("Initializing database and media as they are missing or invalid");
         database::initialize_database()
     } else {
-        logger::info("Database and media already exist and are valid, skipping initialization");
         Ok("Database and media already initialized".to_string())
     }
 }
@@ -1509,41 +1507,26 @@ fn main() {
             content_database::replace_question_answer_keys,
         ])
         .setup(|app| {
-            logger::info("Starting application setup...");
-
             // Initialize content database (OwnerUnits, Documents, etc.)
-            match content_database::initialize_content_database() {
-                Ok(_) => logger::success("Content database initialized successfully"),
-                Err(e) => logger::error(&format!("Failed to initialize content database: {}", e)),
+            if let Err(e) = content_database::initialize_content_database() {
+                logger::error(&format!("Failed to initialize content database: {}", e));
             }
 
             // Clean up orphaned section_ref questions (from sections deleted before cleanup was added)
-            match content_database::cleanup_orphaned_section_refs() {
-                Ok(n) if n > 0 => {
-                    logger::info(&format!("Cleaned up {} orphaned section_ref(s)", n))
-                }
-                Ok(_) => {}
-                Err(e) => logger::warn(&format!("Failed to cleanup orphaned section_refs: {}", e)),
+            if let Err(e) = content_database::cleanup_orphaned_section_refs() {
+                logger::warn(&format!("Failed to cleanup orphaned section_refs: {}", e));
             }
 
-            // Skip automatic database initialization - let frontend handle it
-            logger::info("Skipping automatic database initialization - frontend will handle based on system state"); // Initialize FileManager to ensure directories exist (singleton)
-            match file_manager::FileManager::get_instance() {
-                Ok(_) => {
-                    logger::success("File manager initialized successfully");
-                }
-                Err(e) => {
-                    logger::warn(&format!("Failed to initialize file manager: {}", e));
-                    logger::warn("Avatar operations may not work correctly");
-                    // Continue anyway - not critical for app startup
-                }
+            // Initialize FileManager to ensure directories exist (singleton)
+            if let Err(e) = file_manager::FileManager::get_instance() {
+                logger::warn(&format!("Failed to initialize file manager: {}", e));
+                logger::warn("Avatar operations may not work correctly");
             }
 
             // Show window after it's ready (prevents flickering)
             if let Some(window) = app.get_window("main") {
                 match window.show() {
                     Ok(_) => {
-                        logger::success("Main window shown successfully");
                         // Force maximize to override any saved state from window-state plugin
                         if let Err(e) = window.maximize() {
                             logger::warn(&format!("Failed to maximize window: {}", e));
@@ -1555,7 +1538,6 @@ fn main() {
                 logger::warn("Main window not found");
             }
 
-            logger::success("Application setup completed");
             Ok(())
         })
         .run(tauri::generate_context!())
