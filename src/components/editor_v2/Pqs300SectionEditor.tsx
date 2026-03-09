@@ -225,6 +225,9 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
     : 0;
   const shouldShowAccumulatedProgress = viewMode === 'trainee' || viewMode === 'qualifier';
 
+  // Wait for sectionId before rendering — prevents empty template flash
+  if (!sectionId) return null;
+
   // Preview Mode: Render A4 paper view
   if (viewMode === 'print') {
     return (

@@ -214,6 +214,9 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
     }
   };
 
+  // Wait for sectionId before rendering — prevents empty template flash
+  if (!sectionId) return null;
+
   // Print Mode: Render A4 paper view
   if (viewMode === 'print') {
     return (
