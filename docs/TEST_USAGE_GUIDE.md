@@ -457,6 +457,112 @@ Files with >90% coverage:
 
 ---
 
+## 📂 Complete File Tree — Test Related
+
+```
+project/
+├── 📄 vitest.config.ts                     # Vitest configuration
+├── 📄 tsconfig.json                        # TypeScript config (with vitest/globals types)
+├── 📄 package.json                         # Test scripts + devDependencies
+│
+├── src/
+│   ├── 📄 main.tsx                         # React entry point
+│   ├── 📄 index.css                        # Global styles
+│   ├── 📄 App.tsx                          # Root component
+│   ├── 📄 vite-env.d.ts
+│   │
+│   ├── components/                         # React components (tested)
+│   │   ├── ui/
+│   │   │   ├── Button.tsx                  # Button component
+│   │   │   └── Modal.tsx                   # Modal component
+│   │   └── ... (other components)
+│   │
+│   ├── services/                           # Frontend services (tested)
+│   │   ├── zoomService.ts                  # Zoom operations → Tauri
+│   │   ├── hybridAvatarService.ts          # Avatar file storage
+│   │   ├── tauriService.ts                 # Tauri backend mapping
+│   │   ├── desktopService.ts               # Window + system ops
+│   │   └── ... (other services)
+│   │
+│   ├── utils/                              # Utility functions (tested)
+│   │   ├── commandSanitizer.ts             # Thai char sanitization
+│   │   ├── resolveAvatarSource.ts          # Avatar image resolution
+│   │   └── ... (other utils)
+│   │
+│   └── test/                               # ⭐ TEST DIRECTORY
+│       ├── 📄 setup.ts                     # Global test setup + mocks
+│       │                  ├─ vi.mock("@tauri-apps/api/tauri")
+│       │                  ├─ vi.mock("@tauri-apps/api/dialog")
+│       │                  ├─ vi.mock("@tauri-apps/api/fs")
+│       │                  └─ global polyfills (IntersectionObserver)
+│       │
+│       ├── utils/                          # Utility tests (14 tests)
+│       │   ├── commandSanitizer.test.ts    # 8 tests
+│       │   │  └─ Thai diacritics, control chars, zero-width removal
+│       │   └── resolveAvatarSource.test.ts # 6 tests
+│       │      └─ Image type detection, fallback paths
+│       │
+│       ├── components/                     # Component tests (8 tests)
+│       │   ├── Button.test.tsx             # 3 tests
+│       │   │  └─ Click, disabled/loading states, icon positioning
+│       │   └── Modal.test.tsx              # 5 tests
+│       │      └─ Escape key, close button, backdrop behavior
+│       │
+│       └── integration/                    # Integration tests (25 tests)
+│           ├── zoomService.integration.test.ts        # 4 tests
+│           │  └─ zoom_in, zoom_out, zoom_reset, errors
+│           ├── hybridAvatarService.integration.test.ts # 4 tests
+│           │  └─ saveAvatar, getAvatarInfo, deleteAvatar, serialization
+│           ├── tauriService.integration.test.ts       # 10 tests
+│           │  └─ safeInvoke, createUser, authenticateUser,
+│           │     hashPassword, saveAvatar, getAvatarByUserId,
+│           │     deleteAvatar, initializeDatabase
+│           └── desktopService.integration.test.ts     # 7 tests
+│              └─ Window state queries, zoom, sizing/positioning
+│
+├── .github/
+│   └── workflows/
+│       └── 📄 frontend-tests.yml           # GitHub Actions CI/CD
+│          └─ Auto-runs: npm run test:run, test:coverage
+│
+├── docs/
+│   ├── 📄 TEST_USAGE_GUIDE.md              # ⭐ This file
+│   ├── 📄 refactoring-plan.md              # Phase A-D testing roadmap
+│   └── 📄 system_specifications.md
+│
+└── scripts/                                # Automation scripts
+    ├── setup-frontend-tests.ps1            # Setup test environment
+    ├── run-frontend-tests.ps1              # Run tests with options
+    └── run-integration-tests.ps1           # Run integration tests
+```
+
+### File Summary
+
+**Test Framework Files:**
+- `vitest.config.ts` — Vitest runner configuration (jsdom, globals, coverage)
+- `src/test/setup.ts` — Global mocks for Tauri APIs, browser APIs
+
+**Test Files (8 total, 47 tests):**
+- 2 utility test files (14 tests)
+- 2 component test files (8 tests)
+- 4 integration test files (25 tests)
+
+**Configuration Files:**
+- `tsconfig.json` — Added `types: ["vitest/globals", "node"]`
+- `package.json` — Added test scripts: `test`, `test:ui`, `test:run`, `test:coverage`, `test:integration`
+- `.github/workflows/frontend-tests.yml` — Automated testing on push/PR
+
+**Documentation:**
+- `docs/TEST_USAGE_GUIDE.md` — Complete usage guide (this file)
+- `docs/refactoring-plan.md` — Testing infrastructure roadmap
+
+**Script Helpers:**
+- `scripts/setup-frontend-tests.ps1` — Installation helper
+- `scripts/run-frontend-tests.ps1` — Run with watch/UI/coverage options
+- `scripts/run-integration-tests.ps1` — Integration test runner
+
+---
+
 **Last Updated:** 2026-03-09  
 **Status:** Phase B & C1 Complete ✅  
 **Next Phase:** Phase A (Rust) or Phase D (E2E) after refactoring
