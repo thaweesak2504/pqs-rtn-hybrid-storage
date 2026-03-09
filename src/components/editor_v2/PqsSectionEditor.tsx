@@ -69,13 +69,14 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         const currentSection = sections.find(s => s.section_number === sectionNumber);
 
         if (currentSection) {
-          setSectionId(currentSection.id);
+          // Fetch references BEFORE setting sectionId so data is ready when guard passes
+          await fetchReferences(currentSection.id);
           setCurrentTitle(currentSection.title_th);
           // Strip section number prefix (e.g. "101 " from "101 Gunner Mate") — only text part is editable
           const rawLabel = currentSection.menu_label || '';
           const prefix = `${sectionNumber} `;
           setCurrentMenuLabel(rawLabel.startsWith(prefix) ? rawLabel.slice(prefix.length) : rawLabel);
-          await fetchReferences(currentSection.id);
+          setSectionId(currentSection.id);
         }
       } catch (error) {
         console.error("Failed to fetch section data:", error);

@@ -195,7 +195,6 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
       const currentSection = sections.find(s => s.section_number === sectionNumber);
       if (currentSection) {
-        setSectionId(currentSection.id);
         setCurrentTitle(currentSection.title_th);
         // Strip section number prefix — only menu text part is editable
         const rawLabel = currentSection.menu_label || '';
@@ -204,6 +203,8 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         setDurationValue(currentSection.duration_value);
         setDurationUnit(currentSection.duration_unit || 'weeks');
         setTotalScore(currentSection.total_score);
+        // Set sectionId LAST so all metadata is ready when the guard passes
+        setSectionId(currentSection.id);
       }
     } catch (error) {
       console.error("Failed to fetch section data:", error);

@@ -75,7 +75,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [traineeAnswers, setTraineeAnswers] = useState<UserAnswer[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [bgSyncTrigger, setBgSyncTrigger] = useState(0);
 
   const [creatingAtParent, setCreatingAtParent] = useState<string | null>(null);
@@ -111,7 +111,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const fetchQuestions = async (silent?: boolean) => {
     if (!docId || sectionId === undefined) return; // sectionId can be 0, so check for undefined
     try {
-      // Questions will appear as soon as data arrives — no spinner needed
+      if (!silent) setLoading(true);
       const data = await invoke<QuestionDetail[]>("get_document_questions_with_details", { docId });
       const filtered = data.filter(
         (q) =>
@@ -180,7 +180,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     } catch (error) {
       console.error("Failed to fetch questions:", error);
     } finally {
-      // loading state no longer used — questions render immediately
+      if (!silent) setLoading(false);
     }
   };
 
@@ -552,17 +552,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 gap-3">
-        <div className="relative w-10 h-10">
-          <div className="absolute inset-0 rounded-full border-2 border-blue-200 dark:border-blue-900"></div>
-          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-blue-500 animate-spin"></div>
-        </div>
-        <span className="text-sm text-slate-400">กำลังโหลดคำถาม...</span>
-      </div>
-    );
-  }
+  // Don't render anything until first fetch completes — prevents empty template flash
+  if (loading) return null;
 
   return (
     <div className="space-y-5">
