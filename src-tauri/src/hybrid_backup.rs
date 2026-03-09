@@ -464,3 +464,89 @@ pub fn check_backup_for_initialization() -> Result<InitializationBackupInfo, Str
         total_backups,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::TempDir;
+    use zip::write::FileOptions;
+
+    #[test]
+    fn test_read_backup_manifest_success() {
+        let temp_dir = TempDir::new().expect("Temp dir should be created");
+        let zip_path = temp_dir.path().join("backup.zip");
+
+        let file = fs::File::create(&zip_path).expect("Zip file should be created");
+        let mut zip = ZipWriter::new(file);
+        let options = FileOptions::default();
+
+        let manifest = BackupManifest {
+            version: "1.0".to_string(),
+            timestamp: 123,
+            database_size: 10,
+            media_size: 20,
+            total_files: 2,
+            backup_type: "hybrid".to_string(),
+            checksum: "abc".to_string(),
+        };
+
+        let content = serde_json::to_string(&manifest).expect("Manifest should serialize");
+        zip.start_file("manifest.json", options)
+            .expect("Start manifest entry should succeed");
+        zip.write_all(content.as_bytes())
+            .expect("Write manifest should succeed");
+        zip.finish().expect("Finish zip should succeed");
+
+        let parsed = read_backup_manifest(&zip_path).expect("Manifest should be read");
+        assert_eq!(parsed.version, "1.0");
+        assert_eq!(parsed.timestamp, 123);
+        assert_eq!(parsed.total_files, 2);
+    }
+
+    #[test]
+    fn test_read_backup_manifest_missing_manifest_returns_error() {
+        let temp_dir = TempDir::new().expect("Temp dir should be created");
+        let zip_path = temp_dir.path().join("backup_no_manifest.zip");
+
+        let file = fs::File::create(&zip_path).expect("Zip file should be created");
+        let mut zip = ZipWriter::new(file);
+        let options = FileOptions::default();
+
+        zip.start_file("other.json", options)
+            .expect("Start file entry should succeed");
+        zip.write_all(b"{}")
+            .expect("Write file entry should succeed");
+        zip.finish().expect("Finish zip should succeed");
+
+        let result = read_backup_manifest(&zip_path);
+        assert!(result.is_err(), "Should fail when manifest.json is missing");
+    }
+
+    #[test]
+    fn test_copy_dir_recursive_copies_nested_files() {
+        let src_temp = TempDir::new().expect("Source temp dir should be created");
+        let dst_temp = TempDir::new().expect("Destination temp dir should be created");
+
+        let src_root = src_temp.path().join("src");
+        let dst_root = dst_temp.path().join("dst");
+
+        fs::create_dir_all(src_root.join("nested")).expect("Create nested source should succeed");
+        fs::write(src_root.join("root.txt"), "root-content").expect("Write root file should succeed");
+        fs::write(src_root.join("nested").join("child.txt"), "child-content")
+            .expect("Write child file should succeed");
+
+        copy_dir_recursive(&src_root, &dst_root).expect("Recursive copy should succeed");
+
+        assert!(dst_root.join("root.txt").exists());
+        assert!(dst_root.join("nested").join("child.txt").exists());
+
+        let root_content = fs::read_to_string(dst_root.join("root.txt"))
+            .expect("Read copied root should succeed");
+        let child_content = fs::read_to_string(dst_root.join("nested").join("child.txt"))
+            .expect("Read copied child should succeed");
+
+        assert_eq!(root_content, "root-content");
+        assert_eq!(child_content, "child-content");
+    }
+}

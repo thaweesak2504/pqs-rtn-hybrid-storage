@@ -236,7 +236,7 @@ fn get_table_schema(conn: &Connection, table: &str) -> Result<String, String> {
 fn get_table_data(conn: &Connection, table: &str) -> Result<Vec<String>, String> {
     let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table))
         .map_err(|e| format!("Failed to prepare data query for {}: {}", table, e))?;
-    
+
     let rows = stmt.query_map([], |row| {
         let mut values = Vec::new();
         let mut i = 0;
@@ -249,10 +249,10 @@ fn get_table_data(conn: &Connection, table: &str) -> Result<Vec<String>, String>
                 Err(_) => break,
             }
         }
-        
+
         // Create INSERT statement
         let mut insert = format!("INSERT INTO {} VALUES (", table);
-        
+
         for (i, value) in values.iter().enumerate() {
             if i > 0 { insert.push_str(", "); }
             if value == "NULL" {
@@ -262,15 +262,82 @@ fn get_table_data(conn: &Connection, table: &str) -> Result<Vec<String>, String>
             }
         }
         insert.push_str(");");
-        
+
         Ok(insert)
     }).map_err(|e| format!("Failed to query data for {}: {}", table, e))?;
-    
+
     let mut data = Vec::new();
     for row in rows {
         let insert = row.map_err(|e| format!("Failed to get data row: {}", e))?;
         data.push(insert);
     }
-    
+
     Ok(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_get_table_list_returns_user_tables() {
+        let conn = Connection::open_in_memory().expect("In-memory db should open");
+        conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)", [])
+            .expect("Create users table should succeed");
+        conn.execute("CREATE TABLE refs (id INTEGER PRIMARY KEY, title TEXT)", [])
+            .expect("Create refs table should succeed");
+
+        let tables = get_table_list(&conn).expect("get_table_list should succeed");
+
+        assert!(tables.contains(&"users".to_string()));
+        assert!(tables.contains(&"refs".to_string()));
+    }
+
+    #[test]
+    fn test_get_table_schema_contains_create_statement() {
+        let conn = Connection::open_in_memory().expect("In-memory db should open");
+        conn.execute("CREATE TABLE docs (id TEXT PRIMARY KEY, title TEXT)", [])
+            .expect("Create docs table should succeed");
+
+        let schema = get_table_schema(&conn, "docs").expect("get_table_schema should succeed");
+
+        assert!(schema.contains("CREATE TABLE docs"));
+        assert!(schema.contains("title TEXT"));
+    }
+
+    #[test]
+    fn test_get_table_data_generates_insert_and_escapes_quotes() {
+        let conn = Connection::open_in_memory().expect("In-memory db should open");
+        conn.execute("CREATE TABLE docs (id TEXT, title TEXT)", [])
+            .expect("Create docs table should succeed");
+        conn.execute(
+            "INSERT INTO docs (id, title) VALUES (?1, ?2)",
+            ["DOC1", "O'Brien"],
+        )
+        .expect("Insert row should succeed");
+
+        let inserts = get_table_data(&conn, "docs").expect("get_table_data should succeed");
+
+        assert_eq!(inserts.len(), 1);
+        assert!(inserts[0].contains("INSERT INTO docs VALUES"));
+        assert!(inserts[0].contains("O''Brien"));
+    }
+
+    #[test]
+    fn test_get_table_data_treats_null_literal_as_null_keyword() {
+        let conn = Connection::open_in_memory().expect("In-memory db should open");
+        conn.execute("CREATE TABLE docs (id TEXT, note TEXT)", [])
+            .expect("Create docs table should succeed");
+        conn.execute(
+            "INSERT INTO docs (id, note) VALUES (?1, ?2)",
+            ["DOC2", "NULL"],
+        )
+        .expect("Insert row should succeed");
+
+        let inserts = get_table_data(&conn, "docs").expect("get_table_data should succeed");
+
+        assert_eq!(inserts.len(), 1);
+        assert!(inserts[0].contains("NULL"));
+    }
 }

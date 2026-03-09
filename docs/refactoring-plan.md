@@ -544,6 +544,8 @@ mod db_tests {
 
 #### Step A4: Test Backup & Export Logic (Day 2 Afternoon)
 
+**Status:** ✅ Complete (2026-03-09)
+
 **วัตถุประสงค์:** ทดสอบ critical data operations
 
 **Target Files:**
@@ -598,7 +600,13 @@ mod backup_tests {
 
 ```powershell
 # Test backup operations only
-.\scripts\run-rust-tests.ps1 -Filter "backup"
+.\scripts\run-rust-tests.ps1 -Filter "hybrid_backup::tests"
+
+# Test export operations only
+.\scripts\run-rust-tests.ps1 -Filter "database_export::tests"
+
+# Test universal backup helpers
+.\scripts\run-rust-tests.ps1 -Filter "universal_sqlite_backup::tests"
 ```
 
 **Expected Output:**
@@ -607,6 +615,22 @@ mod backup_tests {
 - ✅ Restore verified
 - ✅ Data integrity confirmed
 - ✅ Error handling tested
+
+**Actual Output (Done):**
+
+- ✅ เพิ่ม tests ใน `src-tauri/src/hybrid_backup.rs`:
+  - `test_read_backup_manifest_success`
+  - `test_read_backup_manifest_missing_manifest_returns_error`
+  - `test_copy_dir_recursive_copies_nested_files`
+- ✅ เพิ่ม tests ใน `src-tauri/src/database_export.rs`:
+  - SQL/CSV export formatting assertions
+  - `export_table` data extraction
+  - JSON/SQL import path verification
+- ✅ เพิ่ม tests ใน `src-tauri/src/universal_sqlite_backup.rs`:
+  - `get_table_list`, `get_table_schema`, `get_table_data`
+  - SQL literal escaping (`O''Brien`) checks
+- ✅ Module test results: `5 + 4 + 3 = 12` tests passed
+- ✅ Full Rust suite: `37 passed; 0 failed`
 
 ---
 

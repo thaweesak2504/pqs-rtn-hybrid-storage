@@ -565,7 +565,7 @@ fn import_from_csv(tx: &rusqlite::Transaction, csv_content: &str) -> Result<(), 
 fn import_from_sql(tx: &rusqlite::Transaction, sql_content: &str) -> Result<(), String> {
     // Simple SQL import - can be enhanced for complex SQL files
     let statements: Vec<&str> = sql_content.split(';').collect();
-    
+
     for statement in statements {
         let statement = statement.trim();
         if !statement.is_empty() && !statement.starts_with("--") {
@@ -573,6 +573,148 @@ fn import_from_sql(tx: &rusqlite::Transaction, sql_content: &str) -> Result<(), 
                 .map_err(|e| format!("Failed to execute SQL statement: {}", e))?;
         }
     }
-    
+
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+    use serde_json::json;
+
+    fn sample_export() -> DatabaseExport {
+        DatabaseExport {
+            timestamp: 123456,
+            format: ExportFormat::Sql,
+            version: "1.0".to_string(),
+            tables: vec![TableExport {
+                name: "users".to_string(),
+                schema: "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER, note TEXT)"
+                    .to_string(),
+                data: vec![json!({
+                    "id": 1,
+                    "name": "O'Brien",
+                    "active": true,
+                    "note": null
+                })],
+                row_count: 1,
+            }],
+            metadata: ExportMetadata {
+                created_at: "2026-03-09T00:00:00Z".to_string(),
+                total_tables: 1,
+                total_rows: 1,
+                file_size: 0,
+                format: "Sql".to_string(),
+            },
+        }
+    }
+
+    #[test]
+    fn test_export_to_sql_contains_schema_and_escaped_values() {
+        let export = sample_export();
+        let sql = export_to_sql(&export).expect("SQL export should succeed");
+
+        assert!(sql.contains("DROP TABLE IF EXISTS users;"));
+        assert!(sql.contains("CREATE TABLE users"));
+        assert!(sql.contains("INSERT INTO users"));
+        assert!(sql.contains("'O''Brien'"));
+        assert!(sql.contains("PRAGMA foreign_keys = OFF;"));
+        assert!(sql.contains("COMMIT;"));
+    }
+
+    #[test]
+    fn test_export_to_csv_contains_header_and_row() {
+        let mut export = sample_export();
+        export.format = ExportFormat::Csv;
+
+        let csv = export_to_csv(&export).expect("CSV export should succeed");
+
+        assert!(csv.contains("# Table: users"));
+        assert!(csv.contains("id"));
+        assert!(csv.contains("name"));
+        assert!(csv.contains("\"O'Brien\""));
+    }
+
+    #[test]
+    fn test_export_table_reads_rows_from_connection() {
+        let conn = Connection::open_in_memory().expect("In-memory db should open");
+        conn.execute(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)",
+            [],
+        )
+        .expect("Create table should succeed");
+        conn.execute(
+            "INSERT INTO users (name, active) VALUES (?1, ?2)",
+            ["alice", "1"],
+        )
+        .expect("Insert row should succeed");
+
+        let table = export_table(&conn, "users").expect("export_table should succeed");
+
+        assert_eq!(table.name, "users");
+        assert_eq!(table.row_count, 1);
+        assert!(table.schema.contains("CREATE TABLE users"));
+        assert_eq!(table.data.len(), 1);
+        assert!(table.data[0].get("name").is_some());
+    }
+
+    #[test]
+    fn test_import_from_sql_executes_statements() {
+        let mut conn = Connection::open_in_memory().expect("In-memory db should open");
+        let tx = conn.transaction().expect("Transaction should start");
+
+        let sql = "
+            CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT);
+            INSERT INTO t (name) VALUES ('abc');
+        ";
+
+        import_from_sql(&tx, sql).expect("SQL import should succeed");
+        tx.commit().expect("Commit should succeed");
+
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM t", [], |row| row.get(0))
+            .expect("Count query should succeed");
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_import_from_json_inserts_data() {
+        let mut conn = Connection::open_in_memory().expect("In-memory db should open");
+        conn.execute(
+            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)",
+            [],
+        )
+        .expect("Create table should succeed");
+
+        let tx = conn.transaction().expect("Transaction should start");
+
+        let export = DatabaseExport {
+            timestamp: 1,
+            format: ExportFormat::Json,
+            version: "1.0".to_string(),
+            tables: vec![TableExport {
+                name: "users".to_string(),
+                schema: "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, active INTEGER)"
+                    .to_string(),
+                data: vec![json!({"id": 10, "name": "bob", "active": true})],
+                row_count: 1,
+            }],
+            metadata: ExportMetadata {
+                created_at: "now".to_string(),
+                total_tables: 1,
+                total_rows: 1,
+                file_size: 0,
+                format: "Json".to_string(),
+            },
+        };
+
+        import_from_json(&tx, &export).expect("JSON import should succeed");
+        tx.commit().expect("Commit should succeed");
+
+        let name: String = conn
+            .query_row("SELECT name FROM users WHERE id = 10", [], |row| row.get(0))
+            .expect("Inserted row should exist");
+        assert_eq!(name, "bob");
+    }
 }
