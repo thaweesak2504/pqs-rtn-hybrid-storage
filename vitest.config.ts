@@ -18,6 +18,7 @@ export default defineConfig({
         "src/services/zoomService.ts",
         "src/services/hybridAvatarService.ts",
         "src/services/tauriService.ts",
+        "src/services/desktopService.ts",
       ],
       exclude: [
         "node_modules/",
