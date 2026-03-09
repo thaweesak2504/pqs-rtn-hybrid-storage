@@ -269,3 +269,1086 @@ Phase D: E2E Tests                ← ทำเมื่อ feature stable
 | 5 | แยก `content_database.rs` เป็น modules | ปานกลาง | 3-4 ชั่วโมง |
 | 6 | Phase 3: แยก sub-components ของ QuestionFormCard | สูง | 1 วัน |
 | 7 | Phase C+D: Component + E2E tests | สูง | 2-3 วัน |
+
+---
+
+## 5. Testing Infrastructure Development Plan
+
+> **Branch:** `testing-infrastructure-feature`  
+> **Created:** 2026-03-09  
+> **Objective:** สร้างระบบทดสอบอัตโนมัติที่ครอบคลุมทั้ง Backend (Rust) และ Frontend (React/TypeScript)
+
+### 5.1 Overview & Goals
+
+#### 🎯 วัตถุประสงค์หลัก
+
+1. **Prevent Regressions** — ป้องกันการเพิ่ม bugs เมื่อแก้ code หรือเพิ่ม features
+2. **Enable Refactoring** — สามารถ refactor ไฟล์ใหญ่ได้อย่างมั่นใจ
+3. **Documentation** — Tests เป็น living documentation ของระบบ
+4. **Speed Up Development** — ลดเวลา manual testing
+5. **CI/CD Ready** — เตรียมพร้อมสำหรับ Continuous Integration
+
+#### 📊 Success Metrics
+
+| Metric | Target | Current |
+|--------|--------|---------|
+| **Rust Code Coverage** | 60%+ | 0% |
+| **Frontend Code Coverage** | 50%+ | 0% |
+| **Critical Path Coverage** | 90%+ | 0% |
+| **Test Execution Time** | < 30s | N/A |
+| **CI/CD Integration** | ✅ Green | ❌ None |
+
+---
+
+### 5.2 Phase A: Rust Unit Testing Infrastructure
+
+**Duration:** 2-3 days  
+**Priority:** 🔴 Critical  
+**Risk:** 🟢 Low
+
+#### Step A1: Setup Test Infrastructure (Day 1 Morning)
+
+**วัตถุประสงค์:** สร้าง foundation สำหรับ Rust tests
+
+**การดำเนินการ:**
+
+```toml
+# src-tauri/Cargo.toml
+[dev-dependencies]
+tempfile = "3.8"        # สำหรับ temporary test files
+serial_test = "3.0"     # สำหรับ tests ที่ต้องรัน sequential
+mockall = "0.12"        # Mock framework (optional)
+```
+
+**สร้างไฟล์ test helper:**
+
+```rust
+// src-tauri/src/test_helpers.rs
+#[cfg(test)]
+pub mod test_helpers {
+    use rusqlite::Connection;
+    
+    /// สร้าง in-memory database สำหรับ testing
+    pub fn create_test_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        // Initialize schema
+        conn
+    }
+    
+    /// สร้าง temporary database file
+    pub fn create_temp_db() -> (tempfile::TempDir, std::path::PathBuf) {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        (temp_dir, db_path)
+    }
+}
+```
+
+**Automation:**
+```powershell
+# scripts/setup-rust-tests.ps1
+Write-Host "Installing Rust test dependencies..."
+Set-Location src-tauri
+cargo add --dev tempfile serial_test
+cargo test --no-run  # Pre-compile tests
+```
+
+**Expected Output:**
+- ✅ Test dependencies installed
+- ✅ Test helper module created
+- ✅ `cargo test` compiles successfully
+
+---
+
+#### Step A2: Test Pure Functions (Day 1 Afternoon)
+
+**วัตถุประสงค์:** ทดสอบ utility functions และ business logic
+
+**Target Files:**
+- `content_database.rs` — `generate_document_id()`, `generate_section_id()`
+- Scoring calculations
+- Data transformations
+
+**ตัวอย่าง Test:**
+
+```rust
+// src-tauri/src/content_database.rs
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_generate_document_id_format() {
+        let id = generate_document_id("ระบบเรดาร์", "RAD001");
+        assert!(id.starts_with("PQS-"));
+        assert!(id.contains("RAD001"));
+    }
+    
+    #[test]
+    fn test_generate_document_id_unique() {
+        let id1 = generate_document_id("Test", "T001");
+        let id2 = generate_document_id("Test", "T001");
+        assert_ne!(id1, id2, "IDs should be unique");
+    }
+    
+    #[test]
+    fn test_calculate_group_score_basic() {
+        // Test scoring logic
+        let result = calculate_group_score(/* params */);
+        assert_eq!(result, expected_value);
+    }
+}
+```
+
+**Automation:**
+```powershell
+# scripts/run-rust-tests.ps1
+param(
+    [string]$Filter = "",
+    [switch]$Coverage
+)
+
+Set-Location src-tauri
+
+if ($Coverage) {
+    # Install tarpaulin for coverage
+    cargo install cargo-tarpaulin
+    cargo tarpaulin --out Html --output-dir ../coverage/rust
+} else {
+    if ($Filter) {
+        cargo test $Filter --lib -- --nocapture
+    } else {
+        cargo test --lib -- --nocapture
+    }
+}
+```
+
+**Expected Output:**
+- ✅ 10+ pure function tests passing
+- ✅ Test coverage report generated
+- ✅ All edge cases covered
+
+---
+
+#### Step A3: Test Database CRUD Operations (Day 2 Morning)
+
+**วัตถุประสงค์:** ทดสอบการทำงานกับฐานข้อมูล
+
+**Target Operations:**
+- Document CRUD
+- Section CRUD
+- Question CRUD
+- Reference management
+
+**ตัวอย่าง Test:**
+
+```rust
+#[cfg(test)]
+mod db_tests {
+    use super::*;
+    use crate::test_helpers::create_test_db;
+    
+    #[test]
+    fn test_create_document() {
+        let conn = create_test_db();
+        
+        let doc_id = create_document(
+            &conn,
+            "Test Document",
+            "TEST001",
+            "creator123",
+            None
+        ).unwrap();
+        
+        assert!(doc_id.starts_with("PQS-"));
+        
+        // Verify it was saved
+        let doc = get_document(&conn, &doc_id).unwrap();
+        assert_eq!(doc.title, "Test Document");
+    }
+    
+    #[test]
+    fn test_document_cascade_delete() {
+        let conn = create_test_db();
+        let doc_id = create_document(/* ... */).unwrap();
+        let section_id = create_section(/* ... */).unwrap();
+        
+        delete_document(&conn, &doc_id).unwrap();
+        
+        // Verify cascade deletion
+        let sections = get_sections(&conn, &doc_id).unwrap();
+        assert_eq!(sections.len(), 0);
+    }
+    
+    #[serial_test::serial]  // Run sequentially if using file DB
+    #[test]
+    fn test_concurrent_writes() {
+        // Test data integrity under concurrent operations
+    }
+}
+```
+
+**Automation:**
+```powershell
+# Run only database tests
+.\scripts\run-rust-tests.ps1 -Filter "db_tests"
+```
+
+**Expected Output:**
+- ✅ 20+ CRUD tests passing
+- ✅ Transaction rollback tested
+- ✅ Foreign key constraints verified
+- ✅ Cascade operations tested
+
+---
+
+#### Step A4: Test Backup & Export Logic (Day 2 Afternoon)
+
+**วัตถุประสงค์:** ทดสอบ critical data operations
+
+**Target Files:**
+- `hybrid_backup.rs`
+- `database_export.rs`
+- File backup operations
+
+**ตัวอย่าง Test:**
+
+```rust
+#[cfg(test)]
+mod backup_tests {
+    use super::*;
+    use std::fs;
+    
+    #[test]
+    fn test_backup_content_to_zip() {
+        let (_temp, db_path) = create_temp_db();
+        // Create test data
+        
+        let zip_path = backup_content_to_zip(
+            db_path.to_str().unwrap(),
+            "test-backup"
+        ).unwrap();
+        
+        assert!(fs::metadata(&zip_path).is_ok());
+        
+        // Verify ZIP contains expected files
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = zip::ZipArchive::new(file).unwrap();
+        assert!(archive.by_name("content.db").is_ok());
+    }
+    
+    #[test]
+    fn test_restore_from_backup() {
+        // Create backup
+        let backup_path = /* ... */;
+        
+        // Restore to new location
+        let restored_db = restore_content_from_zip(&backup_path).unwrap();
+        
+        // Verify data integrity
+        let conn = Connection::open(restored_db).unwrap();
+        let docs = get_all_documents(&conn).unwrap();
+        assert_eq!(docs.len(), expected_count);
+    }
+}
+```
+
+**Automation:**
+```powershell
+# Test backup operations only
+.\scripts\run-rust-tests.ps1 -Filter "backup"
+```
+
+**Expected Output:**
+- ✅ Backup creation tested
+- ✅ Restore verified
+- ✅ Data integrity confirmed
+- ✅ Error handling tested
+
+---
+
+#### Step A5: Test Report & CI Integration (Day 3)
+
+**วัตถุประสงค์:** สร้าง automated test reports และเตรียม CI/CD
+
+**การดำเนินการ:**
+
+1. **Generate Coverage Report:**
+
+```powershell
+# scripts/test-coverage-rust.ps1
+Write-Host "Generating Rust test coverage..."
+
+Set-Location src-tauri
+
+# Install tarpaulin if not exists
+if (-not (Get-Command cargo-tarpaulin -ErrorAction SilentlyContinue)) {
+    cargo install cargo-tarpaulin
+}
+
+# Generate HTML coverage report
+cargo tarpaulin `
+    --out Html `
+    --output-dir ../coverage/rust `
+    --exclude-files "main.rs" `
+    --ignore-tests
+
+# Generate JSON for CI
+cargo tarpaulin `
+    --out Json `
+    --output-dir ../coverage/rust
+
+Write-Host "Coverage report: coverage/rust/index.html"
+```
+
+2. **Create GitHub Actions Workflow:**
+
+```yaml
+# .github/workflows/rust-tests.yml
+name: Rust Tests
+
+on:
+  push:
+    branches: [ testing-infrastructure-feature, master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+    
+    - name: Cache cargo
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/
+          src-tauri/target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Run tests
+      working-directory: src-tauri
+      run: cargo test --lib
+    
+    - name: Generate coverage
+      run: |
+        cargo install cargo-tarpaulin
+        cargo tarpaulin --out Xml --output-dir coverage
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        files: coverage/cobertura.xml
+        flags: rust
+```
+
+**Automation Script:**
+
+```powershell
+# scripts/run-all-rust-tests.ps1
+Write-Host "Running all Rust tests with coverage..." -ForegroundColor Cyan
+
+# Run tests
+.\scripts\run-rust-tests.ps1
+
+# Generate coverage
+.\scripts\test-coverage-rust.ps1
+
+# Display results
+Write-Host "`n✅ Test Summary:" -ForegroundColor Green
+Set-Location src-tauri
+cargo test --lib -- --list | Measure-Object -Line
+Write-Host "Coverage report: coverage/rust/index.html" -ForegroundColor Yellow
+```
+
+**Expected Output:**
+- ✅ All tests passing (target: 30+ tests)
+- ✅ Coverage > 50% for critical modules
+- ✅ HTML coverage report generated
+- ✅ CI workflow configured
+
+---
+
+### 5.3 Phase B: Frontend Unit Testing Infrastructure
+
+**Duration:** 2 days  
+**Priority:** 🔴 High  
+**Risk:** 🟡 Medium
+
+#### Step B1: Setup Vitest & Testing Library (Day 1 Morning)
+
+**วัตถุประสงค์:** ติดตั้งและ configure frontend testing tools
+
+**การดำเนินการ:**
+
+1. **Install Dependencies:**
+
+```json
+// package.json additions
+{
+  "devDependencies": {
+    "vitest": "^1.3.1",
+    "@testing-library/react": "^14.2.1",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/user-event": "^14.5.2",
+    "jsdom": "^24.0.0",
+    "@vitest/coverage-v8": "^1.3.1",
+    "@vitest/ui": "^1.3.1"
+  },
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "test:run": "vitest run"
+  }
+}
+```
+
+2. **Create Vitest Config:**
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        '**/*.d.ts',
+        '**/*.config.*',
+        '**/mockData',
+        '**/types'
+      ],
+      thresholds: {
+        lines: 50,
+        functions: 50,
+        branches: 45,
+        statements: 50
+      }
+    }
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  }
+});
+```
+
+3. **Create Test Setup File:**
+
+```typescript
+// src/test/setup.ts
+import { expect, afterEach, vi } from 'vitest';
+import { cleanup } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
+
+// Cleanup after each test
+afterEach(() => {
+  cleanup();
+});
+
+// Mock Tauri API
+vi.mock('@tauri-apps/api/tauri', () => ({
+  invoke: vi.fn(),
+  convertFileSrc: vi.fn((path: string) => `asset://${path}`)
+}));
+
+vi.mock('@tauri-apps/api/dialog', () => ({
+  open: vi.fn(),
+  save: vi.fn(),
+  message: vi.fn(),
+  ask: vi.fn(),
+  confirm: vi.fn()
+}));
+
+vi.mock('@tauri-apps/api/fs', () => ({
+  readTextFile: vi.fn(),
+  writeTextFile: vi.fn(),
+  readBinaryFile: vi.fn(),
+  writeBinaryFile: vi.fn()
+}));
+
+// Mock window object additions
+global.IntersectionObserver = class IntersectionObserver {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  takeRecords() { return []; }
+  unobserve() {}
+};
+
+// Suppress console.error in tests (optional)
+const originalError = console.error;
+beforeAll(() => {
+  console.error = (...args: any[]) => {
+    if (
+      typeof args[0] === 'string' &&
+      args[0].includes('Not implemented: HTMLFormElement.prototype.submit')
+    ) {
+      return;
+    }
+    originalError.call(console, ...args);
+  };
+});
+
+afterAll(() => {
+  console.error = originalError;
+});
+```
+
+**Automation:**
+
+```powershell
+# scripts/setup-frontend-tests.ps1
+Write-Host "Setting up frontend testing infrastructure..." -ForegroundColor Cyan
+
+# Install dependencies
+npm install --save-dev `
+    vitest `
+    @testing-library/react `
+    @testing-library/jest-dom `
+    @testing-library/user-event `
+    jsdom `
+    @vitest/coverage-v8 `
+    @vitest/ui
+
+# Create test directories
+New-Item -ItemType Directory -Force -Path "src/test"
+New-Item -ItemType Directory -Force -Path "src/test/__tests__"
+New-Item -ItemType Directory -Force -Path "src/test/mocks"
+New-Item -ItemType Directory -Force -Path "coverage/frontend"
+
+Write-Host "✅ Frontend testing setup complete!" -ForegroundColor Green
+Write-Host "Run tests with: npm test" -ForegroundColor Yellow
+```
+
+**Expected Output:**
+- ✅ All packages installed
+- ✅ Vitest configured
+- ✅ Test directories created
+- ✅ `npm test` runs successfully (0 tests)
+
+---
+
+#### Step B2: Test Utility Functions (Day 1 Afternoon)
+
+**วัตถุประสงค์:** ทดสอบ pure functions และ helpers
+
+**Target Files:**
+- `questionTreeUtils.ts` (หลังแยกไฟล์)
+- Form validators
+- Data transformations
+
+**ตัวอย่าง Tests:**
+
+```typescript
+// src/test/__tests__/questionTreeUtils.test.ts
+import { describe, it, expect } from 'vitest';
+import {
+  toThaiNumber,
+  toThaiAlphabet,
+  convertThaiToArabic,
+  buildPrefix,
+  buildPrefix200_300
+} from '@/utils/questionTreeUtils';
+
+describe('questionTreeUtils', () => {
+  describe('toThaiNumber', () => {
+    it('should convert numbers to Thai numerals', () => {
+      expect(toThaiNumber(1)).toBe('๑');
+      expect(toThaiNumber(123)).toBe('๑๒๓');
+      expect(toThaiNumber(0)).toBe('๐');
+    });
+    
+    it('should handle negative numbers', () => {
+      expect(toThaiNumber(-5)).toBe('-๕');
+    });
+  });
+  
+  describe('toThaiAlphabet', () => {
+    it('should convert to Thai alphabet', () => {
+      expect(toThaiAlphabet(0)).toBe('ก');
+      expect(toThaiAlphabet(1)).toBe('ข');
+      expect(toThaiAlphabet(25)).toBe('ฮ');
+    });
+    
+    it('should handle out of range', () => {
+      expect(toThaiAlphabet(-1)).toBe('');
+      expect(toThaiAlphabet(50)).toBe('');
+    });
+  });
+  
+  describe('buildPrefix', () => {
+    it('should build correct prefix for level 0', () => {
+      const result = buildPrefix(0, 5, 0, 0);
+      expect(result).toBe('๕. ');
+    });
+    
+    it('should build correct prefix for nested levels', () => {
+      const result = buildPrefix(1, 3, 2, 0);
+      expect(result).toBe('๓.๒ ');
+    });
+  });
+  
+  describe('convertThaiToArabic', () => {
+    it('should convert Thai numerals to Arabic', () => {
+      expect(convertThaiToArabic('๑๒๓')).toBe(123);
+      expect(convertThaiToArabic('๐')).toBe(0);
+    });
+    
+    it('should handle mixed content', () => {
+      expect(convertThaiToArabic('ข้อ ๕')).toBe(5);
+    });
+    
+    it('should return -1 for invalid input', () => {
+      expect(convertThaiToArabic('invalid')).toBe(-1);
+    });
+  });
+});
+```
+
+**Automation:**
+
+```powershell
+# scripts/run-frontend-tests.ps1
+param(
+    [string]$Filter = "",
+    [switch]$Coverage,
+    [switch]$UI,
+    [switch]$Watch
+)
+
+if ($UI) {
+    npm run test:ui
+} elseif ($Coverage) {
+    npm run test:coverage
+    Write-Host "`nCoverage report: coverage/frontend/index.html" -ForegroundColor Yellow
+} elseif ($Watch) {
+    npm test -- $Filter
+} else {
+    npm run test:run -- $Filter
+}
+```
+
+**Expected Output:**
+- ✅ 15+ utility function tests passing
+- ✅ 100% coverage for pure functions
+- ✅ Edge cases handled
+
+---
+
+#### Step B3: Test React Components (Day 2)
+
+**วัตถุประสงค์:** ทดสอบ component rendering และ interactions
+
+**Target Components:**
+- `AsyncImagePreview`
+- `QuestionDisplayCard`
+- Form components
+
+**ตัวอย่าง Component Test:**
+
+```typescript
+// src/test/__tests__/AsyncImagePreview.test.tsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { AsyncImagePreview } from '@/components/AsyncImagePreview';
+import { invoke } from '@tauri-apps/api/tauri';
+
+vi.mock('@tauri-apps/api/tauri');
+
+describe('AsyncImagePreview', () => {
+  it('should show loading state initially', () => {
+    render(<AsyncImagePreview questionId="Q001" />);
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+  
+  it('should load and display image', async () => {
+    vi.mocked(invoke).mockResolvedValueOnce('data:image/png;base64,ABC123');
+    
+    render(<AsyncImagePreview questionId="Q001" />);
+    
+    await waitFor(() => {
+      const img = screen.getByRole('img');
+      expect(img).toHaveAttribute('src', 'data:image/png;base64,ABC123');
+    });
+  });
+  
+  it('should show error on load failure', async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('Failed'));
+    
+    render(<AsyncImagePreview questionId="Q001" />);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/error/i)).toBeInTheDocument();
+    });
+  });
+  
+  it('should handle missing questionId', () => {
+    render(<AsyncImagePreview questionId="" />);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+});
+```
+
+**Form Validation Test:**
+
+```typescript
+// src/test/__tests__/QuestionFormCard.test.tsx
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QuestionFormCard } from '@/components/QuestionFormCard';
+
+describe('QuestionFormCard - Validation', () => {
+  it('should show error when description is empty', async () => {
+    const handleSave = vi.fn();
+    render(<QuestionFormCard onSave={handleSave} />);
+    
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    await userEvent.click(saveButton);
+    
+    expect(screen.getByText(/description is required/i)).toBeInTheDocument();
+    expect(handleSave).not.toHaveBeenCalled();
+  });
+  
+  it('should validate sequence number range', async () => {
+    render(<QuestionFormCard />);
+    
+    const seqInput = screen.getByLabelText(/sequence/i);
+    await userEvent.clear(seqInput);
+    await userEvent.type(seqInput, '-1');
+    
+    expect(screen.getByText(/must be positive/i)).toBeInTheDocument();
+  });
+  
+  it('should submit valid form', async () => {
+    const handleSave = vi.fn().mockResolvedValue({ success: true });
+    render(<QuestionFormCard onSave={handleSave} />);
+    
+    await userEvent.type(screen.getByLabelText(/description/i), 'Test question');
+    await userEvent.type(screen.getByLabelText(/sequence/i), '1');
+    
+    const saveButton = screen.getByRole('button', { name: /save/i });
+    await userEvent.click(saveButton);
+    
+    await waitFor(() => {
+      expect(handleSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          description: 'Test question',
+          sequence: 1
+        })
+      );
+    });
+  });
+});
+```
+
+**Expected Output:**
+- ✅ 20+ component tests passing
+- ✅ User interactions tested
+- ✅ Error states covered
+- ✅ Accessibility validated
+
+---
+
+### 5.4 Phase C: Integration Testing
+
+**Duration:** 2 days  
+**Priority:** 🟡 Medium  
+**Risk:** 🟡 Medium
+
+#### Step C1: API Integration Tests
+
+**วัตถุประสงค์:** ทดสอบการเชื่อมต่อระหว่าง Frontend-Backend
+
+**ตัวอย่าง:**
+
+```typescript
+// src/test/__tests__/integration/documentApi.test.ts
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { invoke } from '@tauri-apps/api/tauri';
+import * as documentService from '@/services/documentService';
+
+vi.mock('@tauri-apps/api/tauri');
+
+describe('Document API Integration', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+  
+  it('should create document and return ID', async () => {
+    const mockDocId = 'PQS-TEST-001';
+    vi.mocked(invoke).mockResolvedValueOnce(mockDocId);
+    
+    const result = await documentService.createDocument({
+      title: 'Test Doc',
+      unit_id: 'UNIT001'
+    });
+    
+    expect(invoke).toHaveBeenCalledWith('create_document', {
+      title: 'Test Doc',
+      unitId: 'UNIT001'
+    });
+    expect(result).toBe(mockDocId);
+  });
+  
+  it('should handle API errors gracefully', async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(
+      new Error('Database error')
+    );
+    
+    await expect(
+      documentService.createDocument({ title: '' })
+    ).rejects.toThrow('Database error');
+  });
+});
+```
+
+**Automation:**
+
+```powershell
+# scripts/run-integration-tests.ps1
+Write-Host "Running integration tests..." -ForegroundColor Cyan
+
+npm run test:run -- --run src/test/__tests__/integration
+
+Write-Host "✅ Integration tests complete" -ForegroundColor Green
+```
+
+---
+
+### 5.5 Phase D: E2E Testing with Tauri Driver
+
+**Duration:** 3 days  
+**Priority:** 🟢 Low (Future)  
+**Risk:** 🔴 High
+
+#### Step D1: Setup Tauri Driver
+
+**การดำเนินการ:**
+
+```toml
+# src-tauri/Cargo.toml
+[dev-dependencies]
+tauri-driver = "0.1"
+serde_json = "1.0"
+```
+
+```typescript
+// e2e/setup.ts
+import { spawn, ChildProcess } from 'child_process';
+import { Builder, By, until } from 'selenium-webdriver';
+
+export class TauriApp {
+  private process: ChildProcess | null = null;
+  private driver: any;
+  
+  async start() {
+    // Start Tauri app
+    this.process = spawn('cargo', ['tauri', 'dev'], {
+      cwd: 'src-tauri'
+    });
+    
+    // Wait for app to be ready
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Connect via WebDriver
+    this.driver = await new Builder()
+      .forBrowser('chrome')
+      .usingServer('http://localhost:4444')
+      .build();
+  }
+  
+  async stop() {
+    if (this.driver) {
+      await this.driver.quit();
+    }
+    if (this.process) {
+      this.process.kill();
+    }
+  }
+}
+```
+
+**ตัวอย่าง E2E Test:**
+
+```typescript
+// e2e/tests/document-crud.e2e.ts
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { TauriApp } from '../setup';
+
+describe('Document CRUD E2E', () => {
+  let app: TauriApp;
+  
+  beforeAll(async () => {
+    app = new TauriApp();
+    await app.start();
+  }, 30000);
+  
+  afterAll(async () => {
+    await app.stop();
+  });
+  
+  it('should create a new document', async () => {
+    // Navigate to create page
+    // Fill form
+    // Submit
+    // Verify document appears in list
+  });
+});
+```
+
+**Note:** E2E testing ทำในภายหลังเมื่อ features stable
+
+---
+
+### 5.6 Automation Scripts Summary
+
+**Master Test Runner:**
+
+```powershell
+# scripts/test-all.ps1
+param(
+    [switch]$Coverage,
+    [switch]$CI
+)
+
+Write-Host "=== PQS RTN Testing Suite ===" -ForegroundColor Cyan
+
+# Rust tests
+Write-Host "`n[1/3] Running Rust tests..." -ForegroundColor Yellow
+Set-Location src-tauri
+if ($Coverage) {
+    cargo tarpaulin --out Html --output-dir ../coverage/rust
+} else {
+    cargo test --lib
+}
+$rustExit = $LASTEXITCODE
+
+# Frontend tests
+Write-Host "`n[2/3] Running Frontend tests..." -ForegroundColor Yellow
+Set-Location ..
+if ($Coverage) {
+    npm run test:coverage
+} else {
+    npm run test:run
+}
+$frontendExit = $LASTEXITCODE
+
+# Summary
+Write-Host "`n=== Test Summary ===" -ForegroundColor Cyan
+if ($rustExit -eq 0) {
+    Write-Host "✅ Rust tests: PASSED" -ForegroundColor Green
+} else {
+    Write-Host "❌ Rust tests: FAILED" -ForegroundColor Red
+}
+
+if ($frontendExit -eq 0) {
+    Write-Host "✅ Frontend tests: PASSED" -ForegroundColor Green
+} else {
+    Write-Host "❌ Frontend tests: FAILED" -ForegroundColor Red
+}
+
+if ($Coverage) {
+    Write-Host "`nCoverage reports:"
+    Write-Host "  Rust: coverage/rust/index.html"
+    Write-Host "  Frontend: coverage/index.html"
+}
+
+# Exit with error if any tests failed
+if ($rustExit -ne 0 -or $frontendExit -ne 0) {
+    exit 1
+}
+```
+
+**CI/CD Integration:**
+
+```yaml
+# .github/workflows/tests.yml
+name: Tests
+
+on:
+  push:
+    branches: [ testing-infrastructure-feature ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test-rust:
+    name: Rust Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+      - name: Run tests
+        working-directory: src-tauri
+        run: cargo test --lib
+      - name: Coverage
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --out Xml
+      - uses: codecov/codecov-action@v3
+        with:
+          files: coverage/cobertura.xml
+  
+  test-frontend:
+    name: Frontend Tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - run: npm ci
+      - run: npm run test:run
+      - run: npm run test:coverage
+      - uses: codecov/codecov-action@v3
+        with:
+          files: coverage/clover.xml
+```
+
+---
+
+### 5.7 Success Criteria & Milestones
+
+| Milestone | Criteria | Target Date |
+|-----------|----------|-------------|
+| **M1: Rust Infrastructure** | cargo test works, 10+ tests | Day 3 |
+| **M2: Frontend Infrastructure** | vitest works, 15+ tests | Day 5 |
+| **M3: Coverage Threshold** | Rust 50%+, Frontend 40%+ | Day 7 |
+| **M4: CI Integration** | GitHub Actions green | Day 8 |
+| **M5: Documentation** | Test writing guide complete | Day 9 |
+
+---
+
+### 5.8 Next Steps
+
+1. **Start Phase A, Step A1** — Setup Rust test infrastructure (2-3 hours)
+2. **Create test helper module** — Foundation for all Rust tests (1 hour)
+3. **Write first 5 tests** — Prove the concept works (2 hours)
+4. **Iterate** — Follow the plan systematically
+
+**Ready to begin?** 🚀
