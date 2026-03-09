@@ -10,6 +10,7 @@
 ## 📌 Executive Summary
 
 Template Testing is the **heart of this project** — validating that the 100-300-series question templates:
+
 1. ✅ Auto-seed correctly when documents are created
 2. ✅ Support occupation branch selection (3xx.2-3xx.5)
 3. ✅ Calculate scores accurately (group_score, total_score)
@@ -26,6 +27,7 @@ Template Testing is the **heart of this project** — validating that the 100-30
 
 **Why Critical:** This is the **core feature** that distinguishes Section 300 from 100/200.
 Users must be able to:
+
 - Select occupation branch for 3xx.2-3xx.5 questions
 - View branch-specific evaluation criteria
 - Lock in branch choice once selected
@@ -124,7 +126,8 @@ validate_reference_forbidden(&conn, question_id, section_group)  // 300 should f
 check_branch_selection_complete(&conn, section_id) -> bool
 ```
 
-**Test Count Target:** 
+**Test Count Target:**
+
 - Seeding: 6 tests per template × 3 = 18 tests
 - Branch logic: 8-10 tests
 - Scoring: 15-20 tests
@@ -139,14 +142,14 @@ fn test_section_300_branch_selection_required() {
     let conn = create_test_db();
     let doc_id = "22724201001";
     let section_id = create_section_300(&conn, &doc_id).unwrap();
-    
+
     // Get 3xx.2 (requires branch)
     let q302 = get_question_by_sequence(&conn, section_id, 2).unwrap();
-    
+
     // Should NOT allow submission without branch selected
     let result = validate_branch_selection_complete(&conn, section_id);
     assert!(!result, "Should require branch selection for 3xx.2");
-    
+
     // Select a valid branch
     set_section_branch(&conn, section_id, "2-1").unwrap();
     let result = validate_branch_selection_complete(&conn, section_id);
@@ -158,7 +161,7 @@ fn test_group_score_calculation_3xx2_branch() {
     // Create 3xx.2 with children (5 scored, 2 unscored)
     // Each child has score = 10
     // Expected group_score = 5 * 10 = 50
-    
+
     let actual_score = calculate_group_score(&conn, q302_id).unwrap();
     assert_eq!(actual_score, 50);
 }
@@ -174,7 +177,6 @@ fn test_group_score_calculation_3xx2_branch() {
 
 ```typescript
 describe("Template Integration", () => {
-  
   // Section 300 + Branch Selection
   describe("Occupation Branch Selection", () => {
     it("should prevent question submission without branch selected", async () => {
@@ -184,13 +186,13 @@ describe("Template Integration", () => {
         section_group: 300,
         section_number: 301,
       });
-      
+
       // Try to submit without branch → should fail
       const result = await invoke("submit_section_answers", {
         section_id: section.id,
-        branch_code: null,  // ← Missing
+        branch_code: null, // ← Missing
       });
-      
+
       expect(result).toHaveError("Branch selection required");
     });
 
@@ -199,26 +201,29 @@ describe("Template Integration", () => {
         section_id: "s1",
         branch_code: "2-1",
       });
-      
+
       const questions = await invoke("get_section_questions", {
         section_id: "s1",
         with_occupation_data: true,
       });
-      
-      const q302 = questions.find(q => q.sequence === 2);
+
+      const q302 = questions.find((q) => q.sequence === 2);
       assert(q302.metadata.occupationBranch === "2-1");
     });
 
     it("should prevent branch switching during evaluation (edge case)", async () => {
       // Start with branch "2-1"
-      await invoke("set_section_branch", { section_id: "s1", branch_code: "2-1" });
-      
+      await invoke("set_section_branch", {
+        section_id: "s1",
+        branch_code: "2-1",
+      });
+
       // Try to switch to "2-2" → should fail
       const result = await invoke("set_section_branch", {
         section_id: "s1",
-        branch_code: "2-2",  // Different branch
+        branch_code: "2-2", // Different branch
       });
-      
+
       expect(result).toHaveError("Cannot change branch during evaluation");
     });
   });
@@ -230,29 +235,29 @@ describe("Template Integration", () => {
       // 3xx.2: 3 scored children × 10 points = 30
       // 3xx.3: 2 scored children × 15 points = 30
       // Total: 60
-      
+
       const score = await invoke("get_section_total_score", {
         section_id: "s1",
       });
-      
+
       expect(score).toBe(60);
     });
 
     it("should update group_score when child question score changes", async () => {
-      const parent_id = "q302";  // 3xx.2
-      
+      const parent_id = "q302"; // 3xx.2
+
       // Initial: 3 children, each 10 points → group_score = 30
       let groupScore = await invoke("get_question_group_score", {
         question_id: parent_id,
       });
       expect(groupScore).toBe(30);
-      
+
       // Update child 1 to 15 points
       await invoke("update_question", {
         id: "child1",
         score: 15,
       });
-      
+
       // group_score should recalculate to 35
       groupScore = await invoke("get_question_group_score", {
         question_id: parent_id,
@@ -263,21 +268,21 @@ describe("Template Integration", () => {
     it("should NOT recalculate if non-scored question changes", async () => {
       // 3xx.1 children (seq 1-3) are NOT scored by default
       // Changing them should NOT affect group_score
-      
+
       const parent_id = "q301";
       const initialGroupScore = await invoke("get_question_group_score", {
         question_id: parent_id,
       });
-      
+
       await invoke("update_question", {
         id: "child_unscored",
-        score: 100,  // Try to give it a huge score
+        score: 100, // Try to give it a huge score
       });
-      
+
       const newGroupScore = await invoke("get_question_group_score", {
         question_id: parent_id,
       });
-      
+
       expect(newGroupScore).toBe(initialGroupScore); // Should NOT change
     });
   });
@@ -286,15 +291,15 @@ describe("Template Integration", () => {
   describe("Template Constraints", () => {
     it("should prevent answer key in Section 300", async () => {
       const q301 = await invoke("get_question", { id: "q301" });
-      
+
       // Try to add answer key
       const result = await invoke("update_question", {
         id: "q301",
-        metadata: { 
-          answerKey: "This should be forbidden" 
+        metadata: {
+          answerKey: "This should be forbidden",
         },
       });
-      
+
       expect(result).toHaveError("Answer keys not supported in Section 300");
     });
 
@@ -303,16 +308,16 @@ describe("Template Integration", () => {
         question_id: "q301",
         reference_id: "ref123",
       });
-      
+
       expect(result).toHaveError("References not supported in Section 300");
     });
 
     it("should allow answer key in Section 100 & 200", async () => {
       const result = await invoke("update_question", {
-        id: "q201",  // Section 200
+        id: "q201", // Section 200
         metadata: { answerKey: "This is allowed" },
       });
-      
+
       expect(result).toSucceed();
     });
   });
@@ -336,14 +341,14 @@ describe("Section 300 UI Component", () => {
     const { getByRole } = render(
       <Section300Form section={mockSection} />
     );
-    
+
     const submitBtn = getByRole("button", { name: /submit/i });
     expect(submitBtn).toBeDisabled();
-    
+
     // Select branch
     const branchSelect = getByRole("combobox");
     await userEvent.selectOption(branchSelect, "2-1");
-    
+
     expect(submitBtn).toBeEnabled();
   });
 
@@ -352,10 +357,10 @@ describe("Section 300 UI Component", () => {
     const { queryByRole, getByRole } = render(
       <Section300Form section={mockSection} />
     );
-    
+
     // Should NOT have score input
     expect(queryByRole("spinbutton")).not.toBeInTheDocument();
-    
+
     // Should have Pass/Fail buttons
     expect(getByRole("button", { name: /pass/i })).toBeInTheDocument();
     expect(getByRole("button", { name: /fail/i })).toBeInTheDocument();
@@ -366,7 +371,7 @@ describe("Section 300 UI Component", () => {
     const { queryByText } = render(
       <Section300Form section={mockSection} />
     );
-    
+
     expect(queryByText(/answer key/i)).not.toBeInTheDocument();
   });
 });
@@ -390,7 +395,7 @@ describe("Section 300 UI Component", () => {
 2. Navigate to Section 301
    INPUT: Click "301" tab
    VERIFY: Questions 3xx.1-3xx.7 visible
-   
+
 3. Answer Prerequisites (3xx.1)
    INPUT: Check "Passed training", "Passed standards"... (items 1-5)
    VERIFY: Form accepts answers, prerequisites locked
@@ -398,23 +403,23 @@ describe("Section 300 UI Component", () => {
 4. Select Occupation Branch (3xx.2-3xx.5)
    INPUT: Select "สาขา 2.1 - ระบบหลัก"
    VERIFY: Branch-specific evaluation criteria appear
-   
+
 5. Evaluate Normal Operations (3xx.2)
    INPUT: Click "Pass" for normal operations test
    VERIFY: Score updated, group_score calculated
-   
+
 6. Evaluate Other Areas (3xx.3-3xx.5)
    INPUT: Click "Pass" for special/failure/emergency cases
    VERIFY: All group_scores calculated correctly
-   
+
 7. Evaluate Daily Operations (3xx.6)
    INPUT: Enter performance ratings (1-5) for 10 items
    VERIFY: Total score = sum of items
-   
+
 8. Skip Knowledge Test (3xx.7)
    INPUT: Leave blank or mark "Pending"
    VERIFY: Can save without completing
-   
+
 9. Submit Section
    INPUT: Click "Submit Section"
    VERIFY: All validations pass, scores persisted
@@ -492,17 +497,17 @@ fn property_total_score_never_negative() {
         ) -> bool {
             let conn = create_test_db();
             let section_id = create_section(&conn, /*...*/).unwrap();
-            
+
             // Create random questions
             let q_ids = doc_questions.iter().map(|q| {
                 create_question(&conn, q.clone()).unwrap()
             }).collect::<Vec<_>>();
-            
+
             // Assign random scores (including negative attempts)
             for (qid, score) in scores {
                 let _ = update_question(&conn, &qid, score);
             }
-            
+
             // Verify: total_score ≥ 0
             let total = calculate_total_section_score(&conn, section_id).unwrap_or(0);
             total >= 0
@@ -524,14 +529,14 @@ fn property_total_score_never_negative() {
 ```
 1. GET large section with 100+ questions
    - Should complete in < 100ms
-   
+
 2. Recalculate group_score for deeply nested questions
    - 7 L1 groups × 5-10 L2 children = 50-70 questions
    - Should complete in < 50ms
-   
+
 3. Batch update scores for 50 questions
    - Should complete in < 200ms
-   
+
 4. CREATE new document + seed all templates
    - Should complete in < 500ms
 ```
@@ -543,7 +548,7 @@ fn property_total_score_never_negative() {
 fn bench_calculate_total_section_score(b: &mut Bencher) {
     let conn = create_test_db_with_section_300(); // Pre-populated
     let section_id = 999;
-    
+
     b.iter(|| {
         calculate_total_section_score(&conn, section_id)
     });
@@ -556,27 +561,29 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
 
 ## 📊 Test Summary by Level
 
-| Level | Type | Count | Priority | Duration | Owner |
-|-------|------|-------|----------|----------|-------|
-| 1 | Unit (Rust) | 55-60 | 🔴 Critical | 2-3 days | Backend |
-| 2 | Integration | 12-15 | 🔴 Critical | 1-2 days | Full-stack |
-| 3 | Component (React) | 8-10 | 🟡 High | 1 day | Frontend |
-| 4 | E2E (Workflow) | 5-6 | 🟡 High | 2-3 days | QA |
-| 5 | Property-based | 6-8 | 🟢 Medium | 1 day | Backend |
-| 6 | Performance | 4-5 | 🟢 Medium | 1 day | DevOps |
-| **TOTAL** | **All** | **90-108** | | **8-11 days** | |
+| Level     | Type              | Count      | Priority    | Duration      | Owner      |
+| --------- | ----------------- | ---------- | ----------- | ------------- | ---------- |
+| 1         | Unit (Rust)       | 55-60      | 🔴 Critical | 2-3 days      | Backend    |
+| 2         | Integration       | 12-15      | 🔴 Critical | 1-2 days      | Full-stack |
+| 3         | Component (React) | 8-10       | 🟡 High     | 1 day         | Frontend   |
+| 4         | E2E (Workflow)    | 5-6        | 🟡 High     | 2-3 days      | QA         |
+| 5         | Property-based    | 6-8        | 🟢 Medium   | 1 day         | Backend    |
+| 6         | Performance       | 4-5        | 🟢 Medium   | 1 day         | DevOps     |
+| **TOTAL** | **All**           | **90-108** |             | **8-11 days** |            |
 
 ---
 
 ## 🎯 Implementation Roadmap
 
 ### Week 1 (Current)
+
 - ✅ [Done] Create TEST_USAGE_GUIDE.md
 - ✅ [Done] Add template testing section
 - ✅ [Done] Identify priorities + edge cases
 - **→ TODAY:** Create this TEMPLATE_TESTING_STRATEGY.md
 
 ### Week 2
+
 - **Phase 1:** Rust Unit Tests
   - [ ] Create test module structure
   - [ ] Implement 55-60 unit tests
@@ -584,6 +591,7 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
   - [ ] Generate coverage report
 
 ### Week 3
+
 - **Phase 2:** Integration Tests
   - [ ] Create integration test framework
   - [ ] Implement 12-15 Tauri API tests
@@ -591,12 +599,14 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
   - [ ] `npm run test:integration` → all passing
 
 ### Week 4
+
 - **Phase 3:** Component + E2E Tests
   - [ ] Build React component tests
   - [ ] Setup E2E test framework (Tauri Driver)
   - [ ] Implement full workflow tests
 
 ### Week 5
+
 - **Phase 4:** Property-based + Performance Tests
   - [ ] Configure quickcheck/property testing
   - [ ] Implement invariant tests
@@ -608,6 +618,7 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
 ## 🚨 Critical Success Factors
 
 **CSF 1: Occupation Branch Selection Works**
+
 - Users MUST be able to select branch
 - Branch assignment MUST be persistent
 - Branch switching MUST be prevented
@@ -615,6 +626,7 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
 - → Without this, evaluators cannot use feature
 
 **CSF 2: Scoring Calculations are 100% Correct**
+
 - group_score = SUM(scored children) ✅
 - total_score = SUM(all group_scores, non-group scored items) ✅
 - Pass/Fail determination uses correct calculation ✅
@@ -622,6 +634,7 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
 - → Without this, evaluation results are meaningless
 
 **CSF 3: Section 300 Constraints Enforced**
+
 - NO answer keys allowed ✅
 - NO references allowed ✅
 - Answer key removal on save ✅
@@ -629,6 +642,7 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
 - → Without this, data corruption risk is high
 
 **CSF 4: Template Immutability Protected**
+
 - Users CANNOT edit template questions ✅
 - Only allowed operations: rank, comment, evaluate ✅
 - Accidental modification reverts or warns ✅
@@ -641,35 +655,41 @@ fn bench_calculate_total_section_score(b: &mut Bencher) {
 Before marking templates as "production ready":
 
 ### Rust Unit Tests
+
 - [ ] All 55-60 tests pass
 - [ ] Coverage: >80% for template functions
 - [ ] No compiler warnings
 - [ ] `cargo test --release` passes
 
 ### Integration Tests
+
 - [ ] All 12-15 tests pass
 - [ ] API contracts verified
 - [ ] Frontend receives correct data
 - [ ] Database persists correctly
 
 ### Component Tests
+
 - [ ] All 8-10 tests pass
 - [ ] User interactions work
 - [ ] Accessibility validated
 - [ ] Visual regression checked
 
 ### E2E Tests
+
 - [ ] All 5-6 scenarios pass end-to-end
 - [ ] Real browser execution
 - [ ] Performance acceptable
 - [ ] No test flakiness
 
 ### Property Tests
+
 - [ ] All 6-8 invariants hold
 - [ ] No counterexamples found
 - [ ] Edge cases identified & fixed
 
 ### Performance Tests
+
 - [ ] All operations < target duration
 - [ ] No memory leaks
 - [ ] Query plans optimized
