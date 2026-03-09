@@ -111,7 +111,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const fetchQuestions = async (silent?: boolean) => {
     if (!docId || sectionId === undefined) return; // sectionId can be 0, so check for undefined
     try {
-      if (!silent && questions.length === 0) setLoading(true);
+      // Questions will appear as soon as data arrives — no spinner needed
       const data = await invoke<QuestionDetail[]>("get_document_questions_with_details", { docId });
       const filtered = data.filter(
         (q) =>
@@ -180,7 +180,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     } catch (error) {
       console.error("Failed to fetch questions:", error);
     } finally {
-      if (!silent) setLoading(false);
+      // loading state no longer used — questions render immediately
     }
   };
 
