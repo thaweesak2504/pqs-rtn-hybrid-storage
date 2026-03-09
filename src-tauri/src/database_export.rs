@@ -1,8 +1,8 @@
+use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
 
@@ -45,12 +45,14 @@ pub struct ExportMetadata {
 pub fn export_sql_directly(destination_path: &str) -> Result<String, String> {
     // Get database connection
     let db_path = get_database_path()?;
-    let conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
-    
+    let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
+
     // Create export structure
     let mut export = DatabaseExport {
-        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+        timestamp: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
         format: ExportFormat::Sql,
         version: "1.0".to_string(),
         tables: Vec::new(),
@@ -62,26 +64,29 @@ pub fn export_sql_directly(destination_path: &str) -> Result<String, String> {
             format: "Sql".to_string(),
         },
     };
-    
+
     // Export all tables
     let table_names = vec!["users", "high_ranking_officers"];
     for table_name in table_names {
         let table_export = export_table(&conn, table_name)?;
         export.tables.push(table_export);
     }
-    
+
     // Update metadata
     export.metadata.total_tables = export.tables.len();
     export.metadata.total_rows = export.tables.iter().map(|t| t.row_count).sum();
-    
+
     // Generate SQL content
     let sql_content = export_to_sql(&export)?;
-    
+
     // Write directly to destination
     fs::write(destination_path, sql_content)
         .map_err(|e| format!("Failed to write SQL file: {}", e))?;
-    
-    Ok(format!("✅ SQL export saved successfully to: {}", destination_path))
+
+    Ok(format!(
+        "✅ SQL export saved successfully to: {}",
+        destination_path
+    ))
 }
 
 pub fn export_database(format: ExportFormat) -> Result<String, String> {
@@ -89,21 +94,20 @@ pub fn export_database(format: ExportFormat) -> Result<String, String> {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    
+
     let extension = match format {
         ExportFormat::Json => "json",
         ExportFormat::Csv => "csv",
         ExportFormat::Sql => "sql",
     };
-    
+
     let export_filename = format!("database_export_{}.{}", timestamp, extension);
     let export_path = get_export_directory()?.join(&export_filename);
-    
+
     // Get database connection
     let db_path = get_database_path()?;
-    let conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
-    
+    let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
+
     // Create export structure
     let mut export = DatabaseExport {
         timestamp,
@@ -118,18 +122,18 @@ pub fn export_database(format: ExportFormat) -> Result<String, String> {
             format: format!("{:?}", format),
         },
     };
-    
+
     // Export all tables
     let table_names = vec!["users", "high_ranking_officers"];
     for table_name in table_names {
         let table_export = export_table(&conn, table_name)?;
         export.tables.push(table_export);
     }
-    
+
     // Update metadata
     export.metadata.total_tables = export.tables.len();
     export.metadata.total_rows = export.tables.iter().map(|t| t.row_count).sum();
-    
+
     // Write export file based on format
     match format {
         ExportFormat::Json => {
@@ -137,35 +141,35 @@ pub fn export_database(format: ExportFormat) -> Result<String, String> {
                 .map_err(|e| format!("Failed to serialize JSON: {}", e))?;
             fs::write(&export_path, json_content)
                 .map_err(|e| format!("Failed to write JSON file: {}", e))?;
-        },
+        }
         ExportFormat::Csv => {
             let csv_content = export_to_csv(&export)?;
             fs::write(&export_path, csv_content)
                 .map_err(|e| format!("Failed to write CSV file: {}", e))?;
-        },
+        }
         ExportFormat::Sql => {
             let sql_content = export_to_sql(&export)?;
             fs::write(&export_path, sql_content)
                 .map_err(|e| format!("Failed to write SQL file: {}", e))?;
-        },
+        }
     }
-    
+
     // Update file size
     export.metadata.file_size = fs::metadata(&export_path)
         .map_err(|e| format!("Failed to get file size: {}", e))?
         .len();
-    
+
     Ok(format!("Export created successfully: {}", export_filename))
 }
 
 pub fn import_database(import_filename: &str) -> Result<String, String> {
     let import_path = get_export_directory()?.join(import_filename);
-    
+
     // Check if import file exists
     if !import_path.exists() {
         return Err(format!("Import file not found: {}", import_filename));
     }
-    
+
     // Determine format from file extension
     let format = match import_path.extension().and_then(|s| s.to_str()) {
         Some("json") => ExportFormat::Json,
@@ -173,40 +177,44 @@ pub fn import_database(import_filename: &str) -> Result<String, String> {
         Some("sql") => ExportFormat::Sql,
         _ => return Err("Unsupported file format".to_string()),
     };
-    
+
     // Read import file
     let import_content = fs::read_to_string(&import_path)
         .map_err(|e| format!("Failed to read import file: {}", e))?;
-    
+
     // Get database connection
     let db_path = get_database_path()?;
-    let mut conn = Connection::open(&db_path)
-        .map_err(|e| format!("Failed to open database: {}", e))?;
-    
+    let mut conn =
+        Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
+
     // Start transaction
-    let tx = conn.transaction()
+    let tx = conn
+        .transaction()
         .map_err(|e| format!("Failed to start transaction: {}", e))?;
-    
+
     // Import based on format
     match format {
         ExportFormat::Json => {
             let export: DatabaseExport = serde_json::from_str(&import_content)
                 .map_err(|e| format!("Failed to parse JSON: {}", e))?;
             import_from_json(&tx, &export)?;
-        },
+        }
         ExportFormat::Csv => {
             import_from_csv(&tx, &import_content)?;
-        },
+        }
         ExportFormat::Sql => {
             import_from_sql(&tx, &import_content)?;
-        },
+        }
     }
-    
+
     // Commit transaction
     tx.commit()
         .map_err(|e| format!("Failed to commit transaction: {}", e))?;
-    
-    Ok(format!("Database imported successfully from: {}", import_filename))
+
+    Ok(format!(
+        "Database imported successfully from: {}",
+        import_filename
+    ))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -218,30 +226,31 @@ pub struct ExportFileInfo {
 
 pub fn list_exports() -> Result<Vec<ExportFileInfo>, String> {
     let export_dir = get_export_directory()?;
-    
+
     if !export_dir.exists() {
         return Ok(Vec::new());
     }
-    
+
     let mut exports = Vec::new();
-    let entries = fs::read_dir(&export_dir)
-        .map_err(|e| format!("Failed to read export directory: {}", e))?;
-    
+    let entries =
+        fs::read_dir(&export_dir).map_err(|e| format!("Failed to read export directory: {}", e))?;
+
     for entry in entries {
         let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
         let path = entry.path();
-        
+
         if path.is_file() {
             if let Some(filename) = path.file_name().and_then(|s| s.to_str()) {
                 // Get file metadata
                 let metadata = fs::metadata(&path)
                     .map_err(|e| format!("Failed to get file metadata: {}", e))?;
-                
+
                 let size = metadata.len();
-                let modified = metadata.modified()
+                let modified = metadata
+                    .modified()
                     .map_err(|e| format!("Failed to get modification time: {}", e))?;
                 let created_time: chrono::DateTime<chrono::Utc> = modified.into();
-                
+
                 exports.push(ExportFileInfo {
                     filename: filename.to_string(),
                     size,
@@ -250,99 +259,104 @@ pub fn list_exports() -> Result<Vec<ExportFileInfo>, String> {
             }
         }
     }
-    
+
     // Sort by filename (newest first - timestamp in filename)
     exports.sort_by(|a, b| b.filename.cmp(&a.filename));
-    
+
     Ok(exports)
 }
 
 pub fn delete_export(export_filename: &str) -> Result<String, String> {
     let export_path = get_export_directory()?.join(export_filename);
-    
+
     if !export_path.exists() {
         return Err(format!("Export file not found: {}", export_filename));
     }
-    
-    fs::remove_file(&export_path)
-        .map_err(|e| format!("Failed to delete export file: {}", e))?;
-    
+
+    fs::remove_file(&export_path).map_err(|e| format!("Failed to delete export file: {}", e))?;
+
     Ok(format!("Export deleted successfully: {}", export_filename))
 }
 
 // Helper functions
 fn get_export_directory() -> Result<PathBuf, String> {
     let config = Config::default();
-    let app_data = app_data_dir(&config)
-        .ok_or("Failed to get app data directory")?;
-    
+    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
+
     let export_dir = app_data.join("pqs-rtn-hybrid-storage").join("exports");
-    
+
     if !export_dir.exists() {
         fs::create_dir_all(&export_dir)
             .map_err(|e| format!("Failed to create export directory: {}", e))?;
     }
-    
+
     Ok(export_dir)
 }
 
 fn get_database_path() -> Result<PathBuf, String> {
     let config = Config::default();
-    let app_data = app_data_dir(&config)
-        .ok_or("Failed to get app data directory")?;
-    
+    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
+
     let db_dir = app_data.join("pqs-rtn-hybrid-storage");
     std::fs::create_dir_all(&db_dir)
         .map_err(|e| format!("Failed to create database directory: {}", e))?;
-    
+
     Ok(db_dir.join("database.db"))
 }
 
 fn export_table(conn: &Connection, table_name: &str) -> Result<TableExport, String> {
     // Get table schema
-    let schema = conn.prepare(&format!("SELECT sql FROM sqlite_master WHERE type='table' AND name='{}'", table_name))
+    let schema = conn
+        .prepare(&format!(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='{}'",
+            table_name
+        ))
         .map_err(|e| format!("Failed to prepare schema query: {}", e))?
         .query_row([], |row| row.get::<_, String>(0))
         .map_err(|e| format!("Failed to get table schema: {}", e))?;
-    
+
     // Get table data with proper column names
-    let mut stmt = conn.prepare(&format!("SELECT * FROM {}", table_name))
+    let mut stmt = conn
+        .prepare(&format!("SELECT * FROM {}", table_name))
         .map_err(|e| format!("Failed to prepare data query: {}", e))?;
-    
+
     // Get column names
-    let column_names: Vec<String> = stmt.column_names()
+    let column_names: Vec<String> = stmt
+        .column_names()
         .iter()
         .map(|name| name.to_string())
         .collect();
-    
-    let rows = stmt.query_map([], |row| {
-        let mut map = serde_json::Map::new();
-        for (i, col_name) in column_names.iter().enumerate() {
-            // Try to get value as different types
-            let value = if let Ok(val) = row.get::<_, i64>(i) {
-                serde_json::Value::Number(serde_json::Number::from(val))
-            } else if let Ok(val) = row.get::<_, f64>(i) {
-                serde_json::Number::from_f64(val)
-                    .map(serde_json::Value::Number)
-                    .unwrap_or(serde_json::Value::Null)
-            } else if let Ok(val) = row.get::<_, String>(i) {
-                serde_json::Value::String(val)
-            } else if let Ok(val) = row.get::<_, bool>(i) {
-                serde_json::Value::Bool(val)
-            } else {
-                serde_json::Value::Null
-            };
-            map.insert(col_name.clone(), value);
-        }
-        Ok(serde_json::Value::Object(map))
-    }).map_err(|e| format!("Failed to query table data: {}", e))?;
-    
+
+    let rows = stmt
+        .query_map([], |row| {
+            let mut map = serde_json::Map::new();
+            for (i, col_name) in column_names.iter().enumerate() {
+                // Try to get value as different types
+                let value = if let Ok(val) = row.get::<_, i64>(i) {
+                    serde_json::Value::Number(serde_json::Number::from(val))
+                } else if let Ok(val) = row.get::<_, f64>(i) {
+                    serde_json::Number::from_f64(val)
+                        .map(serde_json::Value::Number)
+                        .unwrap_or(serde_json::Value::Null)
+                } else if let Ok(val) = row.get::<_, String>(i) {
+                    serde_json::Value::String(val)
+                } else if let Ok(val) = row.get::<_, bool>(i) {
+                    serde_json::Value::Bool(val)
+                } else {
+                    serde_json::Value::Null
+                };
+                map.insert(col_name.clone(), value);
+            }
+            Ok(serde_json::Value::Object(map))
+        })
+        .map_err(|e| format!("Failed to query table data: {}", e))?;
+
     let mut data = Vec::new();
     for row in rows {
         let row = row.map_err(|e| format!("Failed to process row: {}", e))?;
         data.push(row);
     }
-    
+
     let row_count = data.len();
     Ok(TableExport {
         name: table_name.to_string(),
@@ -354,24 +368,31 @@ fn export_table(conn: &Connection, table_name: &str) -> Result<TableExport, Stri
 
 fn export_to_csv(export: &DatabaseExport) -> Result<String, String> {
     let mut csv_content = String::new();
-    
+
     for table in &export.tables {
         csv_content.push_str(&format!("# Table: {}\n", table.name));
         csv_content.push_str(&format!("# Schema: {}\n", table.schema));
         csv_content.push_str(&format!("# Rows: {}\n", table.row_count));
-        
+
         if !table.data.is_empty() {
             // Get column names from first row
             if let Some(first_row) = table.data.first() {
                 if let Some(obj) = first_row.as_object() {
                     let columns: Vec<&String> = obj.keys().collect();
-                    csv_content.push_str(&columns.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(","));
+                    csv_content.push_str(
+                        &columns
+                            .iter()
+                            .map(|s| s.as_str())
+                            .collect::<Vec<_>>()
+                            .join(","),
+                    );
                     csv_content.push_str("\n");
-                    
+
                     // Add data rows
                     for row in &table.data {
                         if let Some(obj) = row.as_object() {
-                            let values: Vec<String> = columns.iter()
+                            let values: Vec<String> = columns
+                                .iter()
                                 .map(|col| {
                                     obj.get(*col)
                                         .map(|v| v.to_string())
@@ -385,67 +406,83 @@ fn export_to_csv(export: &DatabaseExport) -> Result<String, String> {
                 }
             }
         }
-        
+
         csv_content.push_str("\n");
     }
-    
+
     Ok(csv_content)
 }
 
 fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
     let mut sql_content = String::new();
-    
+
     sql_content.push_str("-- Database Export\n");
     sql_content.push_str(&format!("-- Created: {}\n", export.metadata.created_at));
     sql_content.push_str(&format!("-- Format: {:?}\n", export.format));
-    sql_content.push_str(&format!("-- Total Tables: {}\n", export.metadata.total_tables));
+    sql_content.push_str(&format!(
+        "-- Total Tables: {}\n",
+        export.metadata.total_tables
+    ));
     sql_content.push_str(&format!("-- Total Rows: {}\n", export.metadata.total_rows));
     sql_content.push_str("\n");
     sql_content.push_str("-- Disable foreign keys during import\n");
     sql_content.push_str("PRAGMA foreign_keys = OFF;\n");
     sql_content.push_str("BEGIN TRANSACTION;\n\n");
-    
+
     for table in &export.tables {
-        sql_content.push_str(&format!("-- ============================================\n"));
+        sql_content.push_str(&format!(
+            "-- ============================================\n"
+        ));
         sql_content.push_str(&format!("-- Table: {}\n", table.name));
         sql_content.push_str(&format!("-- Rows: {}\n", table.row_count));
-        sql_content.push_str(&format!("-- ============================================\n\n"));
-        
+        sql_content.push_str(&format!(
+            "-- ============================================\n\n"
+        ));
+
         // Add DROP TABLE IF EXISTS
         sql_content.push_str(&format!("DROP TABLE IF EXISTS {};\n\n", table.name));
-        
+
         // Add CREATE TABLE from schema
         sql_content.push_str(&format!("{};\n\n", table.schema));
-        
+
         // Add INSERT statements if there's data
         if !table.data.is_empty() {
             sql_content.push_str(&format!("-- Insert data for table: {}\n", table.name));
-            
+
             // Get column names from first row
             if let Some(first_row) = table.data.first() {
                 if let Some(obj) = first_row.as_object() {
                     let columns: Vec<&String> = obj.keys().collect();
-                    
+
                     // Add INSERT statements
                     for row in &table.data {
                         if let Some(obj) = row.as_object() {
-                            let values: Vec<String> = columns.iter()
+                            let values: Vec<String> = columns
+                                .iter()
                                 .map(|col| {
                                     let value = obj.get(*col).unwrap_or(&serde_json::Value::Null);
                                     match value {
-                                        serde_json::Value::String(s) => format!("'{}'", s.replace("'", "''")),
+                                        serde_json::Value::String(s) => {
+                                            format!("'{}'", s.replace("'", "''"))
+                                        }
                                         serde_json::Value::Number(n) => n.to_string(),
-                                        serde_json::Value::Bool(b) => if *b { "1" } else { "0" }.to_string(),
+                                        serde_json::Value::Bool(b) => {
+                                            if *b { "1" } else { "0" }.to_string()
+                                        }
                                         serde_json::Value::Null => "NULL".to_string(),
                                         _ => "NULL".to_string(),
                                     }
                                 })
                                 .collect();
-                            
+
                             sql_content.push_str(&format!(
                                 "INSERT INTO {} ({}) VALUES ({});\n",
                                 table.name,
-                                columns.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "),
+                                columns
+                                    .iter()
+                                    .map(|s| s.as_str())
+                                    .collect::<Vec<_>>()
+                                    .join(", "),
                                 values.join(", ")
                             ));
                         }
@@ -453,14 +490,14 @@ fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
                 }
             }
         }
-        
+
         sql_content.push_str("\n");
     }
-    
+
     sql_content.push_str("COMMIT;\n");
     sql_content.push_str("PRAGMA foreign_keys = ON;\n");
     sql_content.push_str("\n-- Export completed successfully\n");
-    
+
     Ok(sql_content)
 }
 
@@ -469,30 +506,35 @@ fn import_from_json(tx: &rusqlite::Transaction, export: &DatabaseExport) -> Resu
         // Clear existing data
         tx.execute(&format!("DELETE FROM {}", table.name), [])
             .map_err(|e| format!("Failed to clear table {}: {}", table.name, e))?;
-        
+
         // Insert new data
         for row in &table.data {
             if let Some(obj) = row.as_object() {
                 let mut columns = Vec::new();
                 let mut values = Vec::new();
                 let mut placeholders = Vec::new();
-                
+
                 for (key, value) in obj {
                     columns.push(key);
                     values.push(value.clone());
                     placeholders.push("?");
                 }
-                
+
                 let query = format!(
                     "INSERT INTO {} ({}) VALUES ({})",
                     table.name,
-                    columns.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", "),
+                    columns
+                        .iter()
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", "),
                     placeholders.join(", ")
                 );
-                
-                let mut stmt = tx.prepare(&query)
+
+                let mut stmt = tx
+                    .prepare(&query)
                     .map_err(|e| format!("Failed to prepare insert statement: {}", e))?;
-                
+
                 let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
                 for value in values {
                     match value {
@@ -505,19 +547,20 @@ fn import_from_json(tx: &rusqlite::Transaction, export: &DatabaseExport) -> Resu
                             } else {
                                 params.push(Box::new(n.to_string()));
                             }
-                        },
+                        }
                         serde_json::Value::Bool(b) => params.push(Box::new(b)),
                         serde_json::Value::Null => params.push(Box::new(None::<String>)),
                         _ => params.push(Box::new(value.to_string())),
                     }
                 }
-                let param_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+                let param_refs: Vec<&dyn rusqlite::ToSql> =
+                    params.iter().map(|p| p.as_ref()).collect();
                 stmt.execute(param_refs.as_slice())
                     .map_err(|e| format!("Failed to execute insert: {}", e))?;
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -526,7 +569,7 @@ fn import_from_csv(tx: &rusqlite::Transaction, csv_content: &str) -> Result<(), 
     let lines: Vec<&str> = csv_content.lines().collect();
     let mut current_table = String::new();
     let mut columns = Vec::new();
-    
+
     for line in lines {
         if line.starts_with("# Table: ") {
             current_table = line.replace("# Table: ", "").trim().to_string();
@@ -547,18 +590,20 @@ fn import_from_csv(tx: &rusqlite::Transaction, csv_content: &str) -> Result<(), 
                         columns.join(", "),
                         placeholders
                     );
-                    
-                    let mut stmt = tx.prepare(&query)
+
+                    let mut stmt = tx
+                        .prepare(&query)
                         .map_err(|e| format!("Failed to prepare insert statement: {}", e))?;
-                    
-                    let params: Vec<&dyn rusqlite::ToSql> = values.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+
+                    let params: Vec<&dyn rusqlite::ToSql> =
+                        values.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
                     stmt.execute(params.as_slice())
                         .map_err(|e| format!("Failed to execute insert: {}", e))?;
                 }
             }
         }
     }
-    
+
     Ok(())
 }
 

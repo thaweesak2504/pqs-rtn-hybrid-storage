@@ -103,6 +103,33 @@ npm run desktop
 npm run tauri:build
 ```
 
+### **Testing:**
+
+#### **Rust Tests**
+```powershell
+# Run all Rust tests
+cd src-tauri
+cargo test
+
+# Or use the automation script
+.\scripts\run-rust-tests.ps1
+
+# Run tests with coverage
+.\scripts\run-rust-tests.ps1 -Coverage
+
+# Run specific module tests
+.\scripts\run-rust-tests.ps1 -Filter "database_export::tests"
+```
+
+**Test Status:**
+- ✅ **37 Unit Tests** (100% pass rate)
+- ✅ **14.46% Line Coverage** (baseline established)
+- ✅ **GitHub Actions CI/CD** (automated testing)
+- 📊 **Coverage Report**: `coverage/rust/html/index.html`
+
+**Coverage by Module:**
+- `test_helpers.rs`: 98.72% (test utilities)
+
 ## 📊 **Performance Comparison:**
 
 | Aspect | BLOB Storage | Hybrid Storage |

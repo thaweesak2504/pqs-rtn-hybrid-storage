@@ -1,15 +1,15 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::io::{Read, Write};
-use std::time::{SystemTime, UNIX_EPOCH};
-use zip::write::FileOptions;
-use zip::ZipWriter;
-use walkdir::WalkDir;
+use crate::logger;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fs;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
-use crate::logger;
+use walkdir::WalkDir;
+use zip::write::FileOptions;
+use zip::ZipWriter;
 
 /// Backup manifest containing metadata about the backup
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,7 +33,10 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     let backup_filename = format!("hybrid_backup_{}.zip", timestamp);
     let backup_path = get_backup_directory()?.join(&backup_filename);
 
-    logger::info(&format!("Starting hybrid backup creation: {}", backup_filename));
+    logger::info(&format!(
+        "Starting hybrid backup creation: {}",
+        backup_filename
+    ));
 
     // Create zip file
     let zip_file = fs::File::create(&backup_path)
@@ -52,7 +55,8 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     let db_path = get_database_path()?;
     if db_path.exists() {
         logger::debug("Adding database file to backup");
-        let db_filename = db_path.file_name()
+        let db_filename = db_path
+            .file_name()
             .ok_or("Invalid database filename")?
             .to_string_lossy()
             .to_string();
@@ -60,11 +64,12 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         zip.start_file(&db_filename, options)
             .map_err(|e| format!("Failed to start database file in zip: {}", e))?;
 
-        let mut db_file = fs::File::open(&db_path)
-            .map_err(|e| format!("Failed to open database file: {}", e))?;
+        let mut db_file =
+            fs::File::open(&db_path).map_err(|e| format!("Failed to open database file: {}", e))?;
 
         let mut buffer = Vec::new();
-        db_file.read_to_end(&mut buffer)
+        db_file
+            .read_to_end(&mut buffer)
             .map_err(|e| format!("Failed to read database file: {}", e))?;
 
         database_size = buffer.len() as u64;
@@ -83,11 +88,13 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         logger::debug("Adding media directory to backup");
 
         for entry in WalkDir::new(&media_dir).into_iter() {
-            let entry = entry.map_err(|e| format!("Failed to read media directory entry: {}", e))?;
+            let entry =
+                entry.map_err(|e| format!("Failed to read media directory entry: {}", e))?;
 
             if entry.file_type().is_file() {
                 let file_path = entry.path();
-                let relative_path = file_path.strip_prefix(&media_dir)
+                let relative_path = file_path
+                    .strip_prefix(&media_dir)
                     .map_err(|e| format!("Failed to get relative path: {}", e))?;
 
                 let zip_path = format!("media/{}", relative_path.to_string_lossy());
@@ -109,7 +116,11 @@ pub fn create_hybrid_backup() -> Result<String, String> {
                 total_files += 1;
             }
         }
-        logger::debug(&format!("Media files added: {} files, {} bytes", total_files - 1, media_size));
+        logger::debug(&format!(
+            "Media files added: {} files, {} bytes",
+            total_files - 1,
+            media_size
+        ));
     } else {
         logger::warn("Media directory not found, skipping media backup");
     }
@@ -145,7 +156,8 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0; 8192];
     loop {
-        let bytes_read = zip_file.read(&mut buffer)
+        let bytes_read = zip_file
+            .read(&mut buffer)
             .map_err(|e| format!("Failed to read zip for checksum: {}", e))?;
 
         if bytes_read == 0 {
@@ -159,12 +171,21 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     // Update manifest with checksum (this is a simplified approach)
     // In production, you might want to recalculate or store checksum separately
 
-    logger::info(&format!("Hybrid backup created successfully: {}", backup_filename));
-    logger::info(&format!("Total files: {}, Database: {} bytes, Media: {} bytes",
-        total_files, database_size, media_size));
+    logger::info(&format!(
+        "Hybrid backup created successfully: {}",
+        backup_filename
+    ));
+    logger::info(&format!(
+        "Total files: {}, Database: {} bytes, Media: {} bytes",
+        total_files, database_size, media_size
+    ));
 
-    Ok(format!("Hybrid backup created: {} (Files: {}, Size: {} bytes)",
-        backup_filename, total_files, database_size + media_size))
+    Ok(format!(
+        "Hybrid backup created: {} (Files: {}, Size: {} bytes)",
+        backup_filename,
+        total_files,
+        database_size + media_size
+    ))
 }
 
 /// Discover available backup files in the backup directory
@@ -177,9 +198,9 @@ pub fn discover_available_backups() -> Result<Vec<BackupInfo>, String> {
 
     let mut backups = Vec::new();
 
-    for entry in fs::read_dir(&backup_dir)
-        .map_err(|e| format!("Failed to read backup directory: {}", e))? {
-
+    for entry in
+        fs::read_dir(&backup_dir).map_err(|e| format!("Failed to read backup directory: {}", e))?
+    {
         let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
         let path = entry.path();
 
@@ -213,7 +234,10 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         return Err("Backup file does not exist".to_string());
     }
 
-    logger::info(&format!("Starting backup import from: {}", zip_path.display()));
+    logger::info(&format!(
+        "Starting backup import from: {}",
+        zip_path.display()
+    ));
 
     // Validate manifest first
     let manifest = read_backup_manifest(zip_path)?;
@@ -224,18 +248,18 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         fs::remove_dir_all(&temp_dir)
             .map_err(|e| format!("Failed to clean temp directory: {}", e))?;
     }
-    fs::create_dir_all(&temp_dir)
-        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+    fs::create_dir_all(&temp_dir).map_err(|e| format!("Failed to create temp directory: {}", e))?;
 
     // Extract zip
-    let zip_file = fs::File::open(zip_path)
-        .map_err(|e| format!("Failed to open zip file: {}", e))?;
+    let zip_file =
+        fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
 
-    let mut archive = zip::ZipArchive::new(zip_file)
-        .map_err(|e| format!("Failed to read zip archive: {}", e))?;
+    let mut archive =
+        zip::ZipArchive::new(zip_file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| format!("Failed to read zip entry {}: {}", i, e))?;
 
         let outpath = temp_dir.join(file.name());
@@ -295,13 +319,14 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
     }
 
     // Clean up temp directory
-    fs::remove_dir_all(&temp_dir)
-        .map_err(|e| format!("Failed to clean temp directory: {}", e))?;
+    fs::remove_dir_all(&temp_dir).map_err(|e| format!("Failed to clean temp directory: {}", e))?;
 
     logger::info("Backup import completed successfully");
 
-    Ok(format!("Backup imported successfully. Files restored: Database + {} media files",
-        manifest.total_files.saturating_sub(1)))
+    Ok(format!(
+        "Backup imported successfully. Files restored: Database + {} media files",
+        manifest.total_files.saturating_sub(1)
+    ))
 }
 
 /// Delete a hybrid backup file
@@ -318,8 +343,7 @@ pub fn delete_hybrid_backup(filename: &str) -> Result<String, String> {
         return Err("Invalid hybrid backup filename".to_string());
     }
 
-    fs::remove_file(&backup_path)
-        .map_err(|e| format!("Failed to delete backup file: {}", e))?;
+    fs::remove_file(&backup_path).map_err(|e| format!("Failed to delete backup file: {}", e))?;
 
     logger::info(&format!("Hybrid backup deleted: {}", filename));
 
@@ -328,17 +352,19 @@ pub fn delete_hybrid_backup(filename: &str) -> Result<String, String> {
 
 /// Helper function to read backup manifest from zip
 fn read_backup_manifest(zip_path: &Path) -> Result<BackupManifest, String> {
-    let zip_file = fs::File::open(zip_path)
-        .map_err(|e| format!("Failed to open zip file: {}", e))?;
+    let zip_file =
+        fs::File::open(zip_path).map_err(|e| format!("Failed to open zip file: {}", e))?;
 
-    let mut archive = zip::ZipArchive::new(zip_file)
-        .map_err(|e| format!("Failed to read zip archive: {}", e))?;
+    let mut archive =
+        zip::ZipArchive::new(zip_file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
 
-    let mut manifest_file = archive.by_name("manifest.json")
+    let mut manifest_file = archive
+        .by_name("manifest.json")
         .map_err(|e| format!("Manifest not found in backup: {}", e))?;
 
     let mut manifest_content = String::new();
-    manifest_file.read_to_string(&mut manifest_content)
+    manifest_file
+        .read_to_string(&mut manifest_content)
         .map_err(|e| format!("Failed to read manifest: {}", e))?;
 
     let manifest: BackupManifest = serde_json::from_str(&manifest_content)
@@ -357,7 +383,8 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 
         if entry.file_type().is_file() {
             let src_path = entry.path();
-            let relative_path = src_path.strip_prefix(src)
+            let relative_path = src_path
+                .strip_prefix(src)
                 .map_err(|e| format!("Failed to get relative path: {}", e))?;
             let dst_path = dst.join(relative_path);
 
@@ -366,8 +393,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
                     .map_err(|e| format!("Failed to create parent directory: {}", e))?;
             }
 
-            fs::copy(src_path, &dst_path)
-                .map_err(|e| format!("Failed to copy file: {}", e))?;
+            fs::copy(src_path, &dst_path).map_err(|e| format!("Failed to copy file: {}", e))?;
         }
     }
 
@@ -377,8 +403,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 /// Get backup directory path
 fn get_backup_directory() -> Result<PathBuf, String> {
     let config = Config::default();
-    let app_data = app_data_dir(&config)
-        .ok_or("Failed to get app data directory")?;
+    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
 
     let backup_dir = app_data.join("pqs-rtn-hybrid-storage").join("backups");
 
@@ -393,8 +418,7 @@ fn get_backup_directory() -> Result<PathBuf, String> {
 /// Get database path
 fn get_database_path() -> Result<PathBuf, String> {
     let config = Config::default();
-    let app_data = app_data_dir(&config)
-        .ok_or("Failed to get app data directory")?;
+    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
 
     Ok(app_data.join("pqs-rtn-hybrid-storage").join("database.db"))
 }
@@ -402,8 +426,7 @@ fn get_database_path() -> Result<PathBuf, String> {
 /// Get media directory path
 fn get_media_directory() -> Result<PathBuf, String> {
     let config = Config::default();
-    let app_data = app_data_dir(&config)
-        .ok_or("Failed to get app data directory")?;
+    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
 
     Ok(app_data.join("pqs-rtn-hybrid-storage").join("media"))
 }
@@ -433,11 +456,11 @@ pub struct SystemStateInfo {
 
 /// Check system state and backups for initialization decision
 pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String> {
-    let database_exists_and_valid = crate::database::check_database_exists_and_valid()
-        .unwrap_or(false);
+    let database_exists_and_valid =
+        crate::database::check_database_exists_and_valid().unwrap_or(false);
     // Check media state (without creating directories)
-    let media_exists_and_valid = crate::file_manager::FileManager::check_media_exists_and_valid_no_create()
-        .unwrap_or(false);
+    let media_exists_and_valid =
+        crate::file_manager::FileManager::check_media_exists_and_valid_no_create().unwrap_or(false);
     // Check backup info
     let backup_info = check_backup_for_initialization()?;
     let result = SystemStateInfo {
@@ -445,7 +468,7 @@ pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String
         media_exists_and_valid,
         backup_info,
     };
-    
+
     Ok(result)
 }
 
@@ -532,7 +555,8 @@ mod tests {
         let dst_root = dst_temp.path().join("dst");
 
         fs::create_dir_all(src_root.join("nested")).expect("Create nested source should succeed");
-        fs::write(src_root.join("root.txt"), "root-content").expect("Write root file should succeed");
+        fs::write(src_root.join("root.txt"), "root-content")
+            .expect("Write root file should succeed");
         fs::write(src_root.join("nested").join("child.txt"), "child-content")
             .expect("Write child file should succeed");
 
@@ -541,8 +565,8 @@ mod tests {
         assert!(dst_root.join("root.txt").exists());
         assert!(dst_root.join("nested").join("child.txt").exists());
 
-        let root_content = fs::read_to_string(dst_root.join("root.txt"))
-            .expect("Read copied root should succeed");
+        let root_content =
+            fs::read_to_string(dst_root.join("root.txt")).expect("Read copied root should succeed");
         let child_content = fs::read_to_string(dst_root.join("nested").join("child.txt"))
             .expect("Read copied child should succeed");
 
