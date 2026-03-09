@@ -18,6 +18,9 @@ mod logger; // Logger system for conditional debug output
 mod migration_helper;
 mod universal_sqlite_backup; // Database migration utilities
 
+#[cfg(test)]
+mod test_helpers; // Test helper utilities
+
 // Re-export database structs
 pub use database::{Avatar, HighRankingOfficer, User};
 // DEPRECATED: HighRankingAvatar removed - now using file-based storage

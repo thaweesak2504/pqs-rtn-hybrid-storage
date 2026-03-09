@@ -8,28 +8,28 @@
 
 ### 1.1 Rust Backend
 
-| File | Lines | Public Functions | ความเร่งด่วน | หมายเหตุ |
-|------|-------|-----------------|-------------|----------|
-| `content_database.rs` | **5,427** | 90 | **สูง** | ใหญ่ที่สุดในโปรเจค — เป็น "God File" ควรแยกเร่งด่วน |
-| `main.rs` | 1,545 | 135 (tauri commands) | ปานกลาง | ส่วนใหญ่เป็น thin wrappers → ยอมรับได้ |
-| `database.rs` | 773 | ~10 | ต่ำ | User/Auth DB — ขนาดพอเหมาะ |
-| `database_export.rs` | 578 | ~8 | ต่ำ | Export logic — self-contained |
+| File                  | Lines     | Public Functions     | ความเร่งด่วน | หมายเหตุ                                            |
+| --------------------- | --------- | -------------------- | ------------ | --------------------------------------------------- |
+| `content_database.rs` | **5,427** | 90                   | **สูง**      | ใหญ่ที่สุดในโปรเจค — เป็น "God File" ควรแยกเร่งด่วน |
+| `main.rs`             | 1,545     | 135 (tauri commands) | ปานกลาง      | ส่วนใหญ่เป็น thin wrappers → ยอมรับได้              |
+| `database.rs`         | 773       | ~10                  | ต่ำ          | User/Auth DB — ขนาดพอเหมาะ                          |
+| `database_export.rs`  | 578       | ~8                   | ต่ำ          | Export logic — self-contained                       |
 
 #### `content_database.rs` — แผนแยกไฟล์ (แนะนำ)
 
 90 public functions แบ่งเป็น 9 domain groups:
 
-| ไฟล์ใหม่ | Domain | Functions | Lines โดยประมาณ |
-|----------|--------|-----------|----------------|
-| `content_db_init.rs` | Init + Migration + Schema | 3 fns (init, seed, get_path) + all CREATE TABLE | ~600 |
-| `content_db_documents.rs` | Documents + Sections | 19 fns (CRUD, seed_template, hierarchy) | ~1,200 |
-| `content_db_questions.rs` | Questions + Images | 9 fns (CRUD, reorder, image upload) | ~600 |
-| `content_db_references.rs` | References + Section Refs | 19 fns (CRUD, section_ref children) | ~700 |
-| `content_db_occupation.rs` | Occupation Branches + SubQuestions | 14 fns (branches, sub-branches, sub-questions) | ~400 |
-| `content_db_scoring.rs` | Scoring + Section Links | 8 fns (scores, group calc, section links) | ~400 |
-| `content_db_assessment.rs` | Assessment + Answer Keys | 11 fns (trainee, qualifier, progress) | ~700 |
-| `content_db_required.rs` | Required Count + Helpers | 3 fns (check_has_children, required_count) | ~200 |
-| `content_database.rs` | Shared: connection, types, re-exports | Structs, enums, get_connection | ~600 |
+| ไฟล์ใหม่                   | Domain                                | Functions                                       | Lines โดยประมาณ |
+| -------------------------- | ------------------------------------- | ----------------------------------------------- | --------------- |
+| `content_db_init.rs`       | Init + Migration + Schema             | 3 fns (init, seed, get_path) + all CREATE TABLE | ~600            |
+| `content_db_documents.rs`  | Documents + Sections                  | 19 fns (CRUD, seed_template, hierarchy)         | ~1,200          |
+| `content_db_questions.rs`  | Questions + Images                    | 9 fns (CRUD, reorder, image upload)             | ~600            |
+| `content_db_references.rs` | References + Section Refs             | 19 fns (CRUD, section_ref children)             | ~700            |
+| `content_db_occupation.rs` | Occupation Branches + SubQuestions    | 14 fns (branches, sub-branches, sub-questions)  | ~400            |
+| `content_db_scoring.rs`    | Scoring + Section Links               | 8 fns (scores, group calc, section links)       | ~400            |
+| `content_db_assessment.rs` | Assessment + Answer Keys              | 11 fns (trainee, qualifier, progress)           | ~700            |
+| `content_db_required.rs`   | Required Count + Helpers              | 3 fns (check_has_children, required_count)      | ~200            |
+| `content_database.rs`      | Shared: connection, types, re-exports | Structs, enums, get_connection                  | ~600            |
 
 **ข้อดี:** แต่ละไฟล์ < 1,200 lines, แยกตาม domain ชัดเจน, `mod.rs` pattern ใช้ re-export  
 **ข้อเสีย:** ต้องย้าย struct definitions, แก้ `use crate::` paths, อาจมี circular dependency ถ้าแยกไม่ดี  
@@ -39,27 +39,27 @@
 
 ### 1.2 Frontend (React/TypeScript)
 
-| File | Lines | ความเร่งด่วน | หมายเหตุ |
-|------|-------|-------------|----------|
-| `QuestionTreeNode.tsx` | **3,181** | **สูง** | มี 4 components ใน 1 ไฟล์ — ดูรายละเอียดด้านล่าง |
-| `lcpData.ts` | 1,220 | ไม่ต้องทำ | Static data/constants — ไม่ใช่ logic |
-| `PqsReferenceSection.tsx` | 987 | ปานกลาง | Reference management UI — อาจแยก sub-components |
-| `DatabaseManagementPage.tsx` | 793 | ต่ำ | Admin page — self-contained |
-| `AddReferenceModal.tsx` | 775 | ต่ำ | Modal — complex but self-contained |
-| `aiCommandFilter.ts` | 765 | ไม่ต้องทำ | Filter logic — pure functions ไม่ใช่ UI |
-| `PqsQuestionSection.tsx` | 743 | ต่ำ | Question list container — ขนาดพอเหมาะ |
-| `rcpData.ts` | 679 | ไม่ต้องทำ | Static data |
-| `UserCRUDForm.tsx` | 666 | ต่ำ | Form — complex but manageable |
-| `ActiveDocumentPage.tsx` | 661 | ต่ำ | Page container — acceptable size |
-| `commandMonitor.ts` | 660 | ไม่ต้องทำ | Utility — pure logic |
-| `QuestionDisplayCard.tsx` | 660 | ต่ำ | Display component — borderline |
-| `commandProtectionTest.ts` | 609 | ไม่ต้องทำ | Test utility |
-| `MiniAudioPlayer.tsx` | 586 | ต่ำ | Self-contained media component |
-| `PqsSectionPreview200.tsx` | 555 | ต่ำ | Preview — read-only UI |
-| `elxData.ts` | 552 | ไม่ต้องทำ | Static data |
-| `201RadarWeapon.tsx` | 539 | ไม่ต้องทำ | Example/demo page |
-| `TraineeAnswerBox.tsx` | 524 | ต่ำ | Self-contained |
-| `AddQuestionModal.tsx` | 523 | ต่ำ | Modal — self-contained |
+| File                         | Lines     | ความเร่งด่วน | หมายเหตุ                                         |
+| ---------------------------- | --------- | ------------ | ------------------------------------------------ |
+| `QuestionTreeNode.tsx`       | **3,181** | **สูง**      | มี 4 components ใน 1 ไฟล์ — ดูรายละเอียดด้านล่าง |
+| `lcpData.ts`                 | 1,220     | ไม่ต้องทำ    | Static data/constants — ไม่ใช่ logic             |
+| `PqsReferenceSection.tsx`    | 987       | ปานกลาง      | Reference management UI — อาจแยก sub-components  |
+| `DatabaseManagementPage.tsx` | 793       | ต่ำ          | Admin page — self-contained                      |
+| `AddReferenceModal.tsx`      | 775       | ต่ำ          | Modal — complex but self-contained               |
+| `aiCommandFilter.ts`         | 765       | ไม่ต้องทำ    | Filter logic — pure functions ไม่ใช่ UI          |
+| `PqsQuestionSection.tsx`     | 743       | ต่ำ          | Question list container — ขนาดพอเหมาะ            |
+| `rcpData.ts`                 | 679       | ไม่ต้องทำ    | Static data                                      |
+| `UserCRUDForm.tsx`           | 666       | ต่ำ          | Form — complex but manageable                    |
+| `ActiveDocumentPage.tsx`     | 661       | ต่ำ          | Page container — acceptable size                 |
+| `commandMonitor.ts`          | 660       | ไม่ต้องทำ    | Utility — pure logic                             |
+| `QuestionDisplayCard.tsx`    | 660       | ต่ำ          | Display component — borderline                   |
+| `commandProtectionTest.ts`   | 609       | ไม่ต้องทำ    | Test utility                                     |
+| `MiniAudioPlayer.tsx`        | 586       | ต่ำ          | Self-contained media component                   |
+| `PqsSectionPreview200.tsx`   | 555       | ต่ำ          | Preview — read-only UI                           |
+| `elxData.ts`                 | 552       | ไม่ต้องทำ    | Static data                                      |
+| `201RadarWeapon.tsx`         | 539       | ไม่ต้องทำ    | Example/demo page                                |
+| `TraineeAnswerBox.tsx`       | 524       | ต่ำ          | Self-contained                                   |
+| `AddQuestionModal.tsx`       | 523       | ต่ำ          | Modal — self-contained                           |
 
 ---
 
@@ -78,23 +78,25 @@ Line  3179      Named exports
 ```
 
 ### External consumers (2 files):
+
 - `PqsQuestionSection.tsx` → imports: `QuestionTreeNode` (default), `QuestionFormCard`, `buildPrefix`
 - `QuestionMetadataDisplay.tsx` → imports: `AsyncImagePreview`
 
 ### Phase 1: แยก "ปลอดภัย" (ความเสี่ยงต่ำ)
 
-| ไฟล์ใหม่ | เนื้อหา | Lines |
-|----------|--------|-------|
-| `questionTreeUtils.ts` | `DEFAULT_L1_DESC_BY_SEQ`, `toThaiNumber`, `toThaiAlphabet`, `convertThaiToArabic`, `buildPrefix`, `buildPrefix200_300`, types `SubQuestionItem`, `ViewMode` | ~110 |
-| `AsyncImagePreview.tsx` | `AsyncImagePreview` component | ~60 |
+| ไฟล์ใหม่                | เนื้อหา                                                                                                                                                     | Lines |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| `questionTreeUtils.ts`  | `DEFAULT_L1_DESC_BY_SEQ`, `toThaiNumber`, `toThaiAlphabet`, `convertThaiToArabic`, `buildPrefix`, `buildPrefix200_300`, types `SubQuestionItem`, `ViewMode` | ~110  |
+| `AsyncImagePreview.tsx` | `AsyncImagePreview` component                                                                                                                               | ~60   |
 
 ### Phase 2: แยก QuestionFormCard (ความเสี่ยงปานกลาง)
 
-| ไฟล์ใหม่ | เนื้อหา | Lines |
-|----------|--------|-------|
+| ไฟล์ใหม่               | เนื้อหา                                                       | Lines  |
+| ---------------------- | ------------------------------------------------------------- | ------ |
 | `QuestionFormCard.tsx` | QuestionFormCard component ทั้งหมด + `AnswerKeyRow` interface | ~2,560 |
 
 **ผลลัพธ์ Phase 1+2:**
+
 - `QuestionTreeNode.tsx` → ~420 lines ✅
 - `QuestionFormCard.tsx` → ~2,560 lines (ยังใหญ่แต่ self-contained)
 - `questionTreeUtils.ts` → ~110 lines
@@ -102,12 +104,12 @@ Line  3179      Named exports
 
 ### Phase 3: แยกส่วนย่อยของ QuestionFormCard (ความเสี่ยงสูง — ต้องมี test ก่อน)
 
-| ไฟล์ใหม่ | ส่วน JSX | Lines | ปัญหา |
-|----------|---------|-------|-------|
-| `SubQuestionEditor.tsx` | Branch selector + item list + active selector | ~600 | แชร์ state 15+ ตัว |
-| `SectionPickerPanel.tsx` | Section checkbox list + section_ref children | ~280 | แชร์ formScoreType, existingId |
-| `ReferenceLinkSection.tsx` | Reference selector + linked refs | ~270 | แชร์ errors, linkedRefs |
-| `ScoreEditor.tsx` | Scoring + Required count | ~220 | แชร์ formScoreIsScored, effectiveIsGroupHeader |
+| ไฟล์ใหม่                   | ส่วน JSX                                      | Lines | ปัญหา                                          |
+| -------------------------- | --------------------------------------------- | ----- | ---------------------------------------------- |
+| `SubQuestionEditor.tsx`    | Branch selector + item list + active selector | ~600  | แชร์ state 15+ ตัว                             |
+| `SectionPickerPanel.tsx`   | Section checkbox list + section_ref children  | ~280  | แชร์ formScoreType, existingId                 |
+| `ReferenceLinkSection.tsx` | Reference selector + linked refs              | ~270  | แชร์ errors, linkedRefs                        |
+| `ScoreEditor.tsx`          | Scoring + Required count                      | ~220  | แชร์ formScoreIsScored, effectiveIsGroupHeader |
 
 **ข้อควรระวัง Phase 3:** QuestionFormCard มี ~30 useState ที่หลายส่วนอ้างข้ามกัน (เช่น `formScoreType` เปลี่ยน → clear `useSubQuestions`) → ต้องใช้ Context/useReducer เพื่อลด prop drilling
 
@@ -117,12 +119,12 @@ Line  3179      Named exports
 
 ### 3.1 สถานะปัจจุบัน
 
-| หัวข้อ | สถานะ |
-|--------|-------|
-| Testing framework | **ไม่มี** — ไม่มี vitest, jest, playwright, cypress ใน dependencies |
-| Existing tests | **ไม่มี** — มีแค่ `commandProtectionTest.ts` (manual test utility) |
-| CI/CD | **ไม่มี** |
-| Test scripts in package.json | **ไม่มี** |
+| หัวข้อ                       | สถานะ                                                               |
+| ---------------------------- | ------------------------------------------------------------------- |
+| Testing framework            | **ไม่มี** — ไม่มี vitest, jest, playwright, cypress ใน dependencies |
+| Existing tests               | **ไม่มี** — มีแค่ `commandProtectionTest.ts` (manual test utility)  |
+| CI/CD                        | **ไม่มี**                                                           |
+| Test scripts in package.json | **ไม่มี**                                                           |
 
 ### 3.2 Testing Layers ที่เป็นไปได้
 
@@ -135,7 +137,7 @@ Line  3179      Named exports
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_generate_document_id() {
         let id = generate_document_id("Test Doc", "UNIT001");
@@ -145,6 +147,7 @@ mod tests {
 ```
 
 **สิ่งที่ test ได้ทันที:**
+
 - Pure functions (generate_document_id, utility functions)
 - Database CRUD (ใช้ in-memory SQLite `:memory:`)
 - Scoring calculations (calculate_group_score, calculate_section_total_score)
@@ -159,6 +162,7 @@ mod tests {
 **เป็นไปได้:** ✅ ใช่
 
 **เครื่องมือที่ต้องเพิ่ม:**
+
 ```json
 {
   "devDependencies": {
@@ -171,6 +175,7 @@ mod tests {
 ```
 
 **สิ่งที่ test ได้:**
+
 - Utility functions (`toThaiNumber`, `buildPrefix`, `convertThaiToArabic`)
 - Component rendering (QuestionDisplayCard, AsyncImagePreview)
 - Form validation logic (QuestionFormCard handleSave validation)
@@ -180,7 +185,7 @@ mod tests {
 
 ```typescript
 // ตัวอย่าง mock
-vi.mock('@tauri-apps/api/tauri', () => ({
+vi.mock("@tauri-apps/api/tauri", () => ({
   invoke: vi.fn(),
   convertFileSrc: vi.fn((path) => `asset://${path}`),
 }));
@@ -195,13 +200,14 @@ vi.mock('@tauri-apps/api/tauri', () => ({
 
 **ตัวเลือก:**
 
-| เครื่องมือ | วิธีการ | ความยาก | หมายเหตุ |
-|-----------|--------|---------|----------|
-| **Tauri Driver** (WebDriver) | ควบคุม Tauri app ผ่าน WebDriver protocol | สูง | Official Tauri testing tool, ต้อง setup WebDriver |
-| **Playwright** | เปิด Tauri app → connect via CDP | สูง | ต้อง custom launcher, อาจไม่เสถียร |
-| **Cypress Component Testing** | Test React components แยกจาก Tauri | ปานกลาง | ไม่ test Rust backend |
+| เครื่องมือ                    | วิธีการ                                  | ความยาก | หมายเหตุ                                          |
+| ----------------------------- | ---------------------------------------- | ------- | ------------------------------------------------- |
+| **Tauri Driver** (WebDriver)  | ควบคุม Tauri app ผ่าน WebDriver protocol | สูง     | Official Tauri testing tool, ต้อง setup WebDriver |
+| **Playwright**                | เปิด Tauri app → connect via CDP         | สูง     | ต้อง custom launcher, อาจไม่เสถียร                |
+| **Cypress Component Testing** | Test React components แยกจาก Tauri       | ปานกลาง | ไม่ test Rust backend                             |
 
 **Tauri Driver ตัวอย่าง:**
+
 ```toml
 # Cargo.toml
 [dev-dependencies]
@@ -249,26 +255,26 @@ Phase D: E2E Tests                ← ทำเมื่อ feature stable
 
 ### 3.4 สรุป Feasibility
 
-| Layer | เป็นไปได้? | ระดับความยาก | คุ้มค่า | แนะนำ |
-|-------|----------|-------------|--------|-------|
-| Rust Unit Tests | ✅ | ต่ำ | สูงมาก | **ทำเลย** |
-| Frontend Unit Tests | ✅ | ปานกลาง | สูง | **ทำเร็ว** |
-| Component Tests | ✅ | ปานกลาง | ปานกลาง | ทำหลัง refactor |
-| E2E Tests | ✅ | สูง | สูง | ทำเมื่อ stable |
+| Layer               | เป็นไปได้? | ระดับความยาก | คุ้มค่า | แนะนำ           |
+| ------------------- | ---------- | ------------ | ------- | --------------- |
+| Rust Unit Tests     | ✅         | ต่ำ          | สูงมาก  | **ทำเลย**       |
+| Frontend Unit Tests | ✅         | ปานกลาง      | สูง     | **ทำเร็ว**      |
+| Component Tests     | ✅         | ปานกลาง      | ปานกลาง | ทำหลัง refactor |
+| E2E Tests           | ✅         | สูง          | สูง     | ทำเมื่อ stable  |
 
 ---
 
 ## 4. Priority Roadmap
 
-| ลำดับ | งาน | ความเสี่ยง | ประมาณเวลา |
-|-------|-----|-----------|-----------|
-| 1 | Phase A: Rust unit test infrastructure | ต่ำ | 1-2 วัน |
-| 2 | Phase 1: แยก `questionTreeUtils.ts` + `AsyncImagePreview.tsx` | ต่ำ | 30 นาที |
-| 3 | Phase 2: แยก `QuestionFormCard.tsx` | ปานกลาง | 1-2 ชั่วโมง |
-| 4 | Phase B: Frontend unit test infrastructure | ต่ำ | 1 วัน |
-| 5 | แยก `content_database.rs` เป็น modules | ปานกลาง | 3-4 ชั่วโมง |
-| 6 | Phase 3: แยก sub-components ของ QuestionFormCard | สูง | 1 วัน |
-| 7 | Phase C+D: Component + E2E tests | สูง | 2-3 วัน |
+| ลำดับ | งาน                                                           | ความเสี่ยง | ประมาณเวลา  |
+| ----- | ------------------------------------------------------------- | ---------- | ----------- |
+| 1     | Phase A: Rust unit test infrastructure                        | ต่ำ        | 1-2 วัน     |
+| 2     | Phase 1: แยก `questionTreeUtils.ts` + `AsyncImagePreview.tsx` | ต่ำ        | 30 นาที     |
+| 3     | Phase 2: แยก `QuestionFormCard.tsx`                           | ปานกลาง    | 1-2 ชั่วโมง |
+| 4     | Phase B: Frontend unit test infrastructure                    | ต่ำ        | 1 วัน       |
+| 5     | แยก `content_database.rs` เป็น modules                        | ปานกลาง    | 3-4 ชั่วโมง |
+| 6     | Phase 3: แยก sub-components ของ QuestionFormCard              | สูง        | 1 วัน       |
+| 7     | Phase C+D: Component + E2E tests                              | สูง        | 2-3 วัน     |
 
 ---
 
@@ -290,13 +296,13 @@ Phase D: E2E Tests                ← ทำเมื่อ feature stable
 
 #### 📊 Success Metrics
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| **Rust Code Coverage** | 60%+ | 0% |
-| **Frontend Code Coverage** | 50%+ | 0% |
-| **Critical Path Coverage** | 90%+ | 0% |
-| **Test Execution Time** | < 30s | N/A |
-| **CI/CD Integration** | ✅ Green | ❌ None |
+| Metric                     | Target   | Current |
+| -------------------------- | -------- | ------- |
+| **Rust Code Coverage**     | 60%+     | 0%      |
+| **Frontend Code Coverage** | 50%+     | 0%      |
+| **Critical Path Coverage** | 90%+     | 0%      |
+| **Test Execution Time**    | < 30s    | N/A     |
+| **CI/CD Integration**      | ✅ Green | ❌ None |
 
 ---
 
@@ -327,14 +333,14 @@ mockall = "0.12"        # Mock framework (optional)
 #[cfg(test)]
 pub mod test_helpers {
     use rusqlite::Connection;
-    
+
     /// สร้าง in-memory database สำหรับ testing
     pub fn create_test_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         // Initialize schema
         conn
     }
-    
+
     /// สร้าง temporary database file
     pub fn create_temp_db() -> (tempfile::TempDir, std::path::PathBuf) {
         let temp_dir = tempfile::tempdir().unwrap();
@@ -345,6 +351,7 @@ pub mod test_helpers {
 ```
 
 **Automation:**
+
 ```powershell
 # scripts/setup-rust-tests.ps1
 Write-Host "Installing Rust test dependencies..."
@@ -354,6 +361,7 @@ cargo test --no-run  # Pre-compile tests
 ```
 
 **Expected Output:**
+
 - ✅ Test dependencies installed
 - ✅ Test helper module created
 - ✅ `cargo test` compiles successfully
@@ -365,6 +373,7 @@ cargo test --no-run  # Pre-compile tests
 **วัตถุประสงค์:** ทดสอบ utility functions และ business logic
 
 **Target Files:**
+
 - `content_database.rs` — `generate_document_id()`, `generate_section_id()`
 - Scoring calculations
 - Data transformations
@@ -376,21 +385,21 @@ cargo test --no-run  # Pre-compile tests
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_generate_document_id_format() {
         let id = generate_document_id("ระบบเรดาร์", "RAD001");
         assert!(id.starts_with("PQS-"));
         assert!(id.contains("RAD001"));
     }
-    
+
     #[test]
     fn test_generate_document_id_unique() {
         let id1 = generate_document_id("Test", "T001");
         let id2 = generate_document_id("Test", "T001");
         assert_ne!(id1, id2, "IDs should be unique");
     }
-    
+
     #[test]
     fn test_calculate_group_score_basic() {
         // Test scoring logic
@@ -401,6 +410,7 @@ mod tests {
 ```
 
 **Automation:**
+
 ```powershell
 # scripts/run-rust-tests.ps1
 param(
@@ -424,6 +434,7 @@ if ($Coverage) {
 ```
 
 **Expected Output:**
+
 - ✅ 10+ pure function tests passing
 - ✅ Test coverage report generated
 - ✅ All edge cases covered
@@ -435,6 +446,7 @@ if ($Coverage) {
 **วัตถุประสงค์:** ทดสอบการทำงานกับฐานข้อมูล
 
 **Target Operations:**
+
 - Document CRUD
 - Section CRUD
 - Question CRUD
@@ -447,11 +459,11 @@ if ($Coverage) {
 mod db_tests {
     use super::*;
     use crate::test_helpers::create_test_db;
-    
+
     #[test]
     fn test_create_document() {
         let conn = create_test_db();
-        
+
         let doc_id = create_document(
             &conn,
             "Test Document",
@@ -459,27 +471,27 @@ mod db_tests {
             "creator123",
             None
         ).unwrap();
-        
+
         assert!(doc_id.starts_with("PQS-"));
-        
+
         // Verify it was saved
         let doc = get_document(&conn, &doc_id).unwrap();
         assert_eq!(doc.title, "Test Document");
     }
-    
+
     #[test]
     fn test_document_cascade_delete() {
         let conn = create_test_db();
         let doc_id = create_document(/* ... */).unwrap();
         let section_id = create_section(/* ... */).unwrap();
-        
+
         delete_document(&conn, &doc_id).unwrap();
-        
+
         // Verify cascade deletion
         let sections = get_sections(&conn, &doc_id).unwrap();
         assert_eq!(sections.len(), 0);
     }
-    
+
     #[serial_test::serial]  // Run sequentially if using file DB
     #[test]
     fn test_concurrent_writes() {
@@ -489,12 +501,14 @@ mod db_tests {
 ```
 
 **Automation:**
+
 ```powershell
 # Run only database tests
 .\scripts\run-rust-tests.ps1 -Filter "db_tests"
 ```
 
 **Expected Output:**
+
 - ✅ 20+ CRUD tests passing
 - ✅ Transaction rollback tested
 - ✅ Foreign key constraints verified
@@ -507,6 +521,7 @@ mod db_tests {
 **วัตถุประสงค์:** ทดสอบ critical data operations
 
 **Target Files:**
+
 - `hybrid_backup.rs`
 - `database_export.rs`
 - File backup operations
@@ -518,33 +533,33 @@ mod db_tests {
 mod backup_tests {
     use super::*;
     use std::fs;
-    
+
     #[test]
     fn test_backup_content_to_zip() {
         let (_temp, db_path) = create_temp_db();
         // Create test data
-        
+
         let zip_path = backup_content_to_zip(
             db_path.to_str().unwrap(),
             "test-backup"
         ).unwrap();
-        
+
         assert!(fs::metadata(&zip_path).is_ok());
-        
+
         // Verify ZIP contains expected files
         let file = fs::File::open(&zip_path).unwrap();
         let mut archive = zip::ZipArchive::new(file).unwrap();
         assert!(archive.by_name("content.db").is_ok());
     }
-    
+
     #[test]
     fn test_restore_from_backup() {
         // Create backup
         let backup_path = /* ... */;
-        
+
         // Restore to new location
         let restored_db = restore_content_from_zip(&backup_path).unwrap();
-        
+
         // Verify data integrity
         let conn = Connection::open(restored_db).unwrap();
         let docs = get_all_documents(&conn).unwrap();
@@ -554,12 +569,14 @@ mod backup_tests {
 ```
 
 **Automation:**
+
 ```powershell
 # Test backup operations only
 .\scripts\run-rust-tests.ps1 -Filter "backup"
 ```
 
 **Expected Output:**
+
 - ✅ Backup creation tested
 - ✅ Restore verified
 - ✅ Data integrity confirmed
@@ -609,46 +626,46 @@ name: Rust Tests
 
 on:
   push:
-    branches: [ testing-infrastructure-feature, master ]
+    branches: [testing-infrastructure-feature, master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test:
     runs-on: windows-latest
-    
+
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Rust
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-    
-    - name: Cache cargo
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.cargo/bin/
-          ~/.cargo/registry/
-          src-tauri/target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Run tests
-      working-directory: src-tauri
-      run: cargo test --lib
-    
-    - name: Generate coverage
-      run: |
-        cargo install cargo-tarpaulin
-        cargo tarpaulin --out Xml --output-dir coverage
-    
-    - name: Upload coverage
-      uses: codecov/codecov-action@v3
-      with:
-        files: coverage/cobertura.xml
-        flags: rust
+      - uses: actions/checkout@v3
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Cache cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            src-tauri/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        working-directory: src-tauri
+        run: cargo test --lib
+
+      - name: Generate coverage
+        run: |
+          cargo install cargo-tarpaulin
+          cargo tarpaulin --out Xml --output-dir coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: coverage/cobertura.xml
+          flags: rust
 ```
 
 **Automation Script:**
@@ -671,6 +688,7 @@ Write-Host "Coverage report: coverage/rust/index.html" -ForegroundColor Yellow
 ```
 
 **Expected Output:**
+
 - ✅ All tests passing (target: 30+ tests)
 - ✅ Coverage > 50% for critical modules
 - ✅ HTML coverage report generated
@@ -717,40 +735,40 @@ Write-Host "Coverage report: coverage/rust/index.html" -ForegroundColor Yellow
 
 ```typescript
 // vitest.config.ts
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
-import path from 'path';
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+import path from "path";
 
 export default defineConfig({
   plugins: [react()],
   test: {
     globals: true,
-    environment: 'jsdom',
-    setupFiles: ['./src/test/setup.ts'],
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.ts"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'html', 'json'],
+      provider: "v8",
+      reporter: ["text", "html", "json"],
       exclude: [
-        'node_modules/',
-        'src/test/',
-        '**/*.d.ts',
-        '**/*.config.*',
-        '**/mockData',
-        '**/types'
+        "node_modules/",
+        "src/test/",
+        "**/*.d.ts",
+        "**/*.config.*",
+        "**/mockData",
+        "**/types",
       ],
       thresholds: {
         lines: 50,
         functions: 50,
         branches: 45,
-        statements: 50
-      }
-    }
+        statements: 50,
+      },
+    },
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-    }
-  }
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 });
 ```
 
@@ -758,9 +776,9 @@ export default defineConfig({
 
 ```typescript
 // src/test/setup.ts
-import { expect, afterEach, vi } from 'vitest';
-import { cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom/vitest';
+import { expect, afterEach, vi } from "vitest";
+import { cleanup } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 
 // Cleanup after each test
 afterEach(() => {
@@ -768,24 +786,24 @@ afterEach(() => {
 });
 
 // Mock Tauri API
-vi.mock('@tauri-apps/api/tauri', () => ({
+vi.mock("@tauri-apps/api/tauri", () => ({
   invoke: vi.fn(),
-  convertFileSrc: vi.fn((path: string) => `asset://${path}`)
+  convertFileSrc: vi.fn((path: string) => `asset://${path}`),
 }));
 
-vi.mock('@tauri-apps/api/dialog', () => ({
+vi.mock("@tauri-apps/api/dialog", () => ({
   open: vi.fn(),
   save: vi.fn(),
   message: vi.fn(),
   ask: vi.fn(),
-  confirm: vi.fn()
+  confirm: vi.fn(),
 }));
 
-vi.mock('@tauri-apps/api/fs', () => ({
+vi.mock("@tauri-apps/api/fs", () => ({
   readTextFile: vi.fn(),
   writeTextFile: vi.fn(),
   readBinaryFile: vi.fn(),
-  writeBinaryFile: vi.fn()
+  writeBinaryFile: vi.fn(),
 }));
 
 // Mock window object additions
@@ -793,7 +811,9 @@ global.IntersectionObserver = class IntersectionObserver {
   constructor() {}
   disconnect() {}
   observe() {}
-  takeRecords() { return []; }
+  takeRecords() {
+    return [];
+  }
   unobserve() {}
 };
 
@@ -802,8 +822,8 @@ const originalError = console.error;
 beforeAll(() => {
   console.error = (...args: any[]) => {
     if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Not implemented: HTMLFormElement.prototype.submit')
+      typeof args[0] === "string" &&
+      args[0].includes("Not implemented: HTMLFormElement.prototype.submit")
     ) {
       return;
     }
@@ -843,6 +863,7 @@ Write-Host "Run tests with: npm test" -ForegroundColor Yellow
 ```
 
 **Expected Output:**
+
 - ✅ All packages installed
 - ✅ Vitest configured
 - ✅ Test directories created
@@ -855,6 +876,7 @@ Write-Host "Run tests with: npm test" -ForegroundColor Yellow
 **วัตถุประสงค์:** ทดสอบ pure functions และ helpers
 
 **Target Files:**
+
 - `questionTreeUtils.ts` (หลังแยกไฟล์)
 - Form validators
 - Data transformations
@@ -863,65 +885,65 @@ Write-Host "Run tests with: npm test" -ForegroundColor Yellow
 
 ```typescript
 // src/test/__tests__/questionTreeUtils.test.ts
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 import {
   toThaiNumber,
   toThaiAlphabet,
   convertThaiToArabic,
   buildPrefix,
-  buildPrefix200_300
-} from '@/utils/questionTreeUtils';
+  buildPrefix200_300,
+} from "@/utils/questionTreeUtils";
 
-describe('questionTreeUtils', () => {
-  describe('toThaiNumber', () => {
-    it('should convert numbers to Thai numerals', () => {
-      expect(toThaiNumber(1)).toBe('๑');
-      expect(toThaiNumber(123)).toBe('๑๒๓');
-      expect(toThaiNumber(0)).toBe('๐');
+describe("questionTreeUtils", () => {
+  describe("toThaiNumber", () => {
+    it("should convert numbers to Thai numerals", () => {
+      expect(toThaiNumber(1)).toBe("๑");
+      expect(toThaiNumber(123)).toBe("๑๒๓");
+      expect(toThaiNumber(0)).toBe("๐");
     });
-    
-    it('should handle negative numbers', () => {
-      expect(toThaiNumber(-5)).toBe('-๕');
-    });
-  });
-  
-  describe('toThaiAlphabet', () => {
-    it('should convert to Thai alphabet', () => {
-      expect(toThaiAlphabet(0)).toBe('ก');
-      expect(toThaiAlphabet(1)).toBe('ข');
-      expect(toThaiAlphabet(25)).toBe('ฮ');
-    });
-    
-    it('should handle out of range', () => {
-      expect(toThaiAlphabet(-1)).toBe('');
-      expect(toThaiAlphabet(50)).toBe('');
+
+    it("should handle negative numbers", () => {
+      expect(toThaiNumber(-5)).toBe("-๕");
     });
   });
-  
-  describe('buildPrefix', () => {
-    it('should build correct prefix for level 0', () => {
+
+  describe("toThaiAlphabet", () => {
+    it("should convert to Thai alphabet", () => {
+      expect(toThaiAlphabet(0)).toBe("ก");
+      expect(toThaiAlphabet(1)).toBe("ข");
+      expect(toThaiAlphabet(25)).toBe("ฮ");
+    });
+
+    it("should handle out of range", () => {
+      expect(toThaiAlphabet(-1)).toBe("");
+      expect(toThaiAlphabet(50)).toBe("");
+    });
+  });
+
+  describe("buildPrefix", () => {
+    it("should build correct prefix for level 0", () => {
       const result = buildPrefix(0, 5, 0, 0);
-      expect(result).toBe('๕. ');
+      expect(result).toBe("๕. ");
     });
-    
-    it('should build correct prefix for nested levels', () => {
+
+    it("should build correct prefix for nested levels", () => {
       const result = buildPrefix(1, 3, 2, 0);
-      expect(result).toBe('๓.๒ ');
+      expect(result).toBe("๓.๒ ");
     });
   });
-  
-  describe('convertThaiToArabic', () => {
-    it('should convert Thai numerals to Arabic', () => {
-      expect(convertThaiToArabic('๑๒๓')).toBe(123);
-      expect(convertThaiToArabic('๐')).toBe(0);
+
+  describe("convertThaiToArabic", () => {
+    it("should convert Thai numerals to Arabic", () => {
+      expect(convertThaiToArabic("๑๒๓")).toBe(123);
+      expect(convertThaiToArabic("๐")).toBe(0);
     });
-    
-    it('should handle mixed content', () => {
-      expect(convertThaiToArabic('ข้อ ๕')).toBe(5);
+
+    it("should handle mixed content", () => {
+      expect(convertThaiToArabic("ข้อ ๕")).toBe(5);
     });
-    
-    it('should return -1 for invalid input', () => {
-      expect(convertThaiToArabic('invalid')).toBe(-1);
+
+    it("should return -1 for invalid input", () => {
+      expect(convertThaiToArabic("invalid")).toBe(-1);
     });
   });
 });
@@ -951,6 +973,7 @@ if ($UI) {
 ```
 
 **Expected Output:**
+
 - ✅ 15+ utility function tests passing
 - ✅ 100% coverage for pure functions
 - ✅ Edge cases handled
@@ -962,6 +985,7 @@ if ($UI) {
 **วัตถุประสงค์:** ทดสอบ component rendering และ interactions
 
 **Target Components:**
+
 - `AsyncImagePreview`
 - `QuestionDisplayCard`
 - Form components
@@ -982,28 +1006,28 @@ describe('AsyncImagePreview', () => {
     render(<AsyncImagePreview questionId="Q001" />);
     expect(screen.getByText(/loading/i)).toBeInTheDocument();
   });
-  
+
   it('should load and display image', async () => {
     vi.mocked(invoke).mockResolvedValueOnce('data:image/png;base64,ABC123');
-    
+
     render(<AsyncImagePreview questionId="Q001" />);
-    
+
     await waitFor(() => {
       const img = screen.getByRole('img');
       expect(img).toHaveAttribute('src', 'data:image/png;base64,ABC123');
     });
   });
-  
+
   it('should show error on load failure', async () => {
     vi.mocked(invoke).mockRejectedValueOnce(new Error('Failed'));
-    
+
     render(<AsyncImagePreview questionId="Q001" />);
-    
+
     await waitFor(() => {
       expect(screen.getByText(/error/i)).toBeInTheDocument();
     });
   });
-  
+
   it('should handle missing questionId', () => {
     render(<AsyncImagePreview questionId="" />);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
@@ -1024,34 +1048,34 @@ describe('QuestionFormCard - Validation', () => {
   it('should show error when description is empty', async () => {
     const handleSave = vi.fn();
     render(<QuestionFormCard onSave={handleSave} />);
-    
+
     const saveButton = screen.getByRole('button', { name: /save/i });
     await userEvent.click(saveButton);
-    
+
     expect(screen.getByText(/description is required/i)).toBeInTheDocument();
     expect(handleSave).not.toHaveBeenCalled();
   });
-  
+
   it('should validate sequence number range', async () => {
     render(<QuestionFormCard />);
-    
+
     const seqInput = screen.getByLabelText(/sequence/i);
     await userEvent.clear(seqInput);
     await userEvent.type(seqInput, '-1');
-    
+
     expect(screen.getByText(/must be positive/i)).toBeInTheDocument();
   });
-  
+
   it('should submit valid form', async () => {
     const handleSave = vi.fn().mockResolvedValue({ success: true });
     render(<QuestionFormCard onSave={handleSave} />);
-    
+
     await userEvent.type(screen.getByLabelText(/description/i), 'Test question');
     await userEvent.type(screen.getByLabelText(/sequence/i), '1');
-    
+
     const saveButton = screen.getByRole('button', { name: /save/i });
     await userEvent.click(saveButton);
-    
+
     await waitFor(() => {
       expect(handleSave).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1065,6 +1089,7 @@ describe('QuestionFormCard - Validation', () => {
 ```
 
 **Expected Output:**
+
 - ✅ 20+ component tests passing
 - ✅ User interactions tested
 - ✅ Error states covered
@@ -1086,41 +1111,39 @@ describe('QuestionFormCard - Validation', () => {
 
 ```typescript
 // src/test/__tests__/integration/documentApi.test.ts
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { invoke } from '@tauri-apps/api/tauri';
-import * as documentService from '@/services/documentService';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/tauri";
+import * as documentService from "@/services/documentService";
 
-vi.mock('@tauri-apps/api/tauri');
+vi.mock("@tauri-apps/api/tauri");
 
-describe('Document API Integration', () => {
+describe("Document API Integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-  
-  it('should create document and return ID', async () => {
-    const mockDocId = 'PQS-TEST-001';
+
+  it("should create document and return ID", async () => {
+    const mockDocId = "PQS-TEST-001";
     vi.mocked(invoke).mockResolvedValueOnce(mockDocId);
-    
+
     const result = await documentService.createDocument({
-      title: 'Test Doc',
-      unit_id: 'UNIT001'
+      title: "Test Doc",
+      unit_id: "UNIT001",
     });
-    
-    expect(invoke).toHaveBeenCalledWith('create_document', {
-      title: 'Test Doc',
-      unitId: 'UNIT001'
+
+    expect(invoke).toHaveBeenCalledWith("create_document", {
+      title: "Test Doc",
+      unitId: "UNIT001",
     });
     expect(result).toBe(mockDocId);
   });
-  
-  it('should handle API errors gracefully', async () => {
-    vi.mocked(invoke).mockRejectedValueOnce(
-      new Error('Database error')
+
+  it("should handle API errors gracefully", async () => {
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("Database error"));
+
+    await expect(documentService.createDocument({ title: "" })).rejects.toThrow(
+      "Database error",
     );
-    
-    await expect(
-      documentService.createDocument({ title: '' })
-    ).rejects.toThrow('Database error');
   });
 });
 ```
@@ -1157,29 +1180,29 @@ serde_json = "1.0"
 
 ```typescript
 // e2e/setup.ts
-import { spawn, ChildProcess } from 'child_process';
-import { Builder, By, until } from 'selenium-webdriver';
+import { spawn, ChildProcess } from "child_process";
+import { Builder, By, until } from "selenium-webdriver";
 
 export class TauriApp {
   private process: ChildProcess | null = null;
   private driver: any;
-  
+
   async start() {
     // Start Tauri app
-    this.process = spawn('cargo', ['tauri', 'dev'], {
-      cwd: 'src-tauri'
+    this.process = spawn("cargo", ["tauri", "dev"], {
+      cwd: "src-tauri",
     });
-    
+
     // Wait for app to be ready
-    await new Promise(resolve => setTimeout(resolve, 5000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+
     // Connect via WebDriver
     this.driver = await new Builder()
-      .forBrowser('chrome')
-      .usingServer('http://localhost:4444')
+      .forBrowser("chrome")
+      .usingServer("http://localhost:4444")
       .build();
   }
-  
+
   async stop() {
     if (this.driver) {
       await this.driver.quit();
@@ -1195,22 +1218,22 @@ export class TauriApp {
 
 ```typescript
 // e2e/tests/document-crud.e2e.ts
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { TauriApp } from '../setup';
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { TauriApp } from "../setup";
 
-describe('Document CRUD E2E', () => {
+describe("Document CRUD E2E", () => {
   let app: TauriApp;
-  
+
   beforeAll(async () => {
     app = new TauriApp();
     await app.start();
   }, 30000);
-  
+
   afterAll(async () => {
     await app.stop();
   });
-  
-  it('should create a new document', async () => {
+
+  it("should create a new document", async () => {
     // Navigate to create page
     // Fill form
     // Submit
@@ -1290,9 +1313,9 @@ name: Tests
 
 on:
   push:
-    branches: [ testing-infrastructure-feature ]
+    branches: [testing-infrastructure-feature]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test-rust:
@@ -1313,7 +1336,7 @@ jobs:
       - uses: codecov/codecov-action@v3
         with:
           files: coverage/cobertura.xml
-  
+
   test-frontend:
     name: Frontend Tests
     runs-on: windows-latest
@@ -1321,7 +1344,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: "18"
       - run: npm ci
       - run: npm run test:run
       - run: npm run test:coverage
@@ -1334,13 +1357,13 @@ jobs:
 
 ### 5.7 Success Criteria & Milestones
 
-| Milestone | Criteria | Target Date |
-|-----------|----------|-------------|
-| **M1: Rust Infrastructure** | cargo test works, 10+ tests | Day 3 |
-| **M2: Frontend Infrastructure** | vitest works, 15+ tests | Day 5 |
-| **M3: Coverage Threshold** | Rust 50%+, Frontend 40%+ | Day 7 |
-| **M4: CI Integration** | GitHub Actions green | Day 8 |
-| **M5: Documentation** | Test writing guide complete | Day 9 |
+| Milestone                       | Criteria                    | Target Date |
+| ------------------------------- | --------------------------- | ----------- |
+| **M1: Rust Infrastructure**     | cargo test works, 10+ tests | Day 3       |
+| **M2: Frontend Infrastructure** | vitest works, 15+ tests     | Day 5       |
+| **M3: Coverage Threshold**      | Rust 50%+, Frontend 40%+    | Day 7       |
+| **M4: CI Integration**          | GitHub Actions green        | Day 8       |
+| **M5: Documentation**           | Test writing guide complete | Day 9       |
 
 ---
 
