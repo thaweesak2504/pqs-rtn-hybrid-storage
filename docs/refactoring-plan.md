@@ -314,6 +314,8 @@ Phase D: E2E Tests                ← ทำเมื่อ feature stable
 
 #### Step A1: Setup Test Infrastructure (Day 1 Morning)
 
+**Status:** ✅ Complete (2026-03-09, commit `c5f529f`)
+
 **วัตถุประสงค์:** สร้าง foundation สำหรับ Rust tests
 
 **การดำเนินการ:**
@@ -366,9 +368,18 @@ cargo test --no-run  # Pre-compile tests
 - ✅ Test helper module created
 - ✅ `cargo test` compiles successfully
 
+**Actual Output (Done):**
+
+- ✅ `src-tauri/Cargo.toml` เพิ่ม `tempfile`, `serial_test`, `mockall`
+- ✅ สร้าง `src-tauri/src/test_helpers.rs` พร้อม helper + tests
+- ✅ สร้าง `scripts/setup-rust-tests.ps1` และรันผ่าน
+- ✅ `cargo test --no-run` compile ผ่าน
+
 ---
 
 #### Step A2: Test Pure Functions (Day 1 Afternoon)
+
+**Status:** ✅ Complete (2026-03-09, commit `18940f0`)
 
 **วัตถุประสงค์:** ทดสอบ utility functions และ business logic
 
@@ -426,9 +437,9 @@ if ($Coverage) {
     cargo tarpaulin --out Html --output-dir ../coverage/rust
 } else {
     if ($Filter) {
-        cargo test $Filter --lib -- --nocapture
+    cargo test $Filter -- --nocapture
     } else {
-        cargo test --lib -- --nocapture
+    cargo test -- --nocapture
     }
 }
 ```
@@ -439,9 +450,17 @@ if ($Coverage) {
 - ✅ Test coverage report generated
 - ✅ All edge cases covered
 
+**Actual Output (Done):**
+
+- ✅ เพิ่ม tests ใน `src-tauri/src/content_database.rs` (pure + DB helper behavior)
+- ✅ Test ทั้งระบบผ่าน `19 passed; 0 failed`
+- ✅ `to_thai_digit()` และ `generate_uuid()` ถูก test แล้ว
+
 ---
 
 #### Step A3: Test Database CRUD Operations (Day 2 Morning)
+
+**Status:** ✅ Complete (2026-03-09)
 
 **วัตถุประสงค์:** ทดสอบการทำงานกับฐานข้อมูล
 
@@ -513,6 +532,13 @@ mod db_tests {
 - ✅ Transaction rollback tested
 - ✅ Foreign key constraints verified
 - ✅ Cascade operations tested
+
+**Actual Output (Done):**
+
+- ✅ เพิ่ม CRUD tests สำหรับ `documents`, `sections`, `questions`, `references` ใน `src-tauri/src/test_helpers.rs`
+- ✅ เพิ่ม test สำหรับ transaction rollback (unique violation + rollback)
+- ✅ เพิ่ม test สำหรับ cascade delete จาก `documents` ไป child tables
+- ✅ Full Rust suite ผ่านทั้งหมดหลังเพิ่ม A3
 
 ---
 

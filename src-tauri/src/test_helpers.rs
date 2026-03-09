@@ -74,10 +74,8 @@ pub mod helpers {
     /// # Returns
     /// Result indicating success or failure
     pub fn init_content_schema(conn: &Connection) -> Result<()> {
-        // This will be implemented to create all necessary tables
-        // for content_database.rs testing
+        conn.execute("PRAGMA foreign_keys = ON", [])?;
 
-        // Example placeholder - will be expanded
         conn.execute(
             "CREATE TABLE IF NOT EXISTS documents (
                 id TEXT PRIMARY KEY,
@@ -85,6 +83,49 @@ pub mod helpers {
                 unit_id TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS sections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id TEXT NOT NULL,
+                section_number INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(document_id, section_number),
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS questions (
+                id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                section_id INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
+                FOREIGN KEY(section_id) REFERENCES sections(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS references_tbl (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                document_id TEXT NOT NULL,
+                ref_code TEXT NOT NULL,
+                title TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(document_id, ref_code),
+                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
             )",
             [],
         )?;
@@ -163,6 +204,7 @@ pub mod helpers {
 #[cfg(test)]
 mod tests {
     use super::helpers::*;
+    use rusqlite::params;
 
     #[test]
     fn test_create_test_db() {
@@ -266,5 +308,334 @@ mod tests {
 
         // Should not panic
         assert_db_not_exists(&db_path);
+    }
+
+    #[test]
+    fn test_document_crud_operations() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Should initialize schema");
+
+        conn.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC001", "Original Title", "UNIT001"],
+        )
+        .expect("Insert document should succeed");
+
+        let title: String = conn
+            .query_row(
+                "SELECT title FROM documents WHERE id = ?1",
+                params!["DOC001"],
+                |row| row.get(0),
+            )
+            .expect("Should read inserted document");
+        assert_eq!(title, "Original Title");
+
+        conn.execute(
+            "UPDATE documents SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params!["Updated Title", "DOC001"],
+        )
+        .expect("Update document should succeed");
+
+        let updated_title: String = conn
+            .query_row(
+                "SELECT title FROM documents WHERE id = ?1",
+                params!["DOC001"],
+                |row| row.get(0),
+            )
+            .expect("Should read updated document");
+        assert_eq!(updated_title, "Updated Title");
+
+        conn.execute("DELETE FROM documents WHERE id = ?1", params!["DOC001"])
+            .expect("Delete document should succeed");
+
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM documents WHERE id = ?1)",
+                params!["DOC001"],
+                |row| row.get(0),
+            )
+            .expect("Exists check should succeed");
+        assert!(!exists, "Document should be deleted");
+    }
+
+    #[test]
+    fn test_section_crud_operations() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Should initialize schema");
+
+        conn.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC100", "Doc For Section", "UNIT001"],
+        )
+        .expect("Insert document should succeed");
+
+        conn.execute(
+            "INSERT INTO sections (document_id, section_number, title, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC100", 201, "Section 201"],
+        )
+        .expect("Insert section should succeed");
+
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM sections WHERE document_id = ?1 AND section_number = ?2",
+                params!["DOC100", 201],
+                |row| row.get(0),
+            )
+            .expect("Should read inserted section");
+
+        conn.execute(
+            "UPDATE sections SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params!["Section 201 Updated", section_id],
+        )
+        .expect("Update section should succeed");
+
+        let title: String = conn
+            .query_row(
+                "SELECT title FROM sections WHERE id = ?1",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .expect("Should read updated section");
+        assert_eq!(title, "Section 201 Updated");
+
+        conn.execute("DELETE FROM sections WHERE id = ?1", params![section_id])
+            .expect("Delete section should succeed");
+
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sections WHERE id = ?1",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .expect("Count query should succeed");
+        assert_eq!(count, 0, "Section should be deleted");
+    }
+
+    #[test]
+    fn test_question_crud_operations() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Should initialize schema");
+
+        conn.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC200", "Doc For Question", "UNIT001"],
+        )
+        .expect("Insert document should succeed");
+
+        conn.execute(
+            "INSERT INTO sections (document_id, section_number, title, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC200", 202, "Section 202"],
+        )
+        .expect("Insert section should succeed");
+
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM sections WHERE document_id = ?1 AND section_number = ?2",
+                params!["DOC200", 202],
+                |row| row.get(0),
+            )
+            .expect("Should read section id");
+
+        conn.execute(
+            "INSERT INTO questions (id, document_id, section_id, content, sequence, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
+            params!["Q-001", "DOC200", section_id, "Original question", 1],
+        )
+        .expect("Insert question should succeed");
+
+        conn.execute(
+            "UPDATE questions SET content = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params!["Updated question", "Q-001"],
+        )
+        .expect("Update question should succeed");
+
+        let content: String = conn
+            .query_row(
+                "SELECT content FROM questions WHERE id = ?1",
+                params!["Q-001"],
+                |row| row.get(0),
+            )
+            .expect("Should read updated question");
+        assert_eq!(content, "Updated question");
+
+        conn.execute("DELETE FROM questions WHERE id = ?1", params!["Q-001"])
+            .expect("Delete question should succeed");
+
+        let exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM questions WHERE id = ?1)",
+                params!["Q-001"],
+                |row| row.get(0),
+            )
+            .expect("Exists check should succeed");
+        assert!(!exists, "Question should be deleted");
+    }
+
+    #[test]
+    fn test_reference_crud_operations() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Should initialize schema");
+
+        conn.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC300", "Doc For References", "UNIT001"],
+        )
+        .expect("Insert document should succeed");
+
+        conn.execute(
+            "INSERT INTO references_tbl (document_id, ref_code, title, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC300", "REF-001", "Reference One"],
+        )
+        .expect("Insert reference should succeed");
+
+        let ref_id: i64 = conn
+            .query_row(
+                "SELECT id FROM references_tbl WHERE document_id = ?1 AND ref_code = ?2",
+                params!["DOC300", "REF-001"],
+                |row| row.get(0),
+            )
+            .expect("Should read inserted reference");
+
+        conn.execute(
+            "UPDATE references_tbl SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params!["Reference One Updated", ref_id],
+        )
+        .expect("Update reference should succeed");
+
+        let title: String = conn
+            .query_row(
+                "SELECT title FROM references_tbl WHERE id = ?1",
+                params![ref_id],
+                |row| row.get(0),
+            )
+            .expect("Should read updated reference");
+        assert_eq!(title, "Reference One Updated");
+
+        conn.execute("DELETE FROM references_tbl WHERE id = ?1", params![ref_id])
+            .expect("Delete reference should succeed");
+
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM references_tbl WHERE id = ?1",
+                params![ref_id],
+                |row| row.get(0),
+            )
+            .expect("Count query should succeed");
+        assert_eq!(count, 0, "Reference should be deleted");
+    }
+
+    #[test]
+    fn test_document_cascade_delete_to_sections_questions_and_references() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Should initialize schema");
+
+        conn.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC400", "Cascade Doc", "UNIT001"],
+        )
+        .expect("Insert document should succeed");
+
+        conn.execute(
+            "INSERT INTO sections (document_id, section_number, title, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC400", 203, "Section For Cascade"],
+        )
+        .expect("Insert section should succeed");
+
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM sections WHERE document_id = ?1 AND section_number = ?2",
+                params!["DOC400", 203],
+                |row| row.get(0),
+            )
+            .expect("Should read section id");
+
+        conn.execute(
+            "INSERT INTO questions (id, document_id, section_id, content, sequence, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
+            params!["Q-CASCADE", "DOC400", section_id, "Question", 1],
+        )
+        .expect("Insert question should succeed");
+
+        conn.execute(
+            "INSERT INTO references_tbl (document_id, ref_code, title, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC400", "REF-CASCADE", "Reference"],
+        )
+        .expect("Insert reference should succeed");
+
+        conn.execute("DELETE FROM documents WHERE id = ?1", params!["DOC400"])
+            .expect("Delete document should succeed");
+
+        let section_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sections WHERE document_id = ?1",
+                params!["DOC400"],
+                |row| row.get(0),
+            )
+            .expect("Section count should succeed");
+        let question_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM questions WHERE document_id = ?1",
+                params!["DOC400"],
+                |row| row.get(0),
+            )
+            .expect("Question count should succeed");
+        let reference_count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM references_tbl WHERE document_id = ?1",
+                params!["DOC400"],
+                |row| row.get(0),
+            )
+            .expect("Reference count should succeed");
+
+        assert_eq!(section_count, 0, "Sections should cascade delete");
+        assert_eq!(question_count, 0, "Questions should cascade delete");
+        assert_eq!(reference_count, 0, "References should cascade delete");
+    }
+
+    #[test]
+    fn test_transaction_rollback_on_unique_violation() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Should initialize schema");
+
+        let tx = conn
+            .transaction()
+            .expect("Should start transaction for rollback test");
+
+        tx.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC500", "Rollback Doc", "UNIT001"],
+        )
+        .expect("Initial insert should succeed");
+
+        let duplicate = tx.execute(
+            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
+             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
+            params!["DOC500", "Rollback Doc Duplicate", "UNIT001"],
+        );
+
+        assert!(duplicate.is_err(), "Duplicate key should fail");
+
+        tx.rollback().expect("Rollback should succeed");
+
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM documents WHERE id = ?1",
+                params!["DOC500"],
+                |row| row.get(0),
+            )
+            .expect("Count query should succeed");
+
+        assert_eq!(count, 0, "No rows should remain after rollback");
     }
 }
