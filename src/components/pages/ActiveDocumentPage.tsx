@@ -119,8 +119,17 @@ const ActiveDocumentPage: React.FC = () => {
     if (!sectionToDelete) return;
 
     try {
+      const deletedGroup = sectionToDelete.section_group;
       await invoke('delete_section', { id: sectionToDelete.id });
-      fetchSections();
+
+      // Navigate to the parent intro section so editor no longer renders deleted section
+      setActiveSection(`${deletedGroup}`);
+
+      // Refresh sidebar sections list
+      await invoke<Section[]>('get_sections_by_document', { documentId: docId })
+        .then(data => setSections(data))
+        .catch(err => console.error("Failed to fetch sections:", err));
+
       setSectionToDelete(null);
     } catch (err) {
       console.error("Failed to delete section:", err);

@@ -2276,6 +2276,123 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
     Ok(sections)
 }
 
+/// Clean up orphaned section_ref questions that point to sections which no longer exist.
+/// This handles legacy data created before the delete_section cleanup was added.
+/// Returns the number of orphaned refs removed.
+pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Find all section_ref questions whose refSectionId points to a non-existent section
+    let mut stmt = conn.prepare(
+        "SELECT q.id, q.parent_id, q.metadata
+         FROM Questions q
+         WHERE q.question_type = 'section_ref'
+           AND q.metadata IS NOT NULL"
+    ).map_err(|e| e.to_string())?;
+
+    let rows: Vec<(String, Option<String>, String)> = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, Option<String>>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    }).map_err(|e| e.to_string())?
+     .filter_map(|r| r.ok())
+     .collect();
+
+    let mut removed = 0usize;
+    let mut affected_parents: Vec<String> = Vec::new();
+
+    for (question_id, parent_id, metadata) in &rows {
+        // Extract refSectionId from metadata JSON
+        let ref_section_id: Option<i64> = serde_json::from_str::<serde_json::Value>(metadata)
+            .ok()
+            .and_then(|v| v.get("refSectionId")?.as_i64());
+
+        if let Some(ref_sid) = ref_section_id {
+            // Check if the referenced section still exists
+            let exists: bool = conn.query_row(
+                "SELECT EXISTS(SELECT 1 FROM Sections WHERE id = ?1)",
+                params![ref_sid],
+                |row| row.get(0),
+            ).unwrap_or(false);
+
+            if !exists {
+                // Delete the orphaned section_ref question
+                conn.execute("DELETE FROM Questions WHERE id = ?1", params![question_id])
+                    .map_err(|e| e.to_string())?;
+
+                if let Some(pid) = parent_id {
+                    if !affected_parents.contains(pid) {
+                        affected_parents.push(pid.clone());
+                    }
+                }
+
+                eprintln!("[cleanup_orphaned_section_refs] Removed orphaned section_ref question {} (was pointing to deleted section {})", question_id, ref_sid);
+                removed += 1;
+            }
+        }
+    }
+
+    // Auto-exempt parent questions that have zero remaining section_ref children
+    for pid in &affected_parents {
+        let remaining_children: i32 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'",
+            params![pid],
+            |row| row.get(0),
+        ).unwrap_or(0);
+
+        if remaining_children == 0 {
+            conn.execute(
+                "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0 WHERE id = ?1",
+                params![pid],
+            ).map_err(|e| e.to_string())?;
+            eprintln!("[cleanup_orphaned_section_refs] Auto-exempted parent question {} (no section_ref children remaining)", pid);
+        }
+
+        let _ = recalculate_group_score_chain(&conn, pid);
+    }
+
+    // --- Catch-up pass: find stranded section selectors in 300-series ---
+    // These are group_header questions that previously had section_ref children
+    // but lost them in a prior cleanup that didn't auto-exempt the parent.
+    {
+        let mut stale_stmt = conn.prepare(
+            "SELECT q.id, q.parent_id FROM Questions q
+             JOIN Sections s ON q.section_id = s.id
+             WHERE s.section_group = 300
+               AND q.question_type NOT IN ('exempted', 'section_ref')
+               AND q.is_group_header = 1
+               AND NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = q.id)"
+        ).map_err(|e| e.to_string())?;
+
+        let stranded: Vec<(String, Option<String>)> = stale_stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        }).map_err(|e| e.to_string())?
+         .filter_map(|r| r.ok())
+         .collect();
+
+        for (qid, parent_id) in &stranded {
+            conn.execute(
+                "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0, is_group_header = 0 WHERE id = ?1",
+                params![qid],
+            ).map_err(|e| e.to_string())?;
+
+            if let Some(pid) = parent_id {
+                let _ = recalculate_group_score_chain(&conn, pid);
+            }
+            eprintln!("[cleanup_orphaned_section_refs] Auto-exempted stranded selector {} (300-series group_header with no children)", qid);
+            removed += 1;
+        }
+    }
+
+    if removed > 0 {
+        eprintln!("[cleanup_orphaned_section_refs] Cleaned up {} orphaned/stranded question(s) total", removed);
+    }
+
+    Ok(removed)
+}
+
 /// Delete a section and all its questions (cascade)
 pub fn delete_section(id: i64) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -2292,6 +2409,63 @@ pub fn delete_section(id: i64) -> Result<(), String> {
     if is_system {
         return Err("Cannot delete system-defined section (e.g., Section 101)".to_string());
     }
+
+    // --- Clean up orphaned section_ref children in OTHER sections that link to this section ---
+    // Find all section_ref questions whose metadata contains refSectionId pointing to this section
+    {
+        let mut ref_stmt = conn.prepare(
+            "SELECT id, parent_id FROM Questions
+             WHERE question_type = 'section_ref'
+               AND section_id != ?1
+               AND metadata LIKE ?2"
+        ).map_err(|e| e.to_string())?;
+
+        let pattern = format!("%\"refSectionId\":{}%", id);
+        let orphaned_refs: Vec<(String, Option<String>)> = ref_stmt.query_map(
+            params![id, pattern],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        ).map_err(|e| e.to_string())?
+         .filter_map(|r| r.ok())
+         .collect();
+
+        let mut affected_parents: Vec<String> = Vec::new();
+
+        for (ref_id, parent_id) in &orphaned_refs {
+            // Delete the orphaned section_ref question
+            conn.execute("DELETE FROM Questions WHERE id = ?1", params![ref_id])
+                .map_err(|e| e.to_string())?;
+
+            if let Some(pid) = parent_id {
+                if !affected_parents.contains(pid) {
+                    affected_parents.push(pid.clone());
+                }
+            }
+        }
+
+        // Auto-exempt parent questions that have zero remaining section_ref children
+        for pid in &affected_parents {
+            let remaining_children: i32 = conn.query_row(
+                "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'",
+                params![pid],
+                |row| row.get(0),
+            ).unwrap_or(0);
+
+            if remaining_children == 0 {
+                conn.execute(
+                    "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0 WHERE id = ?1",
+                    params![pid],
+                ).map_err(|e| e.to_string())?;
+            }
+
+            let _ = recalculate_group_score_chain(&conn, pid);
+        }
+    }
+
+    // --- Clean up UserProgress for this section ---
+    conn.execute(
+        "DELETE FROM UserProgress WHERE section_id = ?1",
+        params![id]
+    ).ok(); // Ignore if table doesn't exist
     
     // Delete QuestionSectionLinks for all questions in this section (may not cascade automatically)
     conn.execute(

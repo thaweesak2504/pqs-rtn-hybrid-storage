@@ -1517,6 +1517,15 @@ fn main() {
                 Err(e) => logger::error(&format!("Failed to initialize content database: {}", e)),
             }
 
+            // Clean up orphaned section_ref questions (from sections deleted before cleanup was added)
+            match content_database::cleanup_orphaned_section_refs() {
+                Ok(n) if n > 0 => {
+                    logger::info(&format!("Cleaned up {} orphaned section_ref(s)", n))
+                }
+                Ok(_) => {}
+                Err(e) => logger::warn(&format!("Failed to cleanup orphaned section_refs: {}", e)),
+            }
+
             // Skip automatic database initialization - let frontend handle it
             logger::info("Skipping automatic database initialization - frontend will handle based on system state"); // Initialize FileManager to ensure directories exist (singleton)
             match file_manager::FileManager::get_instance() {
