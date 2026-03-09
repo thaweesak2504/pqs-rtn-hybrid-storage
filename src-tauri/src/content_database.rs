@@ -67,8 +67,6 @@ pub fn get_content_connection() -> SqlResult<Connection> {
 
 /// Initialize the content database (create tables if not exist)
 pub fn initialize_content_database() -> Result<String, String> {
-    logger::debug("Starting content database initialization...");
-    
     let conn = get_content_connection().map_err(|e| format!("Failed to connect to content database: {}", e))?;
     
     // Create OwnerUnits table

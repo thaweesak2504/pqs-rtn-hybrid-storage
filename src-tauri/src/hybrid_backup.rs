@@ -445,6 +445,7 @@ pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String
         media_exists_and_valid,
         backup_info,
     };
+    
     Ok(result)
 }
 
