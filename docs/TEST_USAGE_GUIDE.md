@@ -539,27 +539,276 @@ project/
 ### File Summary
 
 **Test Framework Files:**
+
 - `vitest.config.ts` — Vitest runner configuration (jsdom, globals, coverage)
 - `src/test/setup.ts` — Global mocks for Tauri APIs, browser APIs
 
 **Test Files (8 total, 47 tests):**
+
 - 2 utility test files (14 tests)
 - 2 component test files (8 tests)
 - 4 integration test files (25 tests)
 
 **Configuration Files:**
+
 - `tsconfig.json` — Added `types: ["vitest/globals", "node"]`
 - `package.json` — Added test scripts: `test`, `test:ui`, `test:run`, `test:coverage`, `test:integration`
 - `.github/workflows/frontend-tests.yml` — Automated testing on push/PR
 
 **Documentation:**
+
 - `docs/TEST_USAGE_GUIDE.md` — Complete usage guide (this file)
 - `docs/refactoring-plan.md` — Testing infrastructure roadmap
 
 **Script Helpers:**
+
 - `scripts/setup-frontend-tests.ps1` — Installation helper
 - `scripts/run-frontend-tests.ps1` — Run with watch/UI/coverage options
 - `scripts/run-integration-tests.ps1` — Integration test runner
+
+---
+
+## 🏛️ Testing 100-300 Section Templates
+
+### What are 100-300 Templates?
+
+Section templates (100, 200, 300) are **fixed question structures** auto-seeded when a new document is created.
+
+| Section | Thai Name | Purpose | Type | Answer Keys | References |
+|---------|-----------|---------|------|-------------|------------|
+| **100** | Introduction | หมายเหตุ/สำเร็จจำเป็น | Mixed | ❌ None | ❌ None |
+| **200** | System Description | รายละเอียดระบบ | Q&A | ✅ Yes | ✅ Yes |
+| **300** | Practical Skills | ทักษะการปฏิบัติงาน | Evaluator | ❌ None | ❌ None |
+
+### 300 Template Structure (Practical Skills)
+
+```
+3xx.1  คุณสมบัติก่อนการทดสอบ (Prerequisites)
+├── 3xx.1.1  ผ่านการอบรม
+├── 3xx.1.2  ผ่านมาตรฐานการทดสอบกำลังพล
+├── 3xx.1.3  ผ่านการปฏิบัติหน้าที่
+├── 3xx.1.4  ผ่านการทดสอบความรู้พื้นฐาน ← Scored
+└── 3xx.1.5  ผ่านการทดสอบระบบ ← Scored
+
+3xx.2  การทดสอบปฏิบัติงานปกติ (Normal Operations) ← Scored, Branch selection
+3xx.3  การทดสอบปฏิบัติงานกรณีพิเศษ (Special Cases) ← Scored, Branch selection
+3xx.4  การทดสอบปฏิบัติงานกรณีเหตุขัดข้อง (Failure Handling) ← Scored, Branch selection
+3xx.5  การทดสอบปฏิบัติงานกรณีเหตุฉุกเฉิน (Emergencies) ← Scored, Branch selection
+
+3xx.6  การทดสอบการปฏิบัติงานประจำตำแหน่ง (Daily Operations) ← Scored
+└── Children with scoring
+
+3xx.7  สอบความรู้ (Knowledge Test)
+├── 3xx.7.1  สอบข้อเขียน (Written)
+└── 3xx.7.2  สอบปากเปล่า (Oral)
+```
+
+### Testing Strategy for Templates
+
+#### 1. **Unit Tests** (Backend—Rust)
+
+Test the template seeding functions in `src-tauri/src/content_database.rs`:
+
+```rust
+#[cfg(test)]
+mod template_tests {
+    use super::*;
+
+    #[test]
+    fn test_seed_section_300_template() {
+        // Create a test document
+        let conn = create_test_db();
+        let doc_id = create_document(/* ... */).unwrap();
+        let section_id = create_section(/* ... */).unwrap();
+        
+        // Seed Section 301 (3xx.1 - 3xx.7 questions)
+        seed_section_300_template(&conn, &doc_id, section_id, 301).unwrap();
+        
+        // Verify
+        let questions = get_section_questions(&conn, section_id).unwrap();
+        assert_eq!(questions.len(), 7); // 3xx.1 through 3xx.7
+        
+        // Verify 3xx.2-3xx.5 have occupation branch selection UI
+        let q2 = questions.iter().find(|q| q.sequence == 2).unwrap();
+        assert_eq!(q2.parent_id, None); // L1 root
+        assert!(q2.is_group_header); // Group header, not scored itself
+        
+        // Verify 3xx.6 is scored and has children
+        let q6 = questions.iter().find(|q| q.sequence == 6).unwrap();
+        let children_count = get_question_children(&conn, &q6.id).unwrap().len();
+        assert!(children_count > 0); // Has check items
+    }
+
+    #[test]
+    fn test_section_300_scoring_logic() {
+        // Verify is_scored flags are set correctly
+        // L1 seq 2-6: is_group_header=1, is_scored=0 (group headers, not scored individually)
+        // L1 seq 1,7: is_group_header=1, is_scored=0 (prerequisites/knowledge, not scored)
+        // L2 children of L1 seq 2-6: is_scored=1 (scored individually)
+        // L2 children of L1 seq 1,7: is_scored=0 (prerequisites/knowledge, not scored)
+    }
+
+    #[test]
+    fn test_branch_selection_for_300_2xx() {
+        // Verify 3xx.2, 3xx.3, 3xx.4, 3xx.5 have occupation branch selection
+        // These should have metadata indicating branch selection mode
+    }
+
+    #[test]
+    fn test_no_answer_keys_in_300() {
+        // Verify Section 300 questions have NO answer_keys in metadata
+        // Only Section 200 should have answer_keys
+    }
+
+    #[test]
+    fn test_no_references_in_300() {
+        // Verify Section 300 questions have NO references
+        // Only Section 200 should have section_references
+    }
+}
+```
+
+#### 2. **Integration Tests** (Frontend ↔ Tauri Backend)
+
+Test template creation via Tauri API:
+
+```typescript
+// src/test/integration/templateService.integration.test.ts
+import { describe, it, expect, vi } from "vitest";
+import { invoke } from "@tauri-apps/api/tauri";
+
+vi.mock("@tauri-apps/api/tauri");
+
+describe("Section 300 Template Integration", () => {
+  it("should create document with auto-seeded Section 301 template", async () => {
+    vi.mocked(invoke).mockResolvedValueOnce({ id: "22724201001" });
+    
+    const result = await invoke("create_document", {
+      name: "Watch Station Test",
+      unit_id: "2272400",
+      unit_code: "22724",
+      applied_to: "Station A",
+      doc_type: "20",
+      user_level: "1",
+    });
+
+    expect(result).toBe("22724201001");
+    
+    // Verify template questions are auto-created
+    vi.mocked(invoke).mockResolvedValueOnce([
+      { id: "q1", sequence: 1, content: "3xx.1", is_group_header: true, is_scored: false },
+      { id: "q2", sequence: 2, content: "3xx.2", is_group_header: true, is_scored: false },
+      // ... 3xx.3 - 3xx.7
+    ]);
+    
+    const questions = await invoke("get_document_questions", { doc_id: result });
+    expect(questions.length).toBe(7);
+  });
+
+  it("should support occupation branch selection for 3xx.2-3xx.5", async () => {
+    // Test metadata contains branch selection configuration
+    const q3_2 = questions.find(q => q.sequence === 2);
+    expect(q3_2.metadata).toContain("occupationBranch");
+  });
+
+  it("should prevent answer key editing in Section 300", async () => {
+    // UI should disable answer key fields for 300 questions
+    vi.mocked(invoke).mockRejectedValueOnce(
+      new Error("Answer keys not supported for Section 300")
+    );
+  });
+
+  it("should prevent reference linking in Section 300", async () => {
+    // UI should hide reference section for 300 questions
+    // Test that references cannot be added to 300 questions
+    vi.mocked(invoke).mockRejectedValueOnce(
+      new Error("References not supported for Section 300")
+    );
+  });
+});
+```
+
+#### 3. **Component Tests** (Frontend UI)
+
+Test template UI components (when they're created):
+
+```typescript
+// src/test/components/Section300Display.test.tsx (Future)
+import { describe, it, expect } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { Section300Display } from "@/components/Section300Display";
+
+describe("Section 300 Display Component", () => {
+  it("should render 300 questions in correct order", () => {
+    const questions = [
+      { id: "q1", sequence: 1, content: "3xx.1" },
+      { id: "q2", sequence: 2, content: "3xx.2" },
+      // ... etc
+    ];
+    
+    render(<Section300Display questions={questions} />);
+    
+    expect(screen.getByText(/3xx.1/)).toBeInTheDocument();
+    expect(screen.getByText(/3xx.2/)).toBeInTheDocument();
+  });
+
+  it("should NOT show answer key section for 300", () => {
+    render(<Section300Display questions={mockQuestions} />);
+    
+    // Answer key UI should not exist
+    expect(screen.queryByText(/Answer Key/i)).not.toBeInTheDocument();
+  });
+
+  it("should NOT show reference section for 300", () => {
+    render(<Section300Display questions={mockQuestions} />);
+    
+    // Reference UI should not exist
+    expect(screen.queryByText(/Reference/i)).not.toBeInTheDocument();
+  });
+
+  it("should show occupation branch selector for 3xx.2-3xx.5", () => {
+    render(<Section300Display questions={mockQuestions} />);
+    
+    const q302 = screen.getByText(/3xx.2/);
+    const branchSelector = q302.closest("[data-testid='branch-selector']");
+    expect(branchSelector).toBeInTheDocument();
+  });
+
+  it("should show Pass/Fail instead of numeric scores", () => {
+    render(<Section300Display questions={mockQuestions} />);
+    
+    // Should have Pass/Fail buttons instead of score input
+    expect(screen.queryByText(/Pass/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Fail/i)).toBeInTheDocument();
+  });
+});
+```
+
+### Testing Checklist for Template 100-300
+
+**Backend (Rust—`src-tauri/src/content_database.rs`)**
+- [ ] `seed_section_100_template()` creates correct questions
+- [ ] `seed_section_200_template()` creates questions with answer keys
+- [ ] `seed_section_300_template()` creates questions without answer keys
+- [ ] Branch selection metadata is set for 3xx.2-3xx.5
+- [ ] Scoring flags (`is_scored`, `is_group_header`) match specification
+- [ ] Total score calculation includes only scored items
+- [ ] Cascade delete removes template questions correctly
+
+**Frontend (React—`src/components/`)**
+- [ ] Template questions display in correct order
+- [ ] Section 200 shows answer key fields
+- [ ] Section 300 hides answer key fields (UI disabled/hidden)
+- [ ] Section 300 hides reference section (UI disabled/hidden)
+- [ ] Occupation branch selector appears for 3xx.2-3xx.5
+- [ ] Pass/Fail evaluator UI works for Section 300
+- [ ] Color scheme applies correctly (Purple for 300, etc.)
+
+**Integration (Frontend ↔ Rust)**
+- [ ] Document creation auto-seeds template questions
+- [ ] Getting questions returns full template with correct flags
+- [ ] Updating questions respects template restrictions
+- [ ] Deleting questions re-indexes sequence correctly
 
 ---
 
