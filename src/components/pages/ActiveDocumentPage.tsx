@@ -454,7 +454,7 @@ const ActiveDocumentPage: React.FC = () => {
           {activeSection !== '100' && activeSection !== '200' && activeSection !== '300' &&
             parseInt(activeSection) >= 100 && parseInt(activeSection) < 200 && docId && (
               <PqsSectionEditor
-                key={`100-${docId}-${activeSection}-${refreshKey}`}
+                key={`100-${docId}-${refreshKey}`}
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
@@ -475,7 +475,7 @@ const ActiveDocumentPage: React.FC = () => {
           {activeSection !== '200' &&
             parseInt(activeSection) >= 201 && parseInt(activeSection) < 300 && docId && (
               <Pqs200SectionEditor
-                key={`200-${docId}-${activeSection}-${refreshKey}`}
+                key={`200-${docId}-${refreshKey}`}
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
@@ -498,7 +498,7 @@ const ActiveDocumentPage: React.FC = () => {
           {activeSection !== '300' &&
             parseInt(activeSection) >= 301 && parseInt(activeSection) < 400 && docId && (
               <Pqs300SectionEditor
-                key={`300-${docId}-${activeSection}-${refreshKey}`}
+                key={`300-${docId}-${refreshKey}`}
                 docId={docId}
                 sectionNumber={parseInt(activeSection)}
                 title={sections.find(s => s.section_number.toString() === activeSection)?.title_th || sections.find(s => s.section_number.toString() === activeSection)?.title || ""}
