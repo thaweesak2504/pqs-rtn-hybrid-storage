@@ -576,7 +576,7 @@ Section templates (100, 200, 300) are **fixed question structures** auto-seeded 
 
 | Section | Thai Name | Purpose | Type | Answer Keys | References |
 |---------|-----------|---------|------|-------------|------------|
-| **100** | Introduction | หมายเหตุ/สำเร็จจำเป็น | Mixed | ❌ None | ❌ None |
+| **100** | Fundamental | ความรู้พื้นฐาน | Q&A | ✅ Yes | ✅ Yes |
 | **200** | System Description | รายละเอียดระบบ | Q&A | ✅ Yes | ✅ Yes |
 | **300** | Practical Skills | ทักษะการปฏิบัติงาน | Evaluator | ❌ None | ❌ None |
 
