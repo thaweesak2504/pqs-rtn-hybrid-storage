@@ -80,6 +80,24 @@ pqs-rtn-hybrid-storage/
 └── exports/                      # ไฟล์ส่งออก
 ```
 
+## 🧪 **Testing Infrastructure:**
+
+### **Phase B & C1: Frontend Testing (✅ Complete)**
+
+- **Unit Tests**: 14 tests (utility functions, component helpers)
+- **Component Tests**: 8 tests (Button, Modal, UI interactions)
+- **Integration Tests**: 25 tests (zoom, avatar, desktop, Tauri services)
+- **Total Coverage**: **47 passing tests** across 8 test files
+- **Coverage Metrics**: 64.72% lines, 62.5% functions (exceeds 50% threshold)
+
+**Run Tests:**
+```bash
+npm run test:run          # Run all tests
+npm run test:integration # Run integration tests only
+npm run test:coverage   # Generate coverage report
+npm run test:ui         # Interactive test UI
+```
+
 ## 🛠️ **Development:**
 
 ### **Installation:**

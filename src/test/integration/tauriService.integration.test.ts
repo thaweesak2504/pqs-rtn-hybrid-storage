@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { describe, expect, it, vi } from "vitest";
-import { safeInvoke, tauriAvatarService, tauriUserService } from "../../services/tauriService";
+import {
+  safeInvoke,
+  tauriAvatarService,
+  tauriDatabaseService,
+  tauriUserService,
+} from "../../services/tauriService";
 
 const setTauriUnavailable = () => {
   Object.defineProperty(window, "__TAURI__", {
@@ -35,6 +40,13 @@ describe("tauriService integration", () => {
 
     expect(invoke).toHaveBeenCalledWith("get_all_users", undefined);
     expect(result).toEqual([{ id: 1, username: "admin" }]);
+  });
+
+  it("safeInvoke rethrows invoke errors in tauri environment", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke).mockRejectedValueOnce(new Error("backend failed"));
+
+    await expect(safeInvoke("get_all_users")).rejects.toThrow("backend failed");
   });
 
   it("maps createUser payload to backend keys", async () => {
@@ -83,5 +95,37 @@ describe("tauriService integration", () => {
 
     await expect(tauriAvatarService.deleteAvatar(3)).rejects.toThrow("delete failed");
     expect(spy).toHaveBeenCalled();
+  });
+
+  it("maps authenticateUser payload", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke).mockResolvedValueOnce({ id: 1, username: "admin" });
+
+    await tauriUserService.authenticateUser("admin", "secret");
+
+    expect(invoke).toHaveBeenCalledWith("authenticate_user", {
+      usernameOrEmail: "admin",
+      password: "secret",
+    });
+  });
+
+  it("maps hashPassword payload", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke).mockResolvedValueOnce("hashed-value");
+
+    const result = await tauriUserService.hashPassword("secret");
+
+    expect(invoke).toHaveBeenCalledWith("hash_password", { password: "secret" });
+    expect(result).toBe("hashed-value");
+  });
+
+  it("maps initializeDatabase command", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke).mockResolvedValueOnce("initialized");
+
+    const result = await tauriDatabaseService.initializeDatabase();
+
+    expect(invoke).toHaveBeenCalledWith("initialize_database", undefined);
+    expect(result).toBe("initialized");
   });
 });
