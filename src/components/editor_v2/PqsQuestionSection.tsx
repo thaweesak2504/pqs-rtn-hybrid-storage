@@ -111,7 +111,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const fetchQuestions = async (silent?: boolean) => {
     if (!docId || sectionId === undefined) return; // sectionId can be 0, so check for undefined
     try {
-      if (!silent) setLoading(true);
+      if (!silent && questions.length === 0) setLoading(true);
       const data = await invoke<QuestionDetail[]>("get_document_questions_with_details", { docId });
       const filtered = data.filter(
         (q) =>
