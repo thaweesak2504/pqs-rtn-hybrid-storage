@@ -1,0 +1,38 @@
+name: Frontend Tests
+
+on:
+  push:
+    branches: [testing-infrastructure-feature, master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  frontend-test:
+    name: Vitest
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test:run
+
+      - name: Generate frontend coverage
+        run: npm run test:coverage
+
+      - name: Upload frontend coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-html
+          path: coverage/frontend
+          if-no-files-found: error

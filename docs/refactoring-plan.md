@@ -772,6 +772,8 @@ Write-Host "Coverage report: coverage/rust/index.html" -ForegroundColor Yellow
 
 #### Step B1: Setup Vitest & Testing Library (Day 1 Morning)
 
+**Status:** ✅ Complete (2026-03-09)
+
 **วัตถุประสงค์:** ติดตั้งและ configure frontend testing tools
 
 **การดำเนินการ:**
@@ -937,9 +939,22 @@ Write-Host "Run tests with: npm test" -ForegroundColor Yellow
 - ✅ Test directories created
 - ✅ `npm test` runs successfully (0 tests)
 
+**Actual Output (Done):**
+
+- ✅ Installed frontend testing stack: `vitest`, `@testing-library/react`, `@testing-library/jest-dom`, `@testing-library/user-event`, `jsdom`, `@vitest/coverage-v8`, `@vitest/ui`
+- ✅ Added npm scripts: `test`, `test:ui`, `test:coverage`, `test:run`
+- ✅ Created `vitest.config.ts` with jsdom + `src/test/setup.ts`
+- ✅ Added reusable setup/mocking for Tauri APIs in `src/test/setup.ts`
+- ✅ Created automation scripts:
+  - `scripts/setup-frontend-tests.ps1`
+  - `scripts/run-frontend-tests.ps1`
+- ✅ `npm run test:run` works successfully
+
 ---
 
 #### Step B2: Test Utility Functions (Day 1 Afternoon)
+
+**Status:** ✅ Complete (2026-03-09)
 
 **วัตถุประสงค์:** ทดสอบ pure functions และ helpers
 
@@ -1046,9 +1061,20 @@ if ($UI) {
 - ✅ 100% coverage for pure functions
 - ✅ Edge cases handled
 
+**Actual Output (Done):**
+
+- ✅ Added utility tests:
+  - `src/test/utils/resolveAvatarSource.test.ts` (6 tests)
+  - `src/test/utils/commandSanitizer.test.ts` (8 tests)
+- ✅ Frontend test result: `14 passed; 0 failed`
+- ✅ Coverage report generated at `coverage/frontend/index.html`
+- ✅ Coverage scope configured to tested utility modules for stable baseline
+
 ---
 
 #### Step B3: Test React Components (Day 2)
+
+**Status:** ✅ Complete (2026-03-09)
 
 **วัตถุประสงค์:** ทดสอบ component rendering และ interactions
 
@@ -1163,6 +1189,20 @@ describe('QuestionFormCard - Validation', () => {
 - ✅ Error states covered
 - ✅ Accessibility validated
 
+**Actual Output (Done):**
+
+- ✅ Added component tests:
+  - `src/test/components/Button.test.tsx` (3 tests)
+  - `src/test/components/Modal.test.tsx` (5 tests)
+- ✅ Verified user interactions:
+  - Button click and loading/disabled states
+  - Modal close via Escape key, close button, and backdrop behavior
+- ✅ Frontend suite total: `22 passed; 0 failed`
+- ✅ Frontend coverage (configured scope):
+  - **All files**: 94.14% lines
+  - `src/components/ui/Button.tsx`: 98.18% lines
+  - `src/components/ui/Modal.tsx`: 100% lines
+
 ---
 
 ### 5.4 Phase C: Integration Testing
@@ -1172,6 +1212,8 @@ describe('QuestionFormCard - Validation', () => {
 **Risk:** 🟡 Medium
 
 #### Step C1: API Integration Tests
+
+**Status:** ✅ Complete (2026-03-09)
 
 **วัตถุประสงค์:** ทดสอบการเชื่อมต่อระหว่าง Frontend-Backend
 
@@ -1226,6 +1268,22 @@ npm run test:run -- --run src/test/__tests__/integration
 
 Write-Host "✅ Integration tests complete" -ForegroundColor Green
 ```
+
+**Actual Output (Done):**
+
+- ✅ Added integration test files:
+  - `src/test/integration/zoomService.integration.test.ts` (4 tests)
+  - `src/test/integration/hybridAvatarService.integration.test.ts` (4 tests)
+  - `src/test/integration/tauriService.integration.test.ts` (3 tests)
+- ✅ Verified command mapping and payload serialization:
+  - `zoom_in`, `zoom_out`, `zoom_reset`
+  - `save_hybrid_avatar` payload with `Uint8Array -> number[]`
+  - `create_user` payload key mapping (`fullName`, `rank`, `role`)
+- ✅ Verified error behaviors:
+  - `safeInvoke` rejects outside Tauri environment
+  - service-level wrapped error messages for avatar operations
+- ✅ Integration runner script created: `scripts/run-integration-tests.ps1`
+- ✅ Frontend suite total after C1: `33 passed; 0 failed`
 
 ---
 

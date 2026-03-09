@@ -8,9 +8,20 @@
       "DOM.Iterable"
     ],
     "module": "ESNext",
+    "types": [
+      "vite/client",
+      "vitest/globals",
+      "node"
+    ],
     "skipLibCheck": true,
     /* Bundler mode */
     "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "src/*"
+      ]
+    },
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,

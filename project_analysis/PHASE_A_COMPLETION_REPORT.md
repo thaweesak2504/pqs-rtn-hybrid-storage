@@ -21,10 +21,12 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 ## Implementation Timeline
 
 ### Step A1: Test Infrastructure Setup
+
 **Commit**: `c5f529f`  
 **Date**: 2026-03-08
 
 **Deliverables**:
+
 - Added dev-dependencies: `tempfile 3.8`, `serial_test 3.0`, `mockall 0.12`
 - Created `src-tauri/src/test_helpers.rs` (281 lines)
   - `create_test_db()` - In-memory SQLite database
@@ -38,10 +40,12 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 - **Tests Added**: 8 (test_helpers module)
 
 ### Step A2: Pure Function Tests
+
 **Commit**: `18940f0`  
 **Date**: 2026-03-08
 
 **Deliverables**:
+
 - Added tests to `src-tauri/src/content_database.rs`
   - UUID generation format and uniqueness validation (3 tests)
   - Thai digit conversion including edge cases (5 tests)
@@ -49,10 +53,12 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 - **Tests Added**: 11 (cumulative: 19)
 
 ### Step A3: Database CRUD Operations
+
 **Commit**: `d341396`  
 **Date**: 2026-03-08
 
 **Deliverables**:
+
 - Expanded `test_helpers.rs` schema to include:
   - `sections` table with `document_id` FK
   - `questions` table with `section_id` FK
@@ -65,23 +71,23 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 - **Tests Added**: 6 (cumulative: 25)
 
 ### Step A4: Backup & Export Tests
+
 **Commit**: `dbb3900`  
 **Date**: 2026-03-09
 
 **Deliverables**:
+
 - **`database_export.rs`** - 5 tests (149 lines):
   - `test_export_to_sql_contains_schema_and_escaped_values` - SQL escaping (`O''Brien`)
   - `test_export_to_csv_contains_header_and_row` - CSV format validation
   - `test_export_table_reads_rows_from_connection` - Data extraction
   - `test_import_from_sql_executes_statements` - SQL import path
   - `test_import_from_json_inserts_data` - JSON import verification
-  
 - **`universal_sqlite_backup.rs`** - 4 tests (78 lines):
   - `test_get_table_list_returns_user_tables` - Excludes system tables
   - `test_get_table_schema_contains_create_statement` - Schema extraction
   - `test_get_table_data_generates_insert_and_escapes_quotes` - SQL escaping
   - `test_get_table_data_treats_null_literal_as_null_keyword` - NULL handling
-  
 - **`hybrid_backup.rs`** - 3 tests (99 lines):
   - `test_read_backup_manifest_success` - ZIP manifest parsing
   - `test_read_backup_manifest_missing_manifest_returns_error` - Error handling
@@ -90,10 +96,12 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 - **Tests Added**: 12 (cumulative: 37)
 
 ### Step A5: Test Reports & CI Integration
+
 **Commit**: [Current]  
 **Date**: 2026-03-09
 
 **Deliverables**:
+
 - Installed `cargo-llvm-cov` for coverage reporting
 - Generated HTML coverage report: `coverage/rust/html/index.html`
 - Generated LCOV format for CI integration
@@ -111,16 +119,17 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 
 **Generated**: 2026-03-09 using `cargo-llvm-cov`
 
-| Module | Regions | Lines | Functions | Focus |
-|--------|---------|-------|-----------|-------|
-| `test_helpers.rs` | **98.93%** | **98.72%** | **100%** | Test utilities |
-| `database_export.rs` | 53.42% | 54.03% | 33.82% | Export/import |
-| `universal_sqlite_backup.rs` | 39.89% | 38.52% | 25.00% | Backup helpers |
-| `hybrid_backup.rs` | 28.89% | 23.11% | 9.68% | ZIP backup |
-| `content_database.rs` | 4.01% | 4.44% | 2.99% | Pure functions only |
-| **OVERALL** | **14.41%** | **14.46%** | **8.84%** | **Baseline** |
+| Module                       | Regions    | Lines      | Functions | Focus               |
+| ---------------------------- | ---------- | ---------- | --------- | ------------------- |
+| `test_helpers.rs`            | **98.93%** | **98.72%** | **100%**  | Test utilities      |
+| `database_export.rs`         | 53.42%     | 54.03%     | 33.82%    | Export/import       |
+| `universal_sqlite_backup.rs` | 39.89%     | 38.52%     | 25.00%    | Backup helpers      |
+| `hybrid_backup.rs`           | 28.89%     | 23.11%     | 9.68%     | ZIP backup          |
+| `content_database.rs`        | 4.01%      | 4.44%      | 2.99%     | Pure functions only |
+| **OVERALL**                  | **14.41%** | **14.46%** | **8.84%** | **Baseline**        |
 
 **Analysis**:
+
 - **High Coverage**: Test helpers (98%+) provide solid foundation
 - **Medium Coverage**: Backup/export modules (23-54%) have key functions tested
 - **Low Coverage**: Content database (4%) only tests pure functions (by design)
@@ -133,17 +142,20 @@ Successfully implemented comprehensive Rust testing infrastructure for the PQS R
 ## Test Execution Results
 
 ### Full Test Suite
+
 ```powershell
 .\scripts\run-rust-tests.ps1 -Format terse
 ```
 
 **Output**:
+
 ```
 running 37 tests ...................................... ok
 test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 ### Module-Specific Execution
+
 ```powershell
 # Test helpers only (14 tests)
 .\scripts\run-rust-tests.ps1 -Filter "test_helpers::tests"
@@ -166,26 +178,32 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ## Automation Scripts
 
 ### `scripts/setup-rust-tests.ps1`
+
 **Purpose**: One-time test environment setup  
 **Features**:
+
 - Dependency installation verification
 - Pre-compilation of test suite
 - Environment validation
 
 **Usage**:
+
 ```powershell
 .\scripts\setup-rust-tests.ps1
 ```
 
 ### `scripts/run-rust-tests.ps1`
+
 **Purpose**: Flexible test execution  
 **Features**:
+
 - Filter tests by module/function name (substring matching)
 - Coverage reports (HTML/JSON/XML)
 - Watch mode for continuous testing
 - Output formatting (terse/pretty/json/junit)
 
 **Usage**:
+
 ```powershell
 # Run all tests
 .\scripts\run-rust-tests.ps1
@@ -212,6 +230,7 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ### Jobs
 
 #### 1. Test Suite (`test`)
+
 - **Platform**: Windows (matches development environment)
 - **Triggers**: Push to `testing-infrastructure-feature`/`master`/`main`, PRs to `master`/`main`
 - **Steps**:
@@ -224,14 +243,17 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
   7. Run tests without coverage (verification)
 
 #### 2. Clippy Lints (`clippy`)
+
 - Runs `cargo clippy` with `-D warnings` (treat warnings as errors)
 - Ensures code quality and adherence to Rust best practices
 
 #### 3. Rustfmt Check (`fmt`)
+
 - Runs `cargo fmt --check`
 - Ensures consistent code formatting across the project
 
 ### CI Integration
+
 - **Codecov**: Automated coverage tracking (requires `CODECOV_TOKEN` secret)
 - **Caching**: Optimized build times (~60-80% faster on cache hits)
 - **Parallel Jobs**: Test/Clippy/Fmt run concurrently
@@ -241,18 +263,21 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ## Technical Architecture
 
 ### Test Isolation Strategy
+
 - **In-Memory Databases**: Default for fast, isolated tests (`create_test_db()`)
 - **Temporary Files**: Auto-cleaned via RAII pattern (`create_temp_db()`, `TempDir`)
 - **No Production Data**: All tests use generated sample data
 - **Independent Execution**: Each test creates its own isolated environment
 
 ### Test Helper Design
+
 - **Centralized Utilities**: `test_helpers.rs` provides schema/data generators
 - **Reusable Components**: `init_content_schema()` used across multiple test modules
 - **Sample Data Generators**: `sample_document_data()` ensures consistent test fixtures
 - **Assertion Helpers**: `assert_db_exists()`, `assert_db_not_exists()` for file validation
 
 ### Testing Philosophy
+
 1. **Pure Functions First**: Test algorithmic logic without I/O dependencies
 2. **CRUD Operations**: Validate database constraints and relationships
 3. **Helper Functions**: Test backup/export utilities in isolation
@@ -263,6 +288,7 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ## Known Limitations & Future Work
 
 ### Current Scope (Phase A)
+
 - ✅ Unit tests for pure functions and helpers
 - ✅ CRUD operation validation
 - ✅ Basic coverage reporting
@@ -270,6 +296,7 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 - ⚠️ No UI component tests (deferred to Phase B)
 
 ### Excluded from Phase A
+
 - **Tauri Commands**: Require frontend context (Phase B/C)
 - **File System Operations**: Complex path dependencies (Phase C)
 - **Database Migrations**: Production database modifications (Phase C)
@@ -277,11 +304,13 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 - **Async Operations**: Require tokio runtime mocking (Phase C)
 
 ### Phase B Recommendations
+
 1. **Frontend Tests**: React component testing with Vitest
 2. **Integration Tests**: Frontend ↔ Rust command interaction
 3. **E2E Tests**: Full application flow with test database
 
 ### Phase C Recommendations
+
 1. **Expand Rust Coverage**: Target 60%+ line coverage
 2. **Mock External Dependencies**: File system, network calls
 3. **Performance Benchmarks**: Criterion.rs for critical paths
@@ -292,12 +321,14 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ## Lessons Learned
 
 ### Technical Insights
+
 1. **Cargo Test Filters**: Use substring matching, not regex (e.g., `cargo test database_export::tests`)
 2. **Windows Coverage**: `cargo-llvm-cov` works better than `cargo-tarpaulin` on Windows
 3. **String Replacements**: Always verify exact whitespace when patching files
 4. **Test Isolation**: `tempfile` crate auto-cleanup is more reliable than manual cleanup
 
 ### Process Improvements
+
 1. **Incremental Commits**: Each step (A1-A5) committed separately for rollback safety
 2. **Documentation First**: Update `refactoring-plan.md` with actual outcomes, not just plans
 3. **Memory Notes**: Created `/memories/debugging.md` for cargo test filter syntax
@@ -307,13 +338,13 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
 ## Git Commit History
 
-| Commit | Step | Description | Files Changed | Lines Added |
-|--------|------|-------------|---------------|-------------|
-| c5f529f | A1 | Test infrastructure setup | 4 | +590 |
-| 18940f0 | A2 | Pure function tests | 2 | +161 |
-| d341396 | A3 | Database CRUD tests | 2 | +242 |
-| dbb3900 | A4 | Backup/export tests | 4 | +328 |
-| [Current] | A5 | CI integration & reports | 3 | +175 |
+| Commit    | Step | Description               | Files Changed | Lines Added |
+| --------- | ---- | ------------------------- | ------------- | ----------- |
+| c5f529f   | A1   | Test infrastructure setup | 4             | +590        |
+| 18940f0   | A2   | Pure function tests       | 2             | +161        |
+| d341396   | A3   | Database CRUD tests       | 2             | +242        |
+| dbb3900   | A4   | Backup/export tests       | 4             | +328        |
+| [Current] | A5   | CI integration & reports  | 3             | +175        |
 
 **Total Changes**: 13 files modified, ~1,496 lines added
 
@@ -321,30 +352,33 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 
 ## Success Metrics
 
-| Metric | Target | Achieved | Status |
-|--------|--------|----------|--------|
-| Unit Tests | 30+ | **37** | ✅ |
-| Pass Rate | 100% | **100%** | ✅ |
-| Line Coverage | 10%+ | **14.46%** | ✅ |
-| CI Integration | Yes | **Yes** | ✅ |
-| Automation Scripts | 2 | **2** | ✅ |
-| Documentation | Complete | **Complete** | ✅ |
+| Metric             | Target   | Achieved     | Status |
+| ------------------ | -------- | ------------ | ------ |
+| Unit Tests         | 30+      | **37**       | ✅     |
+| Pass Rate          | 100%     | **100%**     | ✅     |
+| Line Coverage      | 10%+     | **14.46%**   | ✅     |
+| CI Integration     | Yes      | **Yes**      | ✅     |
+| Automation Scripts | 2        | **2**        | ✅     |
+| Documentation      | Complete | **Complete** | ✅     |
 
 ---
 
 ## Next Steps
 
 ### Immediate Actions
+
 1. **Configure Codecov**: Add `CODECOV_TOKEN` to GitHub repository secrets
 2. **Merge to Main**: Create PR from `testing-infrastructure-feature` to `main`
 3. **CI Validation**: Verify GitHub Actions runs successfully on PR
 
 ### Phase B Planning
+
 1. **Frontend Tests**: Vitest setup for React components
 2. **Component Coverage**: Target form validation, state management
 3. **API Mocking**: Mock Tauri commands for isolated frontend tests
 
 ### Long-Term Roadmap
+
 - **Phase B**: Frontend unit/integration tests
 - **Phase C**: E2E tests with Playwright/Tauri-desktop test harness
 - **Phase D**: Performance benchmarks and load testing
@@ -354,6 +388,7 @@ test result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ## Conclusion
 
 Phase A successfully established a robust Rust testing foundation with:
+
 - **37 passing tests** covering pure functions, CRUD operations, and backup/export helpers
 - **14.46% baseline coverage** with clear expansion path
 - **Automated CI/CD pipeline** ensuring code quality on every commit
@@ -365,6 +400,6 @@ The testing infrastructure is production-ready and provides a solid foundation f
 
 ---
 
-*Generated by: GitHub Copilot Agent*  
-*Date: 2026-03-09*  
-*Project: PQS RTN Hybrid Storage - Testing Infrastructure*
+_Generated by: GitHub Copilot Agent_  
+_Date: 2026-03-09_  
+_Project: PQS RTN Hybrid Storage - Testing Infrastructure_

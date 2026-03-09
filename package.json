@@ -14,7 +14,12 @@
     "app": "tauri dev",
     "desktop": "tauri dev",
     "clean": "powershell -ExecutionPolicy Bypass -File scripts/clean-processes.ps1",
-    "clean:win": "scripts/clean-processes.bat"
+    "clean:win": "scripts/clean-processes.bat",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:run": "vitest run",
+    "test:integration": "vitest run src/test/integration"
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.0",
@@ -30,17 +35,25 @@
     "tailwindcss": "^3.3.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@eslint/js": "^9.39.2",
     "@tailwindcss/typography": "^0.5.19",
     "@tauri-apps/cli": "^1.5.0",
     "@types/react": "^18.2.15",
     "@types/react-dom": "^18.2.7",
+    "@types/node": "^22.13.9",
     "@vitejs/plugin-react": "^4.0.3",
     "eslint": "^9.39.2",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "typescript": "^5.0.2",
     "typescript-eslint": "^8.55.0",
-    "vite": "^4.4.5"
+    "vite": "^4.4.5",
+    "vitest": "^3.2.4",
+    "jsdom": "^27.0.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^3.2.4"
   }
 }
