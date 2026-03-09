@@ -1219,12 +1219,12 @@ describe('QuestionFormCard - Validation', () => {
 
 **Test Coverage:**
 
-| Service File | Test File | Test Count | Coverage |
-|---|---|---|---|
-| `zoomService.ts` | `zoomService.integration.test.ts` | 4 tests | zoom_in, zoom_out, zoom_reset, error handling |
-| `hybridAvatarService.ts` | `hybridAvatarService.integration.test.ts` | 4 tests | saveAvatar, getAvatarInfo, deleteAvatar, payload serialization |
-| `tauriService.ts` | `tauriService.integration.test.ts` | 10 tests | safeInvoke environment check, user service (create/auth/hash), avatar service, database init |
-| `desktopService.ts` | `desktopService.integration.test.ts` | 7 tests | window state queries, zoom invoke, size/position setters, error fallbacks |
+| Service File             | Test File                                 | Test Count | Coverage                                                                                     |
+| ------------------------ | ----------------------------------------- | ---------- | -------------------------------------------------------------------------------------------- |
+| `zoomService.ts`         | `zoomService.integration.test.ts`         | 4 tests    | zoom_in, zoom_out, zoom_reset, error handling                                                |
+| `hybridAvatarService.ts` | `hybridAvatarService.integration.test.ts` | 4 tests    | saveAvatar, getAvatarInfo, deleteAvatar, payload serialization                               |
+| `tauriService.ts`        | `tauriService.integration.test.ts`        | 10 tests   | safeInvoke environment check, user service (create/auth/hash), avatar service, database init |
+| `desktopService.ts`      | `desktopService.integration.test.ts`      | 7 tests    | window state queries, zoom invoke, size/position setters, error fallbacks                    |
 
 **ตัวอย่าง:**
 
@@ -1245,7 +1245,9 @@ describe("zoomService integration", () => {
 describe("tauriService integration", () => {
   it("safeInvoke rejects when not in tauri environment", async () => {
     setTauriUnavailable();
-    await expect(safeInvoke("get_all_users")).rejects.toThrow("Not running in Tauri environment");
+    await expect(safeInvoke("get_all_users")).rejects.toThrow(
+      "Not running in Tauri environment",
+    );
   });
 
   it("maps authenticateUser payload", async () => {

@@ -8,13 +8,13 @@
 
 ## 📋 Quick Reference
 
-| Command | Purpose |
-|---------|---------|
-| `npm run test:run` | รันทุก tests ครั้งเดียว (CLI mode) |
-| `npm test` | Watch mode - เฝ้าดูไฟล์ที่เปลี่ยน รีรัน tests |
-| `npm run test:ui` | Interactive dashboard - ดู tests ทั้งหมดแบบ UI |
-| `npm run test:coverage` | สร้าง coverage report - ดูเปอร์เซ็นต์โค้ดที่ test |
-| `npm run test:integration` | รัน integration tests เท่านั้น (25 tests) |
+| Command                    | Purpose                                           |
+| -------------------------- | ------------------------------------------------- |
+| `npm run test:run`         | รันทุก tests ครั้งเดียว (CLI mode)                |
+| `npm test`                 | Watch mode - เฝ้าดูไฟล์ที่เปลี่ยน รีรัน tests     |
+| `npm run test:ui`          | Interactive dashboard - ดู tests ทั้งหมดแบบ UI    |
+| `npm run test:coverage`    | สร้าง coverage report - ดูเปอร์เซ็นต์โค้ดที่ test |
+| `npm run test:integration` | รัน integration tests เท่านั้น (25 tests)         |
 
 ---
 
@@ -40,12 +40,12 @@ src/test/
 
 ### Summary
 
-| ประเภท | ไฟล์ | Tests | ทดสอบอะไร |
-|--|--|--|--|
-| **Utility** | 2 | 14 | Pure functions (Thai numbers, sanitize, resolve) |
-| **Component** | 2 | 8 | UI rendering & user interactions |
-| **Integration** | 4 | 25 | Service layers + Tauri backend mapping |
-| **TOTAL** | **8** | **47** | ✅ Coverage: 64.72% lines, 62.5% functions |
+| ประเภท          | ไฟล์  | Tests  | ทดสอบอะไร                                        |
+| --------------- | ----- | ------ | ------------------------------------------------ |
+| **Utility**     | 2     | 14     | Pure functions (Thai numbers, sanitize, resolve) |
+| **Component**   | 2     | 8      | UI rendering & user interactions                 |
+| **Integration** | 4     | 25     | Service layers + Tauri backend mapping           |
+| **TOTAL**       | **8** | **47** | ✅ Coverage: 64.72% lines, 62.5% functions       |
 
 ---
 
@@ -58,6 +58,7 @@ npm run test:run
 ```
 
 **Output:**
+
 ```
 ✓ src/test/integration/zoomService.integration.test.ts (4 tests)
 ✓ src/test/integration/hybridAvatarService.integration.test.ts (4 tests)
@@ -89,7 +90,7 @@ npm test
 npm run test:ui
 ```
 
-- เปิด http://localhost:51204/__vitest__/
+- เปิด http://localhost:51204/**vitest**/
 - ดูทุก tests พร้อม filter/search
 - ดูรายละเอียด error ถ้า tests fail
 - Interactive mode ใช้เมื่อ debug
@@ -101,6 +102,7 @@ npm run test:coverage
 ```
 
 **Output:**
+
 ```
  File | % Stmts | % Branch | % Funcs | % Lines
 ------|---------|----------|---------|--------
@@ -167,7 +169,7 @@ describe("Button component", () => {
   it("should call onClick when clicked", async () => {
     const handleClick = vi.fn();
     render(<Button onClick={handleClick}>Click me</Button>);
-    
+
     await userEvent.click(screen.getByRole("button"));
     expect(handleClick).toHaveBeenCalled();
   });
@@ -198,9 +200,10 @@ describe("tauriService integration", () => {
   // Test Tauri environment detection
   it("safeInvoke rejects when not in tauri environment", async () => {
     setTauriUnavailable(); // Mock Tauri = undefined
-    
-    await expect(safeInvoke("get_all_users"))
-      .rejects.toThrow("Not running in Tauri environment");
+
+    await expect(safeInvoke("get_all_users")).rejects.toThrow(
+      "Not running in Tauri environment",
+    );
   });
 
   // Test command payload mapping
@@ -209,7 +212,12 @@ describe("tauriService integration", () => {
     vi.mocked(invoke).mockResolvedValueOnce({ id: 1 });
 
     await tauriUserService.createUser(
-      "admin", "admin@x.com", "pass", "Admin User", "CAPT", "admin"
+      "admin",
+      "admin@x.com",
+      "pass",
+      "Admin User",
+      "CAPT",
+      "admin",
     );
 
     expect(invoke).toHaveBeenCalledWith("create_user", {
@@ -230,12 +238,12 @@ describe("tauriService integration", () => {
     await tauriAvatarService.saveAvatar(
       7,
       new Uint8Array([10, 20, 30]),
-      "image/png"
+      "image/png",
     );
 
     expect(invoke).toHaveBeenCalledWith("save_avatar", {
       userId: 7,
-      avatarData: [10, 20, 30],  // ← Serialized
+      avatarData: [10, 20, 30], // ← Serialized
       mimeType: "image/png",
     });
   });
@@ -245,13 +253,15 @@ describe("tauriService integration", () => {
     setTauriAvailable();
     vi.mocked(invoke).mockRejectedValueOnce(new Error("delete failed"));
 
-    await expect(tauriAvatarService.deleteAvatar(3))
-      .rejects.toThrow("delete failed");
+    await expect(tauriAvatarService.deleteAvatar(3)).rejects.toThrow(
+      "delete failed",
+    );
   });
 });
 ```
 
-**ใช้เมื่อ:** 
+**ใช้เมื่อ:**
+
 - เชื่อมต่อ Frontend ↔ Tauri Backend
 - ทดสอบ command mapping + payload serialization
 - ตรวจ error handling
@@ -284,12 +294,14 @@ describe("tauriService integration", () => {
 
 ```typescript
 // Global mocking สำหรับทุก tests:
-vi.mock("@tauri-apps/api/tauri");      // Mock invoke() → Tauri
-vi.mock("@tauri-apps/api/dialog");     // Mock open/save dialogs
-vi.mock("@tauri-apps/api/fs");         // Mock file operations
+vi.mock("@tauri-apps/api/tauri"); // Mock invoke() → Tauri
+vi.mock("@tauri-apps/api/dialog"); // Mock open/save dialogs
+vi.mock("@tauri-apps/api/fs"); // Mock file operations
 
 // Mock browser APIs
-global.IntersectionObserver = class { /* ... */ };
+global.IntersectionObserver = class {
+  /* ... */
+};
 ```
 
 ---
@@ -340,13 +352,14 @@ git push
 ### 4. CI/CD Integration
 
 GitHub Actions automatic:
+
 ```yaml
 on: [push, pull_request]
 jobs:
   test:
     - npm install
-    - npm run test:run          # All tests must pass
-    - npm run test:coverage     # Coverage report
+    - npm run test:run # All tests must pass
+    - npm run test:coverage # Coverage report
 ```
 
 ---
@@ -365,10 +378,10 @@ npm run test:run
 
 ```typescript
 // Ensure setup.ts runs BEFORE test
-import "@tauri-apps/api/tauri";  // ← Must import first
+import "@tauri-apps/api/tauri"; // ← Must import first
 import { invoke } from "@tauri-apps/api/tauri";
 
-vi.mock("@tauri-apps/api/tauri");  // ← Then mock
+vi.mock("@tauri-apps/api/tauri"); // ← Then mock
 ```
 
 ### Tests timeout
@@ -396,10 +409,12 @@ Branches:  >50%   ✅ (Target: 45%)
 ```
 
 Files with 100% coverage:
+
 - `resolveAvatarSource.ts` — 6 tests
 - `Modal.tsx` — 5 tests
 
 Files with >90% coverage:
+
 - `Button.tsx` — 98.18%
 
 ---
@@ -407,11 +422,13 @@ Files with >90% coverage:
 ## 🎓 Learning Resources
 
 ### Internal
+
 - [refactoring-plan.md](refactoring-plan.md) — Phase A-D testing roadmap
 - [README.md](../README.md) — Testing section
 - Sample tests in `src/test/` — Real examples
 
 ### External
+
 - [Vitest Docs](https://vitest.dev/)
 - [Testing Library Docs](https://testing-library.com/)
 - [Vue/React Testing Patterns](https://vitest.dev/guide/testing-types.html)
@@ -421,16 +438,19 @@ Files with >90% coverage:
 ## 📝 Next Steps
 
 ### Immediate (Ready to start)
+
 - [ ] Add tests for new features before implementing
 - [ ] Maintain >50% coverage threshold
 - [ ] Run `npm test` in watch mode while developing
 
 ### Phase A (Rust unit tests) — Coming soon
+
 - [ ] Setup cargo test infrastructure
 - [ ] Test pure functions (generate_document_id, etc.)
 - [ ] Test database CRUD operations
 
 ### Phase D (E2E tests) — After refactoring stable
+
 - [ ] Setup Tauri WebDriver
 - [ ] Create smoke tests (app launch)
 - [ ] Test critical user paths
