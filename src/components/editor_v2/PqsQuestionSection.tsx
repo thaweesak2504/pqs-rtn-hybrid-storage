@@ -75,7 +75,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [traineeAnswers, setTraineeAnswers] = useState<UserAnswer[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [bgSyncTrigger, setBgSyncTrigger] = useState(0);
 
   const [creatingAtParent, setCreatingAtParent] = useState<string | null>(null);
@@ -119,26 +119,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           (q.section_id === 0 && q.sequence >= sectionNumber && q.sequence < sectionNumber + 100),
       );
 
-      // For Section 300: recalculate group_score bottom-up (L2 → L1)
-      if (sectionGroup === 300) {
-        const l2GroupHeaders = filtered.filter(q => q.parent_id && q.is_group_header);
-        for (const gh of l2GroupHeaders) {
-          try {
-            const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
-            gh.group_score = freshScore;
-          } catch { /* keep existing value */ }
-        }
-        const l1GroupHeaders = filtered.filter(q => !q.parent_id && q.is_group_header);
-        for (const gh of l1GroupHeaders) {
-          try {
-            const freshScore = await invoke<number>('calculate_group_score', { parentId: gh.id });
-            gh.group_score = freshScore;
-          } catch { /* keep existing value */ }
-        }
-      }
-
-      // Smart merge: preserve object references for unchanged questions so React.memo
-      // can skip re-renders — prevents the white-line flash during background sync
+      // Show questions immediately — content appears without waiting for group score calc
       if (silent) {
         setQuestions(prev => {
           if (prev.length === 0) return filtered;
@@ -163,6 +144,25 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         });
       } else {
         setQuestions(filtered);
+      }
+
+      // For Section 300: recalculate group_score bottom-up (L2 → L1) in a second pass
+      // so score badges stay fresh without blocking the initial render
+      if (sectionGroup === 300) {
+        const withScores = filtered.map(q => ({ ...q }));
+        const l2GroupHeaders = withScores.filter(q => q.parent_id && q.is_group_header);
+        await Promise.all(l2GroupHeaders.map(async (gh) => {
+          try {
+            gh.group_score = await invoke<number>('calculate_group_score', { parentId: gh.id });
+          } catch { /* keep existing value */ }
+        }));
+        const l1GroupHeaders = withScores.filter(q => !q.parent_id && q.is_group_header);
+        await Promise.all(l1GroupHeaders.map(async (gh) => {
+          try {
+            gh.group_score = await invoke<number>('calculate_group_score', { parentId: gh.id });
+          } catch { /* keep existing value */ }
+        }));
+        setQuestions(withScores);
       }
 
       // --- Fetch Trainee Answers (NEW for Fluent Assessment) ---
