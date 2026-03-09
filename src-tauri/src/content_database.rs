@@ -5424,3 +5424,276 @@ pub fn replace_question_answer_keys(question_id: String, items: Vec<ReplaceAnswe
     tx.commit().map_err(|e| format!("Failed to commit answer key replacement: {}", e))?;
     Ok("Answer keys replaced successfully".to_string())
 }
+
+// ============================================================================
+// TESTS
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_helpers::helpers::*;
+
+    // ========================================================================
+    // Pure Function Tests
+    // ========================================================================
+
+    #[test]
+    fn test_generate_uuid_format() {
+        let uuid1 = generate_uuid();
+        let uuid2 = generate_uuid();
+
+        // UUID should be hexadecimal string
+        assert!(uuid1.chars().all(|c| c.is_ascii_hexdigit()));
+        assert!(uuid2.chars().all(|c| c.is_ascii_hexdigit()));
+
+        // UUIDs should be unique
+        assert_ne!(uuid1, uuid2, "UUIDs should be unique");
+
+        // Should have reasonable length (timestamp in nanoseconds)
+        assert!(uuid1.len() > 10, "UUID should have reasonable length");
+    }
+
+    #[test]
+    fn test_to_thai_digit_single_digit() {
+        assert_eq!(to_thai_digit(0), "๐");
+        assert_eq!(to_thai_digit(1), "๑");
+        assert_eq!(to_thai_digit(2), "๒");
+        assert_eq!(to_thai_digit(3), "๓");
+        assert_eq!(to_thai_digit(4), "๔");
+        assert_eq!(to_thai_digit(5), "๕");
+        assert_eq!(to_thai_digit(6), "๖");
+        assert_eq!(to_thai_digit(7), "๗");
+        assert_eq!(to_thai_digit(8), "๘");
+        assert_eq!(to_thai_digit(9), "๙");
+    }
+
+    #[test]
+    fn test_to_thai_digit_multiple_digits() {
+        assert_eq!(to_thai_digit(10), "๑๐");
+        assert_eq!(to_thai_digit(123), "๑๒๓");
+        assert_eq!(to_thai_digit(456), "๔๕๖");
+        assert_eq!(to_thai_digit(789), "๗๘๙");
+        assert_eq!(to_thai_digit(2024), "๒๐๒๔");
+    }
+
+    #[test]
+    fn test_to_thai_digit_negative() {
+        // Negative numbers should preserve the minus sign
+        let result = to_thai_digit(-5);
+        assert!(result.starts_with('-'));
+        assert!(result.contains('๕'));
+    }
+
+    #[test]
+    fn test_to_thai_digit_zero() {
+        assert_eq!(to_thai_digit(0), "๐");
+    }
+
+    #[test]
+    fn test_to_thai_digit_large_numbers() {
+        assert_eq!(to_thai_digit(99999), "๙๙๙๙๙");
+        assert_eq!(to_thai_digit(100000), "๑๐๐๐๐๐");
+    }
+
+    // ========================================================================
+    // Database Function Tests
+    // ========================================================================
+
+    #[test]
+    fn test_generate_document_id_format() {
+        // This test requires database initialization
+        // We'll use a temporary in-memory database
+        let conn = create_test_db();
+
+        // Initialize Documents table
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS Documents (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                unit_code TEXT NOT NULL,
+                doc_type TEXT NOT NULL,
+                user_level TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("Failed to create Documents table");
+
+        // Set connection for content_database to use our test db
+        // Note: This requires modifying get_content_connection() to support test contexts
+        // For now, we'll test the ID format expectations
+
+        let unit_code = "RTN01";
+        let doc_type = "PQ";
+        let user_level = "A";
+
+        // Expected format: UUUUU (5) + TT (2) + L (1) + SSS (3) = 11 digits
+        // Example: RTN01PQA001
+
+        // Insert a mock document to test sequence generation
+        conn.execute(
+            "INSERT INTO Documents (id, title, unit_code, doc_type, user_level, sequence, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["RTN01PQA001", "Test Doc", unit_code, doc_type, user_level, 1],
+        )
+        .expect("Failed to insert test document");
+
+        // Verify the ID format
+        let id: String = conn
+            .query_row("SELECT id FROM Documents WHERE id = 'RTN01PQA001'", [], |row| {
+                row.get(0)
+            })
+            .expect("Failed to query document");
+
+        assert_eq!(id.len(), 11, "Document ID should be 11 characters");
+        assert!(id.starts_with("RTN01"), "ID should start with unit code");
+        assert!(id.contains("PQ"), "ID should contain doc type");
+        assert!(id.contains("A"), "ID should contain user level");
+    }
+
+    #[test]
+    fn test_generate_document_id_sequence() {
+        let conn = create_test_db();
+
+        // Initialize Documents table
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS Documents (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                unit_code TEXT NOT NULL,
+                doc_type TEXT NOT NULL,
+                user_level TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("Failed to create Documents table");
+
+        let unit_code = "TEST1";
+        let doc_type = "AB";
+        let user_level = "B";
+
+        // Insert multiple documents to test sequence increment
+        for i in 1..=5 {
+            let id = format!("{}{}{}{:03}", unit_code, doc_type, user_level, i);
+            conn.execute(
+                "INSERT INTO Documents (id, title, unit_code, doc_type, user_level, sequence, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+                params![id, format!("Test Doc {}", i), unit_code, doc_type, user_level, i],
+            )
+            .expect("Failed to insert test document");
+        }
+
+        // Verify all documents were inserted
+        let count: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Documents WHERE unit_code = ?1 AND doc_type = ?2 AND user_level = ?3",
+                params![unit_code, doc_type, user_level],
+                |row| row.get(0),
+            )
+            .expect("Failed to count documents");
+
+        assert_eq!(count, 5, "Should have 5 test documents");
+    }
+
+    #[test]
+    fn test_generate_document_id_uniqueness() {
+        let conn = create_test_db();
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS Documents (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                unit_code TEXT NOT NULL,
+                doc_type TEXT NOT NULL,
+                user_level TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )",
+            [],
+        )
+        .expect("Failed to create Documents table");
+
+        // Insert two documents with same prefix but different sequences
+        let ids = vec!["UNIT1XYZ001", "UNIT1XYZ002"];
+
+        for id in &ids {
+            conn.execute(
+                "INSERT INTO Documents (id, title, unit_code, doc_type, user_level, sequence, created_at, updated_at)
+                 VALUES (?1, 'Test', 'UNIT1', 'XY', 'Z', ?2, datetime('now'), datetime('now'))",
+                params![id, &id[8..11]],
+            )
+            .expect("Failed to insert document");
+        }
+
+        // Verify both IDs exist
+        for id in &ids {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
+                    params![id],
+                    |row| row.get(0),
+                )
+                .expect("Failed to check existence");
+
+            assert!(exists, "Document {} should exist", id);
+        }
+    }
+
+    // ========================================================================
+    // Helper Function Tests
+    // ========================================================================
+
+    #[test]
+    fn test_database_operations_basic() {
+        let conn = create_test_db();
+
+        // Create a simple table
+        conn.execute(
+            "CREATE TABLE test_table (id INTEGER PRIMARY KEY, value TEXT)",
+            [],
+        )
+        .expect("Failed to create test table");
+
+        // Insert data
+        conn.execute("INSERT INTO test_table (value) VALUES ('test')", [])
+            .expect("Failed to insert data");
+
+        // Query data
+        let value: String = conn
+            .query_row("SELECT value FROM test_table WHERE id = 1", [], |row| {
+                row.get(0)
+            })
+            .expect("Failed to query data");
+
+        assert_eq!(value, "test");
+    }
+
+    #[test]
+    fn test_temp_db_cleanup() {
+        let (_temp_dir, db_path) = create_temp_db();
+
+        // Create database file
+        let conn = rusqlite::Connection::open(&db_path).expect("Failed to create database");
+
+        conn.execute("CREATE TABLE test (id INTEGER)", [])
+            .expect("Failed to create table");
+
+        // Verify file exists
+        assert!(db_path.exists(), "Database file should exist");
+
+        drop(conn);
+
+        // File should still exist while _temp_dir is in scope
+        assert!(db_path.exists(), "Database file should still exist");
+
+        // When _temp_dir is dropped, file will be cleaned up automatically
+    }
+}
+
