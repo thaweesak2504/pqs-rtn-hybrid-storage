@@ -568,17 +568,20 @@ project/
 
 ---
 
-## 🏛️ Testing 100-300 Section Templates
+### 🏛️ Testing 100-300 Section Templates
 
-### What are 100-300 Templates?
+> 🔴 **CRITICAL CONTEXT:** Template Testing is the **heart of this project**  
+> See [TEMPLATE_TESTING_STRATEGY.md](TEMPLATE_TESTING_STRATEGY.md) for comprehensive 90-108 test roadmap (Unit → E2E → Property-based)
+
+**What are 100-300 Templates?**
 
 Section templates (100, 200, 300) are **fixed question structures** auto-seeded when a new document is created.
 
-| Section | Thai Name | Purpose | Type | Answer Keys | References |
-|---------|-----------|---------|------|-------------|------------|
-| **100** | Fundamental | ความรู้พื้นฐาน | Q&A | ✅ Yes | ✅ Yes |
-| **200** | System Description | รายละเอียดระบบ | Q&A | ✅ Yes | ✅ Yes |
-| **300** | Practical Skills | ทักษะการปฏิบัติงาน | Evaluator | ❌ None | ❌ None |
+| Section | Thai Name          | Purpose            | Type      | Answer Keys | References |
+| ------- | ------------------ | ------------------ | --------- | ----------- | ---------- |
+| **100** | Fundamental        | ความรู้พื้นฐาน     | Q&A       | ✅ Yes      | ✅ Yes     |
+| **200** | System Description | รายละเอียดระบบ     | Q&A       | ✅ Yes      | ✅ Yes     |
+| **300** | Practical Skills   | ทักษะการปฏิบัติงาน | Evaluator | ❌ None     | ❌ None    |
 
 ### 300 Template Structure (Practical Skills)
 
@@ -620,19 +623,19 @@ mod template_tests {
         let conn = create_test_db();
         let doc_id = create_document(/* ... */).unwrap();
         let section_id = create_section(/* ... */).unwrap();
-        
+
         // Seed Section 301 (3xx.1 - 3xx.7 questions)
         seed_section_300_template(&conn, &doc_id, section_id, 301).unwrap();
-        
+
         // Verify
         let questions = get_section_questions(&conn, section_id).unwrap();
         assert_eq!(questions.len(), 7); // 3xx.1 through 3xx.7
-        
+
         // Verify 3xx.2-3xx.5 have occupation branch selection UI
         let q2 = questions.iter().find(|q| q.sequence == 2).unwrap();
         assert_eq!(q2.parent_id, None); // L1 root
         assert!(q2.is_group_header); // Group header, not scored itself
-        
+
         // Verify 3xx.6 is scored and has children
         let q6 = questions.iter().find(|q| q.sequence == 6).unwrap();
         let children_count = get_question_children(&conn, &q6.id).unwrap().len();
@@ -682,7 +685,7 @@ vi.mock("@tauri-apps/api/tauri");
 describe("Section 300 Template Integration", () => {
   it("should create document with auto-seeded Section 301 template", async () => {
     vi.mocked(invoke).mockResolvedValueOnce({ id: "22724201001" });
-    
+
     const result = await invoke("create_document", {
       name: "Watch Station Test",
       unit_id: "2272400",
@@ -693,28 +696,42 @@ describe("Section 300 Template Integration", () => {
     });
 
     expect(result).toBe("22724201001");
-    
+
     // Verify template questions are auto-created
     vi.mocked(invoke).mockResolvedValueOnce([
-      { id: "q1", sequence: 1, content: "3xx.1", is_group_header: true, is_scored: false },
-      { id: "q2", sequence: 2, content: "3xx.2", is_group_header: true, is_scored: false },
+      {
+        id: "q1",
+        sequence: 1,
+        content: "3xx.1",
+        is_group_header: true,
+        is_scored: false,
+      },
+      {
+        id: "q2",
+        sequence: 2,
+        content: "3xx.2",
+        is_group_header: true,
+        is_scored: false,
+      },
       // ... 3xx.3 - 3xx.7
     ]);
-    
-    const questions = await invoke("get_document_questions", { doc_id: result });
+
+    const questions = await invoke("get_document_questions", {
+      doc_id: result,
+    });
     expect(questions.length).toBe(7);
   });
 
   it("should support occupation branch selection for 3xx.2-3xx.5", async () => {
     // Test metadata contains branch selection configuration
-    const q3_2 = questions.find(q => q.sequence === 2);
+    const q3_2 = questions.find((q) => q.sequence === 2);
     expect(q3_2.metadata).toContain("occupationBranch");
   });
 
   it("should prevent answer key editing in Section 300", async () => {
     // UI should disable answer key fields for 300 questions
     vi.mocked(invoke).mockRejectedValueOnce(
-      new Error("Answer keys not supported for Section 300")
+      new Error("Answer keys not supported for Section 300"),
     );
   });
 
@@ -722,7 +739,7 @@ describe("Section 300 Template Integration", () => {
     // UI should hide reference section for 300 questions
     // Test that references cannot be added to 300 questions
     vi.mocked(invoke).mockRejectedValueOnce(
-      new Error("References not supported for Section 300")
+      new Error("References not supported for Section 300"),
     );
   });
 });
@@ -745,30 +762,30 @@ describe("Section 300 Display Component", () => {
       { id: "q2", sequence: 2, content: "3xx.2" },
       // ... etc
     ];
-    
+
     render(<Section300Display questions={questions} />);
-    
+
     expect(screen.getByText(/3xx.1/)).toBeInTheDocument();
     expect(screen.getByText(/3xx.2/)).toBeInTheDocument();
   });
 
   it("should NOT show answer key section for 300", () => {
     render(<Section300Display questions={mockQuestions} />);
-    
+
     // Answer key UI should not exist
     expect(screen.queryByText(/Answer Key/i)).not.toBeInTheDocument();
   });
 
   it("should NOT show reference section for 300", () => {
     render(<Section300Display questions={mockQuestions} />);
-    
+
     // Reference UI should not exist
     expect(screen.queryByText(/Reference/i)).not.toBeInTheDocument();
   });
 
   it("should show occupation branch selector for 3xx.2-3xx.5", () => {
     render(<Section300Display questions={mockQuestions} />);
-    
+
     const q302 = screen.getByText(/3xx.2/);
     const branchSelector = q302.closest("[data-testid='branch-selector']");
     expect(branchSelector).toBeInTheDocument();
@@ -776,7 +793,7 @@ describe("Section 300 Display Component", () => {
 
   it("should show Pass/Fail instead of numeric scores", () => {
     render(<Section300Display questions={mockQuestions} />);
-    
+
     // Should have Pass/Fail buttons instead of score input
     expect(screen.queryByText(/Pass/i)).toBeInTheDocument();
     expect(screen.queryByText(/Fail/i)).toBeInTheDocument();
@@ -787,6 +804,7 @@ describe("Section 300 Display Component", () => {
 ### Testing Checklist for Template 100-300
 
 **Backend (Rust—`src-tauri/src/content_database.rs`)**
+
 - [ ] `seed_section_100_template()` creates correct questions
 - [ ] `seed_section_200_template()` creates questions with answer keys
 - [ ] `seed_section_300_template()` creates questions without answer keys
@@ -796,6 +814,7 @@ describe("Section 300 Display Component", () => {
 - [ ] Cascade delete removes template questions correctly
 
 **Frontend (React—`src/components/`)**
+
 - [ ] Template questions display in correct order
 - [ ] Section 200 shows answer key fields
 - [ ] Section 300 hides answer key fields (UI disabled/hidden)
@@ -805,6 +824,7 @@ describe("Section 300 Display Component", () => {
 - [ ] Color scheme applies correctly (Purple for 300, etc.)
 
 **Integration (Frontend ↔ Rust)**
+
 - [ ] Document creation auto-seeds template questions
 - [ ] Getting questions returns full template with correct flags
 - [ ] Updating questions respects template restrictions
