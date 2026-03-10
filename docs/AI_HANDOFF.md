@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase E Complete** - Coverage expansion + policy UX guardrails implemented and validated, ready for Phase F
+Status: **Phase F In Progress** - QuestionTreeNode split completed, alert flow modernization + reference refresh fixes implemented, pending final manual verification
 
 ## Project Intent
 
@@ -112,6 +112,7 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - **Existing tests: 47 passing** (8 files).
 - **Phase B tests: 44 passing** (3 new files: QuestionRenderer.test.tsx, templateStructure.test.ts, branchAndCascade.test.ts).
 - **Total: 107 tests passing across 16 files**.
+- Latest refactor/fix commit on working branch: `3b76179` (`phase-f-refactor-big-files`).
 - Current coverage baseline: 66.89% lines, 67.18% functions, 69.60% branches.
 - Phase C + early Phase D add E2E and modal integration coverage for section 300 workflow.
 - Backend policy guard tests: **6 passing** (`cargo test test_policy_`).
@@ -242,33 +243,27 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 1. **Initial prompt:**
 
    ```
-   I'm starting Phase F (Refactor Big Files split) after Phase E completion.
-   Phase A, Phase B, Phase C, Phase D, and Phase E are complete - see docs/AI_HANDOFF.md.
+   Continue Phase F from the latest state on branch phase-f-refactor-big-files.
+   Current HEAD is commit 3b76179.
 
-   Goal: split high-complexity frontend files (>= 1,000 lines) into smaller modules with no behavior regression.
+   What is already done:
+   - QuestionTreeNode split completed (QuestionFormCard extracted)
+   - Automated checks passing (TypeScript + 107/107 tests)
+   - Replaced Windows alert flows in editor_v2 with ConfirmModal-based UX
+   - Added reference-refresh wiring for 100/200 so Used/Unused updates without leaving page
 
-   Primary Target:
-   - QuestionTreeNode.tsx (2,999 lines) - Tree rendering, editing, answer keys, references, occupation branches
+   What must be done now:
+   - Perform final manual verification (single full round)
+   - Focus scenarios:
+     1) 100/200: Used/Unused badge refresh after add/edit/delete question references
+     2) Delete in-use reference: must show in-app modal alert, not Windows alert
+     3) Edit question reference page/location_text: value persists after save and reload
+   - If manual test passes: commit (if needed), push, and update docs/AI_HANDOFF.md status
 
-   Refactor Strategy (6 phases):
-   1. Extract utilities (thaiNumbering.ts)
-   2. Extract AsyncImagePreview component
-   3. Extract QuestionFormCard component
-   4. Extract ViewMode renderers (qualifier/trainee/visitor/print)
-   5. Extract section-specific logic (100/200/300)
-   6. Simplify core QuestionTreeNode
-
-   Safety Rules:
-   - Create git commit checkpoint BEFORE each extraction step
-   - Run automated tests (107/107 must pass)
-   - Perform manual testing to verify UI behavior unchanged
-   - Only proceed to next step if both automated + manual validation pass
-   - Rollback to checkpoint if any regression detected
-
-   Please read:
-   - docs/AI_HANDOFF.md (project context including Phase F detail)
-   - /memories/repo/template-system-facts.md (template domain knowledge)
-   - docs/TEMPLATE_IMPACT_AUDIT.md (baseline behavior)
+   Please read first:
+   - docs/AI_HANDOFF.md
+   - /memories/repo/template-system-facts.md
+   - docs/TEMPLATE_IMPACT_AUDIT.md
    ```
 
 2. **Key files to reference:**
@@ -281,8 +276,8 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 
 3. **Branch status:**
    - Current branch: `phase-f-refactor-big-files`
-   - Synced with origin/phase-f-refactor-big-files
-   - All tests passing
+   - HEAD: `3b76179` (local ahead of origin)
+   - Automated tests passing (107/107)
 
 4. **No manual actions needed - everything is in git:**
    - ✅ Handoff docs updated
