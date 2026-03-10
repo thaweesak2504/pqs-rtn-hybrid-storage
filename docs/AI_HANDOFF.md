@@ -123,10 +123,11 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 ✅ **Phase A (Backend Unit Tests)** - Complete (6 tests)
 ✅ **Phase B (Frontend Integration Tests)** - Complete (44 tests)
 ⏳ **Phase C (E2E & Coverage)** - Next
-  - Full document/section workflow testing (create → seed → answer → score)
-  - Coverage increase targeting template-related code
-  - Branch selection integration with UI
-  - Score cascade verification across full template tree
+
+- Full document/section workflow testing (create → seed → answer → score)
+- Coverage increase targeting template-related code
+- Branch selection integration with UI
+- Score cascade verification across full template tree
 
 **Starting Phase C (Next Session):**
 
