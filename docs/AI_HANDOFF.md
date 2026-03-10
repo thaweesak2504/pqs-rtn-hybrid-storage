@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase D In Progress** - UI modal integration + backend policy guards implemented
+Status: **Phase D Complete** - Policy hardening + UI integration coverage implemented, ready for Phase E
 
 ## Project Intent
 
@@ -111,7 +111,7 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - Frontend test stack is active: Vitest + Testing Library + jsdom. ✅
 - **Existing tests: 47 passing** (8 files).
 - **Phase B tests: 44 passing** (3 new files: QuestionRenderer.test.tsx, templateStructure.test.ts, branchAndCascade.test.ts).
-- **Total: 98 tests passing across 14 files**.
+- **Total: 99 tests passing across 14 files**.
 - Current coverage baseline: 66.89% lines, 67.18% functions, 69.60% branches.
 - Phase C + early Phase D add E2E and modal integration coverage for section 300 workflow.
 - Backend policy guard tests: **6 passing** (`cargo test test_policy_`).
@@ -143,24 +143,24 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 ✅ **Phase A (Backend Unit Tests)** - Complete (6 tests)
 ✅ **Phase B (Frontend Integration Tests)** - Complete (44 tests)
 ✅ **Phase C (E2E & Coverage)** - Complete (3 tests)
-⏳ **Phase D (Policy Hardening & UI Integration Coverage)** - Next
+✅ **Phase D (Policy Hardening & UI Integration Coverage)** - Complete
+⏳ **Phase E (Coverage Target Expansion & UX Guardrails)** - Next
 
-- Add UI integration tests for branch selection and section creation modals
-- Align template constraints with explicit policy decisions (Section 300 guards)
-- Expand coverage targets to template-critical components/services
+- Expand coverage include targets to template-critical components/services
+- Add UX guardrails for backend policy errors in section 300 flows
+- Consolidate/standardize policy error messaging
 
-**Starting Phase D (Next Session):**
+**Starting Phase E (Next Session):**
 
 ```bash
 # Run current baseline
 npm run test:run
 npm run test:coverage
 
-# Phase D focus:
-# 1. Add UI integration tests for EditMetadataModal branch selection
-# 2. Add UI integration tests for AddSectionModal section 300 creation contract
-# 3. Decide/encode policy for section 300 answer-key/reference/branch-lock behavior
-# 4. Increase template-related coverage visibility in vitest include targets
+# Phase E focus:
+# 1. Expand coverage include targets for template-critical frontend modules
+# 2. Add tests for section 300 policy error UX in answer-key/reference flows
+# 3. Normalize backend policy error messages and expected UI display handling
 ```
 
 ## Done Recently
@@ -187,7 +187,8 @@ npm run test:coverage
 - ✅ Started Phase D modal integration coverage (2 new tests):
   - EditMetadataModal branch selection load + save payload validation
   - AddSectionModal section 100/300 contract validation (101 block + create_section payload)
-- ✅ All 98 tests passing with zero regression.
+- ✅ Added EditMetadataModal branch-lock error-path integration test (frontend policy UX).
+- ✅ All 99 tests passing with zero regression.
 - ✅ Implemented backend policy guards (Phase D):
   - Block references for questions in section group 300
   - Block answer keys for questions in section group 300
@@ -218,18 +219,18 @@ npm run test:coverage
 npm run test:integration -- src/test/integration/templateWorkflow.integration.test.ts
 ```
 
-## Starting Phase D (New Conversation)
+## Starting Phase E (New Conversation)
 
 **What to say/share in new conversation:**
 
 1. **Initial prompt:**
 
    ```
-   I'm starting Phase D (policy hardening & UI integration coverage) of template system testing.
-   Phase A, Phase B, and Phase C are complete - see docs/AI_HANDOFF.md.
+   I'm starting Phase E (coverage target expansion & UX guardrails) of template system testing.
+   Phase A, Phase B, Phase C, and Phase D are complete - see docs/AI_HANDOFF.md.
 
-   Goal: harden template behavior contracts and expand UI integration coverage with no regression.
-   Focus: section 300 policy guards (answer keys/references/branch lock) and modal-level branch/section workflows.
+   Goal: increase template-focused coverage visibility and harden UX around policy guard failures with no regression.
+   Focus: section 300 answer-key/reference error handling UX and coverage include expansion for template-critical modules.
 
    Please read:
    - docs/AI_HANDOFF.md (project context)

@@ -185,4 +185,70 @@ describe("EditMetadataModal integration", () => {
     expect(onSuccess).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("shows branch-lock error when backend blocks branch update", async () => {
+    const onSuccess = vi.fn();
+    const onClose = vi.fn();
+
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      if (command === "get_occupation_branches") {
+        return [{ code: "02", name: "Mechanical" }];
+      }
+
+      if (command === "get_document_branch") {
+        return {
+          occupation_branch_main: "02",
+          occupation_branch_sub: "01",
+        };
+      }
+
+      if (command === "get_occupation_sub_branches") {
+        return [{ code: "01", branch_code: "02", name: "Engine Room" }];
+      }
+
+      if (command === "update_document") {
+        expect(args).toEqual({
+          args: {
+            id: "DOC-LOCK",
+            name: "Locked PQS",
+            applied_to: "Locked Team",
+            doc_type: "10",
+            user_level: "2",
+          },
+        });
+        return true;
+      }
+
+      if (command === "update_document_branch") {
+        throw new Error("Cannot change document branch after evaluation has started");
+      }
+
+      return null;
+    });
+
+    render(
+      <EditMetadataModal
+        isOpen
+        onClose={onClose}
+        docId="DOC-LOCK"
+        initialName="Locked PQS"
+        initialAppliedTo="Locked Team"
+        initialDocType="10"
+        initialUserLevel="2"
+        onSuccess={onSuccess}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_document_branch", { docId: "DOC-LOCK" });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    expect(
+      await screen.findByText(/Failed to update: Error: Cannot change document branch after evaluation has started/i),
+    ).toBeInTheDocument();
+    expect(onSuccess).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });

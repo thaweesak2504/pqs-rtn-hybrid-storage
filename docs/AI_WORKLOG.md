@@ -359,3 +359,46 @@ Next 1-3 actions:
 1. Add frontend assertion test for section 300 answer-key error handling path.
 2. Confirm wording of policy error messages with product expectation.
 3. Prepare Phase D completion update if no further policy scope changes.
+
+---
+
+## 2026-03-10 (Phase D Complete)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Close Phase D by completing policy UX assertion coverage and revalidating full baseline.
+
+Changes made:
+
+- Added frontend integration test in `EditMetadataModal.integration.test.tsx` for backend branch-lock error path.
+- Verified UI shows backend policy error message and does not call success/close callbacks on failure.
+- Revalidated backend policy test suite after consistency updates.
+- Updated handoff status and next-phase starter prompt to Phase E.
+
+Files touched:
+
+- `src/test/integration/EditMetadataModal.integration.test.tsx`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `npm run test:integration -- src/test/integration/EditMetadataModal.integration.test.tsx`
+- Result: ✅ integration suite green (including new error-path test)
+- Command: `cd src-tauri; cargo test test_policy_`
+- Result: ✅ 6/6 backend policy tests passed
+- Command: `npm run test:run`
+- Result: ✅ 99/99 tests passed (14 files)
+- Command: `npm run test:coverage`
+- Result: ✅ 99/99 tests passed, coverage unchanged at lines 66.89%, functions 67.18%, branches 69.60%
+
+Risk check:
+
+- Regression risk: Low (tests-first, targeted policy UX assertion).
+- Manual test needed: Optional (one interactive section 300 metadata branch-lock flow).
+
+Next 1-3 actions:
+
+1. Phase E: expand template-critical coverage include targets in Vitest config.
+2. Add policy error UX tests for answer-key/reference flows in section 300 editors.
+3. Normalize policy error wording across backend and UI handling.
