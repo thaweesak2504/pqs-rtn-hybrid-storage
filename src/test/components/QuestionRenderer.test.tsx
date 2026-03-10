@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import QuestionRenderer from "../../components/questions/QuestionRenderer";
-import { QuestionDetail, QuestionReferenceDetail } from "../../types/content";
+import { QuestionDetail } from "../../types/content";
 
 /**
  * Phase B Template Testing - QuestionRenderer Component
@@ -177,7 +177,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         mockSection300ExemptedGroup(5, "ชั่วโมงทดสอบ"),    // 3xx.5 exempted
       ];
 
-      const { container } = render(
+      render(
         <div>
           {groups.map((group) => (
             <QuestionRenderer
@@ -277,7 +277,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         content: "Editable Question",
       });
 
-      const { container } = render(
+      render(
         <QuestionRenderer
           question={question}
           level={1}
@@ -295,7 +295,7 @@ describe("QuestionRenderer - Template Rendering", () => {
     it("displays section numbers in Thai digits (๑๐๐ = 100)", () => {
       const question = mockSection100Header();
 
-      const { container } = render(
+      render(
         <QuestionRenderer
           question={question}
           level={0}

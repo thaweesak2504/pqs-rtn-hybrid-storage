@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import type { QuestionDetail } from "../../types/content";
 
 /**
  * Phase B Integration Tests - Template Structure Validation

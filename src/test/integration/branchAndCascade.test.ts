@@ -162,10 +162,6 @@ describe("Score Cascade - Exempted Status Blocking", () => {
 
   it("exempted group blocks all child contributions", () => {
     const parent = { question_type: "exempted", group_score: 0 };
-    const children = [
-      { score: 20 },
-      { score: 30 },
-    ];
 
     // Parent exempted = 0 regardless of child scores
     const parentContribution = parent.question_type === "exempted" ? 0 : parent.group_score;
