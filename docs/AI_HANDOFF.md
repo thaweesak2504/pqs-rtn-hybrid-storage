@@ -235,7 +235,7 @@ npm run test:coverage
 npm run test:integration -- src/test/integration/templateWorkflow.integration.test.ts
 ```
 
-## Starting Phase E (New Conversation)
+## Starting Phase F (New Conversation)
 
 **What to say/share in new conversation:**
 
@@ -245,14 +245,28 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    I'm starting Phase F (Refactor Big Files split) after Phase E completion.
    Phase A, Phase B, Phase C, Phase D, and Phase E are complete - see docs/AI_HANDOFF.md.
 
-   Goal: split high-complexity frontend files into smaller modules with no behavior regression.
-   Focus:
-   - Refactor extraction targets: AddQuestionModal.tsx and QuestionRenderer.tsx first.
-   - Keep policy guard UX paths stable (answer-key/reference/branch-lock).
-   - Maintain tests-first workflow: run baseline before/after each extraction slice.
+   Goal: split high-complexity frontend files (>= 1,000 lines) into smaller modules with no behavior regression.
+   
+   Primary Target:
+   - QuestionTreeNode.tsx (2,999 lines) - Tree rendering, editing, answer keys, references, occupation branches
+   
+   Refactor Strategy (6 phases):
+   1. Extract utilities (thaiNumbering.ts)
+   2. Extract AsyncImagePreview component
+   3. Extract QuestionFormCard component
+   4. Extract ViewMode renderers (qualifier/trainee/visitor/print)
+   5. Extract section-specific logic (100/200/300)
+   6. Simplify core QuestionTreeNode
+   
+   Safety Rules:
+   - Create git commit checkpoint BEFORE each extraction step
+   - Run automated tests (107/107 must pass)
+   - Perform manual testing to verify UI behavior unchanged
+   - Only proceed to next step if both automated + manual validation pass
+   - Rollback to checkpoint if any regression detected
 
    Please read:
-   - docs/AI_HANDOFF.md (project context)
+   - docs/AI_HANDOFF.md (project context including Phase F detail)
    - /memories/repo/template-system-facts.md (template domain knowledge)
    - docs/TEMPLATE_IMPACT_AUDIT.md (baseline behavior)
    ```
@@ -266,8 +280,8 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    - `docs/AI_WORKLOG.md` - Session history
 
 3. **Branch status:**
-   - Current branch: `testing-infrastructure-feature`
-   - Synced with origin/testing-infrastructure-feature
+   - Current branch: `phase-f-refactor-big-files`
+   - Synced with origin/phase-f-refactor-big-files
    - All tests passing
 
 4. **No manual actions needed - everything is in git:**
@@ -275,6 +289,32 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    - ✅ Memory files created
    - ✅ Tests committed
    - ✅ Baseline audit preserved
+
+## Phase E Delta (Completed Session)
+## Phase F Target Analysis (File Size Audit)
+
+**Refactor Criteria: >= 1,000 lines**
+
+Large files identified (sorted by size):
+- ✅ **QuestionTreeNode.tsx: 2,999 lines** — PRIMARY TARGET (3x threshold)
+- ❌ PqsReferenceSection.tsx: 902 lines (below threshold)
+- ❌ DatabaseManagementPage.tsx: 745 lines (below threshold)
+- ❌ AddReferenceModal.tsx: 709 lines (below threshold)
+- ❌ PqsQuestionSection.tsx: 688 lines (below threshold)
+- ❌ AddQuestionModal.tsx: 483 lines (originally planned, but below threshold)
+- ❌ QuestionRenderer.tsx: 347 lines (originally planned, but below threshold)
+
+**Why QuestionTreeNode.tsx:**
+- 2,999 lines = largest file by far (3x refactor threshold)
+- 8+ responsibilities: tree rendering, editing, answer keys, references, occupation branches, image upload, drag & drop, multi-mode rendering
+- No dedicated test coverage (integration tests only)
+- High maintenance burden (scroll 3,000 lines to find logic)
+- Clear extraction opportunities: utilities, sub-components, renderers, section-specific logic
+
+**Expected Outcome:**
+- QuestionTreeNode.tsx: 2,999 → ~1,300 lines (core tree logic)
+- New extracted modules: 6-8 focused files (100-600 lines each)
+- Better testability, maintainability, reusability
 
 ## Phase E Delta (Completed Session)
 
@@ -287,11 +327,81 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 
 ## Suggested Next Safe Execution Order
 
-1. Start Phase F extraction with one file at a time on clean working tree.
-2. Keep Phase F order by residual hotspots:
-   - `AddQuestionModal.tsx` line coverage depth
-   - `QuestionRenderer.tsx` branch/function coverage depth
-3. Keep policy message contract stable (avoid ad-hoc error strings) and add tests when backend policy text changes.
+### Phase F: QuestionTreeNode.tsx Refactor (2,999 lines → 6-8 files)
+
+**File Size Criteria:**
+- ✅ **>= 1,000 lines** = MUST refactor
+- ✅ QuestionTreeNode.tsx (2,999 lines) is the only file meeting threshold
+- ❌ Other files < 1,000 lines = skip (AddQuestionModal: 483, QuestionRenderer: 347)
+
+**Extraction Order (do ONE at a time):**
+
+1. **Phase F.1: Extract Thai Numbering Utilities**
+   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.1 extract utilities"`
+   - Extract to: `src/utils/thaiNumbering.ts`
+   - Functions: toThaiNumber, toThaiAlphabet, convertThaiToArabic, buildPrefix, buildPrefix200_300, DEFAULT_L1_DESC_BY_SEQ
+   - Automated test: `npm run test:run` (must pass 107/107)
+   - Manual test: Open Active Document Editor → verify question prefixes render correctly (ข., (๑), etc.)
+   - Commit: `git commit -m "refactor: extract thai numbering utilities from QuestionTreeNode"`
+
+2. **Phase F.2: Extract AsyncImagePreview Component**
+   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.2 extract AsyncImagePreview"`
+   - Extract to: `src/components/editor_v2/AsyncImagePreview.tsx`
+   - Automated test: `npm run test:run`
+   - Manual test: Upload image to question → verify preview renders
+   - Commit: `git commit -m "refactor: extract AsyncImagePreview component"`
+
+3. **Phase F.3: Extract QuestionFormCard Component**
+   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.3 extract QuestionFormCard"`
+   - Extract to: `src/components/editor_v2/QuestionFormCard.tsx`
+   - Automated test: `npm run test:run`
+   - Manual test: Create/edit question → verify form, image upload, answer keys work
+   - Commit: `git commit -m "refactor: extract QuestionFormCard component"`
+
+4. **Phase F.4: Extract ViewMode Renderers**
+   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.4 extract renderers"`
+   - Extract to: `src/components/editor_v2/renderers/` (QualifierRenderer, TraineeRenderer, VisitorRenderer, PrintRenderer)
+   - Automated test: `npm run test:run`
+   - Manual test: Switch between view modes → verify each renders correctly
+   - Commit: `git commit -m "refactor: extract view mode renderers"`
+
+5. **Phase F.5: Extract Section-Specific Logic**
+   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.5 extract section logic"`
+   - Extract to: `src/components/editor_v2/sections/` (Section100Logic, Section200Logic, Section300Logic, SectionReferenceLogic)
+   - Automated test: `npm run test:run`
+   - Manual test: Test Section 100/200/300 specific behaviors (occupation branches, references, answer keys)
+   - Commit: `git commit -m "refactor: extract section-specific logic"`
+
+6. **Phase F.6: Validate Final State**
+   - QuestionTreeNode.tsx should now be ~1,300 lines (core tree logic only)
+   - Full regression: `npm run test:coverage` (verify coverage not degraded)
+   - Full manual test: Create document → add sections 100/200/300 → verify all features work
+   - Final commit: `git commit -m "refactor: complete QuestionTreeNode split (2999 → ~1300 lines)"`
+
+**Rollback Procedure (if regression detected):**
+```bash
+# List recent commits to find checkpoint
+git log --oneline -10
+
+# Rollback to checkpoint (replace <hash> with checkpoint commit)
+git reset --hard <checkpoint-hash>
+
+# Verify tests pass
+npm run test:run
+
+# Continue from that point with adjusted approach
+```
+
+**Manual Testing Checklist (verify after EACH extraction):**
+- [ ] Question tree expands/collapses correctly
+- [ ] Thai numbering prefixes render (ข., (๑), ๓๐๑.๑, etc.)
+- [ ] Create/edit/delete questions works
+- [ ] Image upload displays preview
+- [ ] Answer key editor functions
+- [ ] References link correctly
+- [ ] Section 300 occupation branch selection works
+- [ ] Drag & drop reordering (if applicable to extracted unit)
+- [ ] View mode switching (edit/qualifier/trainee/visitor/print)
 
 ## Phase Transition Checklist (Use Every Time)
 
