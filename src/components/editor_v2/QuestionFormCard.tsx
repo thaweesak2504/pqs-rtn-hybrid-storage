@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-  DEFAULT_L1_DESC_BY_SEQ,
-  convertThaiToArabic,
-  toThaiAlphabet,
-  toThaiNumber
+    DEFAULT_L1_DESC_BY_SEQ,
+    convertThaiToArabic,
+    toThaiAlphabet,
+    toThaiNumber
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
