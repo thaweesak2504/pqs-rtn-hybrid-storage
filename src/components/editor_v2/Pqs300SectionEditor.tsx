@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { Clock, Trophy } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
+import ConfirmModal from '../modals/ConfirmModal';
 import Tooltip from '../ui/Tooltip';
 import DevProgressVerificationTable from './DevProgressVerificationTable';
 import PqsEditorLayout from './PqsEditorLayout';
@@ -82,6 +83,25 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   const [tempDuration, setTempDuration] = useState<string>('');
   const [tempUnit, setTempUnit] = useState<DurationUnit>('weeks');
   const [progress, setProgress] = useState<ProgressData | null>(null);
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    variant: 'warning',
+  });
+
+  const showAlert = (
+    message: string,
+    variant: 'danger' | 'warning' | 'info' = 'warning',
+    title = 'แจ้งเตือน',
+  ) => {
+    setAlertModal({ isOpen: true, title, message, variant });
+  };
 
   const refreshSectionTotalScore = useCallback(async () => {
     if (!sectionId) return;
@@ -142,7 +162,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       setCurrentTitle(newTitle);
     } catch (error) {
       console.error("Failed to update title:", error);
-      alert("Failed to save title: " + error);
+      showAlert("Failed to save title: " + error, 'danger');
     }
   };
 
@@ -162,7 +182,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
       console.error("Failed to update menu label:", error);
-      alert("Failed to save menu label: " + error);
+      showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
 
@@ -184,7 +204,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       setIsEditingMeta(false);
     } catch (error) {
       console.error("Failed to update section meta:", error);
-      alert("Failed to save: " + error);
+      showAlert("Failed to save: " + error, 'danger');
     }
   };
 
@@ -424,6 +444,15 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
           refreshTrigger={refreshQuestionsTrigger}
         />
       )}
+
+      <ConfirmModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
 
     </PqsEditorLayout>
   );

@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useState } from 'react';
+import ConfirmModal from '../modals/ConfirmModal';
 import DevProgressVerificationTable from './DevProgressVerificationTable';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
@@ -40,6 +41,25 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   const [sectionId, setSectionId] = useState<number>(0);
   const [refreshQuestionsTrigger, setRefreshQuestionsTrigger] = useState(0);
   const [progressRefreshKey, setProgressRefreshKey] = useState(0);
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    variant: 'danger' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    variant: 'warning',
+  });
+
+  const showAlert = (
+    message: string,
+    variant: 'danger' | 'warning' | 'info' = 'warning',
+    title = 'แจ้งเตือน',
+  ) => {
+    setAlertModal({ isOpen: true, title, message, variant });
+  };
 
   const fetchReferences = async (sId: number) => {
     try {
@@ -97,7 +117,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setCurrentTitle(newTitle);
     } catch (error) {
       console.error("Failed to update title:", error);
-      alert("Failed to save title: " + error);
+      showAlert("Failed to save title: " + error, 'danger');
     }
   };
 
@@ -114,7 +134,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
       console.error("Failed to update menu label:", error);
-      alert("Failed to save menu label: " + error);
+      showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
 
@@ -148,7 +168,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 
       // 2. Check if already linked to THIS section locally to avoid backend error
       if (references.some(r => r.reference_id === refId)) {
-        alert("เอกสารนี้ถูกเชื่อมโยงอยู่ในรายการแล้วครับ");
+        showAlert("เอกสารนี้ถูกเชื่อมโยงอยู่ในรายการแล้วครับ", 'warning');
         return;
       }
 
@@ -163,7 +183,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         // If it's already linked in DB (even if UI was out of sync)
         const errMsg = linkErr.toString().toLowerCase();
         if (errMsg.includes('unique') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
-          alert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ");
+          showAlert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ", 'warning');
         } else {
           throw linkErr;
         }
@@ -175,13 +195,13 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 
     } catch (error) {
       console.error("Failed to add reference:", error);
-      alert("Failed to add reference: " + error);
+      showAlert("Failed to add reference: " + error, 'danger');
     }
   };
 
   const handleEditRef = async (updatedRef: ReferenceDoc) => {
     if (!updatedRef.reference_id) {
-      alert("Error: Reference ID not found for update.");
+      showAlert("Error: Reference ID not found for update.", 'danger');
       return;
     }
 
@@ -206,7 +226,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 
     } catch (error) {
       console.error("Failed to update reference:", error);
-      alert("Failed to update reference: " + error);
+      showAlert("Failed to update reference: " + error, 'danger');
     }
   };
 
@@ -219,7 +239,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
     } catch (error) {
       console.error("Failed to remove reference:", error);
-      alert("Failed to remove reference: " + error);
+      showAlert("ไม่สามารถลบเอกสารอ้างอิงที่กำลังถูกใช้งานอยู่ได้", 'warning');
     }
   };
 
@@ -300,6 +320,9 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           refreshTrigger={refreshQuestionsTrigger}
           onQuestionsUpdated={() => setRefreshQuestionsTrigger(prev => prev + 1)}
           onProgressUpdate={() => setProgressRefreshKey(prev => prev + 1)}
+          onReferencesUpdated={() => {
+            fetchReferences(sectionId);
+          }}
           viewMode={viewMode}
         />
       </div>
@@ -312,6 +335,15 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           refreshTrigger={progressRefreshKey}
         />
       )}
+
+      <ConfirmModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+        title={alertModal.title}
+        message={alertModal.message}
+        variant={alertModal.variant}
+      />
 
     </PqsEditorLayout>
   );

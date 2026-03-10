@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
+import ConfirmModal from "../modals/ConfirmModal";
 import { UserAnswer } from "./PqsQuestionSection";
 
 // Simulation Constants
@@ -58,6 +59,10 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string }>({
+    isOpen: false,
+    message: "",
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -115,7 +120,10 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       onAnswerSaved?.();
     } catch (error) {
       console.error("Failed to save answer:", error);
-      alert("ไม่สามารถบันทึกคำตอบได้ (โปรดแจ้งนักพัฒนา)");
+      setAlertModal({
+        isOpen: true,
+        message: "ไม่สามารถบันทึกคำตอบได้ (โปรดแจ้งนักพัฒนา)",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -144,7 +152,10 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       onAssessmentSaved?.();
     } catch (error) {
       console.error("Failed to save assessment:", error);
-      alert("ไม่สามารถบันทึกการประเมินได้ (โปรดแจ้งนักพัฒนา)");
+      setAlertModal({
+        isOpen: true,
+        message: "ไม่สามารถบันทึกการประเมินได้ (โปรดแจ้งนักพัฒนา)",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -437,6 +448,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
   // Edit Mode (Trainee only)
   return (
+    <>
     <div
       ref={containerRef}
       data-color-mode={colorMode}
@@ -518,6 +530,16 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         className="w-full p-3 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif] bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none min-h-[120px]"
       />
     </div>
+
+    <ConfirmModal
+      isOpen={alertModal.isOpen}
+      onClose={() => setAlertModal({ isOpen: false, message: "" })}
+      onConfirm={() => setAlertModal({ isOpen: false, message: "" })}
+      title="แจ้งเตือน"
+      message={alertModal.message}
+      variant="warning"
+    />
+    </>
   );
 };
 

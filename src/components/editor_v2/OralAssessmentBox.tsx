@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { CheckCircle2, Edit3, FileText, Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import ConfirmModal from "../modals/ConfirmModal";
 
 type AssessmentStatus = "pending" | "passed" | "needs_improvement";
 
@@ -28,6 +29,10 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
   const [draftFeedback, setDraftFeedback] = useState(feedback || "");
   const [isEditorOpen, setIsEditorOpen] = useState(!(feedback || "").trim());
   const [isSaving, setIsSaving] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string }>({
+    isOpen: false,
+    message: "",
+  });
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -70,7 +75,10 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
       onSaved?.();
     } catch (error) {
       console.error("Failed to save oral assessment:", error);
-      alert("ไม่สามารถบันทึกรายงานการประเมินได้ (โปรดแจ้งนักพัฒนา)");
+      setAlertModal({
+        isOpen: true,
+        message: "ไม่สามารถบันทึกรายงานการประเมินได้ (โปรดแจ้งนักพัฒนา)",
+      });
     } finally {
       setIsSaving(false);
     }
@@ -88,6 +96,7 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
   };
 
   return (
+    <>
     <div className="mt-2 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/20 px-3 py-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -202,6 +211,16 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
         </div>
       )}
     </div>
+
+    <ConfirmModal
+      isOpen={alertModal.isOpen}
+      onClose={() => setAlertModal({ isOpen: false, message: "" })}
+      onConfirm={() => setAlertModal({ isOpen: false, message: "" })}
+      title="แจ้งเตือน"
+      message={alertModal.message}
+      variant="warning"
+    />
+    </>
   );
 };
 

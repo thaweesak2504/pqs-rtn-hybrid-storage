@@ -883,7 +883,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         .then((refs) => setAvailableRefs(refs))
         .catch((err) => console.error("Failed to fetch section references:", err));
     }
-  }, [requireRef, sectionId]);
+  }, [requireRef, sectionId, usageRefreshKey]);
 
   const handleAddReference = async () => {
     if (!selectedRefId) return;
@@ -893,7 +893,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
     if (linkedRefs.some((r) => r.reference.id === refIdNum)) {
       if (onAlert) onAlert("เอกสารนี้ถูกเชื่อมโยงแล้ว", "warning");
-      else alert("เอกสารนี้ถูกเชื่อมโยงแล้ว");
+      else {
+        setAlertMessage("เอกสารนี้ถูกเชื่อมโยงแล้ว");
+        setIsAlertOpen(true);
+      }
       return;
     }
 
@@ -902,7 +905,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       question_id: existingId || "temp",
       reference_id: selectedRef.reference.id,
       reference: selectedRef.reference,
-      location_text: pageInput || null,
+      location_text: pageInput.trim() || null,
       display_order: linkedRefs.length + 1,
       thai_letter: selectedRef.thai_letter,
     };

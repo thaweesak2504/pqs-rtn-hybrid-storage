@@ -23,6 +23,8 @@ export interface ReferenceDoc {
   usage_count?: number; // Added usage_count
 }
 
+type AlertVariant = 'danger' | 'warning' | 'info';
+
 interface PqsReferenceSectionProps {
   references: ReferenceDoc[];
   onAdd: (ref: Omit<ReferenceDoc, 'id'>) => void;
@@ -70,6 +72,15 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
     onConfirm: () => { },
     variant: 'danger'
   });
+  const showAlert = (message: string, variant: AlertVariant = 'warning', title = 'แจ้งเตือน') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+      variant,
+    });
+  };
 
   const handleStartCreate = () => {
     resetForms();
@@ -180,6 +191,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
           <ReferenceSearchCard
             sectionId={sectionId}
             existingReferenceIds={references.map(r => r.reference_id).filter((id): id is number => !!id)}
+            onAlert={showAlert}
             onSuccess={() => {
               onRefresh?.();
               resetForms();
@@ -221,6 +233,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
                 compact={compact}
                 onEdit={() => handleStartEdit(ref.id)}
                 onDelete={() => handleDelete(ref.id)}
+                onAlert={showAlert}
                 onImageClick={(src) => {
                   setSelectedRefImage(src);
                   setIsRefImageModalOpen(true);
@@ -265,9 +278,10 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
 const ReferenceSearchCard: React.FC<{
   sectionId: number;
   existingReferenceIds: number[];
+  onAlert: (message: string, variant?: AlertVariant, title?: string) => void;
   onSuccess: () => void;
   onCancel: () => void;
-}> = ({ sectionId, existingReferenceIds, onSuccess, onCancel }) => {
+}> = ({ sectionId, existingReferenceIds, onAlert, onSuccess, onCancel }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL');
   const [allRefs, setAllRefs] = useState<DocumentReference[]>([]);
@@ -352,7 +366,7 @@ const ReferenceSearchCard: React.FC<{
           });
         } catch (err) {
           console.error("Failed to delete master ref:", err);
-          alert("ไม่สามารถลบเอกสารหลักได้: " + err);
+          onAlert("ไม่สามารถลบเอกสารหลักได้: " + err, 'warning');
         }
       },
       variant: 'danger'
@@ -373,7 +387,7 @@ const ReferenceSearchCard: React.FC<{
       onSuccess();
     } catch (err) {
       console.error("Failed to batch add references:", err);
-      alert("Error adding references: " + err);
+      onAlert("Error adding references: " + err, 'danger');
     } finally {
       setAdding(false);
     }
@@ -824,8 +838,9 @@ const ReferenceDisplayCard: React.FC<{
   compact?: boolean;
   onEdit: () => void;
   onDelete: () => void;
+  onAlert?: (message: string, variant?: AlertVariant, title?: string) => void;
   onImageClick?: (src: string) => void;
-}> = ({ data, index, readOnly, compact, onEdit, onDelete, onImageClick }) => {
+}> = ({ data, index, readOnly, compact, onEdit, onDelete, onAlert, onImageClick }) => {
 
   // Convert index to Thai Alphabet (ก., ข., ค., ...)
   const getThaiLetter = (i: number) => {
@@ -871,7 +886,9 @@ const ReferenceDisplayCard: React.FC<{
         await invoke('open_path', { path: data.file_path });
       } catch (err) {
         console.error("Failed to open resource:", err);
-        alert("ไม่สามารถเปิดลิงก์หรือไฟล์ได้: " + err);
+        if (onAlert) {
+          onAlert("ไม่สามารถเปิดลิงก์หรือไฟล์ได้: " + err, 'warning');
+        }
       }
     }
   };
