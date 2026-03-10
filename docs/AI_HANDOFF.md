@@ -181,18 +181,18 @@ npm run test:integration
 npm run test:coverage
 ```
 
-## Starting Phase B (New Conversation)
+## Starting Phase C (New Conversation)
 
 **What to say/share in new conversation:**
 
 1. **Initial prompt:**
 
    ```
-   I'm continuing Phase B of template system testing.
-   Phase A (backend unit tests) is complete - see docs/AI_HANDOFF.md.
+   I'm starting Phase C (E2E & coverage) of template system testing.
+   Phase A and Phase B are complete - see docs/AI_HANDOFF.md.
 
-   Goal: Implement frontend integration tests for template-related React components.
-   Focus: QuestionAnswerForm and SectionSelector components.
+   Goal: Implement end-to-end workflow tests and increase template-related coverage.
+   Focus: section 300 branch selection, score cascade propagation, and section total validation.
 
    Please read:
    - docs/AI_HANDOFF.md (project context)
@@ -201,14 +201,16 @@ npm run test:coverage
    ```
 
 2. **Key files to reference:**
-   - `docs/AI_HANDOFF.md` - This file (updated with Phase A completion)
+   - `docs/AI_HANDOFF.md` - This file (updated with Phase B completion)
    - `/memories/repo/template-system-facts.md` - Complete template facts
    - `docs/TEMPLATE_IMPACT_AUDIT.md` - Baseline audit
+   - `docs/TEMPLATE_TESTING_STRATEGY.md` - Phase roadmap and target scope
+   - `docs/TEST_USAGE_GUIDE.md` - Operational test commands
    - `docs/AI_WORKLOG.md` - Session history
 
 3. **Branch status:**
    - Current branch: `testing-infrastructure-feature`
-   - 3 commits ahead of main (acdd950, 2251c27, 40f8740)
+   - Synced with origin/testing-infrastructure-feature
    - All tests passing
 
 4. **No manual actions needed - everything is in git:**
@@ -216,3 +218,31 @@ npm run test:coverage
    - ✅ Memory files created
    - ✅ Tests committed
    - ✅ Baseline audit preserved
+
+## Phase Transition Checklist (Use Every Time)
+
+Before moving to the next phase, always do this sequence:
+
+1. **Update status in AI_HANDOFF.md**
+   - Set current phase to complete
+   - Set next phase as "Ready"
+   - Refresh test totals, branch status, and recent commits
+
+2. **Update the New Conversation starter block**
+   - Rename section to "Starting Phase <Next>"
+   - Replace old prompt with next-phase goals and constraints
+   - Keep required read-first files current
+
+3. **Verify baseline before handoff**
+   - Run `npm run test:run`
+   - Run `npm run test:coverage` (if coverage is part of next phase)
+   - Confirm no unexpected regressions
+
+4. **Commit and push handoff updates**
+   - Commit docs with clear message
+   - Push current branch
+   - Ensure working tree is clean (except intentional temporary artifacts)
+
+5. **Start next chat with the updated starter prompt**
+   - Use the exact "Starting Phase <Next>" block from this file
+   - This keeps context continuity and reduces re-explaining work
