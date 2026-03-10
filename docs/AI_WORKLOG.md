@@ -277,3 +277,45 @@ Next 1-3 actions:
 1. Implement policy decision tests for section 300 answer keys/references/branch lock.
 2. Encode agreed backend guard behavior with tests-first workflow.
 3. Update handoff status to Phase D complete after policy hardening milestone.
+
+---
+
+## 2026-03-10 (Phase D In Progress - Backend Policy Hardening)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Implement backend policy guards for Section 300 constraints and branch lock behavior.
+
+Changes made:
+
+- Added backend guard to block `add_question_reference` when target question belongs to section group 300.
+- Added backend guard to block `replace_question_answer_keys` when target question belongs to section group 300.
+- Added branch-lock behavior in `update_document_branch`: if evaluation activity exists in `UserAnswers`, branch change is blocked unless incoming value is unchanged.
+- Refactored command logic through connection-based helpers to support deterministic in-memory tests.
+- Added 4 backend policy tests in `content_database.rs`:
+  - block references in section 300
+  - block answer keys in section 300
+  - block branch change after evaluation started
+  - allow same-branch update after evaluation started (no-op)
+
+Files touched:
+
+- `src-tauri/src/content_database.rs`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `cd src-tauri; cargo test test_policy_`
+- Result: ✅ 4/4 tests passed
+
+Risk check:
+
+- Regression risk: Medium-low (behavioral policy change is intentional and covered by tests).
+- Manual test needed: Recommended for one branch-change flow in UI metadata modal.
+
+Next 1-3 actions:
+
+1. Add frontend integration assertions for new backend policy error messages.
+2. Decide if `update_answer_key` should also enforce Section 300 guard for full API consistency.
+3. Prepare Phase D completion checklist once policy scope is finalized.

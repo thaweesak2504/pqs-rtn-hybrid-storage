@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase D In Progress** - UI modal integration tests added, policy hardening next
+Status: **Phase D In Progress** - UI modal integration + backend policy guards implemented
 
 ## Project Intent
 
@@ -114,6 +114,7 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - **Total: 98 tests passing across 14 files**.
 - Current coverage baseline: 66.89% lines, 67.18% functions, 69.60% branches.
 - Phase C + early Phase D add E2E and modal integration coverage for section 300 workflow.
+- Backend policy guard tests: **4 passing** (`cargo test test_policy_`).
 
 ## Critical Context
 
@@ -184,9 +185,14 @@ npm run test:coverage
   - score cascade propagation + section total validation (no double count)
 - ✅ All 94 tests passing with zero regression.
 - ✅ Started Phase D modal integration coverage (2 new tests):
-   - EditMetadataModal branch selection load + save payload validation
-   - AddSectionModal section 100/300 contract validation (101 block + create_section payload)
+  - EditMetadataModal branch selection load + save payload validation
+  - AddSectionModal section 100/300 contract validation (101 block + create_section payload)
 - ✅ All 98 tests passing with zero regression.
+- ✅ Implemented backend policy guards (Phase D):
+   - Block references for questions in section group 300
+   - Block answer keys for questions in section group 300
+   - Block document branch changes after evaluation activity starts (allow no-op same branch)
+- ✅ Added backend policy tests (4 tests) and all passing.
 - ✅ Committed and pushed updates on `testing-infrastructure-feature`.
 
 ## Fast Start Commands
@@ -198,6 +204,7 @@ cd src-tauri
 cargo test content_database::tests::test_seed_section_300
 cargo test content_database::tests::test_calculate
 cargo test content_database::tests::test_cascade
+cargo test test_policy_
 ```
 
 **Frontend Testing:**

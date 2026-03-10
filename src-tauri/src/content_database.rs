@@ -543,14 +543,54 @@ pub fn get_document_branch(doc_id: String) -> Result<DocumentBranch, String> {
     ).map_err(|e| e.to_string())
 }
 
-/// Update occupation branch selection for a document
-pub fn update_document_branch(doc_id: String, branch_main: Option<String>, branch_sub: Option<String>) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+fn has_document_evaluation_activity(conn: &Connection, doc_id: &str) -> Result<bool, String> {
+    conn.query_row(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM UserAnswers
+            WHERE document_id = ?1
+              AND (
+                  (answer_text IS NOT NULL AND TRIM(answer_text) <> '')
+                  OR status IN ('passed', 'needs_improvement')
+              )
+        )",
+        params![doc_id],
+        |row| row.get(0),
+    )
+    .map_err(|e| e.to_string())
+}
+
+fn update_document_branch_with_conn(
+    conn: &Connection,
+    doc_id: &str,
+    branch_main: Option<String>,
+    branch_sub: Option<String>,
+) -> Result<(), String> {
+    let current: (Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT occupation_branch_main, occupation_branch_sub FROM Documents WHERE id = ?1",
+            params![doc_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let has_activity = has_document_evaluation_activity(conn, doc_id)?;
+    if has_activity && current != (branch_main.clone(), branch_sub.clone()) {
+        return Err("Cannot change document branch after evaluation has started".to_string());
+    }
+
     conn.execute(
         "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
         params![branch_main, branch_sub, doc_id]
     ).map_err(|e| e.to_string())?;
+
     Ok(())
+}
+
+/// Update occupation branch selection for a document
+pub fn update_document_branch(doc_id: String, branch_main: Option<String>, branch_sub: Option<String>) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    update_document_branch_with_conn(&conn, &doc_id, branch_main, branch_sub)
 }
 
 #[derive(serde::Serialize)]
@@ -3272,10 +3312,39 @@ pub struct AddQuestionReferenceRequest {
     pub location_text: Option<String>,
 }
 
-/// Add a reference link to a specific question (with page number)
-pub fn add_question_reference(req: AddQuestionReferenceRequest) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+fn get_question_section_group(conn: &Connection, question_id: &str) -> Result<Option<i32>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT s.section_group
+             FROM Questions q
+             JOIN Sections s ON q.section_id = s.id
+             WHERE q.id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let mut rows = stmt.query(params![question_id]).map_err(|e| e.to_string())?;
+    if let Some(row) = rows.next().map_err(|e| e.to_string())? {
+        let group: i32 = row.get(0).map_err(|e| e.to_string())?;
+        Ok(Some(group))
+    } else {
+        Ok(None)
+    }
+}
+
+fn ensure_section_300_policy_allows_question_action(
+    conn: &Connection,
+    question_id: &str,
+    action_name: &str,
+) -> Result<(), String> {
+    if let Some(300) = get_question_section_group(conn, question_id)? {
+        return Err(format!("Section 300 does not allow {}", action_name));
+    }
+    Ok(())
+}
+
+fn add_question_reference_with_conn(conn: &Connection, req: AddQuestionReferenceRequest) -> Result<(), String> {
+    ensure_section_300_policy_allows_question_action(conn, &req.question_id, "references")?;
+
     // Check if already linked
     let exists: bool = conn
         .query_row(
@@ -3284,11 +3353,11 @@ pub fn add_question_reference(req: AddQuestionReferenceRequest) -> Result<(), St
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
-    
+
     if exists {
         return Err("This reference is already linked to this question".to_string());
     }
-    
+
     // Get next display_order for this question's references
     let max_order: i32 = conn
         .query_row(
@@ -3297,15 +3366,21 @@ pub fn add_question_reference(req: AddQuestionReferenceRequest) -> Result<(), St
             |row| row.get(0),
         )
         .unwrap_or(0);
-        
+
     conn.execute(
         "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
          VALUES (?1, ?2, ?3, ?4)",
         params![req.question_id, req.reference_id, req.location_text, max_order + 1],
     )
     .map_err(|e| e.to_string())?;
-    
+
     Ok(())
+}
+
+/// Add a reference link to a specific question (with page number)
+pub fn add_question_reference(req: AddQuestionReferenceRequest) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    add_question_reference_with_conn(&conn, req)
 }
 
 /// Remove a reference link from a question
@@ -5400,6 +5475,16 @@ pub fn update_answer_key(question_id: String, sub_code: String, new_text: String
 #[tauri::command]
 pub fn replace_question_answer_keys(question_id: String, items: Vec<ReplaceAnswerKeyItem>) -> Result<String, String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    replace_question_answer_keys_with_conn(&mut conn, question_id, items)
+}
+
+fn replace_question_answer_keys_with_conn(
+    conn: &mut Connection,
+    question_id: String,
+    items: Vec<ReplaceAnswerKeyItem>,
+) -> Result<String, String> {
+    ensure_section_300_policy_allows_question_action(conn, &question_id, "answer keys")?;
+
     let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
 
     tx.execute(
@@ -6027,6 +6112,190 @@ mod tests {
 
             assert!(exists, "Document {} should exist", id);
         }
+    }
+
+    // ========================================================================
+    // Phase D Policy Hardening Tests
+    // ========================================================================
+
+    #[test]
+    fn test_policy_blocks_references_in_section_300() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionReferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                reference_id INTEGER NOT NULL,
+                location_text TEXT,
+                display_order INTEGER NOT NULL
+            )",
+            [],
+        )
+        .expect("Failed to create QuestionReferences");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-REF', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (1, 'DOC-REF', 300, 301, 'S301', '301', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, question_type, is_group_header, is_scored)
+             VALUES ('Q300', 'DOC-REF', 1, NULL, 1, 'Q', 0, 'normal', 0, 1)",
+            [],
+        )
+        .expect("Failed to create question");
+
+        let res = add_question_reference_with_conn(
+            &conn,
+            AddQuestionReferenceRequest {
+                question_id: "Q300".to_string(),
+                reference_id: 1,
+                location_text: Some("p.1".to_string()),
+            },
+        );
+
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Section 300 does not allow references"));
+    }
+
+    #[test]
+    fn test_policy_blocks_answer_keys_in_section_300() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-AK', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (1, 'DOC-AK', 300, 301, 'S301', '301', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, question_type, is_group_header, is_scored)
+             VALUES ('QAK300', 'DOC-AK', 1, NULL, 1, 'Q', 0, 'normal', 0, 1)",
+            [],
+        )
+        .expect("Failed to create question");
+
+        let res = replace_question_answer_keys_with_conn(
+            &mut conn,
+            "QAK300".to_string(),
+            vec![ReplaceAnswerKeyItem {
+                sub_code: "main".to_string(),
+                text: "Answer".to_string(),
+                is_required: Some(true),
+            }],
+        );
+
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Section 300 does not allow answer keys"));
+    }
+
+    #[test]
+    fn test_policy_blocks_branch_change_after_evaluation_started() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS UserAnswers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                document_id TEXT NOT NULL,
+                sub_question_code TEXT DEFAULT '',
+                answer_text TEXT,
+                status TEXT DEFAULT 'pending'
+            )",
+            [],
+        )
+        .expect("Failed to create UserAnswers");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-BR', 'Doc', '2272420', '22724', 'Test', '20', '1', '02', '01', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status)
+             VALUES ('U1', 'Q1', 'DOC-BR', '', 'some answer', 'pending')",
+            [],
+        )
+        .expect("Failed to create user answer");
+
+        let res = update_document_branch_with_conn(
+            &conn,
+            "DOC-BR",
+            Some("03".to_string()),
+            Some("04".to_string()),
+        );
+
+        assert!(res.is_err());
+        assert!(res
+            .unwrap_err()
+            .contains("Cannot change document branch after evaluation has started"));
+    }
+
+    #[test]
+    fn test_policy_allows_same_branch_after_evaluation_started() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS UserAnswers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                question_id TEXT NOT NULL,
+                document_id TEXT NOT NULL,
+                sub_question_code TEXT DEFAULT '',
+                answer_text TEXT,
+                status TEXT DEFAULT 'pending'
+            )",
+            [],
+        )
+        .expect("Failed to create UserAnswers");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-BR2', 'Doc', '2272420', '22724', 'Test', '20', '1', '02', '01', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status)
+             VALUES ('U1', 'Q1', 'DOC-BR2', '', 'some answer', 'pending')",
+            [],
+        )
+        .expect("Failed to create user answer");
+
+        let res = update_document_branch_with_conn(
+            &conn,
+            "DOC-BR2",
+            Some("02".to_string()),
+            Some("01".to_string()),
+        );
+
+        assert!(res.is_ok());
     }
 
     // ========================================================================
