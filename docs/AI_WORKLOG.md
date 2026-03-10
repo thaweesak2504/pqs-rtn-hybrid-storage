@@ -234,3 +234,46 @@ Next 1-3 actions:
 1. Phase D: Add modal-level UI integration tests for branch and section creation workflows.
 2. Align section 300 policy constraints with explicit backend contract decisions.
 3. Expand template-focused coverage include targets for clearer reporting.
+
+---
+
+## 2026-03-10 (Phase D In Progress - UI Modal Integration Coverage)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Start Phase D by adding UI integration tests for branch and section creation modal workflows.
+
+Changes made:
+
+- Added integration tests for `EditMetadataModal` covering:
+  - Initial branch/sub-branch load on modal open
+  - Submit payload validation for `update_document` and `update_document_branch`
+- Added integration tests for `AddSectionModal` covering:
+  - Section 101 block behavior in section group 100
+  - Section 300 `create_section` payload contract validation
+- Re-ran baseline test suite and coverage after adding tests.
+
+Files touched:
+
+- `src/test/integration/EditMetadataModal.integration.test.tsx`
+- `src/test/integration/AddSectionModal.integration.test.tsx`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `npm run test:run`
+- Result: ✅ 98/98 tests passed (14 files)
+- Command: `npm run test:coverage`
+- Result: ✅ 98/98 tests passed (14 files), coverage: lines 66.89%, functions 67.18%, branches 69.60%
+
+Risk check:
+
+- Regression risk: Low (tests-first, no production runtime logic changes).
+- Manual test needed: No.
+
+Next 1-3 actions:
+
+1. Implement policy decision tests for section 300 answer keys/references/branch lock.
+2. Encode agreed backend guard behavior with tests-first workflow.
+3. Update handoff status to Phase D complete after policy hardening milestone.

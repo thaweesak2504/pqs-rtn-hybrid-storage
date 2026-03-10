@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase C Complete** - E2E workflow tests implemented, ready for Phase D
+Status: **Phase D In Progress** - UI modal integration tests added, policy hardening next
 
 ## Project Intent
 
@@ -111,9 +111,9 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - Frontend test stack is active: Vitest + Testing Library + jsdom. ✅
 - **Existing tests: 47 passing** (8 files).
 - **Phase B tests: 44 passing** (3 new files: QuestionRenderer.test.tsx, templateStructure.test.ts, branchAndCascade.test.ts).
-- **Total: 94 tests passing across 12 files**.
-- Current coverage baseline: 66.89% lines, 67.18% functions, 69.10% branches.
-- Phase C adds E2E workflow integration coverage for section 300 behavior.
+- **Total: 98 tests passing across 14 files**.
+- Current coverage baseline: 66.89% lines, 67.18% functions, 69.60% branches.
+- Phase C + early Phase D add E2E and modal integration coverage for section 300 workflow.
 
 ## Critical Context
 
@@ -183,7 +183,11 @@ npm run test:coverage
   - persist document branch main/sub selection
   - score cascade propagation + section total validation (no double count)
 - ✅ All 94 tests passing with zero regression.
-- ✅ Committed to `testing-infrastructure-feature` branch (3 commits total).
+- ✅ Started Phase D modal integration coverage (2 new tests):
+   - EditMetadataModal branch selection load + save payload validation
+   - AddSectionModal section 100/300 contract validation (101 block + create_section payload)
+- ✅ All 98 tests passing with zero regression.
+- ✅ Committed and pushed updates on `testing-infrastructure-feature`.
 
 ## Fast Start Commands
 
