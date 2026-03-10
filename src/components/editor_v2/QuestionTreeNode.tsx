@@ -1,43 +1,44 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
-import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
+import { invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  QuestionDetail,
-  QuestionReferenceDetail,
-  SectionReferenceDetail
+    QuestionDetail,
+    QuestionReferenceDetail,
+    SectionReferenceDetail
 } from "../../types/content";
 import {
-  DEFAULT_L1_DESC_BY_SEQ,
-  buildPrefix,
-  buildPrefix200_300,
-  convertThaiToArabic,
-  toThaiAlphabet,
-  toThaiNumber
+    DEFAULT_L1_DESC_BY_SEQ,
+    buildPrefix,
+    buildPrefix200_300,
+    convertThaiToArabic,
+    toThaiAlphabet,
+    toThaiNumber
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
 import Tooltip from "../ui/Tooltip";
 import AnswerKeyEditor from "./AnswerKeyEditor";
+import AsyncImagePreview from "./AsyncImagePreview";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
 
@@ -3066,65 +3067,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   );
 };
 
-// Async Image Helper Component
-interface AsyncImagePreviewProps {
-  // Added interface
-  path: string;
-  className?: string;
-  onImageClick?: (src: string) => void;
-}
-
-const AsyncImagePreview: React.FC<AsyncImagePreviewProps> = ({ path, className, onImageClick }) => {
-  const [src, setSrc] = useState<string>("");
-  const [resolvedPath, setResolvedPath] = useState<string>("");
-
-  useEffect(() => {
-    async function load() {
-      try {
-        if (!path) return;
-        if (path.startsWith("http") || path.startsWith("asset")) {
-          setSrc(path);
-          return;
-        }
-
-        // Use backend to get base64 data directly (Reliable method)
-        const base64Data = await invoke<string>("get_question_image_base64", { path });
-        setSrc(base64Data);
-        setResolvedPath(path); // Keep original path for opening
-      } catch (e) {
-        console.error("Failed to load image preview", e);
-        // Fallback
-        setSrc(convertFileSrc(path));
-      }
-    }
-    load();
-  }, [path]);
-
-  if (!src) return <div className={`animate-pulse bg-gray-200 dark:bg-slate-700 ${className}`} />;
-
-  return (
-    <Tooltip content="คลิกเพื่อเปิดรูปภาพขยาย">
-      <img
-        src={src}
-        alt="Preview"
-        className={`cursor-pointer ${className}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (onImageClick) {
-            onImageClick(src);
-          } else if (resolvedPath) {
-            invoke("open_path", { path: resolvedPath });
-          }
-        }}
-        onError={() => {
-          console.error("Image load error for src:", src);
-        }}
-      />
-    </Tooltip>
-  );
-};
-
 // Exporting helpers that might be useful externally
-export { AsyncImagePreview, QuestionFormCard };
 export { buildPrefix, buildPrefix200_300, convertThaiToArabic, toThaiAlphabet, toThaiNumber } from "../../utils/thaiNumbering";
+export { default as AsyncImagePreview } from "./AsyncImagePreview";
+export { QuestionFormCard };
 
