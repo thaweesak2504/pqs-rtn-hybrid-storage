@@ -77,10 +77,16 @@ pub mod helpers {
         conn.execute("PRAGMA foreign_keys = ON", [])?;
 
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS documents (
+            "CREATE TABLE IF NOT EXISTS Documents (
                 id TEXT PRIMARY KEY,
-                title TEXT NOT NULL,
+                name TEXT NOT NULL,
                 unit_id TEXT NOT NULL,
+                unit_code TEXT NOT NULL,
+                applied_to TEXT NOT NULL,
+                doc_type TEXT NOT NULL,
+                user_level TEXT NOT NULL,
+                occupation_branch_main TEXT,
+                occupation_branch_sub TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )",
@@ -88,30 +94,75 @@ pub mod helpers {
         )?;
 
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS sections (
+            "CREATE TABLE IF NOT EXISTS Sections (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                document_id TEXT NOT NULL,
+                document_id VARCHAR(11) NOT NULL,
+                section_group INTEGER NOT NULL,
                 section_number INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
+                title_th TEXT NOT NULL,
+                menu_label TEXT NOT NULL,
+                display_order INTEGER,
+                is_system_defined BOOLEAN DEFAULT 0,
+                duration_value INTEGER,
+                duration_unit VARCHAR(20) DEFAULT 'weeks',
+                total_score INTEGER,
+                is_template BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(document_id, section_number),
-                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+                FOREIGN KEY (document_id) REFERENCES Documents(id) ON DELETE CASCADE
             )",
             [],
         )?;
 
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS questions (
+            "CREATE TABLE IF NOT EXISTS Questions (
                 id TEXT PRIMARY KEY,
-                document_id TEXT NOT NULL,
-                section_id INTEGER NOT NULL,
+                document_id VARCHAR(11) NOT NULL,
+                section_id INTEGER,
+                parent_id TEXT,
+                sequence INT NOT NULL,
                 content TEXT NOT NULL,
-                sequence INTEGER NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE,
-                FOREIGN KEY(section_id) REFERENCES sections(id) ON DELETE CASCADE
+                is_header BOOLEAN DEFAULT 0,
+                description TEXT,
+                answer_type VARCHAR(20) DEFAULT 'text',
+                metadata TEXT,
+                score INTEGER DEFAULT 0,
+                question_type VARCHAR(20) DEFAULT 'normal',
+                group_score INTEGER DEFAULT 0,
+                display_text TEXT,
+                is_group_header BOOLEAN DEFAULT 0,
+                is_scored BOOLEAN DEFAULT 0,
+                is_exempted BOOLEAN DEFAULT 0,
+                is_template BOOLEAN DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
+                FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE,
+                FOREIGN KEY(parent_id) REFERENCES Questions(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionAnswerKeys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                sub_question_code TEXT NOT NULL,
+                answer_key_text TEXT,
+                is_required BOOLEAN DEFAULT 1,
+                order_index INTEGER DEFAULT 0,
+                FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+                UNIQUE(question_id, sub_question_code)
+            )",
+            [],
+        )?;
+        
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationBranches (
+                code VARCHAR(10) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL UNIQUE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             [],
         )?;
