@@ -246,10 +246,10 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    Phase A, Phase B, Phase C, Phase D, and Phase E are complete - see docs/AI_HANDOFF.md.
 
    Goal: split high-complexity frontend files (>= 1,000 lines) into smaller modules with no behavior regression.
-   
+
    Primary Target:
    - QuestionTreeNode.tsx (2,999 lines) - Tree rendering, editing, answer keys, references, occupation branches
-   
+
    Refactor Strategy (6 phases):
    1. Extract utilities (thaiNumbering.ts)
    2. Extract AsyncImagePreview component
@@ -257,7 +257,7 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    4. Extract ViewMode renderers (qualifier/trainee/visitor/print)
    5. Extract section-specific logic (100/200/300)
    6. Simplify core QuestionTreeNode
-   
+
    Safety Rules:
    - Create git commit checkpoint BEFORE each extraction step
    - Run automated tests (107/107 must pass)
@@ -291,11 +291,13 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    - ✅ Baseline audit preserved
 
 ## Phase E Delta (Completed Session)
+
 ## Phase F Target Analysis (File Size Audit)
 
 **Refactor Criteria: >= 1,000 lines**
 
 Large files identified (sorted by size):
+
 - ✅ **QuestionTreeNode.tsx: 2,999 lines** — PRIMARY TARGET (3x threshold)
 - ❌ PqsReferenceSection.tsx: 902 lines (below threshold)
 - ❌ DatabaseManagementPage.tsx: 745 lines (below threshold)
@@ -305,6 +307,7 @@ Large files identified (sorted by size):
 - ❌ QuestionRenderer.tsx: 347 lines (originally planned, but below threshold)
 
 **Why QuestionTreeNode.tsx:**
+
 - 2,999 lines = largest file by far (3x refactor threshold)
 - 8+ responsibilities: tree rendering, editing, answer keys, references, occupation branches, image upload, drag & drop, multi-mode rendering
 - No dedicated test coverage (integration tests only)
@@ -312,6 +315,7 @@ Large files identified (sorted by size):
 - Clear extraction opportunities: utilities, sub-components, renderers, section-specific logic
 
 **Expected Outcome:**
+
 - QuestionTreeNode.tsx: 2,999 → ~1,300 lines (core tree logic)
 - New extracted modules: 6-8 focused files (100-600 lines each)
 - Better testability, maintainability, reusability
@@ -330,6 +334,7 @@ Large files identified (sorted by size):
 ### Phase F: QuestionTreeNode.tsx Refactor (2,999 lines → 6-8 files)
 
 **File Size Criteria:**
+
 - ✅ **>= 1,000 lines** = MUST refactor
 - ✅ QuestionTreeNode.tsx (2,999 lines) is the only file meeting threshold
 - ❌ Other files < 1,000 lines = skip (AddQuestionModal: 483, QuestionRenderer: 347)
@@ -379,6 +384,7 @@ Large files identified (sorted by size):
    - Final commit: `git commit -m "refactor: complete QuestionTreeNode split (2999 → ~1300 lines)"`
 
 **Rollback Procedure (if regression detected):**
+
 ```bash
 # List recent commits to find checkpoint
 git log --oneline -10
@@ -393,6 +399,7 @@ npm run test:run
 ```
 
 **Manual Testing Checklist (verify after EACH extraction):**
+
 - [ ] Question tree expands/collapses correctly
 - [ ] Thai numbering prefixes render (ข., (๑), ๓๐๑.๑, etc.)
 - [ ] Create/edit/delete questions works
