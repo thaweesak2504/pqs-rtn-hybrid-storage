@@ -18,6 +18,33 @@
 
 ---
 
+## 🔁 Context Continuity (Read First)
+
+To avoid re-explaining project context when model/session changes, always start by reading:
+
+1. [AI_HANDOFF.md](AI_HANDOFF.md) - current truth, constraints, and next safe order
+2. [AI_WORKLOG.md](AI_WORKLOG.md) - rolling session log and latest actions
+3. [AI_BOOTSTRAP_PROMPT.md](AI_BOOTSTRAP_PROMPT.md) - copy/paste start prompt
+4. [TEMPLATE_TESTING_STRATEGY.md](TEMPLATE_TESTING_STRATEGY.md) - template testing roadmap
+
+Recommended startup flow:
+
+```bash
+# 1) Open handoff docs first
+code docs/AI_HANDOFF.md docs/AI_WORKLOG.md docs/AI_BOOTSTRAP_PROMPT.md
+
+# 2) Run baseline tests before changes
+npm run test:run
+```
+
+Policy for this project:
+
+- Tests-first before major refactor
+- No-break changes by default (explicit approval required for behavior change)
+- Minimize manual retesting workload
+
+---
+
 ## 🎯 Test Structure
 
 ### โครงสร้างไฟล์
