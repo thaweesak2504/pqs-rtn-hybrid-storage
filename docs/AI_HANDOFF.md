@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase A Complete** - Backend unit tests implemented, ready for Phase B
+Status: **Phase B Complete** - Frontend integration tests implemented, ready for Phase C
 
 ## Project Intent
 
@@ -31,22 +31,42 @@ Status: **Phase A Complete** - Backend unit tests implemented, ready for Phase B
 - `docs/AI_WORKLOG.md` - Session logging
 - `docs/TEMPLATE_IMPACT_AUDIT.md` - Baseline audit (commit 4863c42)
 
-## Phase B 🎯 Next (Frontend Integration Tests)
+## Phase B ✅ Complete (Frontend Integration Tests)
 
-**Goal:** Test React components that interact with template system.
+**Goal:** Test React components and verify template system integrity.
 
-**Target Components:**
+**Implemented Tests (44 tests):**
 
-- `src/components/QuestionAnswerForm.tsx` - Question rendering and submission
-- `src/components/SectionSelector.tsx` - Section navigation and template loading
-- Any components that display/calculate scores or handle cascade updates
+1. **Component Tests (12 tests)** - `QuestionRenderer.test.tsx`
+   - Template rendering (Section 100 vs 300)
+   - Exempted groups detection (3xx.2-3xx.5)
+   - Score display validation
+   - Read-only mode verification
+   - Thai number formatting
+   - Hierarchy and nesting
 
-**Approach:**
+2. **Structure Validation (15 tests)** - `templateStructure.test.ts`
+   - Section 300 structure (7 L1 groups, flags)
+   - Score calculation logic
+   - Cascade chain validation
+   - Section differences
+   - Branch metadata validation
+   - Error detection
 
-1. Mock Tauri commands (`invoke`) for template data fetching
-2. Test template rendering correctness (section 300 vs 100/200 differences)
-3. Verify score display and cascade UI updates
-4. Use existing Vitest + Testing Library setup
+3. **Branch & Cascade Logic (17 tests)** - `branchAndCascade.test.ts`
+   - Branch selection for exempted groups
+   - Score cascade chain (L1 only, no double counting)
+   - Section total calculation
+   - Exempted status blocking
+   - Prerequisites vs knowledge flags
+   - Anomaly detection
+
+**Approach Used:**
+
+1. Pure logic unit tests (no complex mocking)
+2. Focused component rendering tests for `QuestionRenderer.tsx`
+3. Template structure validation without component coupling
+4. Cascade chain validation with realistic data scenarios
 
 **Fast Start for Phase B:**
 
@@ -69,10 +89,12 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 
 ## Current Verified Baseline
 
-- Frontend test stack is active: Vitest + Testing Library + jsdom.
-- Existing tests: 47 passing (8 files).
-- Current coverage baseline: 64.72% lines, 62.5% functions.
-- Strategy docs exist and are approved for planning-level work.
+- Frontend test stack is active: Vitest + Testing Library + jsdom. ✅
+- **Existing tests: 47 passing** (8 files).
+- **Phase B tests: 44 passing** (3 new files: QuestionRenderer.test.tsx, templateStructure.test.ts, branchAndCascade.test.ts).
+- **Total: 91 tests passing across 11 files**.
+- Current coverage baseline: 64.72% lines, 62.5% functions (before Phase B).
+- Phase B adds component + integration coverage for template system.
 
 ## Critical Context
 
@@ -98,24 +120,46 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 
 ## Next Safe Execution Order
 
-1. Impact audit of `src-tauri/src/content_database.rs` (read-only).
-2. Capture invariants and regression checklist.
-3. Add backend unit tests for template seeding and score/branch logic.
-4. Add integration tests for API contract around template restrictions.
-5. Keep E2E minimal first (smoke-critical paths only).
+✅ **Phase A (Backend Unit Tests)** - Complete (6 tests)
+✅ **Phase B (Frontend Integration Tests)** - Complete (44 tests)
+⏳ **Phase C (E2E & Coverage)** - Next
+  - Full document/section workflow testing (create → seed → answer → score)
+  - Coverage increase targeting template-related code
+  - Branch selection integration with UI
+  - Score cascade verification across full template tree
+
+**Starting Phase C (Next Session):**
+
+```bash
+# Run current baseline
+npm run test:run
+npm run test:coverage
+
+# Create E2E tests for:
+# 1. Create document → auto-seed section 300
+# 2. Select branch for 3xx.2-3xx.5
+# 3. Answer questions
+# 4. Verify scores cascade correctly
+# 5. Verify section total calculates accurately
+```
 
 ## Done Recently
 
 - ✅ Created and refined testing docs focused on template testing.
 - ✅ Performed impact audit of `src-tauri/src/content_database.rs` (read-only baseline).
 - ✅ Updated test infrastructure schema in `src-tauri/src/test_helpers.rs`.
-- ✅ Implemented 6 backend unit tests covering:
+- ✅ Implemented 6 backend unit tests (Phase A).
   - Template seeding structure (section 300)
   - Scoring flags validation
   - Exempted defaults verification
   - Cascade chain propagation (3 levels)
   - Exempted status blocking in cascade
-- ✅ All tests passing with zero production code changes.
+- ✅ Implemented 44 frontend tests (Phase B):
+  - 12 component rendering tests (`QuestionRenderer.test.tsx`)
+  - 15 template structure validation tests (`templateStructure.test.ts`)
+  - 17 branch selection & cascade logic tests (`branchAndCascade.test.ts`)
+- ✅ All 91 tests passing with zero regression.
+- ✅ Committed to `testing-infrastructure-feature` branch (3 commits total).
 
 ## Fast Start Commands
 
