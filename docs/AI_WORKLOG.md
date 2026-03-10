@@ -98,5 +98,50 @@ Risk check:
 Next 1-3 actions:
 
 1. Convert audit invariants into backend unit tests (tests-first).
+2. Write integration tests for API contract validation.
+3. Consider policy hardening after tests pass.
+
+---
+
+## 2026-03-10 (Test Infrastructure Prep)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (Claude Sonnet 4.5)
+Goal: Prepare test infrastructure for backend unit tests.
+
+Changes made:
+
+- Updated `src-tauri/src/test_helpers.rs` with complete production schema matching.
+- Added QuestionAnswerKeys and OccupationBranches tables to test schema.
+- Added all scoring/template fields (is_scored, is_group_header, group_score, is_template, is_exempted).
+- Minor formatting cleanup in AI handoff docs.
+
+Files touched:
+
+- `src-tauri/src/test_helpers.rs`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_BOOTSTRAP_PROMPT.md`
+
+Validation run:
+
+- Command: Attempted `cargo test content_database::tests` 
+- Result: Schema updates successful, but unit test code had SQL string formatting errors - reverted test additions.
+
+Risk check:
+
+- Regression risk: None (test infrastructure only, no production code changed).
+- Manual test needed: No.
+
+Lessons learned:
+
+- Calling helpers like `calculate_group_score()` that use `get_content_connection()` won't work in unit tests with in-memory DB.
+- Need to test SQL logic directly on test Connection object.
+- Multi-line SQL strings in Rust need careful handling to avoid quote corruption during edits.
+
+Next 1-3 actions:
+
+1. Write backend unit tests with proper SQL execution on test Connection (not calling production helpers).
+2. Test template seeding baseline (3 tests).
+3. Test score calculation logic (4-5 tests covering exempted, group_score, cascade).
 2. Add integration tests for branch/answer-key/reference current contract behavior.
 3. Review and approve any future policy hardening as separate change.
