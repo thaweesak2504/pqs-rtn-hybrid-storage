@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { AlertCircle, BookOpen, HelpCircle, Save, Table, X } from 'lucide-react'; // Added HelpCircle icon
 import React, { useEffect, useState } from 'react';
 import { QuestionDetail } from '../../types/content'; // Ensure this import exists
+import { normalizePolicyGuardError } from '../../utils/policyGuards';
 
 interface DocumentReference {
   id: number;
@@ -59,6 +60,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Helper to convert to Thai numerals
   const toThaiNumber = (num: string | number) => {
@@ -111,6 +113,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
     };
 
     if (isOpen) {
+      setSubmitError(null);
       loadReferences();
 
       if (initialData) {
@@ -201,6 +204,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
 
     try {
       setSaving(true);
+      setSubmitError(null);
 
       const referencesMeta = Array.from(selectedRefs.entries()).map(([id, page]) => ({
         id,
@@ -254,7 +258,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Failed to save question:', err);
-      alert('Failed to save question');
+      setSubmitError(normalizePolicyGuardError(err, 'Failed to save question'));
     } finally {
       setSaving(false);
     }
@@ -340,6 +344,12 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {submitError && (
+            <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <p>{submitError}</p>
+            </div>
+          )}
 
           {/* Question Content Input */}
           <div className="space-y-2">

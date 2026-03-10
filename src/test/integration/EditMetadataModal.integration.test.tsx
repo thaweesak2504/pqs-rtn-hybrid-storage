@@ -246,7 +246,7 @@ describe("EditMetadataModal integration", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     expect(
-      await screen.findByText(/Failed to update: Error: Cannot change document branch after evaluation has started/i),
+      await screen.findByText(/Section 300 policy: cannot change document branch after evaluation has started\./i),
     ).toBeInTheDocument();
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();

@@ -74,4 +74,70 @@ describe("AddSectionModal integration", () => {
     expect(onSuccess).toHaveBeenCalledWith(301);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("creates section 100 with expected payload", async () => {
+    const onSuccess = vi.fn();
+
+    vi.mocked(invoke).mockResolvedValue({ id: 102 });
+
+    render(
+      <AddSectionModal
+        isOpen
+        onClose={vi.fn()}
+        documentId="DOC-100"
+        sectionGroup={100}
+        existingNumbers={[101]}
+        onSuccess={onSuccess}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("spinbutton"), {
+      target: { value: "102" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Ordnance Safety Fundamentals/i), {
+      target: { value: "ความปลอดภัยพื้นฐาน" },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("เช่น Ordnance Safety"), {
+      target: { value: "Ordnance Safety" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create Section" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("create_section", {
+        request: {
+          document_id: "DOC-100",
+          section_group: 100,
+          section_number: 102,
+          title_th: "ความปลอดภัยพื้นฐาน",
+          menu_label: "102 Ordnance Safety",
+        },
+      });
+    });
+
+    expect(onSuccess).toHaveBeenCalledWith(102);
+  });
+
+  it("blocks section numbers outside section 200 range", async () => {
+    render(
+      <AddSectionModal
+        isOpen
+        onClose={vi.fn()}
+        documentId="DOC-200"
+        sectionGroup={200}
+        existingNumbers={[]}
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("spinbutton"), {
+      target: { value: "199" },
+    });
+
+    expect(await screen.findByText("Section number must be between 201 and 299")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create Section" })).toBeDisabled();
+    expect(invoke).not.toHaveBeenCalled();
+  });
 });

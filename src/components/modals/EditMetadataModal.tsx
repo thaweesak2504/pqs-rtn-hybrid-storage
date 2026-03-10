@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { CheckCircle, Pencil, Plus, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { normalizePolicyGuardError } from '../../utils/policyGuards';
 import Button from '../ui/Button';
 import { FormInput, FormRow, FormSelect } from '../ui/Form';
 
@@ -107,7 +108,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       onClose();
     } catch (err) {
       console.error('Failed to update document:', err);
-      setErrorMsg(`Failed to update: ${err}`);
+      setErrorMsg(normalizePolicyGuardError(err, 'Failed to update'));
     } finally {
       setIsSubmitting(false);
     }

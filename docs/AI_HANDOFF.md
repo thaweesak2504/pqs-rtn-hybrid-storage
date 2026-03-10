@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase D Complete** - Policy hardening + UI integration coverage implemented, ready for Phase E
+Status: **Phase E Complete** - Coverage expansion + policy UX guardrails implemented and validated, ready for Phase F
 
 ## Project Intent
 
@@ -111,7 +111,7 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - Frontend test stack is active: Vitest + Testing Library + jsdom. ✅
 - **Existing tests: 47 passing** (8 files).
 - **Phase B tests: 44 passing** (3 new files: QuestionRenderer.test.tsx, templateStructure.test.ts, branchAndCascade.test.ts).
-- **Total: 99 tests passing across 14 files**.
+- **Total: 107 tests passing across 16 files**.
 - Current coverage baseline: 66.89% lines, 67.18% functions, 69.60% branches.
 - Phase C + early Phase D add E2E and modal integration coverage for section 300 workflow.
 - Backend policy guard tests: **6 passing** (`cargo test test_policy_`).
@@ -144,23 +144,24 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 ✅ **Phase B (Frontend Integration Tests)** - Complete (44 tests)
 ✅ **Phase C (E2E & Coverage)** - Complete (3 tests)
 ✅ **Phase D (Policy Hardening & UI Integration Coverage)** - Complete
-⏳ **Phase E (Coverage Target Expansion & UX Guardrails)** - Next
+✅ **Phase E (Coverage Target Expansion & UX Guardrails)** - Complete
+⏳ **Phase F (Refactor Big Files Split)** - Next
 
 - Expand coverage include targets to template-critical components/services
 - Add UX guardrails for backend policy errors in section 300 flows
 - Consolidate/standardize policy error messaging
 
-**Starting Phase E (Next Session):**
+**Starting Phase F (Next Session):**
 
 ```bash
 # Run current baseline
 npm run test:run
 npm run test:coverage
 
-# Phase E focus:
-# 1. Expand coverage include targets for template-critical frontend modules
-# 2. Add tests for section 300 policy error UX in answer-key/reference flows
-# 3. Normalize backend policy error messages and expected UI display handling
+# Phase F focus:
+# 1. Split big files behind existing passing tests (no behavior change)
+# 2. Keep policy error handling centralized via src/utils/policyGuards.ts
+# 3. Add/adjust tests only when extraction changes boundaries
 ```
 
 ## Done Recently
@@ -197,6 +198,21 @@ npm run test:coverage
   - Block `update_answer_key` for questions in section group 300 (same policy as replace API)
 - ✅ Added backend policy tests (6 tests) and all passing.
 - ✅ Committed and pushed updates on `testing-infrastructure-feature`.
+- ✅ Phase E: expanded template-focused coverage include targets:
+  - `QuestionRenderer.tsx`, `AddSectionModal.tsx`, `EditMetadataModal.tsx`, `AddQuestionModal.tsx`, `policyGuards.ts`
+- ✅ Phase E: added section 100/200 modal integration gap tests:
+  - Section 100 create payload contract (`AddSectionModal.integration.test.tsx`)
+  - Section 200 out-of-range validation block (`AddSectionModal.integration.test.tsx`)
+- ✅ Phase E: added section 300 policy UX guardrail tests:
+  - branch-lock message normalization path (`EditMetadataModal.integration.test.tsx`)
+  - answer-key policy error UX path (`AddQuestionModal.integration.test.tsx`)
+  - reference policy error UX path (`AddQuestionModal.integration.test.tsx`)
+- ✅ Phase E: normalized policy error messages in UI:
+  - Added shared helper `src/utils/policyGuards.ts`
+  - Applied to metadata and question modal save flows
+- ✅ Validation after Phase E updates:
+  - `npm run test:coverage` => 107/107 passing (16 files)
+  - Coverage summary (configured include scope): lines 68.08%, functions 53.43%, branches 70.06%
 
 ## Fast Start Commands
 
@@ -226,11 +242,14 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 1. **Initial prompt:**
 
    ```
-   I'm starting Phase E (coverage target expansion & UX guardrails) of template system testing.
-   Phase A, Phase B, Phase C, and Phase D are complete - see docs/AI_HANDOFF.md.
+   I'm starting Phase F (Refactor Big Files split) after Phase E completion.
+   Phase A, Phase B, Phase C, Phase D, and Phase E are complete - see docs/AI_HANDOFF.md.
 
-   Goal: increase template-focused coverage visibility and harden UX around policy guard failures with no regression.
-   Focus: section 300 answer-key/reference error handling UX and coverage include expansion for template-critical modules.
+   Goal: split high-complexity frontend files into smaller modules with no behavior regression.
+   Focus:
+   - Refactor extraction targets: AddQuestionModal.tsx and QuestionRenderer.tsx first.
+   - Keep policy guard UX paths stable (answer-key/reference/branch-lock).
+   - Maintain tests-first workflow: run baseline before/after each extraction slice.
 
    Please read:
    - docs/AI_HANDOFF.md (project context)
@@ -256,6 +275,23 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
    - ✅ Memory files created
    - ✅ Tests committed
    - ✅ Baseline audit preserved
+
+## Phase E Delta (Completed Session)
+
+- Added shared policy guard error normalizer for section 300 UX consistency.
+- Replaced generic save/update error rendering in modal flows with normalized policy-aware messages.
+- Increased template-focused coverage visibility for section 100/200/300 critical frontend modules.
+- Added targeted tests to close section 100/200 add-section modal gaps.
+- Added targeted tests for section 300 answer-key/reference/branch-lock policy UX paths.
+- All frontend tests and coverage runs are green after changes (107/107).
+
+## Suggested Next Safe Execution Order
+
+1. Start Phase F extraction with one file at a time on clean working tree.
+2. Keep Phase F order by residual hotspots:
+   - `AddQuestionModal.tsx` line coverage depth
+   - `QuestionRenderer.tsx` branch/function coverage depth
+3. Keep policy message contract stable (avoid ad-hoc error strings) and add tests when backend policy text changes.
 
 ## Phase Transition Checklist (Use Every Time)
 

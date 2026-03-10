@@ -358,7 +358,59 @@ Next 1-3 actions:
 
 1. Add frontend assertion test for section 300 answer-key error handling path.
 2. Confirm wording of policy error messages with product expectation.
-3. Prepare Phase D completion update if no further policy scope changes.
+
+---
+
+## 2026-03-10 (Phase E In Progress - Coverage Expansion + UX Guardrails)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Expand template-focused coverage visibility for section 100/200/300 and harden policy guard UX handling with no regression.
+
+Changes made:
+
+- Added shared policy error normalization utility in `src/utils/policyGuards.ts`.
+- Updated `EditMetadataModal` to render normalized branch-lock policy messages.
+- Updated `AddQuestionModal` to render inline normalized policy errors for answer-key/reference guard failures.
+- Added integration tests for section 100/200 modal coverage gaps in `AddSectionModal.integration.test.tsx`.
+  - Section 100 create payload contract
+  - Section 200 invalid range guard block
+- Added section 300 policy UX integration tests in `AddQuestionModal.integration.test.tsx`.
+  - answer-key policy error path
+  - reference policy error path
+- Added utility tests for policy normalizer in `policyGuards.test.ts`.
+- Expanded `vitest.config.ts` coverage include scope to template-critical frontend modules used in section 100/200/300 flows.
+
+Files touched:
+
+- `src/utils/policyGuards.ts`
+- `src/components/modals/EditMetadataModal.tsx`
+- `src/components/modals/AddQuestionModal.tsx`
+- `src/test/integration/AddSectionModal.integration.test.tsx`
+- `src/test/integration/EditMetadataModal.integration.test.tsx`
+- `src/test/integration/AddQuestionModal.integration.test.tsx`
+- `src/test/utils/policyGuards.test.ts`
+- `vitest.config.ts`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `npx vitest run src/test/integration/AddSectionModal.integration.test.tsx src/test/integration/EditMetadataModal.integration.test.tsx src/test/integration/AddQuestionModal.integration.test.tsx src/test/utils/policyGuards.test.ts`
+- Result: ✅ 13/13 tests passed.
+- Command: `npm run test:coverage`
+- Result: ✅ 107/107 tests passed (16 files). Coverage summary (configured include scope): lines 68.08%, functions 53.43%, branches 70.06%.
+
+Risk check:
+
+- Regression risk: Low (targeted UI error handling + test additions, no broad refactor).
+- Manual test needed: Optional (one real UI save path each for section 100 add section and section 300 policy failure display).
+
+Next 1-3 actions:
+
+1. Mark Phase E complete after clean-tree baseline rerun and commit.
+2. Prepare Phase F scope with deeper line coverage targets for `AddQuestionModal.tsx` and `QuestionRenderer.tsx`.
+3. Keep policy message normalization as the single source for section 300 guard UX strings.
 
 ---
 
@@ -402,3 +454,40 @@ Next 1-3 actions:
 1. Phase E: expand template-critical coverage include targets in Vitest config.
 2. Add policy error UX tests for answer-key/reference flows in section 300 editors.
 3. Normalize policy error wording across backend and UI handling.
+
+---
+
+## 2026-03-10 (Phase E Complete)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Close Phase E and prepare clean handoff into Phase F (Refactor Big Files split).
+
+Changes made:
+
+- Marked Phase E complete in handoff documentation.
+- Updated next-session starter from "Starting Phase E" to "Starting Phase F".
+- Refreshed Phase F focus to extraction-first while preserving test safety net and policy UX stability.
+
+Files touched:
+
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `npx vitest run`
+- Result: ✅ 107/107 tests passed (16 files)
+- Command: `npm run test:coverage`
+- Result: ✅ 107/107 tests passed, coverage summary (configured include scope): lines 68.08%, functions 53.43%, branches 70.06%.
+
+Risk check:
+
+- Regression risk: None (documentation-only closeout entry).
+- Manual test needed: No.
+
+Next 1-3 actions:
+
+1. Start Phase F by extracting one unit from `AddQuestionModal.tsx` with no behavior change.
+2. Re-run targeted + baseline tests after each extraction step.
+3. Continue with `QuestionRenderer.tsx` extraction after first slice is stable.
