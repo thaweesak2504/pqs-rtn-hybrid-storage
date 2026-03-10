@@ -26,7 +26,7 @@ describe("Branch Selection Logic", () => {
   });
 
   it("branch selection adds children to exempted group", () => {
-    const exempted = { id: "s3xx.2", children: [] };
+    const exempted: { id: string; children: Array<{ id: string; content: string }> } = { id: "s3xx.2", children: [] };
 
     // Simulate branch selection
     exempted.children = [
