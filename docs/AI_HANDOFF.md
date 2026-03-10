@@ -114,7 +114,7 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - **Total: 98 tests passing across 14 files**.
 - Current coverage baseline: 66.89% lines, 67.18% functions, 69.60% branches.
 - Phase C + early Phase D add E2E and modal integration coverage for section 300 workflow.
-- Backend policy guard tests: **4 passing** (`cargo test test_policy_`).
+- Backend policy guard tests: **6 passing** (`cargo test test_policy_`).
 
 ## Critical Context
 
@@ -189,10 +189,12 @@ npm run test:coverage
   - AddSectionModal section 100/300 contract validation (101 block + create_section payload)
 - ✅ All 98 tests passing with zero regression.
 - ✅ Implemented backend policy guards (Phase D):
-   - Block references for questions in section group 300
-   - Block answer keys for questions in section group 300
-   - Block document branch changes after evaluation activity starts (allow no-op same branch)
-- ✅ Added backend policy tests (4 tests) and all passing.
+  - Block references for questions in section group 300
+  - Block answer keys for questions in section group 300
+  - Block document branch changes after evaluation activity starts (allow no-op same branch)
+- ✅ Added backend policy consistency update:
+  - Block `update_answer_key` for questions in section group 300 (same policy as replace API)
+- ✅ Added backend policy tests (6 tests) and all passing.
 - ✅ Committed and pushed updates on `testing-infrastructure-feature`.
 
 ## Fast Start Commands

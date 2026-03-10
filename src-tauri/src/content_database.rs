@@ -5432,6 +5432,16 @@ pub fn get_question_answer_keys(question_id: String) -> Result<Vec<AnswerKey>, S
 #[tauri::command]
 pub fn update_answer_key(question_id: String, sub_code: String, new_text: String) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    update_answer_key_with_conn(&conn, question_id, sub_code, new_text)
+}
+
+fn update_answer_key_with_conn(
+    conn: &Connection,
+    question_id: String,
+    sub_code: String,
+    new_text: String,
+) -> Result<String, String> {
+    ensure_section_300_policy_allows_question_action(conn, &question_id, "answer keys")?;
 
     let trimmed = new_text.trim().to_string();
 
@@ -6207,6 +6217,89 @@ mod tests {
 
         assert!(res.is_err());
         assert!(res.unwrap_err().contains("Section 300 does not allow answer keys"));
+    }
+
+    #[test]
+    fn test_policy_blocks_update_answer_key_in_section_300() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-AK-UPD', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (1, 'DOC-AK-UPD', 300, 301, 'S301', '301', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, question_type, is_group_header, is_scored)
+             VALUES ('QAKUPD300', 'DOC-AK-UPD', 1, NULL, 1, 'Q', 0, 'normal', 0, 1)",
+            [],
+        )
+        .expect("Failed to create question");
+
+        let res = update_answer_key_with_conn(
+            &conn,
+            "QAKUPD300".to_string(),
+            "main".to_string(),
+            "Blocked".to_string(),
+        );
+
+        assert!(res.is_err());
+        assert!(res.unwrap_err().contains("Section 300 does not allow answer keys"));
+    }
+
+    #[test]
+    fn test_policy_allows_update_answer_key_in_section_200() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-AK-200', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (1, 'DOC-AK-200', 200, 201, 'S201', '201', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, question_type, is_group_header, is_scored)
+             VALUES ('QAK200', 'DOC-AK-200', 1, NULL, 1, 'Q', 0, 'normal', 0, 1)",
+            [],
+        )
+        .expect("Failed to create question");
+
+        let res = update_answer_key_with_conn(
+            &conn,
+            "QAK200".to_string(),
+            "main".to_string(),
+            "Allowed".to_string(),
+        );
+
+        assert!(res.is_ok());
+
+        let key_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = 'QAK200'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count answer keys");
+
+        assert_eq!(key_count, 1);
     }
 
     #[test]

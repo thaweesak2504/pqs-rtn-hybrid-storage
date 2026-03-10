@@ -319,3 +319,43 @@ Next 1-3 actions:
 1. Add frontend integration assertions for new backend policy error messages.
 2. Decide if `update_answer_key` should also enforce Section 300 guard for full API consistency.
 3. Prepare Phase D completion checklist once policy scope is finalized.
+
+---
+
+## 2026-03-10 (Phase D In Progress - Policy Consistency Update)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Ensure answer-key policy is consistent across all relevant APIs for section 300.
+
+Changes made:
+
+- Added section 300 guard to `update_answer_key` (not only `replace_question_answer_keys`).
+- Added helper-based implementation path so policy can be tested with in-memory connection.
+- Added 2 new backend policy tests:
+  - block `update_answer_key` in section 300
+  - allow `update_answer_key` in section 200
+
+Files touched:
+
+- `src-tauri/src/content_database.rs`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `cd src-tauri; cargo test test_policy_`
+- Result: ✅ 6/6 tests passed
+- Command: `npm run test:integration -- src/test/integration/AddSectionModal.integration.test.tsx src/test/integration/EditMetadataModal.integration.test.tsx`
+- Result: ✅ 64/64 tests passed (9 files)
+
+Risk check:
+
+- Regression risk: Low (narrow policy guard extension with targeted tests).
+- Manual test needed: Optional (verify error feedback in one section 300 answer-key UI path).
+
+Next 1-3 actions:
+
+1. Add frontend assertion test for section 300 answer-key error handling path.
+2. Confirm wording of policy error messages with product expectation.
+3. Prepare Phase D completion update if no further policy scope changes.
