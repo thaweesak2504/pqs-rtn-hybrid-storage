@@ -5435,6 +5435,202 @@ mod tests {
     use crate::test_helpers::helpers::*;
 
     // ========================================================================
+    // Template Seeding Tests
+    // ========================================================================
+
+    #[test]
+    fn test_seed_section_300_creates_correct_structure() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        // Create test document
+        let doc_id = "22724201001";
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?, 'Test Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [doc_id],
+        ).expect("Failed to create document");
+
+        // Create test section
+        conn.execute(
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (?, 300, 301, 'Section 301', '301', 1)",
+            [doc_id],
+        ).expect("Failed to create section");
+
+        let section_id: i64 = conn.query_row(
+            "SELECT id FROM Sections WHERE document_id = ?1",
+            [doc_id],
+            |row| row.get(0),
+        ).expect("Failed to get section id");
+
+        // Seed template
+        seed_section_300_template(&conn, doc_id, section_id, 301).expect("Failed to seed template");
+
+        // Verify 7 L1 questions created
+        let l1_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Failed to count L1");
+
+        assert_eq!(l1_count, 7, "Should have 7 L1 questions (3xx.1 through 3xx.7)");
+
+        // Verify 3xx.1 has 5 children
+        let q1_id: String = conn.query_row(
+            "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND sequence = 1",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Failed to get q1");
+
+        let q1_children: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+            [&q1_id],
+            |row| row.get(0),
+        ).expect("Failed to count q1 children");
+
+        assert_eq!(q1_children, 5, "3xx.1 should have 5 children");
+
+        // Verify 3xx.7 has 2 children
+        let q7_id: String = conn.query_row(
+            "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND sequence = 7",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Failed to get q7");
+
+        let q7_children: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+            [&q7_id],
+            |row| row.get(0),
+        ).expect("Failed to count q7 children");
+
+        assert_eq!(q7_children, 2, "3xx.7 should have 2 children");
+    }
+
+    #[test]
+    fn test_seed_section_300_scoring_flags() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        let doc_id = "22724201001";
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?, 'Test', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [doc_id],
+        ).expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (?, 300, 301, 'Test', '301', 1)",
+            [doc_id],
+        ).expect("Failed to create section");
+
+        let section_id: i64 = conn.query_row(
+            "SELECT id FROM Sections WHERE document_id = ?1",
+            [doc_id],
+            |row| row.get(0),
+        ).expect("Failed to get section");
+
+        seed_section_300_template(&conn, doc_id, section_id, 301).expect("Seed failed");
+
+        // Verify L1 questions are all group headers
+        let non_group_headers: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND is_group_header = 0",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(non_group_headers, 0, "All L1 questions should be group headers");
+
+        // Verify 3xx.1.1-3xx.1.3 are NOT scored (prerequisites)
+        let q1_id: String = conn.query_row(
+            "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND sequence = 1",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Failed to get q1");
+
+        let scored_prerequisites: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1 AND sequence BETWEEN 1 AND 3 AND is_scored = 1",
+            [&q1_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(scored_prerequisites, 0, "3xx.1.1-3xx.1.3 should NOT be scored");
+
+        // Verify 3xx.1.4-3xx.1.5 ARE scored
+        let scored_knowledge: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1 AND sequence BETWEEN 4 AND 5 AND is_scored = 1",
+            [&q1_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(scored_knowledge, 2, "3xx.1.4-3xx.1.5 should be scored");
+    }
+
+    #[test]
+    fn test_seed_section_300_exempted_defaults() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        let doc_id = "22724201001";
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?, 'Test', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [doc_id],
+        ).expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (?, 300, 301, 'Test', '301', 1)",
+            [doc_id],
+        ).expect("Failed to create section");
+
+        let section_id: i64 = conn.query_row(
+            "SELECT id FROM Sections WHERE document_id = ?1",
+            [doc_id],
+            |row| row.get(0),
+        ).expect("Failed to get section");
+
+        seed_section_300_template(&conn, doc_id, section_id, 301).expect("Seed failed");
+
+        // Verify 3xx.2-3xx.5 are exempted by default (group headers)
+        let exempted_groups: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions
+             WHERE section_id = ?1 AND parent_id IS NULL AND sequence BETWEEN 2 AND 5 AND question_type = 'exempted'",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(exempted_groups, 4, "3xx.2-3xx.5 should default to exempted type");
+
+        // Verify they have display_text
+        let with_display_text: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions
+             WHERE section_id = ?1 AND parent_id IS NULL AND sequence BETWEEN 2 AND 5 AND display_text IS NOT NULL",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(with_display_text, 4, "Exempted groups should have display_text");
+
+        // Verify 3xx.1.1-3xx.1.3 are exempted (prerequisites)
+        let q1_id: String = conn.query_row(
+            "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND sequence = 1",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Failed to get q1");
+
+        let exempted_prereqs: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions
+             WHERE parent_id = ?1 AND sequence BETWEEN 1 AND 3 AND question_type = 'exempted'",
+            [&q1_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(exempted_prereqs, 3, "3xx.1.1-3xx.1.3 should be exempted");
+    }
+
+    // ========================================================================
     // Pure Function Tests
     // ========================================================================
 

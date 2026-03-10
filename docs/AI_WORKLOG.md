@@ -124,7 +124,7 @@ Files touched:
 
 Validation run:
 
-- Command: Attempted `cargo test content_database::tests` 
+- Command: Attempted `cargo test content_database::tests`
 - Result: Schema updates successful, but unit test code had SQL string formatting errors - reverted test additions.
 
 Risk check:
@@ -143,5 +143,5 @@ Next 1-3 actions:
 1. Write backend unit tests with proper SQL execution on test Connection (not calling production helpers).
 2. Test template seeding baseline (3 tests).
 3. Test score calculation logic (4-5 tests covering exempted, group_score, cascade).
-2. Add integration tests for branch/answer-key/reference current contract behavior.
-3. Review and approve any future policy hardening as separate change.
+4. Add integration tests for branch/answer-key/reference current contract behavior.
+5. Review and approve any future policy hardening as separate change.

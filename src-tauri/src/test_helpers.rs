@@ -143,7 +143,7 @@ pub mod helpers {
             )",
             [],
         )?;
-        
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS QuestionAnswerKeys (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,7 +157,7 @@ pub mod helpers {
             )",
             [],
         )?;
-        
+
         conn.execute(
             "CREATE TABLE IF NOT EXISTS OccupationBranches (
                 code VARCHAR(10) PRIMARY KEY,
