@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-10
-Status: **Phase B Complete** - Frontend integration tests implemented, ready for Phase C
+Status: **Phase C Complete** - E2E workflow tests implemented, ready for Phase D
 
 ## Project Intent
 
@@ -68,6 +68,25 @@ Status: **Phase B Complete** - Frontend integration tests implemented, ready for
 3. Template structure validation without component coupling
 4. Cascade chain validation with realistic data scenarios
 
+## Phase C ✅ Complete (E2E Workflow & Coverage)
+
+**Goal:** Implement end-to-end workflow tests and raise template-related confidence.
+
+**Implemented Tests (3 tests):**
+
+1. **E2E Template Workflow** (new file) - `templateWorkflow.integration.test.ts`
+   - Create document -> create section 301 -> verify section 300 auto-seeding
+   - Verify exempted L1 groups (3xx.2-3xx.5)
+   - Persist document-level branch selection (main/sub)
+   - Verify score cascade from 3xx.1 scored children (seq 4-5)
+   - Verify section total matches expected L1 aggregation (no double count)
+
+**Files Modified:**
+
+- `src/test/integration/templateWorkflow.integration.test.ts` - Added Phase C workflow tests
+- `docs/AI_HANDOFF.md` - Phase status + next-session prompt update
+- `docs/AI_WORKLOG.md` - Session logging
+
 **Fast Start for Phase B:**
 
 ```bash
@@ -92,9 +111,9 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 - Frontend test stack is active: Vitest + Testing Library + jsdom. ✅
 - **Existing tests: 47 passing** (8 files).
 - **Phase B tests: 44 passing** (3 new files: QuestionRenderer.test.tsx, templateStructure.test.ts, branchAndCascade.test.ts).
-- **Total: 91 tests passing across 11 files**.
-- Current coverage baseline: 64.72% lines, 62.5% functions (before Phase B).
-- Phase B adds component + integration coverage for template system.
+- **Total: 94 tests passing across 12 files**.
+- Current coverage baseline: 66.89% lines, 67.18% functions, 69.10% branches.
+- Phase C adds E2E workflow integration coverage for section 300 behavior.
 
 ## Critical Context
 
@@ -122,26 +141,25 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 
 ✅ **Phase A (Backend Unit Tests)** - Complete (6 tests)
 ✅ **Phase B (Frontend Integration Tests)** - Complete (44 tests)
-⏳ **Phase C (E2E & Coverage)** - Next
+✅ **Phase C (E2E & Coverage)** - Complete (3 tests)
+⏳ **Phase D (Policy Hardening & UI Integration Coverage)** - Next
 
-- Full document/section workflow testing (create → seed → answer → score)
-- Coverage increase targeting template-related code
-- Branch selection integration with UI
-- Score cascade verification across full template tree
+- Add UI integration tests for branch selection and section creation modals
+- Align template constraints with explicit policy decisions (Section 300 guards)
+- Expand coverage targets to template-critical components/services
 
-**Starting Phase C (Next Session):**
+**Starting Phase D (Next Session):**
 
 ```bash
 # Run current baseline
 npm run test:run
 npm run test:coverage
 
-# Create E2E tests for:
-# 1. Create document → auto-seed section 300
-# 2. Select branch for 3xx.2-3xx.5
-# 3. Answer questions
-# 4. Verify scores cascade correctly
-# 5. Verify section total calculates accurately
+# Phase D focus:
+# 1. Add UI integration tests for EditMetadataModal branch selection
+# 2. Add UI integration tests for AddSectionModal section 300 creation contract
+# 3. Decide/encode policy for section 300 answer-key/reference/branch-lock behavior
+# 4. Increase template-related coverage visibility in vitest include targets
 ```
 
 ## Done Recently
@@ -160,6 +178,11 @@ npm run test:coverage
   - 15 template structure validation tests (`templateStructure.test.ts`)
   - 17 branch selection & cascade logic tests (`branchAndCascade.test.ts`)
 - ✅ All 91 tests passing with zero regression.
+- ✅ Implemented 3 E2E workflow tests (Phase C):
+  - create document -> create section 301 -> verify section 300 seeding
+  - persist document branch main/sub selection
+  - score cascade propagation + section total validation (no double count)
+- ✅ All 94 tests passing with zero regression.
 - ✅ Committed to `testing-infrastructure-feature` branch (3 commits total).
 
 ## Fast Start Commands
@@ -179,20 +202,21 @@ cargo test content_database::tests::test_cascade
 npm run test:run
 npm run test:integration
 npm run test:coverage
+npm run test:integration -- src/test/integration/templateWorkflow.integration.test.ts
 ```
 
-## Starting Phase C (New Conversation)
+## Starting Phase D (New Conversation)
 
 **What to say/share in new conversation:**
 
 1. **Initial prompt:**
 
    ```
-   I'm starting Phase C (E2E & coverage) of template system testing.
-   Phase A and Phase B are complete - see docs/AI_HANDOFF.md.
+   I'm starting Phase D (policy hardening & UI integration coverage) of template system testing.
+   Phase A, Phase B, and Phase C are complete - see docs/AI_HANDOFF.md.
 
-   Goal: Implement end-to-end workflow tests and increase template-related coverage.
-   Focus: section 300 branch selection, score cascade propagation, and section total validation.
+   Goal: harden template behavior contracts and expand UI integration coverage with no regression.
+   Focus: section 300 policy guards (answer keys/references/branch lock) and modal-level branch/section workflows.
 
    Please read:
    - docs/AI_HANDOFF.md (project context)

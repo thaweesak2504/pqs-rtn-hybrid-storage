@@ -194,3 +194,43 @@ Next 1-3 actions:
 3. Test score calculation logic (4-5 tests covering exempted, group_score, cascade).
 4. Add integration tests for branch/answer-key/reference current contract behavior.
 5. Review and approve any future policy hardening as separate change.
+
+---
+
+## 2026-03-10 (Phase C Complete - E2E Workflow & Coverage)
+
+Date: 2026-03-10
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Implement Phase C end-to-end workflow tests for template system and verify coverage baseline.
+
+Changes made:
+
+- Added E2E-style integration workflow tests for section 300 lifecycle in `src/test/integration/templateWorkflow.integration.test.ts`.
+- Validated create document -> create section 301 -> section 300 seed shape (including exempted 3xx.2-3xx.5).
+- Validated document branch persistence via update/get branch flow.
+- Validated score cascade from 3xx.1 scored children to parent group score and section total no-double-count behavior.
+- Updated handoff status and next-session starter prompt for Phase D.
+
+Files touched:
+
+- `src/test/integration/templateWorkflow.integration.test.ts`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `npm run test:integration`
+- Result: ✅ 60/60 tests passed (7 files)
+- Command: `npm run test:coverage`
+- Result: ✅ 94/94 tests passed (12 files), coverage: lines 66.89%, functions 67.18%, branches 69.10%
+
+Risk check:
+
+- Regression risk: Low (tests-first, no production runtime logic changes).
+- Manual test needed: No (automated coverage and integration suite green).
+
+Next 1-3 actions:
+
+1. Phase D: Add modal-level UI integration tests for branch and section creation workflows.
+2. Align section 300 policy constraints with explicit backend contract decisions.
+3. Expand template-focused coverage include targets for clearer reporting.
