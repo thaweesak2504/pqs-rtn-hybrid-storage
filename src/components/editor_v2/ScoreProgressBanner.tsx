@@ -162,7 +162,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
           <span className="font-normal font-sarabun">{toThaiNumerals(passedCount)}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50/60 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
-          <span className="opacity-80">รอตรวจ:</span>
+          <span className="opacity-80">รอประเมิน:</span>
           <span className="font-normal font-sarabun">{toThaiNumerals(pendingCount)}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50/60 dark:bg-rose-900/20 border border-rose-200/60 dark:border-rose-800/40 text-rose-700 dark:text-rose-400">

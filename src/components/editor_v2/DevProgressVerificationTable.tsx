@@ -191,7 +191,7 @@ const DevProgressVerificationTable: React.FC<DevProgressVerificationTableProps> 
                 <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{metrics.answers_passed}</div>
               </div>
               <div className="bg-white dark:bg-slate-900 px-4 py-4">
-                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">รอตรวจ / รอดำเนินการ</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">รอประเมิน / รอดำเนินการ</div>
                 <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{metrics.answers_pending}</div>
               </div>
               <div className="bg-white dark:bg-slate-900 px-4 py-4">
