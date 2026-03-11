@@ -1,7 +1,14 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
-Last updated: 2026-03-10
-Status: **Phase F In Progress** - QuestionTreeNode split completed, alert flow modernization + reference refresh fixes implemented, pending final manual verification
+Last updated: 2026-03-11
+Status: **Phase F Complete** - Manual verification passed, reference-progress label update finalized, ready for next phase
+
+## Phase F Closure (2026-03-11)
+
+- Manual verification passed across key functions with no regression found.
+- Progress banner wording aligned for Qualifier/Trainee views: `รอตรวจ` -> `รอประเมิน`.
+- Update committed and pushed on branch `phase-f-refactor-big-files`.
+- Repository prepared for next phase with final cleanup applied.
 
 ## Project Intent
 
@@ -146,7 +153,7 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 ✅ **Phase C (E2E & Coverage)** - Complete (3 tests)
 ✅ **Phase D (Policy Hardening & UI Integration Coverage)** - Complete
 ✅ **Phase E (Coverage Target Expansion & UX Guardrails)** - Complete
-⏳ **Phase F (Refactor Big Files Split)** - Next
+✅ **Phase F (Refactor Big Files Split)** - Complete
 
 - Expand coverage include targets to template-critical components/services
 - Add UX guardrails for backend policy errors in section 300 flows

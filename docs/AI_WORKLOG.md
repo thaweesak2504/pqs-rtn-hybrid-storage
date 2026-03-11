@@ -491,3 +491,41 @@ Next 1-3 actions:
 1. Start Phase F by extracting one unit from `AddQuestionModal.tsx` with no behavior change.
 2. Re-run targeted + baseline tests after each extraction step.
 3. Continue with `QuestionRenderer.tsx` extraction after first slice is stable.
+
+---
+
+## 2026-03-11 (Phase F Closeout + Final Clean)
+
+Date: 2026-03-11
+Agent/model: GitHub Copilot (GPT-5.3-Codex)
+Goal: Close Phase F after manual verification and perform final clean for next-phase readiness.
+
+Changes made:
+
+- Confirmed manual test status from user: core functions operate as before with no regression reported.
+- Finalized wording update in progress UI for Qualifier/Trainee context:
+  - `รอตรวจ` -> `รอประเมิน`
+- Updated handoff status to Phase F complete and next-phase ready.
+- Added TypeScript incremental artifact to ignore list (`tsconfig.tsbuildinfo`) for cleaner working tree.
+
+Files touched:
+
+- `.gitignore`
+- `docs/AI_HANDOFF.md`
+- `docs/AI_WORKLOG.md`
+
+Validation run:
+
+- Command: `git status --short ; git branch --show-current`
+- Result: Confirmed branch `phase-f-refactor-big-files`; only expected temporary artifact pending before cleanup.
+
+Risk check:
+
+- Regression risk: Low (docs + ignore cleanup; functional validation reported by manual test pass).
+- Manual test needed: No additional mandatory round for this closeout.
+
+Next 1-3 actions:
+
+1. Start next phase with updated handoff as the source of truth.
+2. Keep small-slice commits and preserve test baseline discipline.
+3. Run targeted checks first, then full suite before each phase close.
