@@ -862,3 +862,279 @@ describe("Section 300 Display Component", () => {
 **Last Updated:** 2026-03-09  
 **Status:** Phase B & C1 Complete ✅  
 **Next Phase:** Phase A (Rust) or Phase D (E2E) after refactoring
+
+---
+
+## Desktop E2E Master Plan (Ready To Use)
+
+> Scope: Desktop app only (Tauri), no browser-only coverage.
+> Goal: Replace slow, incomplete manual checks with repeatable end-to-end user-flow validation.
+
+### 1) Test Policy (Desktop First)
+
+- Primary test type: End-to-End (E2E) user journey on Desktop app.
+- Test level split:
+  - Smoke: block obvious breakage quickly.
+  - Core Flow: full create/edit/save/reopen workflows.
+  - Section 300 High Risk: strict regression guard for complex logic.
+  - Release Regression: full suite before release cut.
+- Pass criteria:
+  - Smoke: 100% pass.
+  - Core + 300: no critical failures.
+  - Release: 0 critical, 0 high, no data corruption.
+
+### 2) Desktop Environment Matrix
+
+| Layer    | Required Baseline                                          |
+| -------- | ---------------------------------------------------------- |
+| OS       | Windows 11                                                 |
+| App Mode | `npm run tauri` (dev) + release-like validation before cut |
+| Viewport | 1366x768 and 1920x1080                                     |
+| Data     | Clean DB before each suite run                             |
+| Evidence | Screenshot + app logs + failing step details               |
+
+### 3) Standard Run Sequence (Every Cycle)
+
+1. Start app:
+   - `npm run tauri`
+2. Reset to clean state (document + section data) before each suite.
+3. Run Smoke suite.
+4. Run Core Flow suite.
+5. Run Section 300 High-Risk suite.
+6. Capture evidence for failures and classify severity.
+7. Re-run only failed cases once to separate flaky from real defects.
+
+### 4) Severity Model
+
+- Critical:
+  - App crash/freeze/data-loss.
+  - Cannot create/save/open document.
+- High:
+  - Section 300 scoring/branching/required-count logic incorrect.
+  - Wrong validation allows invalid save.
+- Medium:
+  - Incorrect warning text, non-blocking UI flow mismatch.
+- Low:
+  - Cosmetic issues with no business impact.
+
+### 5) Desktop E2E Case Matrix (Execution Ready)
+
+Use IDs below in test reports and defect tickets.
+
+| ID        | Suite | Scenario                                       | Priority | Expected Result                                |
+| --------- | ----- | ---------------------------------------------- | -------- | ---------------------------------------------- |
+| D-E2E-001 | Smoke | Launch app from clean state                    | P0       | App loads, no crash, main UI visible           |
+| D-E2E-002 | Smoke | Create new document with minimum fields        | P0       | Document created and listed                    |
+| D-E2E-003 | Smoke | Reopen created document                        | P0       | Correct document loads                         |
+| D-E2E-004 | Smoke | Add Section 100                                | P0       | Section appears in tree/menu                   |
+| D-E2E-005 | Smoke | Add Section 200                                | P0       | Section appears in tree/menu                   |
+| D-E2E-006 | Smoke | Add Section 300                                | P0       | Section appears in tree/menu                   |
+| D-E2E-007 | Smoke | Close and reopen app                           | P0       | Data persists after relaunch                   |
+| D-E2E-008 | Smoke | Delete test document                           | P1       | Document removed cleanly                       |
+| D-E2E-101 | Core  | Add L1 question in Section 100 and save        | P0       | Row persists after reopen                      |
+| D-E2E-102 | Core  | Add L2 under L1 and edit content               | P0       | Tree and content update correctly              |
+| D-E2E-103 | Core  | Validation: save with empty content            | P0       | Save blocked and warning shown                 |
+| D-E2E-104 | Core  | Toggle required reference on, save without ref | P0       | Save blocked                                   |
+| D-E2E-105 | Core  | Link 1-2 references with page value            | P0       | Link saved with page text                      |
+| D-E2E-106 | Core  | Reference limit >2                             | P0       | Selection blocked with warning                 |
+| D-E2E-107 | Core  | Invalid page format in reference               | P0       | Inline error + save blocked                    |
+| D-E2E-108 | Core  | Toggle required answer key on, leave blank     | P0       | Save blocked                                   |
+| D-E2E-109 | Core  | Fill answer key and save                       | P0       | Save success                                   |
+| D-E2E-110 | Core  | Upload image then remove image                 | P1       | Image state saved and removed correctly        |
+| D-E2E-111 | Core  | Ctrl+Enter save shortcut                       | P1       | Saves same as Save button                      |
+| D-E2E-112 | Core  | Cancel from edit form                          | P1       | No unintended mutation                         |
+| D-E2E-113 | Core  | Delete parent with children warning flow       | P0       | Warning shown and behavior correct             |
+| D-E2E-114 | Core  | Reorder sections/questions                     | P1       | Order persists after reopen                    |
+| D-E2E-301 | 300   | 3xx.1 prerequisite parent default description  | P0       | Locked default text shown                      |
+| D-E2E-302 | 300   | 3xx.1.1 child toggle exempted/normal           | P0       | Question type and display text persist         |
+| D-E2E-303 | 300   | 3xx.1.3 selector: choose linked sections       | P0       | L3 links created/removed correctly             |
+| D-E2E-304 | 300   | 3xx.1.4 selector excludes current section      | P0       | Self-section disabled                          |
+| D-E2E-305 | 300   | 3xx.1.5 selector total score aggregation       | P0       | Total equals sum of linked child scores        |
+| D-E2E-306 | 300   | L2 performance question set required count > 0 | P0       | Required-instance children synced              |
+| D-E2E-307 | 300   | Change score per instance then sync            | P0       | Child scores update correctly                  |
+| D-E2E-308 | 300   | required count from n to n-1                   | P0       | Extra children removed safely                  |
+| D-E2E-309 | 300   | required count from n to n+1                   | P0       | New children appended correctly                |
+| D-E2E-310 | 300   | L2 with required count = 0 uses manual score   | P0       | Manual score path active                       |
+| D-E2E-311 | 300   | Switch to exempted on node with children       | P0       | Warning shown and child cleanup follows policy |
+| D-E2E-312 | 300   | Group header auto-calc display                 | P0       | Scoring controls disabled where required       |
+| D-E2E-313 | 300   | 3xx.6 L1 sync required count children          | P0       | L2 children generated with expected labels     |
+| D-E2E-314 | 300   | 3xx.7 fixed-practice constraints               | P0       | Exempted/scoring controls hidden as designed   |
+| D-E2E-315 | 300   | Save -> close app -> reopen verification       | P0       | Full Section 300 state persists                |
+
+### 6) Daily Execution Template
+
+Run this exact order for fast and stable throughput:
+
+1. Smoke: D-E2E-001 .. D-E2E-008
+2. Core minimal: D-E2E-101, 103, 105, 107, 108, 109, 113
+3. Section 300 minimal: D-E2E-303, 306, 308, 311, 315
+4. If all pass, continue full suite.
+
+### 7) Release Gate Template
+
+Before release tag:
+
+1. Run full Smoke + Core + 300 suite.
+2. Re-run failures once.
+3. Open blocker for any Critical/High.
+4. Require all P0 tests pass before cut.
+
+### 8) Reporting Template (Copy/Paste)
+
+Use this format in PR or test report:
+
+- Build: <commit>
+- Environment: Windows 11 / Desktop mode
+- Suites run: Smoke, Core, 300
+- Result: <passed>/<total>
+- Failed IDs: <list>
+- Severity summary: Critical <n>, High <n>, Medium <n>, Low <n>
+- Data integrity check: Pass/Fail
+- Notes: <short evidence summary>
+
+### 9) Recommended Next Automation Step
+
+To remove manual bottlenecks, automate in this order:
+
+1. Automate Smoke suite first (8 cases).
+2. Automate 300 high-risk set (D-E2E-303, 306, 308, 311, 315).
+3. Automate remaining Core flow.
+
+This sequence gives the highest risk reduction in the shortest time.
+
+### 10) Phased Delivery Plan (Desktop E2E)
+
+Use this as the official rollout roadmap from manual-heavy process to reliable automated Desktop E2E.
+
+| Phase   | Objective                            | Duration | Main Output                                      |
+| ------- | ------------------------------------ | -------- | ------------------------------------------------ |
+| Phase 0 | Stabilize baseline and test data     | 1-2 days | Repeatable clean test environment                |
+| Phase 1 | Build smoke automation gate          | 2-3 days | Automated P0 smoke checks                        |
+| Phase 2 | Automate core user workflow          | 4-6 days | End-to-end create/edit/save/reopen coverage      |
+| Phase 3 | Automate Section 300 high-risk paths | 5-7 days | Scoring/required-count/exempted regression guard |
+| Phase 4 | Release gate and operationalization  | 2-3 days | CI/CD gate + reporting + triage workflow         |
+
+#### Phase 0 - Baseline Stabilization
+
+- Scope:
+  - Define clean-state reset procedure (DB + document data).
+  - Standardize seed data and naming conventions for test artifacts.
+  - Finalize failure evidence collection format (screenshot/log/step).
+- Entry criteria:
+  - Desktop app boot is stable on Windows 11.
+  - Team agrees on one runbook.
+- Exit criteria:
+  - Same test run gives same result on 3 consecutive runs.
+  - Reset flow is documented and verified.
+- Deliverables:
+  - Baseline runbook.
+  - Data reset checklist.
+  - Defect reporting template in active use.
+
+#### Phase 1 - Smoke Automation Gate
+
+- Scope:
+  - Automate D-E2E-001 .. D-E2E-008.
+  - Add fast pre-merge gate for smoke failures.
+- Entry criteria:
+  - Phase 0 complete.
+  - Stable selectors/test hooks available for critical UI actions.
+- Exit criteria:
+  - Smoke suite pass rate >= 98% for 1 week.
+  - Mean smoke runtime <= 10 minutes.
+- Deliverables:
+  - Automated smoke job.
+  - Failure artifacts attached automatically.
+  - Smoke dashboard (pass/fail trend).
+
+#### Phase 2 - Core Workflow Automation
+
+- Scope:
+  - Automate D-E2E-101 .. D-E2E-114.
+  - Cover validations, references, answer key, save/cancel, reopen persistence.
+- Entry criteria:
+  - Phase 1 gate active and stable.
+- Exit criteria:
+  - All P0 core cases fully automated and passing.
+  - Flaky rate < 2% over last 50 runs.
+- Deliverables:
+  - Core workflow automation pack.
+  - Triage labels by severity and ownership.
+  - Known-issues list for non-blocking defects.
+
+#### Phase 3 - Section 300 High-Risk Automation
+
+- Scope:
+  - Automate D-E2E-301 .. D-E2E-315.
+  - Focus on prerequisite, selector linkage, required count sync, exempted cleanup, score aggregation.
+- Entry criteria:
+  - Phase 2 complete.
+  - Required backend commands and UI states are deterministic.
+- Exit criteria:
+  - All P0 cases in 300 suite pass.
+  - Zero unresolved High defects in 300 scoring logic.
+- Deliverables:
+  - 300 regression guard suite.
+  - Score consistency verification checklist.
+  - High-risk rollback procedure.
+
+#### Phase 4 - Release Gate + Operations
+
+- Scope:
+  - Enforce full E2E gate before release cut.
+  - Add reporting and triage ceremony.
+- Entry criteria:
+  - Phases 1-3 complete.
+- Exit criteria:
+  - Release cannot proceed when any P0 fails.
+  - Weekly quality report published continuously.
+- Deliverables:
+  - Release gate policy.
+  - Weekly report format and owner rotation.
+  - Incident response flow for broken E2E pipelines.
+
+### 11) Definition of Done (Per Phase)
+
+Each phase is complete only when all items below are true:
+
+1. Automation coverage implemented for targeted case IDs.
+2. CI run is green for required branch policy.
+3. Failures produce usable artifacts (logs + screenshot + failed step).
+4. Runbook updated with latest execution commands.
+5. Team sign-off recorded in test report.
+
+### 12) Ownership Model
+
+| Area                | Primary Owner                 | Backup Owner      |
+| ------------------- | ----------------------------- | ----------------- |
+| Smoke suite         | Frontend engineer             | QA engineer       |
+| Core workflow suite | QA engineer                   | Frontend engineer |
+| Section 300 suite   | Domain owner (template logic) | QA engineer       |
+| CI gate + infra     | DevOps/Build owner            | Frontend engineer |
+| Defect triage       | QA lead                       | Feature owner     |
+
+### 13) Risk Register and Mitigation
+
+| Risk                        | Impact                    | Mitigation                                                  |
+| --------------------------- | ------------------------- | ----------------------------------------------------------- |
+| Flaky timing issues         | False failures, low trust | Replace static waits with state-based waits                 |
+| Shared test data collisions | Random failures           | Unique test IDs + strict cleanup                            |
+| UI selector instability     | Frequent test breakage    | Add stable data-testid for critical controls                |
+| Long runtime                | Slow feedback loop        | Split suite: smoke/core/300, run in parallel where possible |
+| Environment drift           | Non-reproducible failures | Pin test environment and reset baseline per run             |
+
+### 14) Weekly Operating Rhythm
+
+1. Monday: run full suite baseline and review previous week defects.
+2. Daily: run smoke on every change, run core/300 on risk-tagged PRs.
+3. Wednesday: flaky triage and stabilization hour.
+4. Friday: publish quality report and update risk list.
+
+### 15) Suggested Milestone Targets
+
+- Milestone A: Phase 1 complete (Smoke gate live).
+- Milestone B: Phase 2 complete (Core workflow protected).
+- Milestone C: Phase 3 complete (Section 300 fully guarded).
+- Milestone D: Phase 4 complete (release policy enforced).
+
+When all milestones are complete, manual testing moves to exploratory-only mode (not regression baseline).
