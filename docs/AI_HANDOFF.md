@@ -1,7 +1,7 @@
 # AI Handoff - PQS RTN Hybrid Storage
 
 Last updated: 2026-03-11
-Status: **Phase F Complete** - Manual verification passed, reference-progress label update finalized, ready for next phase
+Status: **Phase G Complete** - Editor v2 coverage hardening complete (G.1-G.4), automated regression guards added, ready for next feature/refactor round
 
 ## Phase F Closure (2026-03-11)
 
@@ -9,6 +9,13 @@ Status: **Phase F Complete** - Manual verification passed, reference-progress la
 - Progress banner wording aligned for Qualifier/Trainee views: `รอตรวจ` -> `รอประเมิน`.
 - Update committed and pushed on branch `phase-f-refactor-big-files`.
 - Repository prepared for next phase with final cleanup applied.
+
+## Phase G Closure (2026-03-11)
+
+- Completed G.1-G.4 on branch `phase-f-refactor-big-files` and pushed all commits.
+- Added 5 new editor_v2 regression test files (progress banner + display card + form card + tree node).
+- Latest automated status: **150/150 tests passing**.
+- Coverage include now tracks all critical editor_v2 targets (`ScoreProgressBanner`, `DevProgressVerificationTable`, `QuestionDisplayCard`, `QuestionFormCard`, `QuestionTreeNode`).
 
 ## Project Intent
 
@@ -154,13 +161,13 @@ grep -r "QuestionAnswerForm\|SectionSelector" src/components/
 ✅ **Phase D (Policy Hardening & UI Integration Coverage)** - Complete
 ✅ **Phase E (Coverage Target Expansion & UX Guardrails)** - Complete
 ✅ **Phase F (Refactor Big Files Split)** - Complete
-⏳ **Phase G (Editor v2 Test Coverage Hardening)** - Next
+✅ **Phase G (Editor v2 Test Coverage Hardening)** - Complete
 
 - Phase G covers four sub-phases, each with its own New Chat Initial prompt (see ## Phase G section below)
 - Goal: add automated regression guards for editor_v2 before new features are added
 - Sub-phases run sequentially; each must pass 100% before next begins
 
-**Starting Phase G — see sub-phase Initial prompts in the ## Phase G section below.**
+**Phase G complete — use this handoff as baseline before starting the next implementation phase.**
 
 ## Done Recently
 
@@ -409,13 +416,13 @@ Manual analysis (2026-03-11) identified that the `editor_v2` component family ha
 
 **Current test gap summary:**
 
-| File | Lines | Tests | Risk |
-|------|-------|-------|------|
-| QuestionFormCard.tsx | 2,491 | 0 | High |
-| QuestionDisplayCard.tsx | 629 | 0 | High |
-| QuestionTreeNode.tsx | 462 | 0 | Medium |
-| ScoreProgressBanner.tsx | 170 | 0 | Medium (text regress guard) |
-| DevProgressVerificationTable.tsx | 201 | 0 | Low |
+| File                             | Lines | Tests | Risk                        |
+| -------------------------------- | ----- | ----- | --------------------------- |
+| QuestionFormCard.tsx             | 2,491 | 0     | High                        |
+| QuestionDisplayCard.tsx          | 629   | 0     | High                        |
+| QuestionTreeNode.tsx             | 462   | 0     | Medium                      |
+| ScoreProgressBanner.tsx          | 170   | 0     | Medium (text regress guard) |
+| DevProgressVerificationTable.tsx | 201   | 0     | Low                         |
 
 **Coverage config gap:** `vitest.config.ts` coverage `include` list does not contain any `editor_v2` file — regressions would be invisible to automated reports.
 
@@ -426,6 +433,7 @@ Manual analysis (2026-03-11) identified that the `editor_v2` component family ha
 **Goal:** Expand coverage `include` to editor_v2 critical files; add regression assertions for the UI text labels that were recently updated (`รอประเมิน`, etc.) so future text changes cannot silently regress.
 
 **Tests to write (target ~8 tests):**
+
 - `ScoreProgressBanner` renders `รอประเมิน` label (not `รอตรวจ`)
 - `ScoreProgressBanner` renders `ผ่าน`, `รอประเมิน`, `ปรับปรุง`, `ส่งคำตอบ`, `คะแนนสะสม` labels correctly
 - `DevProgressVerificationTable` renders `รอประเมิน / รอดำเนินการ` label (not `รอตรวจ`)
@@ -433,10 +441,12 @@ Manual analysis (2026-03-11) identified that the `editor_v2` component family ha
 - `ScoreProgressBanner` shows correct values for all prop combinations
 
 **Files to create:**
+
 - `src/test/components/ScoreProgressBanner.test.tsx`
 - `src/test/components/DevProgressVerificationTable.test.tsx`
 
 **Files to modify:**
+
 - `vitest.config.ts` — add `editor_v2/ScoreProgressBanner.tsx`, `editor_v2/DevProgressVerificationTable.tsx`, `editor_v2/QuestionDisplayCard.tsx`, `editor_v2/QuestionFormCard.tsx`, `editor_v2/QuestionTreeNode.tsx` to coverage `include`
 
 **Validation:** `npm run test:coverage` — new files appear in report with line coverage
@@ -475,6 +485,7 @@ Please read docs/AI_HANDOFF.md first.
 **Goal:** Add integration tests covering the view-mode branching and action-menu visibility logic in `QuestionDisplayCard` — the read path that every question renders through in all modes.
 
 **Tests to write (target ~12 tests):**
+
 - Edit mode: shows action dropdown, not in qualifier/trainee/visitor mode
 - Score badge renders correctly for group header (L1) vs individual scored question
 - Oral assessment status badge: renders `รอประเมิน` when pending, `ผ่าน` when passed
@@ -487,6 +498,7 @@ Please read docs/AI_HANDOFF.md first.
 - Section selector warning renders when no children linked
 
 **Files to create:**
+
 - `src/test/integration/QuestionDisplayCard.integration.test.tsx`
 
 **Initial prompt (copy to New Chat):**
@@ -525,7 +537,8 @@ Please read docs/AI_HANDOFF.md first.
 
 **Tests to write (target ~15 tests):**
 
-*Reference editor flows:*
+_Reference editor flows:_
+
 - Opens reference selector when toggled
 - Selecting ref updates draftSelectedRefIds; deselecting removes it
 - Attempting to select 3rd ref shows alert (max 2 limit)
@@ -533,21 +546,25 @@ Please read docs/AI_HANDOFF.md first.
 - Valid page format clears error
 - Saving references updates linkedRefs and closes editor
 
-*Core save flow:*
+_Core save flow:_
+
 - Empty content shows validation error; does not call onSave
 - Valid content calls onSave with correct payload
 - `requireRef=true` + no linked refs → shows validation error
 - `requireAnswerKey=true` + empty answer key → shows validation error
 
-*Section 300 policy guards in form:*
+_Section 300 policy guards in form:_
+
 - Reference editor section not rendered when `sectionGroup=300`
 - Answer key section not rendered when `sectionGroup=300`
 
-*Score section:*
+_Score section:_
+
 - Score input visible only when `is_scored=true`
 - Changing score type to `exempted` hides score inputs
 
 **Files to create:**
+
 - `src/test/integration/QuestionFormCard.integration.test.tsx`
 
 **Initial prompt (copy to New Chat):**
@@ -594,6 +611,7 @@ Please read docs/AI_HANDOFF.md first.
 **Goal:** Add integration tests for the tree routing logic — verifying that `QuestionTreeNode` renders the correct sub-component given different editing states, and that recursive child propagation passes the right props.
 
 **Tests to write (target ~10 tests):**
+
 - When `editingId === question.id` and `useInlineScoreForm=true` → renders inline score form (not QuestionFormCard)
 - When `editingId === question.id` and normal question → renders QuestionFormCard
 - When `editingId !== question.id` → renders QuestionDisplayCard
@@ -606,6 +624,7 @@ Please read docs/AI_HANDOFF.md first.
 - `canInsertSibling` flag: no insert-after form for required_instance children
 
 **Files to create:**
+
 - `src/test/integration/QuestionTreeNode.integration.test.tsx`
 
 **Initial prompt (copy to New Chat):**
@@ -643,13 +662,13 @@ Please read docs/AI_HANDOFF.md first.
 
 ### Phase G — Summary Table
 
-| Sub-phase | Focus | Target tests | Risk | New files |
-|-----------|-------|:-----------:|------|----------|
-| G.1 | Coverage config + banner text guard | ~8 | None | 2 test files, vitest.config.ts |
-| G.2 | QuestionDisplayCard view-mode logic | ~12 | Very Low | 1 test file |
-| G.3 | QuestionFormCard behavior boundaries | ~15 | Low | 1 test file |
-| G.4 | QuestionTreeNode routing logic | ~10 | Low | 1 test file |
-| **Total** | | **~45** | | **5 files** |
+| Sub-phase | Focus                                | Target tests | Risk     | New files                      |
+| --------- | ------------------------------------ | :----------: | -------- | ------------------------------ |
+| G.1       | Coverage config + banner text guard  |      ~8      | None     | 2 test files, vitest.config.ts |
+| G.2       | QuestionDisplayCard view-mode logic  |     ~12      | Very Low | 1 test file                    |
+| G.3       | QuestionFormCard behavior boundaries |     ~15      | Low      | 1 test file                    |
+| G.4       | QuestionTreeNode routing logic       |     ~10      | Low      | 1 test file                    |
+| **Total** |                                      |   **~45**    |          | **5 files**                    |
 
 **After Phase G completes:** ~152 tests total. All major editor_v2 behavior boundaries will have automated regression guards before the next feature round begins. Refactor round 2 (QuestionFormCard split) can then proceed safely.
 
