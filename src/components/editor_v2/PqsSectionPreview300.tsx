@@ -217,6 +217,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
   const contentOffsetClass = level === 0 ? 'ml-0' : 'ml-[9ch]';
+  const isExamChildPrintNode = level === 1 && parentPath.endsWith(`.${toThaiNumber(7)}`);
 
   return (
     <div className="flex flex-col">
@@ -262,6 +263,13 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
 
       {/* Description (L0 only) */}
       {level === 0 && question.description && (
+        <div className={`mt-1 ml-[9ch] whitespace-pre-line indent-6`}>
+          {question.description}
+        </div>
+      )}
+
+      {/* Description for 3xx.7.1 and 3xx.7.2 in print layout */}
+      {isExamChildPrintNode && question.description && (
         <div className={`mt-1 ml-[9ch] whitespace-pre-line indent-6`}>
           {question.description}
         </div>
