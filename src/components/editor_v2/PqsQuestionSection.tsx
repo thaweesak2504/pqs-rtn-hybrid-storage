@@ -453,6 +453,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         const question = questions.find((q) => q.id === id);
         const oldRefs = question?.references || [];
         const newRefs = references;
+        const normalizeLocationText = (value: string | null | undefined) => {
+          const trimmed = value?.trim();
+          return trimmed ? trimmed : null;
+        };
 
         // Diffing
         const toAdd = newRefs.filter(
@@ -461,6 +465,11 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         const toRemove = oldRefs.filter(
           (or) => !newRefs.some((nr) => nr.reference.id === or.reference.id),
         );
+        const toUpdate = newRefs.filter((nr) => {
+          const oldRef = oldRefs.find((or) => or.reference.id === nr.reference.id);
+          if (!oldRef) return false;
+          return normalizeLocationText(oldRef.location_text) !== normalizeLocationText(nr.location_text);
+        });
 
         // Execute Additions
         for (const ref of toAdd) {
@@ -477,6 +486,14 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         for (const ref of toRemove) {
           await invoke("remove_question_reference", { id: ref.id });
         }
+
+        // Update page number/location for existing links
+        for (const ref of toUpdate) {
+          await invoke("update_question_reference_location", {
+            id: ref.id,
+            locationText: normalizeLocationText(ref.location_text),
+          });
+        }
       }
 
       // Optimistic: patch local state immediately
@@ -484,7 +501,13 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       // so that null/empty metadata actually clears the field instead of falling back to old value
       setQuestions(prev => prev.map(q =>
         q.id === id
-          ? { ...q, content: content.trim(), description: finalDesc !== undefined ? finalDesc : q.description, metadata: finalMeta !== undefined ? finalMeta : q.metadata }
+          ? {
+            ...q,
+            content: content.trim(),
+            description: finalDesc !== undefined ? finalDesc : q.description,
+            metadata: finalMeta !== undefined ? finalMeta : q.metadata,
+            references: references !== undefined ? references : q.references,
+          }
           : q
       ));
       resetForms();

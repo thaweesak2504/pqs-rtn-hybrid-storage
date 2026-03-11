@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    FileDigit,
-    FileText,
-    Globe,
-    GripVertical,
-    ImageIcon,
-    ListChecks,
-    Lock as LockIcon,
-    Mic,
-    Pencil,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  FileDigit,
+  FileText,
+  Globe,
+  GripVertical,
+  ImageIcon,
+  ListChecks,
+  Lock as LockIcon,
+  Mic,
+  Pencil,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-    DEFAULT_L1_DESC_BY_SEQ,
-    convertThaiToArabic,
-    toThaiAlphabet,
-    toThaiNumber
+  DEFAULT_L1_DESC_BY_SEQ,
+  convertThaiToArabic,
+  toThaiAlphabet,
+  toThaiNumber
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -97,6 +97,9 @@ interface AnswerKeyRow {
 }
 
 const EMPTY_REFS: QuestionReferenceDetail[] = [];
+const REFERENCE_PAGE_ALLOWED_CHARS = /^[0-9-]*$/;
+const REFERENCE_PAGE_VALID_FORMAT = /^(?:\d+|\d+-\d+)$/;
+const REFERENCE_PAGE_ERROR_MESSAGE = "รูปแบบเลขหน้าไม่ถูกต้อง: ใช้เลขอารบิก และ - เท่านั้น เช่น 5 หรือ 2-56 ฯ";
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   prefix,
@@ -708,8 +711,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // Reference Linking State
   const [availableRefs, setAvailableRefs] = useState<SectionReferenceDetail[]>([]);
   const [linkedRefs, setLinkedRefs] = useState<QuestionReferenceDetail[]>(initialReferences);
-  const [selectedRefId, setSelectedRefId] = useState<string>("");
-  const [pageInput, setPageInput] = useState<string>("");
+  const [draftSelectedRefIds, setDraftSelectedRefIds] = useState<string[]>(() =>
+    initialReferences.map((ref) => ref.reference.id.toString()),
+  );
+  const [draftPageByRefId, setDraftPageByRefId] = useState<Record<string, string>>(() =>
+    initialReferences.reduce<Record<string, string>>((acc, ref) => {
+      acc[ref.reference.id.toString()] = ref.location_text || "";
+      return acc;
+    }, {}),
+  );
+  const [draftPageErrors, setDraftPageErrors] = useState<Record<string, string>>({});
   const [answerKey, setAnswerKey] = useState<string>("");
   const [answerKeys, setAnswerKeys] = useState<Record<string, string>>({});
 
@@ -885,44 +896,104 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [requireRef, sectionId, usageRefreshKey]);
 
-  const handleAddReference = async () => {
-    if (!selectedRefId) return;
-    const refIdNum = parseInt(selectedRefId);
-    const selectedRef = availableRefs.find((r) => r.reference.id === refIdNum);
-    if (!selectedRef) return;
+  const syncReferenceDraftFromLinkedRefs = useCallback(() => {
+    setDraftSelectedRefIds(linkedRefs.map((ref) => ref.reference.id.toString()));
+    setDraftPageByRefId(
+      linkedRefs.reduce<Record<string, string>>((acc, ref) => {
+        acc[ref.reference.id.toString()] = ref.location_text || "";
+        return acc;
+      }, {}),
+    );
+    setDraftPageErrors({});
+  }, [linkedRefs]);
 
-    if (linkedRefs.some((r) => r.reference.id === refIdNum)) {
-      if (onAlert) onAlert("เอกสารนี้ถูกเชื่อมโยงแล้ว", "warning");
+  const handleToggleReferenceEditor = () => {
+    if (!isRefExpanded) syncReferenceDraftFromLinkedRefs();
+    setIsRefExpanded((prev) => !prev);
+  };
+
+  const handleToggleDraftReference = (refId: string) => {
+    if (draftSelectedRefIds.includes(refId)) {
+      setDraftSelectedRefIds((prev) => prev.filter((id) => id !== refId));
+      setDraftPageErrors((prev) => {
+        const next = { ...prev };
+        delete next[refId];
+        return next;
+      });
+      return;
+    }
+
+    if (draftSelectedRefIds.length >= 2) {
+      const message = "เลือกเอกสารอ้างอิงได้สูงสุด 2 รายการ";
+      if (onAlert) onAlert(message, "warning");
       else {
-        setAlertMessage("เอกสารนี้ถูกเชื่อมโยงแล้ว");
+        setAlertMessage(message);
         setIsAlertOpen(true);
       }
       return;
     }
 
-    const newRef: QuestionReferenceDetail = {
-      id: 0,
-      question_id: existingId || "temp",
-      reference_id: selectedRef.reference.id,
-      reference: selectedRef.reference,
-      location_text: pageInput.trim() || null,
-      display_order: linkedRefs.length + 1,
-      thai_letter: selectedRef.thai_letter,
-    };
-
-    setLinkedRefs([...linkedRefs, newRef]);
-    setSelectedRefId("");
-    setPageInput("");
-
-    // Clear reference validation error if it exists
-    if (errors.refs) setErrors((prev) => ({ ...prev, refs: false }));
+    setDraftSelectedRefIds((prev) => [...prev, refId]);
   };
 
-  const handleRemoveReference = async (ref: QuestionReferenceDetail) => {
-    const updatedRefs = linkedRefs.filter((r) => r.reference.id !== ref.reference.id);
-    setLinkedRefs(updatedRefs);
+  const handleDraftPageChange = (refId: string, value: string) => {
+    if (!draftSelectedRefIds.includes(refId)) return;
 
-    // Also clear error state on removal to signal fresh state
+    if (!REFERENCE_PAGE_ALLOWED_CHARS.test(value)) {
+      setDraftPageErrors((prev) => ({ ...prev, [refId]: REFERENCE_PAGE_ERROR_MESSAGE }));
+      return;
+    }
+
+    setDraftPageByRefId((prev) => ({ ...prev, [refId]: value }));
+    const trimmed = value.trim();
+    setDraftPageErrors((prev) => {
+      const next = { ...prev };
+      if (!trimmed || REFERENCE_PAGE_VALID_FORMAT.test(trimmed)) delete next[refId];
+      else next[refId] = REFERENCE_PAGE_ERROR_MESSAGE;
+      return next;
+    });
+  };
+
+  const handleUpdateReferences = async () => {
+    const nextErrors: Record<string, string> = {};
+    for (const refId of draftSelectedRefIds) {
+      const trimmed = (draftPageByRefId[refId] || "").trim();
+      if (trimmed && !REFERENCE_PAGE_VALID_FORMAT.test(trimmed)) {
+        nextErrors[refId] = REFERENCE_PAGE_ERROR_MESSAGE;
+      }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setDraftPageErrors((prev) => ({ ...prev, ...nextErrors }));
+      if (onAlert) onAlert(REFERENCE_PAGE_ERROR_MESSAGE, "warning");
+      else {
+        setAlertMessage(REFERENCE_PAGE_ERROR_MESSAGE);
+        setIsAlertOpen(true);
+      }
+      return;
+    }
+
+    const selectedRefSet = new Set(draftSelectedRefIds);
+    const nextLinkedRefs = availableRefs
+      .filter((ref) => selectedRefSet.has(ref.reference.id.toString()))
+      .map((ref, index) => {
+        const existingRef = linkedRefs.find((linked) => linked.reference.id === ref.reference.id);
+        const refId = ref.reference.id.toString();
+        const trimmedPage = (draftPageByRefId[refId] || "").trim();
+        return {
+          id: existingRef?.id || 0,
+          question_id: existingRef?.question_id || existingId || "temp",
+          reference_id: ref.reference.id,
+          reference: ref.reference,
+          location_text: trimmedPage || null,
+          display_order: index + 1,
+          thai_letter: ref.thai_letter,
+        } satisfies QuestionReferenceDetail;
+      });
+
+    setLinkedRefs(nextLinkedRefs);
+    setDraftPageErrors({});
+    setIsRefExpanded(false);
     if (errors.refs) setErrors((prev) => ({ ...prev, refs: false }));
   };
 
@@ -1924,7 +1995,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       setRequireRef(e.target.checked);
                       if (!e.target.checked) {
                         setLinkedRefs([]);
-                        setSelectedRefId("");
+                        setDraftSelectedRefIds([]);
+                        setDraftPageByRefId({});
+                        setDraftPageErrors({});
                         setIsRefExpanded(false);
                         setErrors((prev) => ({ ...prev, refs: false }));
                       }
@@ -1974,7 +2047,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 <span
                   className={`text-xs font-normal ${errors.refs ? "text-red-500" : "text-slate-500 dark:text-slate-400"}`}
                 >
-                  (เลือกแล้ว {linkedRefs.length}/2 รายการ)
+                  (เลือกแล้ว {isRefExpanded ? draftSelectedRefIds.length : linkedRefs.length}/2 รายการ)
                 </span>
               </label>
 
@@ -1982,53 +2055,25 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               <div
                 className={`rounded-md overflow-hidden space-y-2 ${errors.refs ? "p-2 border border-red-500 bg-red-50 dark:bg-red-900/10" : ""}`}
               >
-                {/* 1. Selected References List (Always Visible) */}
-                <div className="space-y-1">
-                  {linkedRefs.map((ref, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-sm group/ref-item shadow-sm"
-                    >
-                      <span className="flex-1 truncate text-slate-700 dark:text-slate-200">
-                        <span className="font-bold text-blue-600 dark:text-blue-400 mr-2">
-                          {ref.thai_letter ? `${ref.thai_letter}.` : "?."}
-                        </span>
-                        {ref.reference.title}{" "}
-                        <span className="text-slate-400 ml-1">
-                          (หน้า {ref.location_text || "-"})
-                        </span>
-                      </span>
-                      <Tooltip content="ลบเอกสารอ้างอิง">
-                        <button
-                          onClick={() => handleRemoveReference(ref)}
-                          className="text-slate-400 hover:text-red-500 p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </Tooltip>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 2. Add Reference Section (Collapsible) */}
-                {linkedRefs.length < 2 && (
-                  <div
-                    className={`border rounded-md transition-all duration-200 ${isRefExpanded
-                      ? "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
-                      : "border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50 dark:bg-slate-900/30"
-                      }`}
-                  >
+                <div
+                  className={`border rounded-md transition-all duration-200 ${isRefExpanded
+                    ? "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
+                    : "border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50 dark:bg-slate-900/30"
+                    }`}
+                >
                     {/* Toggle Header */}
                     <div
                       className="flex items-center justify-between p-2 cursor-pointer"
-                      onClick={() => setIsRefExpanded(!isRefExpanded)}
+                      onClick={handleToggleReferenceEditor}
                     >
                       <span
                         className={`text-xs font-medium ${isRefExpanded ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400"}`}
                       >
                         {isRefExpanded
                           ? "ซ่อนตัวเลือก (Hide Options)"
-                          : "+ เพิ่มเอกสารอ้างอิง (Add Reference)"}
+                          : linkedRefs.length > 0
+                            ? "แก้ไขเอกสารอ้างอิง (Update References)"
+                            : "+ เพิ่มเอกสารอ้างอิง (Add References)"}
                       </span>
                       {isRefExpanded ? (
                         <ChevronDown className="w-4 h-4 text-blue-500" />
@@ -2042,138 +2087,134 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <div className="p-2 border-t border-blue-100 dark:border-blue-800/50">
                         <div className="flex flex-col gap-2 animate-in slide-in-from-top-1">
                           <div className="max-h-[150px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-slate-900 p-1 custom-scrollbar">
-                            {availableRefs.filter(
-                              (avail) =>
-                                !linkedRefs.some(
-                                  (linked) => linked.reference.id === avail.reference.id,
-                                ),
-                            ).length === 0 ? (
+                            {availableRefs.length === 0 ? (
                               <div className="text-center py-2 text-xs text-gray-400 italic">
                                 ไม่มีเอกสารเพิ่มเติม
                               </div>
                             ) : (
                               availableRefs
-                                .filter(
-                                  (avail) =>
-                                    !linkedRefs.some(
-                                      (linked) => linked.reference.id === avail.reference.id,
-                                    ),
-                                )
                                 .map((r) => {
-                                  const isSelected = selectedRefId === r.reference.id.toString();
+                                  const refId = r.reference.id.toString();
+                                  const isSelected = draftSelectedRefIds.includes(refId);
+                                  const pageError = draftPageErrors[refId];
                                   return (
                                     <div
                                       key={r.reference.id}
-                                      onClick={() =>
-                                        setSelectedRefId((prev) =>
-                                          prev === r.reference.id.toString()
-                                            ? ""
-                                            : r.reference.id.toString(),
-                                        )
-                                      }
-                                      className={`flex items-center gap-3 p-2 rounded cursor-pointer transition-colors border-b border-gray-100 dark:border-slate-800/50 last:border-0 ${isSelected ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700" : "hover:bg-gray-50 dark:hover:bg-slate-800 border-transparent"}`}
+                                      onClick={() => handleToggleDraftReference(refId)}
+                                      className={`p-2 rounded cursor-pointer transition-colors border-b border-gray-100 dark:border-slate-800/50 last:border-0 ${isSelected ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700" : "hover:bg-gray-50 dark:hover:bg-slate-800 border-transparent"}`}
                                     >
-                                      {/* Thai Letter */}
-                                      <span
-                                        className={`text-[10px] font-bold w-5 text-center ${isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-500 dark:text-slate-400"}`}
-                                      >
-                                        {r.thai_letter}.
-                                      </span>
-
-                                      {/* Selection Checkbox/Icon Area */}
-                                      <div
-                                        className={`shrink-0 w-6 h-6 rounded flex items-center justify-center border cursor-default ${isSelected ? "bg-blue-600 border-blue-600 text-white" : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400"}`}
-                                      >
-                                        {isSelected ? (
-                                          <CheckCircle className="w-4 h-4" />
-                                        ) : (
-                                          // Resource Type Icon
-                                          <>
-                                            {r.reference.resource_type === "WEBLINK" ? (
-                                              <Globe className="w-3.5 h-3.5 text-emerald-500" />
-                                            ) : r.reference.resource_type === "VIDEO" ? (
-                                              <Video className="w-3.5 h-3.5 text-purple-500" />
-                                            ) : r.reference.resource_type === "IMAGE" ? (
-                                              <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                                            ) : r.reference.resource_type === "AUDIO" ? (
-                                              <Mic className="w-3.5 h-3.5 text-orange-500" />
-                                            ) : r.reference.resource_type === "TEMPLATE" ? (
-                                              <FileDigit className="w-3.5 h-3.5 text-slate-500" />
-                                            ) : (
-                                              <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                            )}
-                                          </>
-                                        )}
-                                      </div>
-
-                                      {/* Title Area */}
-                                      <div className="flex-1 min-w-0 flex items-center gap-2">
-                                        <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
-                                          {r.reference.code}
+                                      <div className="flex items-center gap-3">
+                                        <span
+                                          className={`text-[10px] font-bold w-5 text-center ${isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-500 dark:text-slate-400"}`}
+                                        >
+                                          {r.thai_letter}.
                                         </span>
-                                        <Tooltip content={r.reference.title}>
-                                          <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
-                                            {r.reference.title}
-                                          </span>
-                                        </Tooltip>
-                                      </div>
 
-                                      {/* Status Area (Usage + Class) */}
-                                      <div className="shrink-0 flex items-center gap-2">
-                                        {/* Usage Badge */}
-                                        {r.usage_count > 0 ? (
-                                          <span className="px-2 py-[1px] rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                                            Used: {r.usage_count}
-                                          </span>
-                                        ) : (
-                                          <span className="px-2 py-[1px] rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
-                                            Unused
-                                          </span>
-                                        )}
+                                        <div
+                                          className={`shrink-0 w-6 h-6 rounded flex items-center justify-center border cursor-default ${isSelected ? "bg-blue-600 border-blue-600 text-white" : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400"}`}
+                                        >
+                                          {isSelected ? (
+                                            <CheckCircle className="w-4 h-4" />
+                                          ) : (
+                                            <>
+                                              {r.reference.resource_type === "WEBLINK" ? (
+                                                <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                                              ) : r.reference.resource_type === "VIDEO" ? (
+                                                <Video className="w-3.5 h-3.5 text-purple-500" />
+                                              ) : r.reference.resource_type === "IMAGE" ? (
+                                                <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
+                                              ) : r.reference.resource_type === "AUDIO" ? (
+                                                <Mic className="w-3.5 h-3.5 text-orange-500" />
+                                              ) : r.reference.resource_type === "TEMPLATE" ? (
+                                                <FileDigit className="w-3.5 h-3.5 text-slate-500" />
+                                              ) : (
+                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
 
-                                        {/* Classification Icon */}
-                                        <Tooltip content={r.reference.classification || "Unclassified"}>
-                                          <div className="flex items-center">
-                                            {r.reference.classification === "Confidential" ||
-                                              r.reference.classification === "Secret" ? (
-                                              <LockIcon className="w-3.5 h-3.5 text-red-500" />
-                                            ) : r.reference.classification === "Restricted" ? (
-                                              <Shield className="w-3.5 h-3.5 text-blue-500" />
-                                            ) : (
-                                              <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                            )}
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                          <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+                                            <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
+                                              {r.reference.code}
+                                            </span>
+                                            <div className="min-w-0 flex-1 flex items-center gap-2">
+                                              <Tooltip content={r.reference.title}>
+                                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+                                                  {r.reference.title}
+                                                </span>
+                                              </Tooltip>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                                                Page
+                                              </span>
+                                              <input
+                                                type="text"
+                                                value={draftPageByRefId[refId] || ""}
+                                                onChange={(e) => handleDraftPageChange(refId, e.target.value)}
+                                                disabled={!isSelected}
+                                                aria-invalid={!!pageError}
+                                                placeholder={isSelected ? "5 หรือ 2-56" : "เลือก Ref ก่อน"}
+                                                className={`w-28 px-2 py-1 h-8 text-xs text-slate-900 dark:text-slate-100 border rounded bg-white dark:bg-slate-800 focus:ring-1 focus:ring-blue-500 outline-none placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed dark:disabled:bg-slate-900/40 dark:disabled:text-slate-500 ${pageError ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"}`}
+                                              />
+                                            </div>
                                           </div>
-                                        </Tooltip>
+                                          {pageError && (
+                                            <p className="text-[11px] text-red-600 dark:text-red-400">{pageError}</p>
+                                          )}
+                                        </div>
+
+                                        <div className="shrink-0 flex items-center gap-2">
+                                          {r.usage_count > 0 ? (
+                                            <span className="px-2 py-[1px] rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                                              Used: {r.usage_count}
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-[1px] rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
+                                              Unused
+                                            </span>
+                                          )}
+
+                                          <Tooltip content={r.reference.classification || "Unclassified"}>
+                                            <div className="flex items-center">
+                                              {r.reference.classification === "Confidential" ||
+                                                r.reference.classification === "Secret" ? (
+                                                <LockIcon className="w-3.5 h-3.5 text-red-500" />
+                                              ) : r.reference.classification === "Restricted" ? (
+                                                <Shield className="w-3.5 h-3.5 text-blue-500" />
+                                              ) : (
+                                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                              )}
+                                            </div>
+                                          </Tooltip>
+                                        </div>
                                       </div>
                                     </div>
                                   );
                                 })
                             )}
                           </div>
-                          <div className="flex gap-1">
-                            <input
-                              type="text"
-                              placeholder="เลขหน้า (เช่น 25, 1-5) ไม่ป้อนเลขหน้า จะแสดง -"
-                              value={pageInput}
-                              onChange={(e) => setPageInput(e.target.value)}
-                              className="flex-1 px-2 py-1 h-8 text-sm text-slate-900 dark:text-slate-100 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-slate-800 focus:ring-1 focus:ring-blue-500 outline-none placeholder:text-slate-400"
-                            />
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                              เลือกได้สูงสุด 2 รายการ และแก้ไขเลขหน้าได้พร้อมกันในแต่ละแถว
+                            </p>
                             <Button
                               variant="outline"
                               size="small"
-                              onClick={handleAddReference}
-                              disabled={!selectedRefId}
+                              onClick={handleUpdateReferences}
+                              disabled={Object.keys(draftPageErrors).length > 0}
                               icon={<Plus className="w-3 h-3" />}
                               className="h-8 text-xs px-3"
                             >
-                              เพิ่ม
+                              Update
                             </Button>
                           </div>
                         </div>
                       </div>
                     )}
                   </div>
-                )}
               </div>
             </>
           )}
