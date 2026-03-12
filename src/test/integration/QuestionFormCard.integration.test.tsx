@@ -349,4 +349,30 @@ describe("QuestionFormCard integration", () => {
 
     expect(screen.queryByText("มีคะแนน (is_scored)")).not.toBeInTheDocument();
   });
+
+  it("shows exempted toggle for 2xx.1 but keeps sub-question editor hidden when activated", () => {
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          sectionGroup: 200,
+          level: 0,
+          prefix: "๒๐๑.๑",
+          questionSequence: 1,
+          existingId: "q-201-1",
+          initialContent: "หน้าที่",
+          initialQuestionType: "exempted",
+          initialDisplayText: "(ไม่ต้องอธิบาย)",
+          sectionId: 201,
+        })}
+      />,
+    );
+
+    const exemptedToggle = screen.getByLabelText("ไม่ต้องอธิบาย");
+    expect(exemptedToggle).toBeInTheDocument();
+    expect(screen.queryByText("รายการคำถามย่อย (SubQuestion List)")).not.toBeInTheDocument();
+
+    fireEvent.click(exemptedToggle);
+
+    expect(screen.queryByText("รายการคำถามย่อย (SubQuestion List)")).not.toBeInTheDocument();
+  });
 });

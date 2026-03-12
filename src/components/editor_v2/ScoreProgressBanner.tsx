@@ -63,7 +63,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
             max_score: 0,
             completion_percentage: 0.0,
             is_passed: false,
-            passing_score: 70,
+            passing_score: 100,
             total_questions: 0,
             answered_questions: 0,
             passed_questions: 0,
@@ -106,15 +106,11 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
   const pendingCount = progress.pending_with_answer ?? 0;
   const needsImprovementCount = progress.needs_improvement_questions ?? Math.max(0, completedCount - passedCount - pendingCount);
 
-  const completionPercent = isCountMode
-    ? (Math.min(100, Math.round((completedCount / (totalCount || 1)) * 100)) || 0)
-    : (Math.min(100, Math.round(progress.completion_percentage)) || 0);
-
   const performancePercent = isCountMode
     ? (Math.min(100, Math.round(((progress.passed_questions ?? 0) / (progress.total_questions ?? 1)) * 100)) || 0)
     : (Math.min(100, Math.round((progress.earned_score / progress.max_score) * 100)) || 0);
 
-  const isFinished = completionPercent >= 100;
+  const isFinished = progress.is_passed;
 
   const statusConfig = isFinished
     ? { label: 'แล้วเสร็จ', icon: <CheckCircle2 className="w-4 h-4 mr-1.5" />, style: 'bg-emerald-100/50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-700/50' }

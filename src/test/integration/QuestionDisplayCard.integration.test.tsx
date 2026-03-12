@@ -196,6 +196,37 @@ describe("QuestionDisplayCard integration", () => {
     expect(screen.getByText("(ไม่ต้องปฏิบัติ)")).toBeInTheDocument();
   });
 
+  it("shows edit-only menu for exempted 200 L1 questions", () => {
+    render(
+      <QuestionDisplayCard
+        {...baseProps}
+        sectionGroup={200}
+        prefix="๒๐๑.๑"
+        isDefaultL1
+        canAddSub={false}
+        question={createQuestion({ question_type: "exempted", display_text: "(ไม่ต้องอธิบาย)" })}
+      />,
+    );
+
+    expect(screen.getByText("แก้ไข (Edit)")).toBeInTheDocument();
+    expect(screen.queryByText("เพิ่มคำถามย่อย (Add Sub-Question)")).not.toBeInTheDocument();
+  });
+
+  it("shows add-sub and edit menu for active 200 L1 questions", () => {
+    render(
+      <QuestionDisplayCard
+        {...baseProps}
+        sectionGroup={200}
+        prefix="๒๐๑.๑"
+        isDefaultL1
+        canAddSub
+        question={createQuestion({ question_type: "normal" })}
+      />,
+    );
+
+    expect(screen.getByText("เพิ่มคำถามย่อย (Add Sub-Question)|แก้ไข (Edit)")).toBeInTheDocument();
+  });
+
   it("renders section selector warning when no children linked", () => {
     render(
       <QuestionDisplayCard
@@ -315,7 +346,7 @@ describe("QuestionDisplayCard integration", () => {
           max_score: 10,
           completion_percentage: 70,
           is_passed: false,
-          passing_score: 70,
+          passing_score: 100,
           total_questions: 10,
           answered_questions: 8,
           passed_questions: 7,

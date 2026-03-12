@@ -252,7 +252,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
             max_score: 0,
             completion_percentage: 0,
             is_passed: false,
-            passing_score: 70,
+            passing_score: 100,
             total_questions: 0,
             answered_questions: 0,
             passed_questions: 0,
@@ -269,17 +269,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   }, [documentId, linkedSectionGroup, linkedSectionMeta?.refSectionId, shouldShowLinkedSectionProgress]);
 
   const linkedSectionIsCountMode = !!linkedSectionProgress && linkedSectionProgress.max_score === 0 && (linkedSectionProgress.total_questions ?? 0) > 0;
-  const linkedSectionCompletionPercent = linkedSectionProgress
-    ? (linkedSectionIsCountMode
-      ? (Math.min(100, Math.round(((linkedSectionProgress.answered_questions ?? 0) / ((linkedSectionProgress.total_questions ?? 1) || 1)) * 100)) || 0)
-      : (Math.min(100, Math.round(linkedSectionProgress.completion_percentage)) || 0))
-    : 0;
   const linkedSectionPerformancePercent = linkedSectionProgress
     ? (linkedSectionIsCountMode
       ? (Math.min(100, Math.round(((linkedSectionProgress.passed_questions ?? 0) / ((linkedSectionProgress.total_questions ?? 1) || 1)) * 100)) || 0)
       : (Math.min(100, Math.round((linkedSectionProgress.earned_score / (linkedSectionProgress.max_score || 1)) * 100)) || 0))
     : 0;
-  const linkedSectionFinished = linkedSectionCompletionPercent >= 100;
+  const linkedSectionFinished = !!linkedSectionProgress?.is_passed;
   const linkedSectionTheme = linkedSectionGroup === 100
     ? {
       rail: 'bg-emerald-100 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-900/40',

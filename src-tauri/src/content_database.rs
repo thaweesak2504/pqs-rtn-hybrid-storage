@@ -993,7 +993,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             max_score INTEGER DEFAULT 0,
             completion_percentage REAL DEFAULT 0.0,
             is_passed BOOLEAN DEFAULT 0,
-            passing_score INTEGER DEFAULT 70,
+            passing_score INTEGER DEFAULT 100,
             last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, document_id, section_id),
             FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
@@ -2169,7 +2169,7 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
 
 /// Seed Section 200 Template (2xx.1 - 2xx.6)
 fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
-    // Helper closure: question_type and display_text added for 2xx.2 & 2xx.4 exempted support
+    // Helper closure: all 2xx L1 questions start exempted and are activated per position later.
     let insert_q = |seq: i32, content: String, question_type: &str, display_text: Option<&str>| -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
@@ -2182,14 +2182,14 @@ fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _
 
     let exempted_text = "(ไม่ต้องอธิบาย)";
 
-    insert_q(1, "หน้าที่".to_string(), "normal", None)?;
+    insert_q(1, "หน้าที่".to_string(), "exempted", Some(exempted_text))?;
     // 2xx.2: ส่วนประกอบ — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
     insert_q(2, "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string(), "exempted", Some(exempted_text))?;
-    insert_q(3, "หลักการทำงาน".to_string(), "normal", None)?;
+    insert_q(3, "หลักการทำงาน".to_string(), "exempted", Some(exempted_text))?;
     // 2xx.4: ค่าทำงาน — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
     insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(), "exempted", Some(exempted_text))?;
-    insert_q(5, "การเชื่อมต่อระบบ".to_string(), "normal", None)?;
-    insert_q(6, "ข้อระมัดระวังอันตราย".to_string(), "normal", None)?;
+    insert_q(5, "การเชื่อมต่อระบบ".to_string(), "exempted", Some(exempted_text))?;
+    insert_q(6, "ข้อระมัดระวังอันตราย".to_string(), "exempted", Some(exempted_text))?;
 
     Ok(())
 }
@@ -3676,7 +3676,7 @@ pub struct UpsertUserProgressArgs {
 pub fn upsert_user_progress(args: UpsertUserProgressArgs) -> Result<UserProgress, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let passing = args.passing_score.unwrap_or(70);
+    let passing = args.passing_score.unwrap_or(100);
     let pct = if args.max_score > 0 {
         (args.earned_score as f64 / args.max_score as f64) * 100.0
     } else {
@@ -5015,8 +5015,8 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
             earned_score,
             max_score: section_total_score,
             completion_percentage,
-            is_passed: section_total_score > 0 && performance_percentage >= 70.0,
-            passing_score: 70,
+            is_passed: section_total_score > 0 && performance_percentage >= 100.0,
+            passing_score: 100,
             total_questions,
             answered_questions,
             passed_questions,
@@ -5110,7 +5110,7 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
         0.0
     };
     let is_passed = if max_score > 0 {
-        performance_percentage >= 70.0 && max_score > 0
+        performance_percentage >= 100.0 && max_score > 0
     } else {
         total_questions > 0 && passed_questions >= total_questions
     };
@@ -5120,7 +5120,7 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
         max_score: if max_score > 0 { max_score } else { total_questions },
         completion_percentage,
         is_passed,
-        passing_score: 70,
+        passing_score: 100,
         total_questions,
         answered_questions: passed_questions + pending_with_answer + needs_improvement_questions,
         passed_questions,
@@ -5157,7 +5157,7 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
 
         let _ = conn.execute(
             "INSERT INTO UserProgress (user_id, document_id, section_id, earned_score, max_score, completion_percentage, is_passed, passing_score, last_updated)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 70, CURRENT_TIMESTAMP)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 100, CURRENT_TIMESTAMP)
              ON CONFLICT(user_id, document_id, section_id) DO UPDATE SET
                 earned_score = ?4, max_score = ?5, completion_percentage = ?6, is_passed = ?7, last_updated = CURRENT_TIMESTAMP",
             params![user_id, document_id, section_id, progress.earned_score, progress.max_score, pct, progress.is_passed],
@@ -5723,6 +5723,51 @@ mod tests {
         ).expect("Query failed");
 
         assert_eq!(exempted_prereqs, 3, "3xx.1.1-3xx.1.3 should be exempted");
+    }
+
+    #[test]
+    fn test_seed_section_200_l1_defaults_to_exempted() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        let doc_id = "22724201001";
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?, 'Test', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [doc_id],
+        ).expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (?, 200, 201, 'Test', '201', 1)",
+            [doc_id],
+        ).expect("Failed to create section");
+
+        let section_id: i64 = conn.query_row(
+            "SELECT id FROM Sections WHERE document_id = ?1",
+            [doc_id],
+            |row| row.get(0),
+        ).expect("Failed to get section");
+
+        seed_section_200_template(&conn, doc_id, section_id, 201).expect("Seed failed");
+
+        let exempted_l1: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions
+             WHERE section_id = ?1 AND parent_id IS NULL AND question_type = 'exempted'",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(exempted_l1, 6, "All 2xx.1-2xx.6 L1 questions should default to exempted");
+
+        let with_display_text: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM Questions
+             WHERE section_id = ?1 AND parent_id IS NULL AND display_text = '(ไม่ต้องอธิบาย)'",
+            [section_id],
+            |row| row.get(0),
+        ).expect("Query failed");
+
+        assert_eq!(with_display_text, 6, "All exempted 2xx L1 questions should show (ไม่ต้องอธิบาย)");
     }
 
     // ========================================================================

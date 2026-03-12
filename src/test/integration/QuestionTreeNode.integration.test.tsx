@@ -246,6 +246,41 @@ describe("QuestionTreeNode integration", () => {
     expect(screen.queryByText("add-sub-q-seq7")).not.toBeInTheDocument();
   });
 
+  it("disables add-sub for exempted 200 L1 until the question is activated", () => {
+    const { rerender } = render(
+      <QuestionTreeNode
+        {...buildProps({
+          sectionGroup: 200,
+          sectionNumber: 201,
+          question: makeQuestion({
+            id: "q-201-1",
+            sequence: 1,
+            question_type: "exempted",
+            display_text: "(ไม่ต้องอธิบาย)",
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.queryByText("add-sub-q-201-1")).not.toBeInTheDocument();
+
+    rerender(
+      <QuestionTreeNode
+        {...buildProps({
+          sectionGroup: 200,
+          sectionNumber: 201,
+          question: makeQuestion({
+            id: "q-201-1",
+            sequence: 1,
+            question_type: "normal",
+          }),
+        })}
+      />,
+    );
+
+    expect(screen.getByText("add-sub-q-201-1")).toBeInTheDocument();
+  });
+
   it("does not allow insert-after for required_instance child", () => {
     render(
       <QuestionTreeNode

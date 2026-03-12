@@ -130,7 +130,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         max_score: 0,
         completion_percentage: 0,
         is_passed: false,
-        passing_score: 70,
+        passing_score: 100,
         total_questions: 0,
         answered_questions: 0,
         passed_questions: 0,

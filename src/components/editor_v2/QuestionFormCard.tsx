@@ -1,32 +1,32 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Pencil,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Pencil,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-  DEFAULT_L1_DESC_BY_SEQ,
-  convertThaiToArabic,
-  toThaiAlphabet,
-  toThaiNumber
+    DEFAULT_L1_DESC_BY_SEQ,
+    convertThaiToArabic,
+    toThaiAlphabet,
+    toThaiNumber
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -159,8 +159,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // 3xx.7 L1 = up to command decision → no exempted/scoring
   const isFixedPracticeL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 7;
   const isDefaultDescL1 = is300 && isL1 && questionSequence !== undefined && questionSequence >= 2 && questionSequence <= 6;
+  const isExemptableL1_200 = is200 && isL1;
   // 2xx.2 = ส่วนประกอบ, 2xx.4 = ค่าทำงาน — exempted toggle with default description when not exempted
-  const isDefaultDescL1_200 = is200 && isL1 && (questionSequence === 2 || questionSequence === 4);
+  const isDefaultDescL1_200 = isExemptableL1_200 && (questionSequence === 2 || questionSequence === 4);
   // Auto-created children (required_instance) → score-only edit form
   const isRequiredInstance = is300 && initialQuestionType === 'required_instance';
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
@@ -1262,8 +1263,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
 
-    // Save question_type & display_text for 2xx.2 and 2xx.4 (exempted toggle, no scoring)
-    if (isDefaultDescL1_200 && isEdit && existingId) {
+    // Save question_type & display_text for all 2xx L1 questions (exempted toggle, no scoring)
+    if (isExemptableL1_200 && isEdit && existingId) {
       try {
         await invoke('update_question_score', {
           args: {
@@ -1513,8 +1514,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           </div>
         )}
 
-        {/* ── 200-series: "(ไม่ต้องอธิบาย)" toggle for 2xx.2 and 2xx.4 only ── */}
-        {isDefaultDescL1_200 && (
+        {/* ── 200-series: all L1 start as "(ไม่ต้องอธิบาย)"; 2xx.2/2xx.4 add default descriptions when activated ── */}
+        {isExemptableL1_200 && (
           <div className="rounded-md border border-orange-200 dark:border-orange-800/50 bg-orange-50/30 dark:bg-orange-950/20 p-2">
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">การอธิบาย</span>
@@ -1532,14 +1533,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       setUseSubQuestions(false);
                     } else {
                       setFormScoreDisplayText('');
-                      const DEFAULT_200_DESC: Record<number, string> = {
-                        2: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
-                        4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
-                      };
-                      if (questionSequence !== undefined) {
+                      if (isDefaultDescL1_200 && questionSequence !== undefined) {
+                        const DEFAULT_200_DESC: Record<number, string> = {
+                          2: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
+                          4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
+                        };
                         setDescription(DEFAULT_200_DESC[questionSequence] || '');
+                        setShowDescription(true);
                       }
-                      setShowDescription(true);
                     }
                   }}
                   className="accent-orange-600 w-3.5 h-3.5"
