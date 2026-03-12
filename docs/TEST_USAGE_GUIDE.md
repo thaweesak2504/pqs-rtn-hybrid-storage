@@ -20,18 +20,24 @@
 
 ## 🔁 Context Continuity (Read First)
 
-To avoid re-explaining project context when model/session changes, always start by reading:
+**Starting a New Chat?** → Open **[AI_HANDOFF.md](AI_HANDOFF.md)** and find the **"Starting Phase [X]"** section with complete Initial Prompt ready to use.
 
-1. [AI_HANDOFF.md](AI_HANDOFF.md) - current truth, constraints, and next safe order
-2. [AI_WORKLOG.md](AI_WORKLOG.md) - rolling session log and latest actions
-3. [AI_BOOTSTRAP_PROMPT.md](AI_BOOTSTRAP_PROMPT.md) - copy/paste start prompt
-4. [TEMPLATE_TESTING_STRATEGY.md](TEMPLATE_TESTING_STRATEGY.md) - template testing roadmap
+To avoid re-explaining project context when model/session changes, always start by reading (in order):
+
+1. **[AI_HANDOFF.md](AI_HANDOFF.md)** — Find "Starting Phase [X]" section with Initial Prompt + Quick Starter
+2. **[AI_WORKLOG.md](AI_WORKLOG.md)** — Rolling session log and latest actions
+3. **[TEST_USAGE_GUIDE.md](TEST_USAGE_GUIDE.md)** (this file) — Test commands and workflow examples
+4. **[TEMPLATE_TESTING_STRATEGY.md](TEMPLATE_TESTING_STRATEGY.md)** — Template testing roadmap (if template-focused)
 
 Recommended startup flow:
 
 ```bash
-# 1) Open handoff docs first
-code docs/AI_HANDOFF.md docs/AI_WORKLOG.md docs/AI_BOOTSTRAP_PROMPT.md
+# 1) Open AI_HANDOFF.md and find the current phase section
+code docs/AI_HANDOFF.md
+
+# 2) Copy the "Initial Prompt" from that phase section
+
+# 3) Paste to new chat (everything you need is in the prompt)
 
 # 2) Run baseline tests before changes
 npm run test:run

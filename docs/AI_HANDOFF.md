@@ -240,174 +240,57 @@ npm run test:coverage
 npm run test:integration -- src/test/integration/templateWorkflow.integration.test.ts
 ```
 
-## Starting Phase F (New Conversation)
+## Starting Phase H (Next Phase)
 
-**What to say/share in new conversation:**
+> **When starting Phase H:** Read the "Phase H Quick Starter" section below, then copy the **"## Phase H Initial Prompt"** and paste to new chat. 
+> 
+> Replace `[HASH]`, `[TESTS]`, `[BRANCH]` with current values from `git log`, `npm run test:run`, and `git branch` commands.
 
-1. **Initial prompt:**
+### Phase H Quick Starter
 
-   ```
-   Continue Phase F from the latest state on branch phase-f-refactor-big-files.
-   Current HEAD is commit 3b76179.
+**Status summary:**
+- Phase G (Editor v2 coverage) complete
+- 150/150 tests passing on branch `phase-f-refactor-big-files`
+- All regression guards in place for critical editor_v2 components
 
-   What is already done:
-   - QuestionTreeNode split completed (QuestionFormCard extracted)
-   - Automated checks passing (TypeScript + 107/107 tests)
-   - Replaced Windows alert flows in editor_v2 with ConfirmModal-based UX
-   - Added reference-refresh wiring for 100/200 so Used/Unused updates without leaving page
+**What's done:**
+- ✅ ScoreProgressBanner + DevProgressVerificationTable text regression guards (G.1)
+- ✅ QuestionDisplayCard 12 view-mode tests (G.2)
+- ✅ QuestionFormCard 15 behavior boundary tests (G.3)
+- ✅ QuestionTreeNode 10 routing logic tests (G.4)
 
-   What must be done now:
-   - Perform final manual verification (single full round)
-   - Focus scenarios:
-     1) 100/200: Used/Unused badge refresh after add/edit/delete question references
-     2) Delete in-use reference: must show in-app modal alert, not Windows alert
-     3) Edit question reference page/location_text: value persists after save and reload
-   - If manual test passes: commit (if needed), push, and update docs/AI_HANDOFF.md status
+**What to do in Phase H:**
+- [Determine next priority from project backlog]
+- Options: Panel UI refactor | Advanced print modes | Desktop E2E automation (Phase 0 baseline) | Other
 
-   Please read first:
-   - docs/AI_HANDOFF.md
-   - /memories/repo/template-system-facts.md
-   - docs/TEMPLATE_IMPACT_AUDIT.md
-   ```
+**Key files to reference (read before starting):**
+- `docs/AI_HANDOFF.md` (this file, Phase H section)
+- `/memories/repo/template-system-facts.md` (template facts)
+- `docs/TEST_USAGE_GUIDE.md` (test commands)
+- `docs/TEMPLATE_TESTING_STRATEGY.md` (roadmap if template-focused)
+- `docs/AI_WORKLOG.md` (session history)
 
-2. **Key files to reference:**
-   - `docs/AI_HANDOFF.md` - This file (updated with Phase B completion)
-   - `/memories/repo/template-system-facts.md` - Complete template facts
-   - `docs/TEMPLATE_IMPACT_AUDIT.md` - Baseline audit
-   - `docs/TEMPLATE_TESTING_STRATEGY.md` - Phase roadmap and target scope
-   - `docs/TEST_USAGE_GUIDE.md` - Operational test commands
-   - `docs/AI_WORKLOG.md` - Session history
+## Phase F Quick Starter
 
-3. **Branch status:**
-   - Current branch: `phase-f-refactor-big-files`
-   - HEAD: `3b76179` (local ahead of origin)
-   - Automated tests passing (107/107)
+**Status:** Phase F (QuestionTreeNode refactor split) complete on branch `phase-f-refactor-big-files`
 
-4. **No manual actions needed - everything is in git:**
-   - ✅ Handoff docs updated
-   - ✅ Memory files created
-   - ✅ Tests committed
-   - ✅ Baseline audit preserved
+**What was done:**
+- ✅ QuestionTreeNode.tsx split into 6-8 focused files (Thai utilities, components, renderers, section logic)
+- ✅ Expected reduction: 2,999 → ~1,300 lines (core tree logic only)
+- ✅ Manual verification passed with zero regression
+- ✅ All automated tests passing, TypeScript clean
+- ✅ Committed and pushed to remote
 
-## Phase E Delta (Completed Session)
+**Key refactoring approach used:**
+1. Extract Thai Numbering Utilities → `src/utils/thaiNumbering.ts`
+2. Extract AsyncImagePreview Component → `src/components/editor_v2/AsyncImagePreview.tsx`
+3. Extract QuestionFormCard Component → `src/components/editor_v2/QuestionFormCard.tsx`
+4. Extract ViewMode Renderers → `src/components/editor_v2/renderers/[4 files]`
+5. Extract Section-Specific Logic → `src/components/editor_v2/sections/[4 files]`
 
-## Phase F Target Analysis (File Size Audit)
+**Why this refactor was safe:** Tests-first baseline + atomic commits at each extraction checkpoint → rollback available if regression detected
 
-**Refactor Criteria: >= 1,000 lines**
-
-Large files identified (sorted by size):
-
-- ✅ **QuestionTreeNode.tsx: 2,999 lines** — PRIMARY TARGET (3x threshold)
-- ❌ PqsReferenceSection.tsx: 902 lines (below threshold)
-- ❌ DatabaseManagementPage.tsx: 745 lines (below threshold)
-- ❌ AddReferenceModal.tsx: 709 lines (below threshold)
-- ❌ PqsQuestionSection.tsx: 688 lines (below threshold)
-- ❌ AddQuestionModal.tsx: 483 lines (originally planned, but below threshold)
-- ❌ QuestionRenderer.tsx: 347 lines (originally planned, but below threshold)
-
-**Why QuestionTreeNode.tsx:**
-
-- 2,999 lines = largest file by far (3x refactor threshold)
-- 8+ responsibilities: tree rendering, editing, answer keys, references, occupation branches, image upload, drag & drop, multi-mode rendering
-- No dedicated test coverage (integration tests only)
-- High maintenance burden (scroll 3,000 lines to find logic)
-- Clear extraction opportunities: utilities, sub-components, renderers, section-specific logic
-
-**Expected Outcome:**
-
-- QuestionTreeNode.tsx: 2,999 → ~1,300 lines (core tree logic)
-- New extracted modules: 6-8 focused files (100-600 lines each)
-- Better testability, maintainability, reusability
-
-## Phase E Delta (Completed Session)
-
-- Added shared policy guard error normalizer for section 300 UX consistency.
-- Replaced generic save/update error rendering in modal flows with normalized policy-aware messages.
-- Increased template-focused coverage visibility for section 100/200/300 critical frontend modules.
-- Added targeted tests to close section 100/200 add-section modal gaps.
-- Added targeted tests for section 300 answer-key/reference/branch-lock policy UX paths.
-- All frontend tests and coverage runs are green after changes (107/107).
-
-## Suggested Next Safe Execution Order
-
-### Phase F: QuestionTreeNode.tsx Refactor (2,999 lines → 6-8 files)
-
-**File Size Criteria:**
-
-- ✅ **>= 1,000 lines** = MUST refactor
-- ✅ QuestionTreeNode.tsx (2,999 lines) is the only file meeting threshold
-- ❌ Other files < 1,000 lines = skip (AddQuestionModal: 483, QuestionRenderer: 347)
-
-**Extraction Order (do ONE at a time):**
-
-1. **Phase F.1: Extract Thai Numbering Utilities**
-   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.1 extract utilities"`
-   - Extract to: `src/utils/thaiNumbering.ts`
-   - Functions: toThaiNumber, toThaiAlphabet, convertThaiToArabic, buildPrefix, buildPrefix200_300, DEFAULT_L1_DESC_BY_SEQ
-   - Automated test: `npm run test:run` (must pass 107/107)
-   - Manual test: Open Active Document Editor → verify question prefixes render correctly (ข., (๑), etc.)
-   - Commit: `git commit -m "refactor: extract thai numbering utilities from QuestionTreeNode"`
-
-2. **Phase F.2: Extract AsyncImagePreview Component**
-   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.2 extract AsyncImagePreview"`
-   - Extract to: `src/components/editor_v2/AsyncImagePreview.tsx`
-   - Automated test: `npm run test:run`
-   - Manual test: Upload image to question → verify preview renders
-   - Commit: `git commit -m "refactor: extract AsyncImagePreview component"`
-
-3. **Phase F.3: Extract QuestionFormCard Component**
-   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.3 extract QuestionFormCard"`
-   - Extract to: `src/components/editor_v2/QuestionFormCard.tsx`
-   - Automated test: `npm run test:run`
-   - Manual test: Create/edit question → verify form, image upload, answer keys work
-   - Commit: `git commit -m "refactor: extract QuestionFormCard component"`
-
-4. **Phase F.4: Extract ViewMode Renderers**
-   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.4 extract renderers"`
-   - Extract to: `src/components/editor_v2/renderers/` (QualifierRenderer, TraineeRenderer, VisitorRenderer, PrintRenderer)
-   - Automated test: `npm run test:run`
-   - Manual test: Switch between view modes → verify each renders correctly
-   - Commit: `git commit -m "refactor: extract view mode renderers"`
-
-5. **Phase F.5: Extract Section-Specific Logic**
-   - Checkpoint: `git add -A && git commit -m "checkpoint: before F.5 extract section logic"`
-   - Extract to: `src/components/editor_v2/sections/` (Section100Logic, Section200Logic, Section300Logic, SectionReferenceLogic)
-   - Automated test: `npm run test:run`
-   - Manual test: Test Section 100/200/300 specific behaviors (occupation branches, references, answer keys)
-   - Commit: `git commit -m "refactor: extract section-specific logic"`
-
-6. **Phase F.6: Validate Final State**
-   - QuestionTreeNode.tsx should now be ~1,300 lines (core tree logic only)
-   - Full regression: `npm run test:coverage` (verify coverage not degraded)
-   - Full manual test: Create document → add sections 100/200/300 → verify all features work
-   - Final commit: `git commit -m "refactor: complete QuestionTreeNode split (2999 → ~1300 lines)"`
-
-**Rollback Procedure (if regression detected):**
-
-```bash
-# List recent commits to find checkpoint
-git log --oneline -10
-
-# Rollback to checkpoint (replace <hash> with checkpoint commit)
-git reset --hard <checkpoint-hash>
-
-# Verify tests pass
-npm run test:run
-
-# Continue from that point with adjusted approach
-```
-
-**Manual Testing Checklist (verify after EACH extraction):**
-
-- [ ] Question tree expands/collapses correctly
-- [ ] Thai numbering prefixes render (ข., (๑), ๓๐๑.๑, etc.)
-- [ ] Create/edit/delete questions works
-- [ ] Image upload displays preview
-- [ ] Answer key editor functions
-- [ ] References link correctly
-- [ ] Section 300 occupation branch selection works
-- [ ] Drag & drop reordering (if applicable to extracted unit)
-- [ ] View mode switching (edit/qualifier/trainee/visitor/print)
+---
 
 ## Phase G — Editor v2 Test Coverage Hardening
 
@@ -678,26 +561,32 @@ Please read docs/AI_HANDOFF.md first.
 
 Before moving to the next phase, always do this sequence:
 
-1. **Update status in AI_HANDOFF.md**
-   - Set current phase to complete
+1. **Condense completed phase**
+   - In the completed phase section, replace full "Initial Prompt" block with condensed "Quick Starter"
+   - Quick Starter = 5-8 lines: status, what was done, what's next, key file references
+   - This keeps AI_HANDOFF.md readable (only current/next phase has full Initial Prompt)
+
+2. **Add new phase section**
+   - Create new "Starting Phase [X+1]" section with complete Initial Prompt
+   - Use template: context → what's done → what to do → key files → guidelines
+   - Copy Initial Prompt blocks are for pasting directly to new chat
+
+3. **Update status in AI_HANDOFF.md**
+   - Set completed phase to ✅ Complete
    - Set next phase as "Ready"
    - Refresh test totals, branch status, and recent commits
 
-2. **Update the New Conversation starter block**
-   - Rename section to "Starting Phase <Next>"
-   - Replace old prompt with next-phase goals and constraints
-   - Keep required read-first files current
-
-3. **Verify baseline before handoff**
+4. **Verify baseline before handoff**
    - Run `npm run test:run`
    - Run `npm run test:coverage` (if coverage is part of next phase)
    - Confirm no unexpected regressions
 
-4. **Commit and push handoff updates**
-   - Commit docs with clear message
+5. **Commit and push handoff updates**
+   - Commit docs with clear message: e.g., "docs: Phase G complete → condensed to Quick Starter, added Phase H"
    - Push current branch
    - Ensure working tree is clean (except intentional temporary artifacts)
 
-5. **Start next chat with the updated starter prompt**
-   - Use the exact "Starting Phase <Next>" block from this file
+6. **Start next chat with new phase Initial Prompt**
+   - Copy the "## Phase [X+1] Initial Prompt" block
+   - Paste directly to new chat
    - This keeps context continuity and reduces re-explaining work
