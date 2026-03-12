@@ -441,7 +441,8 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
 
       {/* Single Answer Key */}
       {
-        showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && (
+        showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && 
+        question.question_type !== 'exempted' && !question.is_group_header && (
           <div className={`mt-1 ${contentStartOffsetClass} flex flex-col gap-1`}>
             {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
               <TraineeAnswerBox
@@ -465,7 +466,8 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
 
       {/* Multi Answer Keys (per sub-question code) */}
       {
-        showAnswerKey && Object.keys(answerKeys).length > 0 && (() => {
+        showAnswerKey && Object.keys(answerKeys).length > 0 && 
+        question.question_type !== 'exempted' && !question.is_group_header && (() => {
           // Use effective parentSubQuestionList for ordering and labelling
           const effectiveSqList = parentSubQuestionList && parentSubQuestionList.length > 0 ? parentSubQuestionList : [];
           const ordered: string[] = effectiveSqList.length > 0
@@ -506,6 +508,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       {/* Fallback Answer Box — non-print mode only */}
       {
         !showAnswerKey && mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') &&
+        question.question_type !== 'exempted' && !question.is_group_header &&
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
             <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />
