@@ -90,12 +90,12 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
   });
 
   /**
-   * Test: Non-exempted L1 question (2xx.1) SHOULD show answer box
-   * Scenario: Section 200 Trainee view, L1 normal question without answer keys
-   * Note: showAnswerKey = false for trainee mode, so fallback answer box will render
+   * Test: Non-exempted L1 question (2xx.1) should also NOT show answer box
+   * L1 questions are always section headers regardless of exempted/normal type.
+   * Rule: No AnswerKey (L1 questions never have keys) = No Answer Box
    */
-  it("should show fallback answer box for non-exempted L1 question (2xx.1) in trainee view", async () => {
-    const normalQuestion: QuestionDetail = {
+  it("should NOT show answer box for non-exempted L1 question (2xx.1) either", async () => {
+    const normalL1Question: QuestionDetail = {
       id: "q-1",
       document_id: "DOC-1",
       section_id: 201,
@@ -107,7 +107,7 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
       answer_type: "text",
       metadata: JSON.stringify({ useSubQuestions: false }),
       score: null,
-      question_type: "normal", // ← Not exempted
+      question_type: "normal", // ← Not exempted, but still L1 header
       group_score: null,
       display_text: null,
       is_group_header: false,
@@ -119,10 +119,10 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
 
     vi.mocked(invoke).mockImplementation(async (cmd) => {
       if (cmd === "get_document_questions_with_details") {
-        return [normalQuestion];
+        return [normalL1Question];
       }
       if (cmd === "get_question_answer_keys") {
-        return []; // No answer keys
+        return []; // No answer keys — L1 questions never have answer keys
       }
       return null;
     });
@@ -135,15 +135,15 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
         title="Section 200"
         references={[]}
         sectionGroup={200}
-        mode="trainee" // ← Trainee mode (showAnswerKey = false)
+        mode="trainee"
       />
     );
 
     await waitFor(() => {
-      // Should render the fallback TraineeAnswerBox for non-exempted question
+      // L1 questions NEVER show answer boxes — regardless of exempted/normal type
       expect(
-        container.querySelector('[data-testid="trainee-answer-box-q-1-default"]')
-      ).toBeInTheDocument();
+        container.querySelector('[data-testid*="trainee-answer-box"]')
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -324,6 +324,87 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
       expect(
         container.querySelector('[data-testid*="trainee-answer-box"]')
       ).not.toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Test: L2 question (level 1, non-exempted, no children) SHOULD show fallback answer box
+   * L2 questions are real questions — they require answers from trainees
+   */
+  it("should show fallback answer box for L2 non-exempted question in trainee mode", async () => {
+    const l1Question: QuestionDetail = {
+      id: "q-1",
+      document_id: "DOC-1",
+      section_id: 201,
+      parent_id: null,
+      sequence: 1, // L1 header
+      content: "หน้าที่",
+      is_header: true,
+      description: null,
+      answer_type: "text",
+      metadata: null,
+      score: null,
+      question_type: "normal",
+      group_score: null,
+      display_text: null,
+      is_group_header: false,
+      is_scored: false,
+      choices: [],
+      references: [],
+      children: [], // will be populated below
+    };
+
+    const l2Question: QuestionDetail = {
+      id: "q-1-1",
+      document_id: "DOC-1",
+      section_id: 201,
+      parent_id: "q-1",
+      sequence: 1, // L2 question
+      content: "ระบบนี้ทำหน้าที่อะไร",
+      is_header: false,
+      description: null,
+      answer_type: "text",
+      metadata: null,
+      score: 10,
+      question_type: "normal",
+      group_score: null,
+      display_text: null,
+      is_group_header: false,
+      is_scored: true,
+      choices: [],
+      references: [],
+      children: [], // no children — eligible for fallback answer box
+    };
+
+    l1Question.children = [l2Question];
+
+    vi.mocked(invoke).mockImplementation(async (cmd) => {
+      if (cmd === "get_document_questions_with_details") {
+        return [l1Question, l2Question];
+      }
+      if (cmd === "get_question_answer_keys") {
+        return []; // No answer keys yet
+      }
+      return null;
+    });
+
+    const { container } = render(
+      <PqsSectionPreview200
+        docId="DOC-1"
+        sectionId={201}
+        sectionNumber={200}
+        title="Section 200"
+        references={[]}
+        sectionGroup={200}
+        mode="trainee"
+      />
+    );
+
+    await waitFor(() => {
+      // L2 question with no answer key and no children → should show fallback answer box
+      expect(
+        container.querySelector('[data-testid="trainee-answer-box-q-1-1-default"]')
+      ).toBeInTheDocument();
     });
   });
 });

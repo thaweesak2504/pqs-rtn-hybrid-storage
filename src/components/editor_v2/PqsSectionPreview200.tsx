@@ -505,10 +505,11 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         })()
       }
 
-      {/* Fallback Answer Box — non-print mode only */}
+      {/* Fallback Answer Box — non-print mode only, L2+ questions only */}
       {
         !showAnswerKey && mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') &&
         question.question_type !== 'exempted' && !question.is_group_header &&
+        level !== 0 &&
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
             <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />

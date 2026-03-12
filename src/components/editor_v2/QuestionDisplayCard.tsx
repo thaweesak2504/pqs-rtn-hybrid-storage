@@ -128,10 +128,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && !!question.is_scored
     && (question.score ?? 0) > 0;
   // 300Template has no answer keys at all - no answer boxes anywhere
-  // 200Template parents still need answer boxes in Qualifier/Trainee views even after becoming group headers
+  // Section 200: L1 questions (2xx.1-2xx.6) are always section headers — never have answer boxes
+  // regardless of exempted/normal status. Only L2+ questions can have answer boxes.
   const shouldShowAnswerBox = question.question_type !== 'exempted'
     && viewMode !== 'visitor'
     && !is300
+    && !(is200 && isL1)
     && (is200 || !question.is_group_header);
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
