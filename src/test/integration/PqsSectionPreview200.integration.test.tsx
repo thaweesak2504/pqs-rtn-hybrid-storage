@@ -1,6 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { render, waitFor } from "@testing-library/react";
-import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import PqsSectionPreview200 from "../../components/editor_v2/PqsSectionPreview200";
 import { QuestionDetail } from "../../types/content";

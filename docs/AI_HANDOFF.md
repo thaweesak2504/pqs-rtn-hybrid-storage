@@ -242,28 +242,32 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 
 ## Starting Phase H (Next Phase)
 
-> **When starting Phase H:** Read the "Phase H Quick Starter" section below, then copy the **"## Phase H Initial Prompt"** and paste to new chat. 
-> 
+> **When starting Phase H:** Read the "Phase H Quick Starter" section below, then copy the **"## Phase H Initial Prompt"** and paste to new chat.
+>
 > Replace `[HASH]`, `[TESTS]`, `[BRANCH]` with current values from `git log`, `npm run test:run`, and `git branch` commands.
 
 ### Phase H Quick Starter
 
 **Status summary:**
+
 - Phase G (Editor v2 coverage) complete
 - 150/150 tests passing on branch `phase-f-refactor-big-files`
 - All regression guards in place for critical editor_v2 components
 
 **What's done:**
+
 - ✅ ScoreProgressBanner + DevProgressVerificationTable text regression guards (G.1)
 - ✅ QuestionDisplayCard 12 view-mode tests (G.2)
 - ✅ QuestionFormCard 15 behavior boundary tests (G.3)
 - ✅ QuestionTreeNode 10 routing logic tests (G.4)
 
 **What to do in Phase H:**
+
 - [Determine next priority from project backlog]
 - Options: Panel UI refactor | Advanced print modes | Desktop E2E automation (Phase 0 baseline) | Other
 
 **Key files to reference (read before starting):**
+
 - `docs/AI_HANDOFF.md` (this file, Phase H section)
 - `/memories/repo/template-system-facts.md` (template facts)
 - `docs/TEST_USAGE_GUIDE.md` (test commands)
@@ -275,6 +279,7 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 **Status:** Phase F (QuestionTreeNode refactor split) complete on branch `phase-f-refactor-big-files`
 
 **What was done:**
+
 - ✅ QuestionTreeNode.tsx split into 6-8 focused files (Thai utilities, components, renderers, section logic)
 - ✅ Expected reduction: 2,999 → ~1,300 lines (core tree logic only)
 - ✅ Manual verification passed with zero regression
@@ -282,6 +287,7 @@ npm run test:integration -- src/test/integration/templateWorkflow.integration.te
 - ✅ Committed and pushed to remote
 
 **Key refactoring approach used:**
+
 1. Extract Thai Numbering Utilities → `src/utils/thaiNumbering.ts`
 2. Extract AsyncImagePreview Component → `src/components/editor_v2/AsyncImagePreview.tsx`
 3. Extract QuestionFormCard Component → `src/components/editor_v2/QuestionFormCard.tsx`
