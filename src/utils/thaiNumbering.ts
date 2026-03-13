@@ -6,10 +6,20 @@ export const DEFAULT_L1_DESC_BY_SEQ: { [key: number]: string } = {
   6: 'ควบคุมการปฏิบัติหน้าที่ในตำแหน่งอย่างใกล้ชิด ประเมินผ่านการปฏิบัติหรือไม่',
 };
 
+export type DigitNumberingMode = 'arabic' | 'thai';
+
 export const toThaiNumber = (num?: number | string | null): string => {
   if (num === null || num === undefined) return '';
   const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
   return num.toString().replace(/\d/g, (match) => thaiDigits[match as any]);
+};
+
+export const formatNumberByMode = (
+  num?: number | string | null,
+  mode: DigitNumberingMode = 'thai',
+): string => {
+  if (num === null || num === undefined) return '';
+  return mode === 'thai' ? toThaiNumber(num) : num.toString();
 };
 
 export const toThaiAlphabet = (n: number) => {
@@ -30,15 +40,16 @@ export const buildPrefix = (
   level: number,
   sequence?: number | null,
   sectionNumber?: number,
+  digitMode: DigitNumberingMode = 'arabic',
 ): string => {
   if (!sequence) return '';
   const sNum = sectionNumber ? sectionNumber.toString().padStart(3, '0') : '100';
-  const tsNum = toThaiNumber(sNum);
-  if (level === 0) return tsNum + '.' + toThaiNumber(sequence);
+  const formattedSection = formatNumberByMode(sNum, digitMode);
+  if (level === 0) return formattedSection + '.' + formatNumberByMode(sequence, digitMode);
   if (level === 1) return toThaiAlphabet(sequence) + '.';
-  if (level === 2) return '(' + toThaiNumber(sequence) + ')';
+  if (level === 2) return '(' + formatNumberByMode(sequence, digitMode) + ')';
   if (level === 3) return '(' + toThaiAlphabet(sequence) + ')';
-  return toThaiNumber(sequence) + '.';
+  return formatNumberByMode(sequence, digitMode) + '.';
 };
 
 export const buildPrefix200_300 = (
@@ -46,13 +57,14 @@ export const buildPrefix200_300 = (
   sequence: number | null | undefined,
   sectionNumber: number | undefined,
   parentSequence?: number | null,
+  digitMode: DigitNumberingMode = 'arabic',
 ): string => {
   if (!sequence) return '';
   const sNum = sectionNumber ? sectionNumber.toString().padStart(3, '0') : '200';
-  const tsNum = toThaiNumber(sNum);
-  if (level === 0) return tsNum + '.' + toThaiNumber(sequence);
-  if (level === 1) return tsNum + '.' + toThaiNumber(parentSequence || 0) + '.' + toThaiNumber(sequence);
+  const formattedSection = formatNumberByMode(sNum, digitMode);
+  if (level === 0) return formattedSection + '.' + formatNumberByMode(sequence, digitMode);
+  if (level === 1) return formattedSection + '.' + formatNumberByMode(parentSequence || 0, digitMode) + '.' + formatNumberByMode(sequence, digitMode);
   if (level === 2) return toThaiAlphabet(sequence) + '.';
-  if (level === 3) return '(' + toThaiNumber(sequence) + ')';
-  return toThaiNumber(sequence) + '.';
+  if (level === 3) return '(' + formatNumberByMode(sequence, digitMode) + ')';
+  return formatNumberByMode(sequence, digitMode) + '.';
 };

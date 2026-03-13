@@ -50,7 +50,7 @@ describe("ScoreProgressBanner", () => {
     expect(screen.getByText("ปรับปรุง:")).toBeInTheDocument();
   });
 
-  it("converts headline and progress values to Thai numerals", async () => {
+  it("renders headline and progress values with Arabic numerals", async () => {
     vi.mocked(invoke).mockResolvedValue({
       earned_score: 12,
       max_score: 20,
@@ -66,8 +66,8 @@ describe("ScoreProgressBanner", () => {
 
     render(<ScoreProgressBanner documentId="DOC-1" sectionId={101} sectionGroup={100} />);
 
-    expect(await screen.findByText("๑๒/๒๐")).toBeInTheDocument();
-    expect(screen.getByText("๖๐%")).toBeInTheDocument();
+    expect(await screen.findByText("12/20")).toBeInTheDocument();
+    expect(screen.getByText("60%")).toBeInTheDocument();
   });
 
   it("renders count mode values correctly for all counters", async () => {
@@ -87,11 +87,11 @@ describe("ScoreProgressBanner", () => {
     render(<ScoreProgressBanner documentId="DOC-1" sectionId={301} sectionGroup={300} />);
 
     expect(await screen.findByText("คะแนน:")).toBeInTheDocument();
-    expect(screen.getByText("๘/๑๐")).toBeInTheDocument();
-    expect(screen.getByText("๘")).toBeInTheDocument();
-    expect(screen.getByText("๕")).toBeInTheDocument();
-    expect(screen.getByText("๒")).toBeInTheDocument();
-    expect(screen.getByText("๑")).toBeInTheDocument();
+    expect(screen.getByText("8/10")).toBeInTheDocument();
+    expect(screen.getByText("8")).toBeInTheDocument();
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
   });
 
   it("derives needs improvement when value is not provided", async () => {
@@ -113,6 +113,6 @@ describe("ScoreProgressBanner", () => {
       expect(invoke).toHaveBeenCalled();
     });
 
-    expect(await screen.findByText("๑")).toBeInTheDocument();
+    expect(await screen.findByText("1")).toBeInTheDocument();
   });
 });

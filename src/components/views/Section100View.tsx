@@ -1,4 +1,5 @@
 import { BookOpen } from 'lucide-react';
+import { convertThaiToArabic, formatNumberByMode } from '../../utils/thaiNumbering';
 import Container from '../ui/Container';
 
 interface Section100ViewProps {
@@ -6,10 +7,9 @@ interface Section100ViewProps {
 }
 
 const Section100View: React.FC<Section100ViewProps> = ({ isPreviewMode = false }) => {
-  const toThaiNumber = (num: number) => {
-    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
-  };
+  const digitMode = isPreviewMode ? 'thai' : 'arabic';
+  const formatDigit = (num: number | string) => formatNumberByMode(num, digitMode);
+  const normalizeInlineDigits = (content: string) => (isPreviewMode ? content : convertThaiToArabic(content));
 
   const sections = [
     {
@@ -40,11 +40,11 @@ const Section100View: React.FC<Section100ViewProps> = ({ isPreviewMode = false }
           <ol className="list-none space-y-4">
             {sections.map((section, index) => (
               <li key={index} className="flex items-baseline gap-[2ch]">
-                <span className="font-bold min-w-fit">{toThaiNumber(index + 1)}.</span>
+                <span className="font-bold min-w-fit">{formatDigit(index + 1)}.</span>
                 <div className="flex-1">
                   <span className="font-bold">{section.title}</span>
                   <div className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
-                    {section.content.replace(/\s+/g, ' ').trim()}
+                    {normalizeInlineDigits(section.content.replace(/\s+/g, ' ').trim())}
                   </div>
                 </div>
               </li>
@@ -64,7 +64,7 @@ const Section100View: React.FC<Section100ViewProps> = ({ isPreviewMode = false }
           <BookOpen className="w-8 h-8" />
           <div>
             <h1 className="text-2xl font-bold">แนะนำความรู้พื้นฐาน</h1>
-            <p className="text-green-100 text-sm mt-1">Section 100 Introduction - ข้อมูลเบื้องต้นสำหรับหัวข้อ ๑๐๐</p>
+            <p className="text-green-100 text-sm mt-1">Section 100 Introduction - ข้อมูลเบื้องต้นสำหรับหัวข้อ 100</p>
           </div>
         </div>
       </div>
@@ -80,7 +80,7 @@ const Section100View: React.FC<Section100ViewProps> = ({ isPreviewMode = false }
               {/* Section Header */}
               <div className="flex items-start space-x-4 mb-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
-                  {toThaiNumber(index + 1)}
+                  {formatDigit(index + 1)}
                 </div>
                 <div className="flex-1">
                   <h2 className="text-lg font-bold text-github-text-primary">
@@ -91,7 +91,7 @@ const Section100View: React.FC<Section100ViewProps> = ({ isPreviewMode = false }
 
               {/* Section Content */}
               <div className="text-justify leading-relaxed ml-12 text-github-text-secondary">
-                {section.content}
+                {normalizeInlineDigits(section.content)}
               </div>
             </div>
           </div>
@@ -102,7 +102,7 @@ const Section100View: React.FC<Section100ViewProps> = ({ isPreviewMode = false }
       <div className="bg-github-bg-secondary dark:bg-gray-800 border border-github-border-primary dark:border-gray-700 rounded-lg p-4 text-sm text-github-text-secondary dark:text-gray-400">
         <p className="flex items-center">
           <span className="mr-2">💡</span>
-          <span>เนื้อหาในหัวข้อ ๑๐๐ เป็นข้อมูลมาตรฐานที่ใช้กับทุกเอกสาร PQS</span>
+          <span>เนื้อหาในหัวข้อ 100 เป็นข้อมูลมาตรฐานที่ใช้กับทุกเอกสาร PQS</span>
         </p>
       </div>
     </Container>

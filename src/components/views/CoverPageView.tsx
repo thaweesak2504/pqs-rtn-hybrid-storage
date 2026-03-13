@@ -12,11 +12,7 @@ interface CoverPageViewProps {
 
 const CoverPageView: React.FC<CoverPageViewProps> = ({ id, name, hierarchy, isPreviewMode = false }) => {
   const toThaiNumber = (num: string | number) => {
-    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().split('').map(d => {
-      const parsed = parseInt(d);
-      return isNaN(parsed) ? d : thaiDigits[parsed];
-    }).join('');
+    return num.toString();
   };
 
   // Preview Mode - A4 Paper Format (Official RTN - matching ExampleCover.tsx)

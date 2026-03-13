@@ -32,11 +32,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   forceExpand
 }) => {
   const toThaiNumber = (num: string | number) => {
-    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().split('').map(d => {
-      const parsed = parseInt(d);
-      return !isNaN(parsed) && parsed >= 0 && parsed <= 9 ? thaiDigits[parsed] : d;
-    }).join('');
+    return num.toString();
   };
 
   const isHeader = question.is_header;

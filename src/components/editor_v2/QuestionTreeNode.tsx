@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { QuestionDetail, QuestionReferenceDetail } from "../../types/content";
-import { buildPrefix, buildPrefix200_300, toThaiNumber } from "../../utils/thaiNumbering";
+import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
 import Button from "../ui/Button";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
@@ -116,7 +116,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     return parsedQuestionMeta.refSectionId ? parsedQuestionMeta : null;
   }, [is300, parsedQuestionMeta]);
   const prefix = refSectionMeta?.refSectionNumber
-    ? `${toThaiNumber(refSectionMeta.refSectionNumber)}.`
+    ? `${refSectionMeta.refSectionNumber}.`
     : is200or300
       ? buildPrefix200_300(level, question.sequence as number, sectionNumber, parentSequence)
       : buildPrefix(level, question.sequence as number, sectionNumber);

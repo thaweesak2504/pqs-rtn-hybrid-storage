@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { Award, CheckCircle2, Clock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { formatNumberByMode } from '../../utils/thaiNumbering';
 
 interface ScoreProgressBannerProps {
   documentId: string;
@@ -22,10 +23,9 @@ interface ProgressData {
   needs_improvement_questions?: number;
 }
 
-const toThaiNumerals = (num: number | string | undefined | null): string => {
-  if (num === undefined || num === null) return '๐';
-  const thaiMap = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().replace(/[0-9]/g, (m) => thaiMap[parseInt(m)]);
+const formatArabicNumerals = (num: number | string | undefined | null): string => {
+  if (num === undefined || num === null) return '0';
+  return formatNumberByMode(num, 'arabic');
 };
 
 const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
@@ -125,7 +125,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
         : "text-slate-500 dark:text-slate-400";
 
   const headlineLabel = isCountMode ? 'คะแนน' : 'คะแนนสะสม';
-  const headlineValue = isCountMode ? `${toThaiNumerals(completedCount)}/${toThaiNumerals(totalCount)}` : `${toThaiNumerals(progress.earned_score)}/${toThaiNumerals(progress.max_score)}`;
+  const headlineValue = isCountMode ? `${formatArabicNumerals(completedCount)}/${formatArabicNumerals(totalCount)}` : `${formatArabicNumerals(progress.earned_score)}/${formatArabicNumerals(progress.max_score)}`;
 
   return (
     <div className={`w-full rounded-xl border border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-slate-800/60 shadow-sm backdrop-blur-md px-4 py-2 flex flex-col xl:flex-row items-center justify-between gap-4 transition-all`}>
@@ -151,19 +151,19 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
       <div className="flex flex-wrap items-center justify-center gap-1.5 md:gap-3 text-xs md:text-sm font-medium">
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100/60 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-slate-600 dark:text-slate-300">
           <span className="opacity-80">ส่งคำตอบ:</span>
-          <span className="font-normal text-slate-800 dark:text-slate-100 font-sarabun">{toThaiNumerals(completedCount)}</span>
+          <span className="font-normal text-slate-800 dark:text-slate-100 font-sarabun">{formatArabicNumerals(completedCount)}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50/60 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400">
           <span className="opacity-80">ผ่าน:</span>
-          <span className="font-normal font-sarabun">{toThaiNumerals(passedCount)}</span>
+          <span className="font-normal font-sarabun">{formatArabicNumerals(passedCount)}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50/60 dark:bg-amber-900/20 border border-amber-200/60 dark:border-amber-800/40 text-amber-700 dark:text-amber-400">
           <span className="opacity-80">รอประเมิน:</span>
-          <span className="font-normal font-sarabun">{toThaiNumerals(pendingCount)}</span>
+          <span className="font-normal font-sarabun">{formatArabicNumerals(pendingCount)}</span>
         </div>
         <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50/60 dark:bg-rose-900/20 border border-rose-200/60 dark:border-rose-800/40 text-rose-700 dark:text-rose-400">
           <span className="opacity-80">ปรับปรุง:</span>
-          <span className="font-normal font-sarabun">{toThaiNumerals(needsImprovementCount)}</span>
+          <span className="font-normal font-sarabun">{formatArabicNumerals(needsImprovementCount)}</span>
         </div>
       </div>
 
@@ -179,7 +179,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
           </div>
         </div>
         <div className="text-xs font-normal text-slate-600 dark:text-slate-400 shrink-0 min-w-[2.5rem] text-right">
-          {toThaiNumerals(performancePercent)}%
+          {formatArabicNumerals(performancePercent)}%
         </div>
       </div>
     </div>

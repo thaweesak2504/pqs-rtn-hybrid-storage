@@ -65,8 +65,7 @@ interface QuestionDisplayCardProps {
 // ============ Helpers ============
 const toThaiNumber = (num?: number | string | null): string => {
   if (num === null || num === undefined) return '';
-  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().replace(/\d/g, (match) => thaiDigits[match as any]);
+  return num.toString();
 };
 
 const toThaiAlphabet = (n: number) => {

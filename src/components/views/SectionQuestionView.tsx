@@ -45,8 +45,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
   }, [title]);
 
   const toThaiNumber = (num: number) => {
-    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
+    return num.toString();
   };
 
   const handleTitleSave = async () => {

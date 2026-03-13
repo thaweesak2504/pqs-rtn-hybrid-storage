@@ -119,7 +119,7 @@ describe("QuestionDisplayCard integration", () => {
     );
 
     expect(screen.getByText(/รวม:/)).toBeInTheDocument();
-    expect(screen.getByText("๑๐ คะแนน")).toBeInTheDocument();
+    expect(screen.getByText("10 คะแนน")).toBeInTheDocument();
   });
 
   it("renders emerald score badge for individual scored question", () => {
@@ -136,7 +136,7 @@ describe("QuestionDisplayCard integration", () => {
       />,
     );
 
-    expect(screen.getByText("๑๕ คะแนน")).toBeInTheDocument();
+    expect(screen.getByText("15 คะแนน")).toBeInTheDocument();
   });
 
   it("renders oral assessment badge pending and passed", () => {
@@ -372,7 +372,7 @@ describe("QuestionDisplayCard integration", () => {
     );
 
     expect(await screen.findByText(/Progress/)).toBeInTheDocument();
-    expect(screen.getByText(/๗๐%/)).toBeInTheDocument();
+    expect(screen.getByText(/70%/)).toBeInTheDocument();
   });
 
   it("renders description only for allowed level/section combinations", () => {

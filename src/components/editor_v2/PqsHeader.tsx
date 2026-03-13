@@ -66,8 +66,7 @@ const PqsHeader: React.FC<PqsHeaderProps> = ({
   };
 
   const toThaiNumerals = (num: string | number): string => {
-    const thaiMap = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().replace(/[0-9]/g, (match) => thaiMap[parseInt(match)]);
+    return num.toString();
   };
 
   const theme = getTheme(section);

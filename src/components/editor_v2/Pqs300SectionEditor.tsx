@@ -20,8 +20,7 @@ const DURATION_UNIT_LABELS: Record<DurationUnit, string> = {
 };
 
 const toThaiNumerals = (num: number | string): string => {
-  const thaiMap = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().replace(/[0-9]/g, (m) => thaiMap[parseInt(m)]);
+  return num.toString();
 };
 
 interface ProgressData {

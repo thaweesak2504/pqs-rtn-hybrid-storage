@@ -26,7 +26,6 @@ import {
     DEFAULT_L1_DESC_BY_SEQ,
     convertThaiToArabic,
     toThaiAlphabet,
-    toThaiNumber
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -2393,7 +2392,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               <div className="mt-2 space-y-2">
                 {requiredCountChildren.map((child, idx) => (
                   <div key={child.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 pl-2">
-                    <span className="text-indigo-500 font-medium">{is306L1 ? `${prefix}.${toThaiNumber(child.sequence)}` : `${toThaiAlphabet(idx + 1)}.`}</span>
+                    <span className="text-indigo-500 font-medium">{is306L1 ? `${prefix}.${child.sequence}` : `${toThaiAlphabet(idx + 1)}.`}</span>
                     <span className="flex-1 truncate">{child.content}</span>
                     <span className="text-indigo-500 font-medium">{child.score} คะแนน</span>
                   </div>
@@ -2475,7 +2474,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <div className="space-y-0.5">
                     {sectionRefChildren.map(child => (
                       <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
-                        <span className="font-medium">{toThaiNumber(child.ref_section_number)}</span>
+                        <span className="font-medium">{child.ref_section_number}</span>
                         <span className="flex-1">{child.content}</span>
                         {/* Show score for 3xx.1.3/3xx.1.4/3xx.1.5 */}
                         {isEdit && (
@@ -2573,7 +2572,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 }}
                                 className="accent-purple-600 w-3.5 h-3.5 shrink-0"
                               />
-                              <span className={`text-xs font-medium shrink-0 ${isSelf ? 'text-slate-500 dark:text-slate-400' : 'text-purple-600 dark:text-purple-400'}`}>{toThaiNumber(s.section_number)}</span>
+                              <span className={`text-xs font-medium shrink-0 ${isSelf ? 'text-slate-500 dark:text-slate-400' : 'text-purple-600 dark:text-purple-400'}`}>{s.section_number}</span>
                               <span className={`text-xs flex-1 ${isSelf ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400 dark:decoration-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{s.title_th}</span>
                               {isSelf && <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded shrink-0">(ตัวเอง)</span>}
                             </label>

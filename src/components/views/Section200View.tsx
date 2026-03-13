@@ -7,8 +7,7 @@ interface Section200ViewProps {
 
 const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }) => {
   const toThaiNumber = (num: number) => {
-    const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-    return num.toString().split('').map(d => thaiDigits[parseInt(d)] || d).join('');
+    return num.toString();
   };
 
   const toThaiAlphabet = (index: number) => {
