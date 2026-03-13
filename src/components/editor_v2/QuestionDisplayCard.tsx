@@ -310,16 +310,16 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           ? "bg-white dark:bg-slate-800"
           : parentLayout === "grid"
             ? "bg-slate-50/80 dark:bg-slate-800/80 m-1 rounded-lg border border-slate-100 dark:border-slate-700 shadow-sm"
-            : level === 1 && is200or300
-              ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent
-              : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent
+            : level === 1
+              ? "bg-slate-50/50 dark:bg-slate-800/50 ml-12" // L2: standard indent (all templates)
+              : "bg-slate-50/50 dark:bg-slate-800/50 ml-20" // L3: deeper indent (200/300 only)
         }
       ${!isLast && parentLayout !== "grid" ? "border-b border-gray-100 dark:border-slate-700/50" : ""}
       hover:bg-blue-50/50 dark:hover:bg-blue-950/20
     `}
     >
       {/* L2 connector dot */}
-      {level === 1 && is200or300 && parentLayout !== "grid" && (
+      {level === 1 && parentLayout !== "grid" && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
@@ -327,29 +327,30 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       )}
 
       {/* L3 connector dot only */}
-      {!(isL1 || (level === 1 && is200or300)) && parentLayout !== "grid" && (
+      {!(isL1 || level === 1) && parentLayout !== "grid" && (
         <div className="absolute left-[-18px] top-[24px] -translate-y-1/2 flex items-center">
           <div className="w-[32px] h-px bg-blue-200 dark:bg-blue-800" />
           <div className="w-1.5 h-1.5 rounded-full bg-blue-300 dark:bg-blue-700 shrink-0" />
         </div>
       )}
 
-      {/* Toggle */}
-      <button
-        onClick={onToggle}
-        className={`w-5 h-5 mt-0.5 flex items-center justify-center rounded transition-all shrink-0
-          ${!isL1 ? "ml-2" : ""}
-          ${hasChildren
-            ? "text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
-            : "invisible"
-          }`}
-      >
-        {isExpanded ? (
-          <ChevronDown className="w-3.5 h-3.5" />
-        ) : (
-          <ChevronRight className="w-3.5 h-3.5" />
-        )}
-      </button>
+      {/* Toggle (L1 only) */}
+      {isL1 && (
+        <button
+          onClick={onToggle}
+          className={`w-5 h-5 mt-0.5 flex items-center justify-center rounded transition-all shrink-0
+            ${hasChildren
+              ? "text-slate-400 hover:text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+              : "invisible"
+            }`}
+        >
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
+          )}
+        </button>
+      )}
 
       {/* Prefix Badge */}
       <span
@@ -357,9 +358,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         shrink-0 inline-flex items-center justify-center
         ${isL1
           ? "min-w-[36px] text-sm font-bold text-slate-700 dark:text-slate-200"
-            : level === 1 && is200or300
-              ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
-              : "text-sm font-bold " + (is300 ? "text-purple-600 dark:text-purple-400" : "text-orange-600 dark:text-orange-400") // L3: Normal color
+            : level === 1
+              ? "ml-8 text-sm font-bold " + (is200or300 ? "min-w-[24px] text-blue-600 dark:text-blue-400" : "text-orange-600 dark:text-orange-400") // L2: blue(200/300) or orange(100)
+              : "ml-14 text-sm font-bold " + (is300 ? "text-purple-600 dark:text-purple-400" : "text-orange-600 dark:text-orange-400") // L3: Normal color
           }
       `}
       >
@@ -371,9 +372,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         className={`flex-1 flex flex-col min-w-0 select-text
         ${isL1
             ? "text-sm text-slate-900 dark:text-slate-100" // L1: Stronger emphasis
-            : level === 1 && is200or300
-              ? "text-sm font-medium text-slate-800 dark:text-slate-200" // L2: Medium weight, slightly darker
-              : "text-sm font-normal text-slate-600 dark:text-slate-400" // L3: Normal weight, slightly lighter
+            : level === 1
+              ? "text-sm font-medium text-slate-800 dark:text-slate-200" // L2: Medium weight (all templates)
+              : "text-sm font-normal text-slate-600 dark:text-slate-400" // L3: Normal weight (200/300 only)
           }
       `}
       >
