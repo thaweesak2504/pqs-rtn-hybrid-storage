@@ -221,19 +221,19 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
     <div className="flex flex-col">
       {/* Question Row */}
       <div className="flex items-baseline">
-        <span className={`${level <= 1 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
+        <span className={`${level <= 1 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${!isExamChildPrintNode && question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
           {displayNumber}
         </span>
 
         <div className="flex-1">
           <div className={`flex items-center gap-2 min-w-0`}>
             <div className="flex-1 min-w-0">
-              <span>
+              <span className={level === 0 || (level === 1 && parentPath.endsWith(`.${toThaiNumber(1)}`)) ? 'font-bold' : ''}>
                 {question.content}
               </span>
               {/* Exempted text */}
               {question.question_type === 'exempted' && (
-                <span className="ml-2 text-base font-medium text-black dark:text-white">
+                <span className="ml-2 font-normal">
                   {question.display_text || "(ไม่ต้องปฏิบัติ)"}
                 </span>
               )}
@@ -249,7 +249,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
             const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
             return (
               <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                <span className="text-black dark:text-white font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
+                <span className="text-black dark:text-white">{toThaiAlphabet(realIndex)}</span>
                 <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-black dark:border-white text-black dark:text-white text-[9px] font-bold shrink-0">
                   ✓
                 </span>
@@ -278,7 +278,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         <div className="mt-1.5 ml-[9ch] space-y-0.5">
           {ownSubQuestionList.map((sq, sqIdx) => (
             <div key={sq.code} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <span className="font-bold text-black dark:text-white min-w-[2.5ch] shrink-0">{toThaiAlphabet(sqIdx)}</span>
+              <span className="text-black dark:text-white min-w-[2.5ch] shrink-0">{toThaiAlphabet(sqIdx)}</span>
               <span>{sq.text}</span>
             </div>
           ))}
