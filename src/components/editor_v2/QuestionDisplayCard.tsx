@@ -305,7 +305,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   return (
     <div
       className={`
-      group relative flex items-start gap-3 px-4 py-3 transition-all duration-150
+      group relative flex items-start ${!(isL1 || (level === 1 && is200or300)) ? "gap-2" : "gap-3"} px-4 py-3 transition-all duration-150
       ${isL1
           ? "bg-white dark:bg-slate-800"
           : parentLayout === "grid"
@@ -356,10 +356,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         className={`
         shrink-0 inline-flex items-center justify-center
         ${isL1
-            ? "rounded-md min-w-[36px] px-1.5 py-0.5 text-xs font-bold bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-700 dark:to-slate-700/70 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-600"
+          ? "min-w-[36px] text-sm font-bold text-slate-700 dark:text-slate-200"
             : level === 1 && is200or300
               ? "min-w-[24px] text-sm font-bold text-blue-600 dark:text-blue-400" // L2: Bold blue
-              : "min-w-[24px] text-sm font-normal " + (is300 ? "text-purple-600 dark:text-purple-400" : "text-orange-600 dark:text-orange-400") // L3: Normal color
+              : "text-sm font-bold " + (is300 ? "text-purple-600 dark:text-purple-400" : "text-orange-600 dark:text-orange-400") // L3: Normal color
           }
       `}
       >
