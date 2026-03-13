@@ -2150,11 +2150,11 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
     insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "exempted", Some(exempted_text))?;
     insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "exempted", Some(exempted_text))?;
 
-    // 3xx.2 - 3xx.5: GROUP headers, default EXEMPTED (may not apply for all positions)
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "exempted", Some(exempted_text))?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "exempted", Some(exempted_text))?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "exempted", Some(exempted_text))?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "exempted", Some(exempted_text))?;
+    // 3xx.2 - 3xx.5: GROUP headers (auto-calc from children, not manually scored)
+    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "normal", None)?;
+    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "normal", None)?;
+    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "normal", None)?;
+    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "normal", None)?;
 
     // 3xx.6: GROUP header (auto-calc from children, not manually scored)
     insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "normal", None)?;
@@ -5688,17 +5688,17 @@ mod tests {
 
         seed_section_300_template(&conn, doc_id, section_id, 301).expect("Seed failed");
 
-        // Verify 3xx.2-3xx.5 are exempted by default (group headers)
-        let exempted_groups: i64 = conn.query_row(
+        // Verify 3xx.2-3xx.5 are normal by default (group headers)
+        let normal_groups: i64 = conn.query_row(
             "SELECT COUNT(*) FROM Questions
-             WHERE section_id = ?1 AND parent_id IS NULL AND sequence BETWEEN 2 AND 5 AND question_type = 'exempted'",
+             WHERE section_id = ?1 AND parent_id IS NULL AND sequence BETWEEN 2 AND 5 AND question_type = 'normal'",
             [section_id],
             |row| row.get(0),
         ).expect("Query failed");
 
-        assert_eq!(exempted_groups, 4, "3xx.2-3xx.5 should default to exempted type");
+        assert_eq!(normal_groups, 4, "3xx.2-3xx.5 should default to normal type");
 
-        // Verify they have display_text
+        // Verify they have no display_text
         let with_display_text: i64 = conn.query_row(
             "SELECT COUNT(*) FROM Questions
              WHERE section_id = ?1 AND parent_id IS NULL AND sequence BETWEEN 2 AND 5 AND display_text IS NOT NULL",
@@ -5706,7 +5706,7 @@ mod tests {
             |row| row.get(0),
         ).expect("Query failed");
 
-        assert_eq!(with_display_text, 4, "Exempted groups should have display_text");
+        assert_eq!(with_display_text, 0, "Normal groups should not have display_text");
 
         // Verify 3xx.1.1-3xx.1.3 are exempted (prerequisites)
         let q1_id: String = conn.query_row(
