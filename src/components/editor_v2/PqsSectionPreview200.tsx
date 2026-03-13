@@ -357,7 +357,6 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   };
 
   const is200L2 = is200 && level === 1;
-  const is200L3 = is200 && level >= 2;
   const contentStartOffsetClass = (level === 0 || is200L2) ? 'ml-[9ch]' : 'ml-[2ch]';
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
@@ -370,9 +369,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   return (
     <div className="flex flex-col">
       {/* Question Row */}
-      <div className={`flex items-baseline ${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
+      <div className="flex items-baseline">
         <span
-          className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} ${is200L3 ? 'text-orange-700 dark:text-orange-400' : ''} shrink-0`}
+          className={`${(level === 0 || is200L2) ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}
         >
           {displayNumber}
         </span>
@@ -382,12 +381,12 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
           <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : ""}`}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className={`${is200L3 ? "text-slate-700 dark:text-slate-300" : ""}`}>
+                <span>
                   {question.content}
                 </span>
                 {/* Exempted text */}
                 {question.question_type === 'exempted' && (
-                  <span className="ml-2 text-base font-medium text-amber-600 dark:text-amber-400">
+                    <span className="ml-2 text-base font-medium text-black dark:text-white">
                     {question.display_text || "(ไม่ต้องอธิบาย)"}
                   </span>
                 )}
@@ -405,8 +404,8 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   const realIndex = parentSubQuestionList ? parentSubQuestionList.findIndex(p => p.code === sq.code) : 0;
                   return (
                     <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                      <span className="text-amber-600 dark:text-amber-400 font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
-                      <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 text-[9px] font-bold shrink-0">
+                      <span className="text-black dark:text-white font-bold text-sm">{toThaiAlphabet(realIndex)}</span>
+                      <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-black dark:border-white text-black dark:text-white text-[9px] font-bold shrink-0">
                         ✓
                       </span>
                     </span>
@@ -430,7 +429,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         <div className="mt-1.5 ml-[9ch] space-y-0.5">
           {ownSubQuestionList.map((sq, sqIdx) => (
             <div key={sq.code} className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
-              <span className="font-bold text-orange-600 dark:text-orange-400 min-w-[2.5ch] shrink-0">{toThaiAlphabet(sqIdx)}</span>
+              <span className="font-bold text-black dark:text-white min-w-[2.5ch] shrink-0">{toThaiAlphabet(sqIdx)}</span>
               <span>{sq.text}</span>
             </div>
           ))}
