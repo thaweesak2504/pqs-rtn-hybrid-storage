@@ -118,7 +118,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   const shouldHideInlineSubQBadges = is300 && question.is_group_header;
   // Special question type detection for Section 300
   const questionSequence = question.sequence ? parseInt(question.sequence.toString()) : null;
-  const isSectionSelector = is300 && questionSequence && !isL1 && (questionSequence === 3 || questionSequence === 4 || questionSequence === 5) && prefix.includes('.๑.');
+  const isSectionSelector = is300 && questionSequence && !isL1 && (questionSequence === 3 || questionSequence === 4 || questionSequence === 5) && (prefix.includes('.๑.') || prefix.includes('.1.'));
 
   const isOralAssessmentQuestion = is300
     && !isL1

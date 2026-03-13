@@ -146,13 +146,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Special question type detection for Section 300
   const isPrerequisiteQuestion = is300 && questionSequence && isL1 && questionSequence === 1; // 3xx.1 only
-  // We need to know if its parent is 3xx.1. We can check prefix!
-  // In Thai numerals: 1 is ๑. So `prefix.includes('.๑.')` works for 3xx.1.x
-  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && prefix.includes('.๑.'); // 3xx.1.1-3xx.1.2
-  const isSection300Selector = is300 && !isL1 && questionSequence === 3 && prefix.includes('.๑.'); // 3xx.1.3 → select 300Sections (no score)
-  const isSection100Selector = is300 && !isL1 && questionSequence === 4 && prefix.includes('.๑.'); // 3xx.1.4 → select 100Sections
-  const isSection200Selector = is300 && !isL1 && questionSequence === 5 && prefix.includes('.๑.'); // 3xx.1.5 → select 200Sections
-  const isExamChild = is300 && !isL1 && prefix.includes('.๗.'); // 3xx.7.1, 3xx.7.2 → no scoring controls
+  // We need to know if its parent is 3xx.1. Check prefix for both Thai (๑) and Arabic (1) numerals.
+  const isChildOf1 = prefix.includes('.๑.') || prefix.includes('.1.');
+  const isChildOf7 = prefix.includes('.๗.') || prefix.includes('.7.');
+  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && isChildOf1; // 3xx.1.1-3xx.1.2
+  const isSection300Selector = is300 && !isL1 && questionSequence === 3 && isChildOf1; // 3xx.1.3 → select 300Sections (no score)
+  const isSection100Selector = is300 && !isL1 && questionSequence === 4 && isChildOf1; // 3xx.1.4 → select 100Sections
+  const isSection200Selector = is300 && !isL1 && questionSequence === 5 && isChildOf1; // 3xx.1.5 → select 200Sections
+  const isExamChild = is300 && !isL1 && isChildOf7; // 3xx.7.1, 3xx.7.2 → no scoring controls
   // 3xx.6 L1 = required count practice (has scoring, no exempted, auto-creates L2 children)
   const is306L1 = is300 && isL1 && questionSequence === 6;
   // 3xx.7 L1 = up to command decision → no exempted/scoring
