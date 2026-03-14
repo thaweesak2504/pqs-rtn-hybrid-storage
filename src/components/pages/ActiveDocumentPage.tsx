@@ -220,6 +220,7 @@ const ActiveDocumentPage: React.FC = () => {
                   onClick={() => setActiveSection(`${section.section_number}`)}
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
+                  sectionNumber={section.section_number}
                   onDelete={() => handleDeleteClick(section)}
                 />
               ))
@@ -243,6 +244,7 @@ const ActiveDocumentPage: React.FC = () => {
                   onClick={() => setActiveSection(`${section.section_number}`)}
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
+                  sectionNumber={section.section_number}
                   onDelete={() => handleDeleteClick(section)}
                 />
               ))
@@ -266,6 +268,7 @@ const ActiveDocumentPage: React.FC = () => {
                   onClick={() => setActiveSection(`${section.section_number}`)}
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
+                  sectionNumber={section.section_number}
                   onDelete={() => handleDeleteClick(section)}
                 />
               ))
@@ -623,8 +626,9 @@ const SectionItem: React.FC<{
   onClick?: () => void;
   isActive?: boolean;
   isSystemDefined?: boolean;
+  sectionNumber?: number;
   onDelete?: () => void;
-}> = ({ title, onClick, isActive, isSystemDefined, onDelete }) => (
+}> = ({ title, onClick, isActive, isSystemDefined, sectionNumber, onDelete }) => (
   <div className="flex items-center group">
     <button
       onClick={onClick}
@@ -634,7 +638,7 @@ const SectionItem: React.FC<{
         }`}
     >
       {title}
-      {isSystemDefined && <span className="ml-2 text-xs text-gray-400">🔒</span>}
+      {isSystemDefined && sectionNumber !== 101 && <span className="ml-2 text-xs text-gray-400">🔒</span>}
     </button>
     {onDelete && (
       <button

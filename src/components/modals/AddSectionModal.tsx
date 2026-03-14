@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 
+const FIXED_SECTION_101_TITLE = 'ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals';
+
 interface AddSectionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -65,6 +67,12 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
 
   // Real-time validation
   useEffect(() => {
+    if (sectionGroup === 100 && sectionNumber === '101') {
+      setTitleTh(FIXED_SECTION_101_TITLE);
+    }
+  }, [sectionGroup, sectionNumber]);
+
+  useEffect(() => {
     if (!sectionNumber) {
       setError('');
       return;
@@ -79,11 +87,6 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
     const range = getValidRange();
     if (num < range.min || num > range.max) {
       setError(`Section number must be between ${range.min} and ${range.max}`);
-      return;
-    }
-
-    if (num === 101) {
-      setError('Section 101 is system-defined and auto-created');
       return;
     }
 
@@ -183,7 +186,7 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
               max={range.max}
             />
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {sectionGroup === 100 ? 'ช่วงที่ใช้ได้: 102-199 (101 สงวนไว้โดยระบบ)' : `ช่วงที่ใช้ได้: ${range.min}-${range.max}`}
+              {`ช่วงที่ใช้ได้: ${range.min}-${range.max}`}
             </p>
           </div>
 
@@ -197,15 +200,23 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
               value={titleTh}
               onChange={(e) => setTitleTh(e.target.value)}
               placeholder={
-                sectionGroup === 100
-                  ? "เช่น ข้อระมัดระวังอันตรายพื้นฐานด้านการสรรพาวุธ Ordnance Safety Fundamentals"
+                sectionGroup === 100 && sectionNumber === '101'
+                  ? FIXED_SECTION_101_TITLE
+                  : sectionGroup === 100
+                    ? "เช่น ข้อระมัดระวังอันตรายพื้นฐานด้านการสรรพาวุธ Ordnance Safety Fundamentals"
                   : sectionGroup === 200
                     ? "เช่น ระบบเรดาร์ควบคุมการยิง Radar Weapon Assembly System"
                     : "เช่น การปฏิบัติหน้าที่ในตําแหน่ง พลลําเลียงและพลบรรจุ Gunner Mate Watch Station"
               }
               maxLength={200}
+              disabled={sectionGroup === 100 && sectionNumber === '101'}
               className="w-full px-3 py-2 bg-white dark:bg-github-bg-tertiary border border-gray-300 dark:border-github-border-primary rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-github-text-primary"
             />
+            {sectionGroup === 100 && sectionNumber === '101' && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Section 101 ใช้ชื่อคงที่ตามข้อกำหนด และไม่สามารถแก้ไขได้
+              </p>
+            )}
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {titleTh.length}/200 ตัวอักษร
             </p>

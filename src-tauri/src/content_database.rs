@@ -291,7 +291,7 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
     // Auto-create Section 101 (System-defined: Precautions)
     conn.execute(
         "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
-         VALUES (?1, 100, 101, 'ข้อควรระมัดระวังอันตรายพื้นฐาน', '101 Precautions', 1, 1)",
+         VALUES (?1, 100, 101, 'ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals', '101 Precautions', 1, 1)",
         params![new_id],
     ).map_err(|e| format!("Failed to create Section 101: {}", e))?;
 
@@ -2031,10 +2031,15 @@ pub struct CreateSectionRequest {
     pub menu_label: String,
 }
 
+const FIXED_SECTION_101_TITLE: &str = "ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals";
+
 /// Create a new section
 pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+    create_section_with_conn(&conn, request)
+}
+
+fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) -> Result<Section, String> {
     // Validation: Check if number already exists
     let exists: bool = conn
         .query_row(
@@ -2060,9 +2065,15 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
         return Err(format!("Section number must be in range {:?} for section group {}", valid_range, request.section_group));
     }
     
-    // Block Section 101 from manual creation (it's auto-created)
-    if request.section_number == 101 {
-        return Err("Section 101 is system-defined and auto-created. Cannot create manually.".to_string());
+    // Section 101 (group 100) must always use the fixed header title.
+    if request.section_group == 100
+        && request.section_number == 101
+        && request.title_th.trim() != FIXED_SECTION_101_TITLE
+    {
+        return Err(format!(
+            "Section 101 title must be exactly: {}",
+            FIXED_SECTION_101_TITLE
+        ));
     }
     
     // Get next display_order
@@ -2099,8 +2110,6 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
        seed_section_300_template(&conn, &request.document_id, id, request.section_number)?;
     } else if request.section_group == 100 && request.section_number == 102 {
        seed_section_102_template(&conn, &request.document_id, id, request.section_number)?;
-    // } else if request.section_group == 100 && request.section_number == 101 {
-    //    seed_section_101_template(&conn, &request.document_id, id, request.section_number)?;
     }
     
     // Return created section
@@ -2264,6 +2273,25 @@ pub struct UpdateSectionArgs {
 /// Update a section (Title, Menu Label, Duration, Score)
 pub fn update_section(args: UpdateSectionArgs) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    update_section_with_conn(&conn, args)
+}
+
+fn update_section_with_conn(conn: &Connection, args: UpdateSectionArgs) -> Result<(), String> {
+
+    let (section_group, section_number): (i32, i32) = conn
+        .query_row(
+            "SELECT section_group, section_number FROM Sections WHERE id = ?1",
+            params![args.id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if section_group == 100 && section_number == 101 && args.title_th.trim() != FIXED_SECTION_101_TITLE {
+        return Err(format!(
+            "Section 101 title is fixed and cannot be changed. Required title: {}",
+            FIXED_SECTION_101_TITLE
+        ));
+    }
 
     conn.execute(
         "UPDATE Sections SET title_th = ?1, menu_label = ?2, duration_value = ?3, duration_unit = ?4, total_score = ?5, updated_at = CURRENT_TIMESTAMP WHERE id = ?6",
@@ -2438,18 +2466,21 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
 /// Delete a section and all its questions (cascade)
 pub fn delete_section(id: i64) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    // Check if system-defined
-    let is_system: bool = conn
+    delete_section_with_conn(&conn, id)
+}
+
+fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String> {
+    // Check if system-defined. Exception: Section 101 is allowed to be deleted.
+    let (is_system, section_number): (bool, i32) = conn
         .query_row(
-            "SELECT is_system_defined FROM Sections WHERE id = ?1",
+            "SELECT is_system_defined, section_number FROM Sections WHERE id = ?1",
             params![id],
-            |row| row.get(0),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| e.to_string())?;
     
-    if is_system {
-        return Err("Cannot delete system-defined section (e.g., Section 101)".to_string());
+    if is_system && section_number != 101 {
+        return Err("Cannot delete system-defined section".to_string());
     }
 
     // --- Clean up orphaned section_ref children in OTHER sections that link to this section ---
@@ -6593,6 +6624,176 @@ mod tests {
         );
 
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_section_101_create_requires_fixed_title_and_starts_empty() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES ('DOC-101-CREATE', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        let invalid = create_section_with_conn(
+            &conn,
+            CreateSectionRequest {
+                document_id: "DOC-101-CREATE".to_string(),
+                section_group: 100,
+                section_number: 101,
+                title_th: "ชื่ออื่น".to_string(),
+                menu_label: "101 Precautions".to_string(),
+            },
+        );
+        assert!(invalid.is_err());
+        assert!(invalid
+            .unwrap_err()
+            .contains("Section 101 title must be exactly"));
+
+        let created = create_section_with_conn(
+            &conn,
+            CreateSectionRequest {
+                document_id: "DOC-101-CREATE".to_string(),
+                section_group: 100,
+                section_number: 101,
+                title_th: FIXED_SECTION_101_TITLE.to_string(),
+                menu_label: "101 Precautions".to_string(),
+            },
+        )
+        .expect("Failed to create section 101");
+
+        assert_eq!(created.section_number, 101);
+        assert_eq!(created.title_th, FIXED_SECTION_101_TITLE);
+
+        let question_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE section_id = ?1",
+                params![created.id],
+                |row| row.get(0),
+            )
+            .expect("Failed to count section 101 questions");
+
+        assert_eq!(question_count, 0, "Manually created Section 101 should start empty");
+    }
+
+    #[test]
+    fn test_section_101_update_title_is_locked() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionSectionLinks (
+                question_id TEXT NOT NULL,
+                section_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )
+        .expect("Failed to create QuestionSectionLinks");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES ('DOC-101-UPD', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        let created = create_section_with_conn(
+            &conn,
+            CreateSectionRequest {
+                document_id: "DOC-101-UPD".to_string(),
+                section_group: 100,
+                section_number: 101,
+                title_th: FIXED_SECTION_101_TITLE.to_string(),
+                menu_label: "101 Precautions".to_string(),
+            },
+        )
+        .expect("Failed to create section 101");
+
+        let blocked = update_section_with_conn(
+            &conn,
+            UpdateSectionArgs {
+                id: created.id,
+                title_th: "หัวข้อใหม่".to_string(),
+                menu_label: "101 Updated".to_string(),
+                duration_value: None,
+                duration_unit: None,
+                total_score: None,
+            },
+        );
+        assert!(blocked.is_err());
+        assert!(blocked
+            .unwrap_err()
+            .contains("Section 101 title is fixed and cannot be changed"));
+
+        let allowed = update_section_with_conn(
+            &conn,
+            UpdateSectionArgs {
+                id: created.id,
+                title_th: FIXED_SECTION_101_TITLE.to_string(),
+                menu_label: "101 New Menu".to_string(),
+                duration_value: None,
+                duration_unit: None,
+                total_score: None,
+            },
+        );
+        assert!(allowed.is_ok());
+    }
+
+    #[test]
+    fn test_delete_allows_section_101_but_blocks_other_system_defined() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionSectionLinks (
+                question_id TEXT NOT NULL,
+                section_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            [],
+        )
+        .expect("Failed to create QuestionSectionLinks");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES ('DOC-101-DEL', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (10101, 'DOC-101-DEL', 100, 101, ?1, '101 Precautions', 1)",
+            params![FIXED_SECTION_101_TITLE],
+        )
+        .expect("Failed to create section 101");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (20101, 'DOC-101-DEL', 200, 201, 'Section 201', '201 System', 1)",
+            [],
+        )
+        .expect("Failed to create section 201");
+
+        let del_101 = delete_section_with_conn(&conn, 10101);
+        assert!(del_101.is_ok(), "Section 101 should be deletable");
+
+        let exists_101: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM Sections WHERE id = 10101)",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to check section 101 existence");
+        assert!(!exists_101, "Section 101 should be deleted");
+
+        let del_201 = delete_section_with_conn(&conn, 20101);
+        assert!(del_201.is_err(), "Other system-defined sections should still be blocked");
+        assert!(del_201.unwrap_err().contains("Cannot delete system-defined section"));
     }
 
     // ========================================================================

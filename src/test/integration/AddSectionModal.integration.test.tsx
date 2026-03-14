@@ -4,11 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import AddSectionModal from "../../components/modals/AddSectionModal";
 
 describe("AddSectionModal integration", () => {
+  const FIXED_SECTION_101_TITLE = "ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals";
+
   beforeEach(() => {
     vi.mocked(invoke).mockReset();
   });
 
-  it("blocks section 101 for section group 100", async () => {
+  it("uses fixed title for section 101 in section group 100", async () => {
     render(
       <AddSectionModal
         isOpen
@@ -24,8 +26,8 @@ describe("AddSectionModal integration", () => {
       target: { value: "101" },
     });
 
-    expect(await screen.findByText("Section 101 is system-defined and auto-created")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create Section" })).toBeDisabled();
+    expect(await screen.findByDisplayValue(FIXED_SECTION_101_TITLE)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(FIXED_SECTION_101_TITLE)).toBeDisabled();
   });
 
   it("creates section 300 with expected payload and callbacks", async () => {

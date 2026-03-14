@@ -269,7 +269,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         section={sectionNumber.toString()}
         title={currentTitle}
         subTitle={currentMenuLabel || subTitle}
-        onTitleChange={readOnly ? undefined : handleTitleChange}
+        onTitleChange={readOnly || sectionNumber === 101 ? undefined : handleTitleChange}
         onSubTitleChange={readOnly ? undefined : handleSubTitleChange}
         readOnly={readOnly}
         metadata={{

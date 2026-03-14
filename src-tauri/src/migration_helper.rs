@@ -12,7 +12,7 @@ pub fn migrate_create_section_101() -> Result<usize, String> {
             id AS document_id,
             100 AS section_group,
             101 AS section_number,
-            'ข้อควรระมัดระวังอันตรายพื้นฐาน' AS title_th,
+                'ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals' AS title_th,
             '101 Precautions' AS menu_label,
             1 AS display_order,
             1 AS is_system_defined
