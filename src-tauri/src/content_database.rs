@@ -295,16 +295,6 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
         params![new_id],
     ).map_err(|e| format!("Failed to create Section 101: {}", e))?;
 
-    // Seed Section 101 Data (Mock Up)
-    let section_101_id: i64 = conn.query_row(
-        "SELECT id FROM Sections WHERE document_id = ?1 AND section_number = 101",
-        params![new_id],
-        |row| row.get(0)
-    ).map_err(|e| format!("Failed to retrieve Section 101 ID: {}", e))?;
-
-    seed_section_101_template(&conn, &new_id, section_101_id, 101)
-        .map_err(|e| format!("Failed to seed Section 101 content: {}", e))?;
-
     Ok(new_id)
 }
 
@@ -2114,6 +2104,7 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
     get_section_by_id(&conn, id)
 }
 
+#[cfg(test)]
 /// Helper to convert Arabic number to Thai digits
 fn to_thai_digit(n: i32) -> String {
     let thai_digits = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
@@ -2197,39 +2188,6 @@ fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _
     insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(), "exempted", Some(exempted_text))?;
     insert_q(5, "การเชื่อมต่อระบบ".to_string(), "exempted", Some(exempted_text))?;
     insert_q(6, "ข้อระมัดระวังอันตราย".to_string(), "exempted", Some(exempted_text))?;
-
-    Ok(())
-}
-
-/// Seed Section 101 (Precautions) with Real Data - Full Implementation
-fn seed_section_101_template(conn: &Connection, doc_id: &str, section_id: i64, section_num: i32) -> Result<(), String> {
-    let p = to_thai_digit(section_num); // e.g. "๑๐๑"
-
-    let insert_q = |parent: Option<String>, seq: i32, content: String, is_header: bool, ans_type: &str, metadata: Option<String>| -> Result<String, String> {
-        let q_id = generate_uuid();
-        conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![q_id, doc_id, section_id, parent, seq, content, is_header, ans_type, metadata]
-        ).map_err(|e| e.to_string())?;
-        Ok(q_id)
-    };
-
-    // 101.1
-    insert_q(None, 1, format!("{}.๑ จุดประสงค์ของโปรแกรมการสั่งการในด้านความปลอดภัย (Command Safety Program) (ก.)", p), false, "checkbox", 
-        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "เป็นโปรแกรมที่เพิ่มประสิทธิภาพการวัดผลในการทํางานซึ่งเป็นการลดความถี่ในการปฏิบัติ และให้คําแนะนําอันตรายที่จะเกิดแก่บุคคลรวมทั้งลดค่าใช้จ่ายในการใช้อุปกรณ์และทรัพยสิน อันเกิดจากความเสียหายที่จะเกิดขึ้น"}]}"#.to_string()))?;
-
-    // 101.2
-    insert_q(None, 2, format!("{}.๒ หน่วยงานใดเป็นผู้ประเมินผลกระทบที่มีต่อโปรแกรมการสั่งการด้านความปลอดภัย (ก.)", p), false, "checkbox", 
-        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "องค์กรความปลอดภัย (The Safety Organization) ซึ่งก็คือ สภาและคณะกรรมการว่าด้วยความปลอดภัย(The Safety Council And Safety Committee)"}]}"#.to_string()))?;
-
-    // 101.3
-    insert_q(None, 3, format!("{}.๓ ใครคือผู้รับผิดชอบต่อการจัดการโปรแกรมในด้านความปลอดภัย (Command Safety Program) (ก.)", p), false, "checkbox", 
-        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "นายทหารความปลอดภัย (The Safety Officer) เป็นผู้ให้คําแนะนํากับนายทหารที่ทําหน้าที่เป็นผู้สั่งการ (Commanding Officer) ทุกคนในทุกเรื่องเกี่ยวกับความปลอดภัยนอกจากนั้นยังประสานงานการปฏิบัติงานเพื่อเพิ่มประสิทธิภาพและประเมินผลข้อสรุปที่มีผลกระทบต่อโปรแกรมความปลอดภัยรวมถึงพยายามกระตุ้นการทำงานของสภาและคณะกรรมการว่าด้วยความปลอดภัย"}]}"#.to_string()))?;
-
-    // 101.9 (Complex with SubList)
-    insert_q(None, 9, format!("{}.๙ อธิบายจุดประสงค์และการทํางานของ Circuit Breakers: CB (ข., ซ.)", p), false, "checkbox", 
-        Some(r#"{"answerCheckboxes": [{"checked": true, "text": "จุดประสงค์ของ Circuit Breaker คือ เพื่อที่จะแยกไฟที่จะจ่ายไปให้แต่ละอุปกรณ์ กฎการปฏิบัติกับ Circuit Breakers มีดังต่อไปนี้", "subList": ["ขณะปฏิบัติงานกับ Circuit Breaker ให้ใช้มือข้างเดียว (One Hand) เท่านั้น", "พยายามอย่าให้มือข้างใดข้างหนึ่งไปสัมผัสส่วนอื่นของ Circuit Breaker ยกเว้นที่จับ (Operating Handles)", "สัมผัสหรือจับด้านเดียวเท่านั้นของมือจับ", "ปิดวงจรเบรกเกอร์ก่อนและหลังจากนั้นค่อยปิดวงจรสวิตช์", "อย่าทำให้ Circuit Breakers ไม่ทำงาน (Disable)"]}]}"#.to_string()))?;
 
     Ok(())
 }
