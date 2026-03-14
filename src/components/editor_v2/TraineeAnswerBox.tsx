@@ -282,17 +282,21 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }
   };
 
-  const formatThaiTime = (dateStr: string) => {
+  const formatThaiTime = (dateStr?: string | null) => {
+    if (!dateStr || !dateStr.trim()) return null;
     // Ensure the date string is treated as UTC if it doesn't have a timezone suffix
     // SQLite datetime('now') returns 'YYYY-MM-DD HH:MM:SS'
     const isoStr = (dateStr.includes('Z') || dateStr.includes('+')) ? dateStr : dateStr.replace(' ', 'T') + 'Z';
     const d = new Date(isoStr);
+    if (Number.isNaN(d.getTime())) return null;
     const day = d.getDate().toString().padStart(2, '0');
     const month = d.toLocaleString('th-TH', { month: 'short' });
     const hours = d.getHours().toString().padStart(2, '0');
     const minutes = d.getMinutes().toString().padStart(2, '0');
     return `${day} ${month} ${hours}:${minutes}`;
   };
+
+  const timestampText = formatThaiTime(traineeAnswer?.updated_at) || formatThaiTime(traineeAnswer?.assessed_at);
 
   const config = statusConfig[localStatus] || statusConfig.pending;
 
@@ -353,12 +357,12 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                 </div>
 
                 {/* Right Side: Status Badges (Only shown if answer exists) */}
-                {cleanValue && (
+                {(cleanValue || !!timestampText) && (
                   <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar shrink-0 mt-[2px]">
                     {/* Timestamp display */}
-                    {traineeAnswer?.updated_at && (
+                    {timestampText && (
                       <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
-                        {formatThaiTime(traineeAnswer.updated_at)}
+                        {timestampText}
                       </span>
                     )}
 

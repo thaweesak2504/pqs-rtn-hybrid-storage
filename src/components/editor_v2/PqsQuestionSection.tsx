@@ -30,7 +30,7 @@ export interface UserAnswer {
   feedback: string | null;
   assessed_at: string | null;
   assessed_by: string | null;
-  updated_at: string;
+  updated_at?: string | null;
 }
 
 interface PqsQuestionSectionProps {

@@ -5165,6 +5165,14 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         });
     }
 
+    let section_number: i32 = conn.query_row(
+        "SELECT section_number FROM Sections WHERE id = ?1",
+        params![section_id],
+        |row| row.get(0)
+    ).unwrap_or(0);
+    let seq_start = section_number;
+    let seq_end = section_number + 100;
+
     let max_score: i32 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE
@@ -5173,8 +5181,11 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
                 WHEN is_scored = 1 THEN COALESCE(score, 0)
                 ELSE 0
             END
-         ), 0) FROM Questions WHERE section_id = ?1",
-        params![section_id],
+         ), 0)
+         FROM Questions
+         WHERE section_id = ?1
+            OR (section_id = 0 AND sequence >= ?2 AND sequence < ?3)",
+        params![section_id, seq_start, seq_end],
         |row| row.get(0)
     ).unwrap_or(0);
 
@@ -5190,9 +5201,10 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
          ), 0.0)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
-         WHERE ua.user_id = ?1 AND ua.document_id = ?2
-           AND q.section_id = ?3 AND ua.status = 'passed'",
-        params![user_id, document_id, section_id],
+                 WHERE ua.user_id = ?1 AND ua.document_id = ?2
+                     AND (q.section_id = ?3 OR (q.section_id = 0 AND q.sequence >= ?4 AND q.sequence < ?5))
+                     AND ua.status = 'passed'",
+                params![user_id, document_id, section_id, seq_start, seq_end],
         |row| row.get(0)
     ).unwrap_or(0.0);
     let earned_score_i32 = earned_score.round() as i32;
@@ -5201,8 +5213,9 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         "SELECT COUNT(*)
          FROM QuestionAnswerKeys ak
          JOIN Questions q ON q.id = ak.question_id
-         WHERE q.section_id = ?1 AND q.question_type != 'exempted'",
-        params![section_id],
+                 WHERE (q.section_id = ?1 OR (q.section_id = 0 AND q.sequence >= ?2 AND q.sequence < ?3))
+                     AND q.question_type != 'exempted'",
+                params![section_id, seq_start, seq_end],
         |row| row.get(0)
     ).unwrap_or(0);
 
@@ -5210,9 +5223,10 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         "SELECT COUNT(*)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
-         WHERE ua.user_id = ?1 AND ua.document_id = ?2
-           AND q.section_id = ?3 AND ua.status = 'passed'",
-        params![user_id, document_id, section_id],
+                 WHERE ua.user_id = ?1 AND ua.document_id = ?2
+                     AND (q.section_id = ?3 OR (q.section_id = 0 AND q.sequence >= ?4 AND q.sequence < ?5))
+                     AND ua.status = 'passed'",
+                params![user_id, document_id, section_id, seq_start, seq_end],
         |row| row.get(0)
     ).unwrap_or(0);
 
@@ -5220,10 +5234,11 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         "SELECT COUNT(*)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
-         WHERE ua.user_id = ?1 AND ua.document_id = ?2
-           AND q.section_id = ?3 AND ua.status = 'pending'
+                 WHERE ua.user_id = ?1 AND ua.document_id = ?2
+                     AND (q.section_id = ?3 OR (q.section_id = 0 AND q.sequence >= ?4 AND q.sequence < ?5))
+                     AND ua.status = 'pending'
            AND ua.answer_text IS NOT NULL AND ua.answer_text != ''",
-        params![user_id, document_id, section_id],
+                params![user_id, document_id, section_id, seq_start, seq_end],
         |row| row.get(0)
     ).unwrap_or(0);
 
@@ -5231,9 +5246,10 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         "SELECT COUNT(*)
          FROM UserAnswers ua
          JOIN Questions q ON q.id = ua.question_id
-         WHERE ua.user_id = ?1 AND ua.document_id = ?2
-           AND q.section_id = ?3 AND ua.status = 'needs_improvement'",
-        params![user_id, document_id, section_id],
+                 WHERE ua.user_id = ?1 AND ua.document_id = ?2
+                     AND (q.section_id = ?3 OR (q.section_id = 0 AND q.sequence >= ?4 AND q.sequence < ?5))
+                     AND ua.status = 'needs_improvement'",
+                params![user_id, document_id, section_id, seq_start, seq_end],
         |row| row.get(0)
     ).unwrap_or(0);
 
