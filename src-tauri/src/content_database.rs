@@ -2108,8 +2108,6 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
     // Auto-seed template for Section 300 series (301-399)
     } else if request.section_group == 300 && request.section_number >= 300 && request.section_number <= 399 {
        seed_section_300_template(&conn, &request.document_id, id, request.section_number)?;
-    } else if request.section_group == 100 && request.section_number == 102 {
-       seed_section_102_template(&conn, &request.document_id, id, request.section_number)?;
     }
     
     // Return created section
@@ -2199,30 +2197,6 @@ fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _
     insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(), "exempted", Some(exempted_text))?;
     insert_q(5, "การเชื่อมต่อระบบ".to_string(), "exempted", Some(exempted_text))?;
     insert_q(6, "ข้อระมัดระวังอันตราย".to_string(), "exempted", Some(exempted_text))?;
-
-    Ok(())
-}
-
-/// Seed Section 102 Template (Prototype with Checkboxes)
-fn seed_section_102_template(conn: &Connection, doc_id: &str, section_id: i64, section_num: i32) -> Result<(), String> {
-    let p = to_thai_digit(section_num); // e.g. "๑๐๒"
-
-    // Helper closure to insert question
-    let insert_q = |parent: Option<String>, seq: i32, content: String, is_header: bool, ans_type: &str, metadata: Option<String>| -> Result<String, String> {
-        let q_id = generate_uuid();
-        conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![q_id, doc_id, section_id, parent, seq, content, is_header, ans_type, metadata]
-        ).map_err(|e| e.to_string())?;
-        Ok(q_id)
-    };
-
-    // 102.1 Level 1 Question
-    let q1 = insert_q(None, 1, format!("{}.๑ คำถามทดสอบ Level 1", p), false, "checkbox", Some(r#"{"answerCheckboxes": [{"checked": true, "text": "ตัวเลือกทดสอบ ก."}, {"checked": false, "text": "ตัวเลือกทดสอบ ข."}]}"#.to_string()))?;
-
-    // 102.1.1 Level 3 Sub-Question (Recursive)
-    insert_q(Some(q1), 1, format!("{}.๑.๑ คำถามทดสอบ Level 3 (Sub-Question)", p), false, "checkbox", Some(r#"{"answerCheckboxes": [{"checked": true, "text": "นี่คือ Sub Question"}]}"#.to_string()))?;
 
     Ok(())
 }
