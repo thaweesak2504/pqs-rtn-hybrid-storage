@@ -255,6 +255,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   interface SectionRefChild { id: string; parent_id: string; sequence: number; content: string; score: number; ref_section_id: number; ref_section_number: number; }
   const [availableSections, setAvailableSections] = useState<SectionItem[]>([]);
   const [sectionRefChildren, setSectionRefChildren] = useState<SectionRefChild[]>([]);
+  // Section IDs that already reference this section (back-refs → would create circular dependency)
+  const [backRefSectionIds, setBackRefSectionIds] = useState<Set<number>>(new Set());
   // Fetch available sections (master data from Sections table)
   useEffect(() => {
     if (!(isSection300Selector || isSection100Selector || isSection200Selector) || !documentId) return;
@@ -268,6 +270,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       })
       .catch(() => setAvailableSections([]));
   }, [isSection100Selector, isSection200Selector, isSection300Selector, documentId]);
+
+  // Fetch sections that already reference this section (for circular dependency prevention)
+  useEffect(() => {
+    if (!(isSection300Selector || isSection100Selector || isSection200Selector) || !sectionId) return;
+    invoke<number[]>('get_back_referencing_section_ids', { sectionId })
+      .then(ids => setBackRefSectionIds(new Set(ids)))
+      .catch(() => setBackRefSectionIds(new Set()));
+  }, [isSection100Selector, isSection200Selector, isSection300Selector, sectionId]);
 
   // Fetch existing L3 section-ref children (real Questions with question_type='section_ref')
   const fetchSectionRefChildren = useCallback(async () => {
@@ -2524,7 +2534,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-800/50">
                         <button type="button" onClick={async () => {
                           const unchecked = availableSections
-                            .filter(s => !sectionRefChildren.find(c => c.ref_section_id === s.id));
+                            .filter(s => !sectionRefChildren.find(c => c.ref_section_id === s.id))
+                            .filter(s => !(currentSectionNumber !== undefined && s.section_number === currentSectionNumber))
+                            .filter(s => !backRefSectionIds.has(s.id));
                           if (unchecked.length === 0) return;
                           try {
                             const children = await invoke<SectionRefChild[]>('batch_add_section_ref_children', {
@@ -2549,14 +2561,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           const checked = !!existingChild;
                           // Don't select yourself: disable if this section is the current one
                           const isSelf = currentSectionNumber !== undefined && s.section_number === currentSectionNumber;
+                          // Disable if target section already references this section (would create circular)
+                          const isBackRef = backRefSectionIds.has(s.id);
+                          const isDisabled = isSelf || isBackRef;
                           return (
-                            <label key={s.id} className={`flex items-center gap-2 px-3 py-1.5 ${isSelf ? 'cursor-not-allowed bg-slate-100/60 dark:bg-slate-700/30' : 'cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}>
+                            <label key={s.id} className={`flex items-center gap-2 px-3 py-1.5 ${isDisabled ? 'cursor-not-allowed bg-slate-100/60 dark:bg-slate-700/30' : 'cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}>
                               <input
                                 type="checkbox"
                                 checked={checked}
-                                disabled={isSelf}
+                                disabled={isDisabled}
                                 onChange={async () => {
-                                  if (isSelf) return;
+                                  if (isDisabled) return;
                                   if (checked && existingChild) {
                                     try {
                                       await invoke('remove_section_ref_child', { questionId: existingChild.id });
@@ -2573,9 +2588,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 }}
                                 className="accent-purple-600 w-3.5 h-3.5 shrink-0"
                               />
-                              <span className={`text-xs font-medium shrink-0 ${isSelf ? 'text-slate-500 dark:text-slate-400' : 'text-purple-600 dark:text-purple-400'}`}>{s.section_number}</span>
-                              <span className={`text-xs flex-1 ${isSelf ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400 dark:decoration-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{s.title_th}</span>
-                              {isSelf && <span className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-slate-200 dark:bg-slate-600 px-1.5 py-0.5 rounded shrink-0">(ตัวเอง)</span>}
+                              <span className={`text-xs font-medium shrink-0 ${isDisabled ? 'text-slate-500 dark:text-slate-400' : 'text-purple-600 dark:text-purple-400'}`}>{s.section_number}</span>
+                              <span className={`text-xs flex-1 ${isDisabled ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400 dark:decoration-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{s.title_th}</span>
+                              {isSelf && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded shrink-0">(ตัวเอง)</span>}
+                              {isBackRef && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded shrink-0">(อ้างอิงสูงกว่า)</span>}
                             </label>
                           );
                         })}

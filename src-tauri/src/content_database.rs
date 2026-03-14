@@ -58,9 +58,9 @@ pub fn get_content_connection() -> SqlResult<Connection> {
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
 
     // SQLite configuration for performance
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
-    conn.execute("PRAGMA synchronous = NORMAL", [])?;
-    conn.execute("PRAGMA temp_store = MEMORY", [])?;
+    // journal_mode returns a result row — must use query, not execute
+    let _: String = conn.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
+    conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA temp_store = MEMORY;")?;
     
     Ok(conn)
 }
@@ -2392,8 +2392,10 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
     }
 
     // --- Catch-up pass: find stranded section selectors in 300-series ---
-    // These are group_header questions that previously had section_ref children
-    // but lost them in a prior cleanup that didn't auto-exempt the parent.
+    // These are L1 group_header questions (3xx.2-3xx.6, sequence 2-6) that were activated
+    // (changed from exempted to normal) and had section_ref children added, but those children
+    // were deleted in a prior cleanup that didn't auto-exempt the parent.
+    // Restrict to parent_id IS NULL (L1 only) and sequence 2-6 to avoid catching 3xx.1 or 3xx.7.
     {
         let mut stale_stmt = conn.prepare(
             "SELECT q.id, q.parent_id FROM Questions q
@@ -2401,6 +2403,8 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
              WHERE s.section_group = 300
                AND q.question_type NOT IN ('exempted', 'section_ref')
                AND q.is_group_header = 1
+               AND q.parent_id IS NULL
+               AND q.sequence BETWEEN 2 AND 6
                AND NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = q.id)"
         ).map_err(|e| e.to_string())?;
 
@@ -3801,6 +3805,69 @@ pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
     Ok(total)
 }
 
+/// Batch-recalculate group_score for all group headers in a section, bottom-up (L2 → L1),
+/// using a single connection and transaction to avoid SQLite write-lock contention.
+/// Returns a map of question_id → new group_score.
+pub fn batch_recalculate_section_group_scores(section_id: i64) -> Result<Vec<(String, i32)>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // L2 group headers first (children of L1)
+    let mut l2_stmt = conn.prepare(
+        "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NOT NULL AND is_group_header = 1"
+    ).map_err(|e| e.to_string())?;
+    let l2_ids: Vec<String> = l2_stmt.query_map(params![section_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // L1 group headers (top-level)
+    let mut l1_stmt = conn.prepare(
+        "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND is_group_header = 1"
+    ).map_err(|e| e.to_string())?;
+    let l1_ids: Vec<String> = l1_stmt.query_map(params![section_id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut results = Vec::new();
+
+    // Single transaction for all writes
+    conn.execute("BEGIN IMMEDIATE", []).map_err(|e| e.to_string())?;
+
+    let calc_and_update = |conn: &Connection, parent_id: &str| -> Result<i32, String> {
+        let total: i32 = conn.query_row(
+            "SELECT COALESCE(SUM(
+                CASE 
+                    WHEN question_type = 'exempted' THEN 0
+                    WHEN is_group_header = 1 THEN group_score
+                    WHEN is_scored = 1 THEN score
+                    ELSE 0
+                END
+            ), 0) FROM Questions WHERE parent_id = ?1",
+            params![parent_id],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+        conn.execute(
+            "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
+            params![total, parent_id],
+        ).map_err(|e| e.to_string())?;
+        Ok(total)
+    };
+
+    for id in &l2_ids {
+        let score = calc_and_update(&conn, id)?;
+        results.push((id.clone(), score));
+    }
+    for id in &l1_ids {
+        let score = calc_and_update(&conn, id)?;
+        results.push((id.clone(), score));
+    }
+
+    conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+
+    Ok(results)
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct UpdateQuestionScoreArgs {
     pub id: String,
@@ -4282,6 +4349,27 @@ pub fn get_section_ref_children(parent_id: String) -> Result<Vec<SectionRefChild
     get_section_ref_children_inner(&conn, &parent_id)
 }
 
+/// Get section IDs that already reference the given section_id via section_ref questions.
+/// Used by the frontend to disable those sections in the selector (would create circular dependency).
+pub fn get_back_referencing_section_ids(section_id: i64) -> Result<Vec<i64>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    let mut stmt = conn.prepare(
+        "SELECT DISTINCT q.section_id FROM Questions q
+         WHERE q.question_type = 'section_ref'
+           AND q.metadata LIKE ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let ids: Vec<i64> = stmt.query_map(
+        params![format!("%\"refSectionId\":{}%", section_id)],
+        |row| row.get(0),
+    ).map_err(|e| e.to_string())?
+     .filter_map(|r| r.ok())
+     .collect();
+
+    Ok(ids)
+}
+
 fn get_section_ref_children_inner(conn: &Connection, parent_id: &str) -> Result<Vec<SectionRefChild>, String> {
     let mut stmt = conn.prepare(
         "SELECT id, parent_id, sequence, content, score, metadata
@@ -4328,6 +4416,27 @@ pub struct AddSectionRefChildArgs {
 /// Add a single section as an L3 child question under 3xx.1.4 or 3xx.1.5
 pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefChild, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Prevent self-reference: a section cannot reference itself
+    if args.linked_section_id == args.section_id {
+        return Err("Cannot add a section reference to itself".to_string());
+    }
+
+    // Prevent bidirectional reference: if target section already references back to this section,
+    // creating this link would cause a circular dependency in progress computation.
+    let back_ref_exists: bool = conn.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM Questions
+            WHERE section_id = ?1 AND question_type = 'section_ref'
+              AND metadata LIKE ?2
+        )",
+        params![args.linked_section_id, format!("%\"refSectionId\":{}%", args.section_id)],
+        |row| row.get(0),
+    ).unwrap_or(false);
+
+    if back_ref_exists {
+        return Err(format!("Cannot add: section {} already references this section (would create circular dependency)", args.linked_section_number));
+    }
 
     // Check if already exists
     let exists: bool = conn.query_row(
@@ -4401,6 +4510,21 @@ pub fn batch_add_section_ref_children(args: BatchAddSectionRefChildrenArgs) -> R
     ).unwrap_or(0);
 
     for item in &args.sections {
+        // Skip self-references
+        if item.linked_section_id == args.section_id {
+            continue;
+        }
+
+        // Skip bidirectional references (would create circular dependency)
+        let back_ref: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM Questions WHERE section_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
+            params![item.linked_section_id, format!("%\"refSectionId\":{}%", args.section_id)],
+            |row| row.get(0),
+        ).unwrap_or(false);
+        if back_ref {
+            continue;
+        }
+
         let exists: bool = conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
             params![args.parent_id, format!("%\"refSectionId\":{}%", item.linked_section_id)],
@@ -4889,6 +5013,16 @@ fn extract_ref_section_id(metadata: Option<String>) -> Option<i64> {
 }
 
 fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str, section_id: i64) -> Result<ComputedSectionProgress, String> {
+    let mut visited = std::collections::HashSet::new();
+    compute_section_progress_inner(conn, user_id, document_id, section_id, &mut visited)
+}
+
+fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id: &str, section_id: i64, visited: &mut std::collections::HashSet<i64>) -> Result<ComputedSectionProgress, String> {
+    // Cycle detection: prevent infinite recursion from circular section_refs
+    if !visited.insert(section_id) {
+        return Err(format!("Circular section_ref detected at section_id={}", section_id));
+    }
+
     let section_group: i32 = conn.query_row(
         "SELECT section_group FROM Sections WHERE id = ?1",
         params![section_id],
@@ -4944,7 +5078,11 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
 
             if question_type == "section_ref" {
                 if let Some(ref_section_id) = extract_ref_section_id(metadata.clone()) {
-                    match compute_section_progress(conn, user_id, document_id, ref_section_id) {
+                    // Skip self-references: a section pointing to itself is not meaningful
+                    if ref_section_id == section_id {
+                        continue;
+                    }
+                    match compute_section_progress_inner(conn, user_id, document_id, ref_section_id, visited) {
                         Ok(linked_progress) => {
                             if linked_progress.is_passed {
                                 earned_score += score;
@@ -4958,9 +5096,8 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
                                 pending_with_answer += 1;
                             }
                         }
-                        Err(e) => {
-                            eprintln!("[compute_section_progress] WARN: Failed to compute linked section {} for question {}: {}", ref_section_id, question_id, e);
-                            // Skip this child gracefully instead of failing the entire section
+                        Err(_) => {
+                            // Silently skip: circular or missing section refs are non-fatal
                         }
                     }
                 }
@@ -5010,6 +5147,9 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
         } else {
             0.0
         };
+
+        // Backtrack: allow this section to be visited again from a different path
+        visited.remove(&section_id);
 
         return Ok(ComputedSectionProgress {
             earned_score,
@@ -5114,6 +5254,9 @@ fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str,
     } else {
         total_questions > 0 && passed_questions >= total_questions
     };
+
+    // Backtrack: allow this section to be visited again from a different path
+    visited.remove(&section_id);
 
     Ok(ComputedSectionProgress {
         earned_score: if max_score > 0 { earned_score_i32 } else { passed_questions },

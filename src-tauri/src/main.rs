@@ -847,6 +847,11 @@ fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
 }
 
 #[tauri::command]
+fn batch_recalculate_section_group_scores(section_id: i64) -> Result<Vec<(String, i32)>, String> {
+    content_database::batch_recalculate_section_group_scores(section_id)
+}
+
+#[tauri::command]
 fn upsert_user_progress(
     args: content_database::UpsertUserProgressArgs,
 ) -> Result<content_database::UserProgress, String> {
@@ -1006,6 +1011,11 @@ fn get_section_ref_children(
     parent_id: String,
 ) -> Result<Vec<content_database::SectionRefChild>, String> {
     content_database::get_section_ref_children(parent_id)
+}
+
+#[tauri::command]
+fn get_back_referencing_section_ids(section_id: i64) -> Result<Vec<i64>, String> {
+    content_database::get_back_referencing_section_ids(section_id)
 }
 
 #[tauri::command]
@@ -1479,6 +1489,7 @@ fn main() {
             delete_occupation_sub_question,
             // Section-Ref L3 Children (3xx.1.4/1.5 → real L3 Questions)
             get_section_ref_children,
+            get_back_referencing_section_ids,
             add_section_ref_child,
             batch_add_section_ref_children,
             remove_section_ref_child,
@@ -1491,6 +1502,7 @@ fn main() {
             check_has_children,
             // Scoring & User Progress
             calculate_section_total_score,
+            batch_recalculate_section_group_scores,
             upsert_user_progress,
             get_user_progress,
             calculate_group_score,

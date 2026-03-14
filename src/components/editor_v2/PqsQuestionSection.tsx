@@ -146,23 +146,22 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         setQuestions(filtered);
       }
 
-      // For Section 300: recalculate group_score bottom-up (L2 → L1) in a second pass
-      // so score badges stay fresh without blocking the initial render
-      if (sectionGroup === 300) {
-        const withScores = filtered.map(q => ({ ...q }));
-        const l2GroupHeaders = withScores.filter(q => q.parent_id && q.is_group_header);
-        await Promise.all(l2GroupHeaders.map(async (gh) => {
-          try {
-            gh.group_score = await invoke<number>('calculate_group_score', { parentId: gh.id });
-          } catch { /* keep existing value */ }
-        }));
-        const l1GroupHeaders = withScores.filter(q => !q.parent_id && q.is_group_header);
-        await Promise.all(l1GroupHeaders.map(async (gh) => {
-          try {
-            gh.group_score = await invoke<number>('calculate_group_score', { parentId: gh.id });
-          } catch { /* keep existing value */ }
-        }));
-        setQuestions(withScores);
+      // For Section 300: recalculate group_score bottom-up (L2 → L1) in a single batch call
+      // Uses one DB connection + one transaction to avoid SQLite write-lock contention
+      if (sectionGroup === 300 && sectionId !== undefined) {
+        try {
+          const scoreUpdates = await invoke<[string, number][]>('batch_recalculate_section_group_scores', { sectionId });
+          if (scoreUpdates.length > 0) {
+            const scoreMap = new Map(scoreUpdates);
+            const withScores = filtered.map(q => {
+              const newScore = scoreMap.get(q.id);
+              return newScore !== undefined ? { ...q, group_score: newScore } : q;
+            });
+            setQuestions(withScores);
+          }
+        } catch {
+          // Batch recalc failed — scores stay as loaded from DB
+        }
       }
 
       // --- Fetch Trainee Answers (NEW for Fluent Assessment) ---
