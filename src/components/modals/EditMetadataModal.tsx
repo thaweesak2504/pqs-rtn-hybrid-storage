@@ -43,6 +43,9 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [selectedMain, setSelectedMain] = useState<string>('');
   const [selectedSub, setSelectedSub] = useState<string>('');
 
+  // Flag: this open was a fresh document with no branch → auto-select ต้นแบบมาตรฐาน in sub effect
+  const isDefaultingFromNull = React.useRef(false);
+
   // Add branch state
   const [isAddingMain, setIsAddingMain] = useState(false);
   const [newMainName, setNewMainName] = useState('');
@@ -58,24 +61,37 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   // Load branches and existing document branch on open
   useEffect(() => {
     if (!isOpen) return;
-    // Load global branches
-    invoke<OccupationBranch[]>('get_occupation_branches')
-      .then(setBranches)
-      .catch(() => setBranches([]));
-    // Load document's current branch
-    invoke<DocumentBranch>('get_document_branch', { docId })
-      .then((b) => {
-        setSelectedMain(b.occupation_branch_main || '');
-        setSelectedSub(b.occupation_branch_sub || '');
-      })
-      .catch(() => { });
+    isDefaultingFromNull.current = false;
+    Promise.all([
+      invoke<OccupationBranch[]>('get_occupation_branches'),
+      invoke<DocumentBranch>('get_document_branch', { docId })
+    ]).then(([branchList, docBranch]) => {
+      setBranches(branchList);
+      if (!docBranch.occupation_branch_main) {
+        // No branch stored → default to ต้นแบบมาตรฐาน
+        const defaultMain = branchList.find(b => b.name === 'ต้นแบบมาตรฐาน')?.code || '';
+        isDefaultingFromNull.current = true;
+        setSelectedMain(defaultMain);
+        setSelectedSub('');
+      } else {
+        setSelectedMain(docBranch.occupation_branch_main);
+        setSelectedSub(docBranch.occupation_branch_sub || '');
+      }
+    }).catch(() => setBranches([]));
   }, [isOpen, docId]);
 
   // Load sub-branches when main branch changes
   useEffect(() => {
     if (!selectedMain) { setSubBranches([]); setSelectedSub(''); return; }
     invoke<OccupationSubBranch[]>('get_occupation_sub_branches', { branchCode: selectedMain })
-      .then(setSubBranches)
+      .then((data) => {
+        setSubBranches(data);
+        if (isDefaultingFromNull.current) {
+          isDefaultingFromNull.current = false;
+          const defaultSub = data.find(s => s.name === 'ต้นแบบมาตรฐาน')?.code || '';
+          setSelectedSub(defaultSub);
+        }
+      })
       .catch(() => setSubBranches([]));
   }, [selectedMain]);
 

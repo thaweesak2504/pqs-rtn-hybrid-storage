@@ -1,7 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useState } from 'react';
 import ConfirmModal from '../modals/ConfirmModal';
-import DevProgressVerificationTable from './DevProgressVerificationTable';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
@@ -322,15 +321,6 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
           }}
         />
       </div>
-
-      {/* 4. Developer Verification Table */}
-      {(viewMode === 'edit' || viewMode === 'qualifier' || viewMode === 'trainee') && (
-        <DevProgressVerificationTable
-          documentId={docId}
-          sectionId={sectionId}
-          refreshTrigger={progressRefreshKey}
-        />
-      )}
 
       <ConfirmModal
         isOpen={alertModal.isOpen}

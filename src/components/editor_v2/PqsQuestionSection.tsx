@@ -2,11 +2,9 @@ import { invoke } from "@tauri-apps/api/tauri";
 import {
     ChevronDown,
     FileQuestion,
-    Layers,
-    Plus
+    Layers
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
-import Button from "../ui/Button";
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
@@ -16,7 +14,7 @@ import {
 } from "../../types/content";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
-import QuestionTreeNode, { QuestionFormCard, buildPrefix } from "./QuestionTreeNode";
+import QuestionTreeNode from "./QuestionTreeNode";
 
 // ============ Types ============
 
@@ -69,9 +67,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
-
-  // Internal check for question editing permissions
-  const canManageQuestions = !readOnly && viewMode === 'edit';
 
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [traineeAnswers, setTraineeAnswers] = useState<UserAnswer[]>([]);
@@ -281,6 +276,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   };
 
   const handleStartCreate = (parentId: string | null = null) => {
+    // Top-level append is intentionally disabled; root creation is managed by Menu Group in edit mode.
+    if (parentId === null) return;
     resetForms();
     setCreatingAtParent(parentId);
     setIsCreating(true);
@@ -626,33 +623,11 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
               )}
             </button>
           )}
-          {!readOnly && !isCreating && !editingId && (!is200 && !is300) && (
-            <Button
-              variant="primary"
-              size="small"
-              icon={<Plus className="w-4 h-4" />}
-              onClick={() => handleStartCreate(null)}
-            >
-              เพิ่มคำถาม (ท้ายสุด)
-            </Button>
-          )}
         </div>
       </div>
 
       {/* ── Content ── */}
       <div className="space-y-1">
-        {/* Create Form (Top-Level - Append) */}
-        {isCreating && creatingAtParent === null && insertingAfterId === null && (!is200 && !is300) && (
-          <QuestionFormCard
-            prefix={buildPrefix(0, questionTree.length + 1, sectionNumber)}
-            level={0}
-            onSave={(data: any) => handleCreate(data, null)}
-            onCancel={resetForms}
-            documentId={docId}
-            sectionId={sectionId} // Pass sectionId
-          />
-        )}
-
         {/* Question Tree */}
         {questionTree.length > 0 && (
           <div className="rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden">
@@ -718,7 +693,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         {!isCreating && questionTree.length === 0 && (
           <div
             className="group relative overflow-hidden rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-800/30 py-14 cursor-pointer transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/5"
-            onClick={canManageQuestions ? () => handleStartCreate(null) : undefined}
           >
             <div className="flex flex-col items-center gap-3 relative z-10">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -728,11 +702,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                   ยังไม่มีคำถามในหัวข้อนี้
                 </p>
-                {canManageQuestions && (
-                  <p className="text-xs text-blue-500 mt-1 group-hover:text-blue-600 transition-colors">
-                    + คลิกเพื่อเพิ่มคำถามแรก
-                  </p>
-                )}
               </div>
             </div>
             <div className="absolute top-4 right-6 opacity-[0.04] dark:opacity-[0.06]">
