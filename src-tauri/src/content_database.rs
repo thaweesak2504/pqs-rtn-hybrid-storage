@@ -1,9 +1,191 @@
 use std::path::PathBuf;
 use base64::{Engine as _, engine::general_purpose};
-use rusqlite::{Connection, Result as SqlResult, params};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
 use crate::logger;
+
+const STANDARD_BRANCH_NAME: &str = "ต้นแบบมาตรฐาน";
+const STANDARD_BRANCH_PREFERRED_CODE: &str = "STD";
+const STANDARD_SUB_BRANCH_PREFERRED_CODE: &str = "STD";
+
+fn next_available_main_branch_code(conn: &Connection) -> Result<String, String> {
+    let preferred_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM OccupationBranches WHERE code = ?1)",
+            params![STANDARD_BRANCH_PREFERRED_CODE],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if !preferred_exists {
+        return Ok(STANDARD_BRANCH_PREFERRED_CODE.to_string());
+    }
+
+    let next_numeric: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(CASE WHEN code GLOB '[0-9]*' THEN CAST(code AS INTEGER) END), 0) + 1 FROM OccupationBranches",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(next_numeric.to_string())
+}
+
+fn next_available_sub_branch_code(conn: &Connection, branch_code: &str) -> Result<String, String> {
+    let preferred_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2)",
+            params![branch_code, STANDARD_SUB_BRANCH_PREFERRED_CODE],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if !preferred_exists {
+        return Ok(STANDARD_SUB_BRANCH_PREFERRED_CODE.to_string());
+    }
+
+    let next_numeric: i64 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(CASE WHEN code GLOB '[0-9]*' THEN CAST(code AS INTEGER) END), 0) + 1 FROM OccupationSubBranches WHERE branch_code = ?1",
+            params![branch_code],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    Ok(next_numeric.to_string())
+}
+
+fn ensure_standard_occupation_branch_exists(conn: &Connection) -> Result<(), String> {
+    let standard_main_code: String = match conn
+        .query_row(
+            "SELECT code FROM OccupationBranches WHERE name = ?1 LIMIT 1",
+            params![STANDARD_BRANCH_NAME],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+    {
+        Some(code) => code,
+        None => {
+            let code = next_available_main_branch_code(conn)?;
+            conn.execute(
+                "INSERT INTO OccupationBranches (code, name) VALUES (?1, ?2)",
+                params![code, STANDARD_BRANCH_NAME],
+            )
+            .map_err(|e| e.to_string())?;
+            code
+        }
+    };
+
+    let standard_sub_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM OccupationSubBranches
+                WHERE branch_code = ?1 AND name = ?2
+            )",
+            params![standard_main_code, STANDARD_BRANCH_NAME],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    if !standard_sub_exists {
+        let sub_code = next_available_sub_branch_code(conn, &standard_main_code)?;
+        conn.execute(
+            "INSERT INTO OccupationSubBranches (code, branch_code, name) VALUES (?1, ?2, ?3)",
+            params![sub_code, standard_main_code, STANDARD_BRANCH_NAME],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn install_standard_occupation_branch_guards(conn: &Connection) -> Result<(), String> {
+    let trigger_sql = r#"
+        CREATE TRIGGER IF NOT EXISTS protect_standard_occupation_branch_update
+        BEFORE UPDATE ON OccupationBranches
+        FOR EACH ROW
+        WHEN OLD.name = '__STANDARD_BRANCH_NAME__'
+             AND (NEW.name <> OLD.name OR NEW.code <> OLD.code)
+        BEGIN
+            SELECT RAISE(ABORT, 'Cannot modify the protected standard occupation branch');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS protect_standard_occupation_branch_delete
+        BEFORE DELETE ON OccupationBranches
+        FOR EACH ROW
+        WHEN OLD.name = '__STANDARD_BRANCH_NAME__'
+        BEGIN
+            SELECT RAISE(ABORT, 'Cannot delete the protected standard occupation branch');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS protect_standard_occupation_sub_branch_update
+        BEFORE UPDATE ON OccupationSubBranches
+        FOR EACH ROW
+        WHEN OLD.name = '__STANDARD_BRANCH_NAME__'
+             AND EXISTS(
+                 SELECT 1
+                 FROM OccupationBranches
+                 WHERE code = OLD.branch_code
+                   AND name = '__STANDARD_BRANCH_NAME__'
+             )
+             AND (NEW.name <> OLD.name OR NEW.code <> OLD.code OR NEW.branch_code <> OLD.branch_code)
+        BEGIN
+            SELECT RAISE(ABORT, 'Cannot modify the protected standard occupation sub-branch');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS protect_standard_occupation_sub_branch_delete
+        BEFORE DELETE ON OccupationSubBranches
+        FOR EACH ROW
+        WHEN OLD.name = '__STANDARD_BRANCH_NAME__'
+             AND EXISTS(
+                 SELECT 1
+                 FROM OccupationBranches
+                 WHERE code = OLD.branch_code
+                   AND name = '__STANDARD_BRANCH_NAME__'
+             )
+        BEGIN
+            SELECT RAISE(ABORT, 'Cannot delete the protected standard occupation sub-branch');
+        END;
+    "#
+    .replace("__STANDARD_BRANCH_NAME__", STANDARD_BRANCH_NAME);
+
+    conn.execute_batch(&trigger_sql).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+fn is_protected_main_branch(conn: &Connection, code: &str) -> Result<bool, String> {
+    let name = conn
+        .query_row(
+            "SELECT name FROM OccupationBranches WHERE code = ?1",
+            params![code],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    Ok(matches!(name.as_deref(), Some(STANDARD_BRANCH_NAME)))
+}
+
+fn is_protected_sub_branch(conn: &Connection, branch_code: &str, code: &str) -> Result<bool, String> {
+    let sub_name = conn
+        .query_row(
+            "SELECT name FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2",
+            params![branch_code, code],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+
+    if !matches!(sub_name.as_deref(), Some(STANDARD_BRANCH_NAME)) {
+        return Ok(false);
+    }
+
+    is_protected_main_branch(conn, branch_code)
+}
 
 /// Get path to the content database file
 pub fn get_content_database_path() -> Result<PathBuf, String> {
@@ -1076,6 +1258,9 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         )",
         [],
     ).map_err(|e| format!("Failed to create OccupationSubBranches table: {}", e))?;
+
+    install_standard_occupation_branch_guards(&conn)?;
+    ensure_standard_occupation_branch_exists(&conn)?;
 
     // OccupationSubQuestions Table - Reusable sub-question templates
     conn.execute(
@@ -3412,6 +3597,7 @@ pub struct OccupationSubQuestion {
 /// Get all occupation branches
 pub fn get_occupation_branches() -> Result<Vec<OccupationBranch>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    ensure_standard_occupation_branch_exists(&conn)?;
     let mut stmt = conn.prepare("SELECT code, name FROM OccupationBranches ORDER BY code")
         .map_err(|e| e.to_string())?;
     let rows = stmt.query_map([], |row| {
@@ -3435,6 +3621,9 @@ pub fn create_occupation_branch(code: String, name: String) -> Result<Occupation
 /// Update an occupation branch name
 pub fn update_occupation_branch(code: String, name: String) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    if is_protected_main_branch(&conn, &code)? && name != STANDARD_BRANCH_NAME {
+        return Err("Cannot rename the protected standard occupation branch".to_string());
+    }
     conn.execute(
         "UPDATE OccupationBranches SET name = ?1 WHERE code = ?2",
         params![name, code],
@@ -3445,6 +3634,9 @@ pub fn update_occupation_branch(code: String, name: String) -> Result<(), String
 /// Delete an occupation branch (cascades to sub-branches and sub-questions)
 pub fn delete_occupation_branch(code: String) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    if is_protected_main_branch(&conn, &code)? {
+        return Err("Cannot delete the protected standard occupation branch".to_string());
+    }
     conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM OccupationBranches WHERE code = ?1",
@@ -3458,6 +3650,7 @@ pub fn delete_occupation_branch(code: String) -> Result<(), String> {
 /// Get sub-branches for a given main branch
 pub fn get_occupation_sub_branches(branch_code: String) -> Result<Vec<OccupationSubBranch>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    ensure_standard_occupation_branch_exists(&conn)?;
     let mut stmt = conn.prepare(
         "SELECT code, branch_code, name FROM OccupationSubBranches WHERE branch_code = ?1 ORDER BY code"
     ).map_err(|e| e.to_string())?;
@@ -3482,6 +3675,9 @@ pub fn create_occupation_sub_branch(code: String, branch_code: String, name: Str
 /// Update a sub-branch name
 pub fn update_occupation_sub_branch(code: String, branch_code: String, name: String) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    if is_protected_sub_branch(&conn, &branch_code, &code)? && name != STANDARD_BRANCH_NAME {
+        return Err("Cannot rename the protected standard occupation sub-branch".to_string());
+    }
     conn.execute(
         "UPDATE OccupationSubBranches SET name = ?1 WHERE branch_code = ?2 AND code = ?3",
         params![name, branch_code, code],
@@ -3492,6 +3688,9 @@ pub fn update_occupation_sub_branch(code: String, branch_code: String, name: Str
 /// Delete a sub-branch (cascades to sub-questions)
 pub fn delete_occupation_sub_branch(code: String, branch_code: String) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    if is_protected_sub_branch(&conn, &branch_code, &code)? {
+        return Err("Cannot delete the protected standard occupation sub-branch".to_string());
+    }
     conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2",
@@ -5651,6 +5850,24 @@ mod tests {
     use super::*;
     use crate::test_helpers::helpers::*;
 
+    fn init_branch_protection_schema(conn: &Connection) {
+        init_content_schema(conn).expect("Failed to init schema");
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationSubBranches (
+                code VARCHAR(10) NOT NULL,
+                branch_code VARCHAR(10) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (branch_code, code),
+                FOREIGN KEY (branch_code) REFERENCES OccupationBranches(code) ON DELETE CASCADE
+            )",
+            [],
+        )
+        .expect("Failed to create OccupationSubBranches table");
+        install_standard_occupation_branch_guards(conn).expect("Failed to install branch triggers");
+        ensure_standard_occupation_branch_exists(conn).expect("Failed to ensure standard branch");
+    }
+
     // ========================================================================
     // Template Seeding Tests
     // ========================================================================
@@ -5722,6 +5939,86 @@ mod tests {
         ).expect("Failed to count q7 children");
 
         assert_eq!(q7_children, 2, "3xx.7 should have 2 children");
+    }
+
+    #[test]
+    fn test_standard_branch_is_auto_created_with_standard_sub_branch() {
+        let conn = create_test_db();
+        init_branch_protection_schema(&conn);
+
+        let main: (String, String) = conn
+            .query_row(
+                "SELECT code, name FROM OccupationBranches WHERE name = ?1",
+                params![STANDARD_BRANCH_NAME],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .expect("Missing standard main branch");
+
+        let sub: (String, String, String) = conn
+            .query_row(
+                "SELECT code, branch_code, name FROM OccupationSubBranches WHERE branch_code = ?1 AND name = ?2",
+                params![main.0, STANDARD_BRANCH_NAME],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("Missing standard sub branch");
+
+        assert_eq!(main.1, STANDARD_BRANCH_NAME);
+        assert_eq!(sub.1, main.0);
+        assert_eq!(sub.2, STANDARD_BRANCH_NAME);
+    }
+
+    #[test]
+    fn test_sqlite_triggers_block_direct_standard_branch_mutation() {
+        let conn = create_test_db();
+        init_branch_protection_schema(&conn);
+
+        let standard_code: String = conn
+            .query_row(
+                "SELECT code FROM OccupationBranches WHERE name = ?1",
+                params![STANDARD_BRANCH_NAME],
+                |row| row.get(0),
+            )
+            .expect("Missing standard main branch code");
+
+        let update_main_err = conn
+            .execute(
+                "UPDATE OccupationBranches SET name = 'อื่น' WHERE code = ?1",
+                params![standard_code.clone()],
+            )
+            .expect_err("Standard main branch rename should be blocked");
+        assert!(update_main_err.to_string().contains("protected standard occupation branch"));
+
+        let delete_main_err = conn
+            .execute(
+                "DELETE FROM OccupationBranches WHERE code = ?1",
+                params![standard_code.clone()],
+            )
+            .expect_err("Standard main branch delete should be blocked");
+        assert!(delete_main_err.to_string().contains("protected standard occupation branch"));
+
+        let standard_sub_code: String = conn
+            .query_row(
+                "SELECT code FROM OccupationSubBranches WHERE branch_code = ?1 AND name = ?2",
+                params![standard_code.clone(), STANDARD_BRANCH_NAME],
+                |row| row.get(0),
+            )
+            .expect("Missing standard sub branch code");
+
+        let update_sub_err = conn
+            .execute(
+                "UPDATE OccupationSubBranches SET name = 'อื่น' WHERE branch_code = ?1 AND code = ?2",
+                params![standard_code.clone(), standard_sub_code.clone()],
+            )
+            .expect_err("Standard sub branch rename should be blocked");
+        assert!(update_sub_err.to_string().contains("protected standard occupation sub-branch"));
+
+        let delete_sub_err = conn
+            .execute(
+                "DELETE FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2",
+                params![standard_code, standard_sub_code],
+            )
+            .expect_err("Standard sub branch delete should be blocked");
+        assert!(delete_sub_err.to_string().contains("protected standard occupation sub-branch"));
     }
 
     #[test]

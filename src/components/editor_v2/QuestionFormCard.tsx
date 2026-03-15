@@ -99,6 +99,7 @@ const EMPTY_REFS: QuestionReferenceDetail[] = [];
 const REFERENCE_PAGE_ALLOWED_CHARS = /^[0-9-]*$/;
 const REFERENCE_PAGE_VALID_FORMAT = /^(?:\d+|\d+-\d+)$/;
 const REFERENCE_PAGE_ERROR_MESSAGE = "รูปแบบเลขหน้าไม่ถูกต้อง: ใช้เลขอารบิก และ - เท่านั้น เช่น 5 หรือ 2-56 ฯ";
+const STANDARD_BRANCH_NAME = "ต้นแบบมาตรฐาน";
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   prefix,
@@ -1702,7 +1703,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
                             </select>
                           </Tooltip>
-                          {selMainBranch && !sectionSelectedBranch && <>
+                          {selMainBranch && !sectionSelectedBranch && dbBranches.find(b => b.code === selMainBranch)?.name !== STANDARD_BRANCH_NAME && <>
                             <Tooltip content="แก้ไขชื่อ">
                               <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
                                 className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
@@ -1769,7 +1770,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
                               </select>
                             </Tooltip>
-                            {selSubBranch && !sectionSelectedBranch && <>
+                            {selSubBranch && !sectionSelectedBranch && !(dbBranches.find(b => b.code === selMainBranch)?.name === STANDARD_BRANCH_NAME && dbSubBranches.find(sb => sb.code === selSubBranch)?.name === STANDARD_BRANCH_NAME) && <>
                               <Tooltip content="แก้ไขชื่อ">
                                 <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
                                   className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
@@ -1815,7 +1816,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <div className="shrink-0">
                         <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>รหัส (Auto)</label>
                         <div className={`px-2 py-1.5 text-xs font-mono font-bold ${sqClr.code} rounded`}>
-                          {autoCode || <span className="text-slate-400">เต็ม</span>}
+                          {autoCodePrefix}
                         </div>
                       </div>
                     )}

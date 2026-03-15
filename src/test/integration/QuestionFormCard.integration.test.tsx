@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import QuestionFormCard from "../../components/editor_v2/QuestionFormCard";
@@ -93,6 +93,10 @@ describe("QuestionFormCard integration", () => {
     vi.mocked(invoke).mockReset();
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === "get_section_references") return refsFixture;
+      if (command === "get_occupation_branches") return [];
+      if (command === "get_occupation_sub_branches") return [];
+      if (command === "get_occupation_sub_questions") return [];
+      if (command === "get_all_sub_questions_for_branch") return [];
       if (command === "replace_question_answer_keys") return null;
       if (command === "update_question") return null;
       if (command === "update_question_score") return null;
@@ -374,5 +378,32 @@ describe("QuestionFormCard integration", () => {
     fireEvent.click(exemptedToggle);
 
     expect(screen.queryByText("รายการคำถามย่อย (SubQuestion List)")).not.toBeInTheDocument();
+  });
+
+  it("shows only auto code prefix for selected branch/sub", () => {
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          sectionGroup: 200,
+          level: 0,
+          prefix: "๒๐๑.๒",
+          questionSequence: 2,
+          existingId: "q-201-2",
+          initialContent: "หัวข้อทดสอบ",
+          initialQuestionType: "normal",
+          initialMetadata: JSON.stringify({
+            useSubQuestions: true,
+            selectedBranch: { main: "1", sub: "2" },
+          }),
+          sectionId: 201,
+        })}
+      />,
+    );
+
+    const autoLabel = screen.getByText("รหัส (Auto)");
+    const autoContainer = autoLabel.parentElement;
+    expect(autoContainer).not.toBeNull();
+    expect(within(autoContainer as HTMLElement).getByText("2212")).toBeInTheDocument();
+    expect(within(autoContainer as HTMLElement).queryByText("เต็ม")).not.toBeInTheDocument();
   });
 });

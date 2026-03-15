@@ -20,6 +20,8 @@ interface OccupationBranch { code: string; name: string; }
 interface OccupationSubBranch { code: string; branch_code: string; name: string; }
 interface DocumentBranch { occupation_branch_main: string | null; occupation_branch_sub: string | null; }
 
+const STANDARD_BRANCH_NAME = 'ต้นแบบมาตรฐาน';
+
 const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   isOpen,
   onClose,
@@ -58,6 +60,11 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
   const [editingSubName, setEditingSubName] = useState('');
 
+  const selectedMainBranch = branches.find((branch) => branch.code === selectedMain);
+  const selectedSubBranch = subBranches.find((branch) => branch.code === selectedSub);
+  const isProtectedMainBranch = selectedMainBranch?.name === STANDARD_BRANCH_NAME;
+  const isProtectedSubBranch = isProtectedMainBranch && selectedSubBranch?.name === STANDARD_BRANCH_NAME;
+
   // Load branches and existing document branch on open
   useEffect(() => {
     if (!isOpen) return;
@@ -69,7 +76,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       setBranches(branchList);
       if (!docBranch.occupation_branch_main) {
         // No branch stored → default to ต้นแบบมาตรฐาน
-        const defaultMain = branchList.find(b => b.name === 'ต้นแบบมาตรฐาน')?.code || '';
+        const defaultMain = branchList.find(b => b.name === STANDARD_BRANCH_NAME)?.code || '';
         isDefaultingFromNull.current = true;
         setSelectedMain(defaultMain);
         setSelectedSub('');
@@ -88,7 +95,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         setSubBranches(data);
         if (isDefaultingFromNull.current) {
           isDefaultingFromNull.current = false;
-          const defaultSub = data.find(s => s.name === 'ต้นแบบมาตรฐาน')?.code || '';
+          const defaultSub = data.find(s => s.name === STANDARD_BRANCH_NAME)?.code || '';
           setSelectedSub(defaultSub);
         }
       })
@@ -259,7 +266,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                         <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
                       ))}
                     </select>
-                    {selectedMain && (
+                    {selectedMain && !isProtectedMainBranch && (
                       <Button type="button" variant="outline" className="px-3" onClick={() => {
                         setEditingMainCode(selectedMain);
                         setEditingMainName(branches.find(b => b.code === selectedMain)?.name || "");
@@ -318,7 +325,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     </select>
                     {selectedMain && (
                       <>
-                        {selectedSub && (
+                        {selectedSub && !isProtectedSubBranch && (
                           <Button type="button" variant="outline" className="px-3" onClick={() => {
                             setEditingSubCode(selectedSub);
                             setEditingSubName(subBranches.find(s => s.code === selectedSub)?.name || "");
