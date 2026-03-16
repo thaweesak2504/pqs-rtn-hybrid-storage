@@ -253,7 +253,7 @@ describe("EditMetadataModal integration", () => {
   });
 
   it("defaults sub-branch to ต้นแบบมาตรฐาน when main is set but sub is null", async () => {
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === "get_occupation_branches") {
         return [{ code: "1", name: "ต้นแบบมาตรฐาน" }];
       }
