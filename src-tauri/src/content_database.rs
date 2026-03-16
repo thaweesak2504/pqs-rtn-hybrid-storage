@@ -5814,7 +5814,11 @@ fn replace_question_answer_keys_with_conn(
     question_id: String,
     items: Vec<ReplaceAnswerKeyItem>,
 ) -> Result<String, String> {
-    ensure_section_300_policy_allows_question_action(conn, &question_id, "answer keys")?;
+    // Only enforce Section 300 policy when actually writing answer keys.
+    // Empty items = clear-only (harmless for new questions); skip the guard.
+    if !items.is_empty() {
+        ensure_section_300_policy_allows_question_action(conn, &question_id, "answer keys")?;
+    }
 
     let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
 
@@ -6681,6 +6685,45 @@ mod tests {
 
         assert!(res.is_err());
         assert!(res.unwrap_err().contains("Section 300 does not allow answer keys"));
+    }
+
+    #[test]
+    fn test_replace_empty_answer_keys_allowed_in_section_300() {
+        // Empty items = clear-only: should NOT be blocked by Section 300 policy.
+        // This is needed so create_question flows in Section 300 can call
+        // replace_question_answer_keys with an empty list without getting a policy error.
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+             VALUES ('DOC-AK-EMPTY', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (99, 'DOC-AK-EMPTY', 300, 301, 'S301', '301', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, question_type, is_group_header, is_scored)
+             VALUES ('QAKEMPTY300', 'DOC-AK-EMPTY', 99, NULL, 1, 'Q', 0, 'normal', 0, 1)",
+            [],
+        )
+        .expect("Failed to create question");
+
+        // Empty items must succeed even for Section 300
+        let res = replace_question_answer_keys_with_conn(
+            &mut conn,
+            "QAKEMPTY300".to_string(),
+            vec![],
+        );
+
+        assert!(res.is_ok(), "Empty items should be allowed in Section 300, got: {:?}", res.err());
     }
 
     #[test]

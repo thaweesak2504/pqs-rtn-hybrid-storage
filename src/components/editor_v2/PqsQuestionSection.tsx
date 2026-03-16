@@ -12,8 +12,10 @@ import {
     QuestionDetail,
     QuestionReferenceDetail
 } from "../../types/content";
+import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
+import QuestionFormCard from "./QuestionFormCard";
 import QuestionTreeNode from "./QuestionTreeNode";
 
 // ============ Types ============
@@ -276,8 +278,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   };
 
   const handleStartCreate = (parentId: string | null = null) => {
-    // Top-level append is intentionally disabled; root creation is managed by Menu Group in edit mode.
-    if (parentId === null) return;
     resetForms();
     setCreatingAtParent(parentId);
     setIsCreating(true);
@@ -689,10 +689,29 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           </div>
         )}
 
+        {/* Root-level inline create form */}
+        {isCreating && creatingAtParent === null && (
+          <div className="mt-1 mb-1">
+            <QuestionFormCard
+              prefix={(is200 || is300)
+                ? buildPrefix200_300(0, questionTree.length + 1, sectionNumber, undefined)
+                : buildPrefix(0, questionTree.length + 1, sectionNumber)}
+              level={0}
+              sectionGroup={sectionGroup}
+              onSave={(data) => handleCreate(data, null, null)}
+              onCancel={resetForms}
+              documentId={docId}
+              parentId={null}
+              sectionId={sectionId}
+            />
+          </div>
+        )}
+
         {/* Empty State */}
         {!isCreating && questionTree.length === 0 && (
           <div
-            className="group relative overflow-hidden rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-800/30 py-14 cursor-pointer transition-all hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/5"
+            onClick={readOnly ? undefined : () => handleStartCreate(null)}
+            className={`group relative overflow-hidden rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-800/30 py-14 transition-all ${readOnly ? 'cursor-default' : 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/5'}`}
           >
             <div className="flex flex-col items-center gap-3 relative z-10">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
