@@ -251,4 +251,44 @@ describe("EditMetadataModal integration", () => {
     expect(onSuccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("defaults sub-branch to ต้นแบบมาตรฐาน when main is set but sub is null", async () => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      if (command === "get_occupation_branches") {
+        return [{ code: "1", name: "ต้นแบบมาตรฐาน" }];
+      }
+      if (command === "get_document_branch") {
+        return { occupation_branch_main: "1", occupation_branch_sub: null };
+      }
+      if (command === "get_occupation_sub_branches") {
+        return [
+          { code: "1", branch_code: "1", name: "ต้นแบบมาตรฐาน" },
+          { code: "2", branch_code: "1", name: "สาขาย่อยอื่น" },
+        ];
+      }
+      return null;
+    });
+
+    const { container } = render(
+      <EditMetadataModal
+        isOpen
+        onClose={vi.fn()}
+        docId="DOC-NULL-SUB"
+        initialName="Test Doc"
+        initialAppliedTo="Test"
+        initialDocType="10"
+        initialUserLevel="2"
+        onSuccess={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("get_occupation_sub_branches", { branchCode: "1" });
+    });
+
+    const selectNodes = container.querySelectorAll("select");
+    const subSelect = selectNodes[3] as HTMLSelectElement;
+
+    expect(subSelect.value).toBe("1");
+  });
 });

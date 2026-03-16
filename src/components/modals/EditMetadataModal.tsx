@@ -45,9 +45,6 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [selectedMain, setSelectedMain] = useState<string>('');
   const [selectedSub, setSelectedSub] = useState<string>('');
 
-  // Flag: this open was a fresh document with no branch → auto-select ต้นแบบมาตรฐาน in sub effect
-  const isDefaultingFromNull = React.useRef(false);
-
   // Add branch state
   const [isAddingMain, setIsAddingMain] = useState(false);
   const [newMainName, setNewMainName] = useState('');
@@ -65,42 +62,58 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const isProtectedMainBranch = selectedMainBranch?.name === STANDARD_BRANCH_NAME;
   const isProtectedSubBranch = isProtectedMainBranch && selectedSubBranch?.name === STANDARD_BRANCH_NAME;
 
-  // Load branches and existing document branch on open
+  // Helper: load sub-branches for a given main code (used by dropdown onChange & create)
+  const loadSubBranches = async (mainCode: string) => {
+    if (!mainCode) { setSubBranches([]); return; }
+    try {
+      const data = await invoke<OccupationSubBranch[]>('get_occupation_sub_branches', { branchCode: mainCode });
+      setSubBranches(data);
+    } catch {
+      setSubBranches([]);
+    }
+  };
+
+  // Load branches, document branch, AND sub-branches atomically on open
   useEffect(() => {
     if (!isOpen) return;
-    isDefaultingFromNull.current = false;
+    setSelectedMain('');
+    setSelectedSub('');
+    setSubBranches([]);
+    setBranches([]);
+
     Promise.all([
       invoke<OccupationBranch[]>('get_occupation_branches'),
       invoke<DocumentBranch>('get_document_branch', { docId })
-    ]).then(([branchList, docBranch]) => {
+    ]).then(async ([branchList, docBranch]) => {
       setBranches(branchList);
-      if (!docBranch.occupation_branch_main) {
-        // No branch stored → default to ต้นแบบมาตรฐาน
-        const defaultMain = branchList.find(b => b.name === STANDARD_BRANCH_NAME)?.code || '';
-        isDefaultingFromNull.current = true;
-        setSelectedMain(defaultMain);
-        setSelectedSub('');
-      } else {
-        setSelectedMain(docBranch.occupation_branch_main);
-        setSelectedSub(docBranch.occupation_branch_sub || '');
+
+      let mainCode = docBranch.occupation_branch_main;
+      let subCode = docBranch.occupation_branch_sub;
+
+      // Default to ต้นแบบมาตรฐาน if main is missing
+      if (!mainCode) {
+        mainCode = branchList.find(b => b.name === STANDARD_BRANCH_NAME)?.code || '';
       }
+
+      // Load sub-branches inline — no second useEffect needed
+      let subList: OccupationSubBranch[] = [];
+      if (mainCode) {
+        try {
+          subList = await invoke<OccupationSubBranch[]>('get_occupation_sub_branches', { branchCode: mainCode });
+        } catch { /* ignore */ }
+      }
+
+      // Default sub to ต้นแบบมาตรฐาน if missing
+      if (!subCode && mainCode) {
+        subCode = subList.find(s => s.name === STANDARD_BRANCH_NAME)?.code || '';
+      }
+
+      // Set all state together — no race condition
+      setSubBranches(subList);
+      setSelectedMain(mainCode || '');
+      setSelectedSub(subCode || '');
     }).catch(() => setBranches([]));
   }, [isOpen, docId]);
-
-  // Load sub-branches when main branch changes
-  useEffect(() => {
-    if (!selectedMain) { setSubBranches([]); setSelectedSub(''); return; }
-    invoke<OccupationSubBranch[]>('get_occupation_sub_branches', { branchCode: selectedMain })
-      .then((data) => {
-        setSubBranches(data);
-        if (isDefaultingFromNull.current) {
-          isDefaultingFromNull.current = false;
-          const defaultSub = data.find(s => s.name === STANDARD_BRANCH_NAME)?.code || '';
-          setSelectedSub(defaultSub);
-        }
-      })
-      .catch(() => setSubBranches([]));
-  }, [selectedMain]);
 
   if (!isOpen) return null;
 
@@ -108,6 +121,14 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg(null);
+
+    // If sub-branch is empty, revert to ต้นแบบมาตรฐาน before saving
+    let effectiveSub = selectedSub;
+    if (!effectiveSub && selectedMain) {
+      const standardSub = subBranches.find(s => s.name === STANDARD_BRANCH_NAME)?.code || '';
+      effectiveSub = standardSub;
+      setSelectedSub(standardSub);
+    }
 
     try {
       await invoke('update_document', {
@@ -124,7 +145,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       await invoke('update_document_branch', {
         docId,
         branchMain: selectedMain || null,
-        branchSub: selectedSub || null,
+        branchSub: effectiveSub || null,
       });
 
       onSuccess();
@@ -235,6 +256,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                         setBranches(prev => [...prev, created]);
                         setSelectedMain(nc);
                         setSelectedSub("");
+                        loadSubBranches(nc);
                       } catch (e) { console.error(e); }
                       setNewMainName(""); setIsAddingMain(false);
                     }}><CheckCircle className="w-4 h-4" /></Button>
@@ -258,7 +280,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                   <div className="flex gap-2">
                     <select
                       value={selectedMain}
-                      onChange={(e) => { setSelectedMain(e.target.value); setSelectedSub(''); setIsAddingSub(false); }}
+                      onChange={(e) => { setSelectedMain(e.target.value); setSelectedSub(''); setIsAddingSub(false); loadSubBranches(e.target.value); }}
                       className="flex-1 text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
                       <option value="">— ไม่ระบุ —</option>
