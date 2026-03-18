@@ -715,42 +715,12 @@ pub fn get_document_branch(doc_id: String) -> Result<DocumentBranch, String> {
     ).map_err(|e| e.to_string())
 }
 
-fn has_document_evaluation_activity(conn: &Connection, doc_id: &str) -> Result<bool, String> {
-    conn.query_row(
-        "SELECT EXISTS(
-            SELECT 1
-            FROM UserAnswers
-            WHERE document_id = ?1
-              AND (
-                  (answer_text IS NOT NULL AND TRIM(answer_text) <> '')
-                  OR status IN ('passed', 'needs_improvement')
-              )
-        )",
-        params![doc_id],
-        |row| row.get(0),
-    )
-    .map_err(|e| e.to_string())
-}
-
 fn update_document_branch_with_conn(
     conn: &Connection,
     doc_id: &str,
     branch_main: Option<String>,
     branch_sub: Option<String>,
 ) -> Result<(), String> {
-    let current: (Option<String>, Option<String>) = conn
-        .query_row(
-            "SELECT occupation_branch_main, occupation_branch_sub FROM Documents WHERE id = ?1",
-            params![doc_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
-        )
-        .map_err(|e| e.to_string())?;
-
-    let has_activity = has_document_evaluation_activity(conn, doc_id)?;
-    if has_activity && current != (branch_main.clone(), branch_sub.clone()) {
-        return Err("Cannot change document branch after evaluation has started".to_string());
-    }
-
     conn.execute(
         "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
         params![branch_main, branch_sub, doc_id]
@@ -763,6 +733,256 @@ fn update_document_branch_with_conn(
 pub fn update_document_branch(doc_id: String, branch_main: Option<String>, branch_sub: Option<String>) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     update_document_branch_with_conn(&conn, &doc_id, branch_main, branch_sub)
+}
+
+// ============================================================
+// Career Branch Protection — Check Usage & Reset
+// ============================================================
+
+#[derive(serde::Serialize)]
+pub struct CareerBranchUsageReport {
+    pub has_conflict: bool,
+    pub affected_question_count: i64,
+    pub affected_section_groups: Vec<i32>,
+}
+
+/// Check if changing career branch will affect existing SubQ usage in target questions
+/// Target questions: 2xx.2, 2xx.4 (section_group=200, sequence=2,4)
+///                   3xx.2-3xx.5 (section_group=300, sequence=2,3,4,5)
+/// For L1 questions, SubQ usage is indicated by metadata JSON field 'activeSubQuestions'
+pub fn check_career_branch_usage(doc_id: String) -> Result<CareerBranchUsageReport, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Check for L1 questions with activeSubQuestions in metadata JSON
+    let mut stmt = conn.prepare(
+        "SELECT q.id, q.metadata, s.section_group
+         FROM Questions q
+         JOIN Sections s ON s.id = q.section_id
+         WHERE q.document_id = ?1
+           AND q.parent_id IS NULL
+           AND q.metadata IS NOT NULL
+           AND (
+             (s.section_group = 200 AND q.sequence IN (2, 4))
+             OR (s.section_group = 300 AND q.sequence IN (2, 3, 4, 5))
+           )"
+    ).map_err(|e| e.to_string())?;
+    
+    let rows: Vec<(String, String, i32)> = stmt.query_map(params![doc_id], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+    
+    let mut affected_count = 0i64;
+    let mut affected_groups = std::collections::HashSet::new();
+    
+    for (_id, metadata_json, section_group) in rows {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+            // Check if activeSubQuestions exists and is non-empty array
+            if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
+                if !active.is_empty() {
+                    affected_count += 1;
+                    affected_groups.insert(section_group);
+                }
+            }
+        }
+    }
+    
+    let section_groups: Vec<i32> = affected_groups.into_iter().collect();
+    
+    Ok(CareerBranchUsageReport {
+        has_conflict: affected_count > 0,
+        affected_question_count: affected_count,
+        affected_section_groups: section_groups,
+    })
+}
+
+#[derive(serde::Serialize)]
+pub struct CareerBranchResetReport {
+    pub subq_links_deleted: usize,
+    pub answer_keys_deleted: usize,
+    pub user_answers_deleted: usize,
+    pub questions_reset: usize,
+}
+
+/// Reset target questions to exempted and update career branch
+/// This follows the same pattern as update_question_score when question_type='exempted'
+pub fn reset_and_update_career_branch(
+    doc_id: String,
+    new_main: Option<String>,
+    new_sub: Option<String>,
+) -> Result<CareerBranchResetReport, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    
+    // Step 1: Find target L1 question IDs and their section_groups
+    let target_questions: Vec<(String, i32)> = {
+        let mut stmt = tx.prepare(
+            "SELECT q.id, s.section_group
+             FROM Questions q
+             JOIN Sections s ON s.id = q.section_id
+             WHERE q.document_id = ?1 AND q.parent_id IS NULL
+             AND ((s.section_group = 200 AND q.sequence IN (2, 4))
+               OR (s.section_group = 300 AND q.sequence IN (2, 3, 4, 5)))"
+        ).map_err(|e| e.to_string())?;
+        
+        let rows = stmt.query_map(params![doc_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
+        })
+        .map_err(|e| e.to_string())?;
+        
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?
+    };
+    
+    if target_questions.is_empty() {
+        // No target questions, just update branch
+        tx.execute(
+            "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
+            params![new_main, new_sub, doc_id]
+        ).map_err(|e| e.to_string())?;
+        
+        tx.commit().map_err(|e| e.to_string())?;
+        
+        return Ok(CareerBranchResetReport {
+            subq_links_deleted: 0,
+            answer_keys_deleted: 0,
+            user_answers_deleted: 0,
+            questions_reset: 0,
+        });
+    }
+    
+    let target_l1_ids: Vec<String> = target_questions.iter().map(|(id, _)| id.clone()).collect();
+    
+    // Step 2: Collect ALL affected IDs (L1 + children recursively)
+    let mut all_affected_ids = target_l1_ids.clone();
+    
+    // Get all children (recursive)
+    for l1_id in &target_l1_ids {
+        let mut child_stmt = tx.prepare(
+            "WITH RECURSIVE descendants AS (
+                SELECT id FROM Questions WHERE parent_id = ?1
+                UNION ALL
+                SELECT q.id FROM Questions q
+                JOIN descendants d ON q.parent_id = d.id
+             )
+             SELECT id FROM descendants"
+        ).map_err(|e| e.to_string())?;
+        
+        let children: Vec<String> = child_stmt.query_map(params![l1_id], |row| row.get(0))
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        
+        all_affected_ids.extend(children);
+    }
+    
+    // Step 3: Delete relational data for ALL affected IDs
+    let placeholders = all_affected_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    
+    let subq_links_deleted = tx.execute(
+        &format!("DELETE FROM QuestionSubQuestionLinks WHERE question_id IN ({})", placeholders),
+        rusqlite::params_from_iter(all_affected_ids.iter())
+    ).map_err(|e| e.to_string())?;
+    
+    let answer_keys_deleted = tx.execute(
+        &format!("DELETE FROM QuestionAnswerKeys WHERE question_id IN ({})", placeholders),
+        rusqlite::params_from_iter(all_affected_ids.iter())
+    ).map_err(|e| e.to_string())?;
+    
+    let user_answers_deleted = tx.execute(
+        &format!("DELETE FROM UserAnswers WHERE question_id IN ({})", placeholders),
+        rusqlite::params_from_iter(all_affected_ids.iter())
+    ).map_err(|e| e.to_string())?;
+    
+    // Step 4: Delete children (same as update_question_score exempted path)
+    let l1_placeholders = target_l1_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    tx.execute(
+        &format!("DELETE FROM Questions WHERE parent_id IN ({})", l1_placeholders),
+        rusqlite::params_from_iter(target_l1_ids.iter())
+    ).map_err(|e| e.to_string())?;
+    
+    // Step 5: Reset L1 targets to exempted (same pattern as update_question_score)
+    let questions_reset = target_questions.len();
+    for (q_id, section_group) in &target_questions {
+        let display_text = if *section_group == 200 {
+            "(ไม่ต้องอธิบาย)"
+        } else {
+            "(ไม่ต้องปฏิบัติ)"
+        };
+        
+        tx.execute(
+            "UPDATE Questions SET 
+                score = 0, 
+                is_scored = 0, 
+                question_type = 'exempted', 
+                display_text = ?2, 
+                group_score = 0, 
+                is_group_header = 0, 
+                description = NULL 
+             WHERE id = ?1",
+            params![q_id, display_text]
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // Step 5b: Clear metadata SubQ fields
+    tx.execute(
+        &format!("UPDATE Questions SET metadata = '{{}}' WHERE id IN ({}) AND metadata IS NOT NULL", l1_placeholders),
+        rusqlite::params_from_iter(target_l1_ids.iter())
+    ).map_err(|e| e.to_string())?;
+    
+    // Step 6: Recalculate section total_score for affected sections
+    let mut section_ids: Vec<i64> = Vec::new();
+    for l1_id in &target_l1_ids {
+        let section_id: Option<i64> = tx.query_row(
+            "SELECT section_id FROM Questions WHERE id = ?1",
+            params![l1_id],
+            |row| row.get(0)
+        ).optional().map_err(|e| e.to_string())?.flatten();
+        
+        if let Some(sid) = section_id {
+            if !section_ids.contains(&sid) {
+                section_ids.push(sid);
+            }
+        }
+    }
+    
+    for sid in section_ids {
+        let section_total: i32 = tx.query_row(
+            "SELECT COALESCE(SUM(
+                CASE 
+                    WHEN question_type = 'exempted' THEN 0
+                    WHEN is_group_header = 1 THEN group_score
+                    WHEN is_scored = 1 AND parent_id IS NULL THEN score
+                    ELSE 0
+                END
+            ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
+            params![sid],
+            |row| row.get(0)
+        ).map_err(|e| e.to_string())?;
+        
+        tx.execute(
+            "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
+            params![section_total, sid]
+        ).map_err(|e| e.to_string())?;
+    }
+    
+    // Step 7: Update branch
+    tx.execute(
+        "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
+        params![new_main, new_sub, doc_id]
+    ).map_err(|e| e.to_string())?;
+    
+    tx.commit().map_err(|e| e.to_string())?;
+    
+    Ok(CareerBranchResetReport {
+        subq_links_deleted,
+        answer_keys_deleted,
+        user_answers_deleted,
+        questions_reset,
+    })
 }
 
 #[derive(serde::Serialize)]

@@ -534,7 +534,7 @@ const ActiveDocumentPage: React.FC = () => {
           initialAppliedTo={docData.document.applied_to || ''}
           initialDocType={docData.document.doc_type || '10'}
           initialUserLevel={docData.document.user_level || '2'}
-          onSuccess={() => { fetchDocData(); fetchDocBranch(); }}
+          onSuccess={() => { fetchDocData(); fetchDocBranch(); setRefreshKey(prev => prev + 1); }}
         />
       )}
 

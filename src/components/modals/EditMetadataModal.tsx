@@ -19,6 +19,17 @@ interface EditMetadataModalProps {
 interface OccupationBranch { code: string; name: string; }
 interface OccupationSubBranch { code: string; branch_code: string; name: string; }
 interface DocumentBranch { occupation_branch_main: string | null; occupation_branch_sub: string | null; }
+interface CareerBranchUsageReport {
+  has_conflict: boolean;
+  affected_question_count: number;
+  affected_section_groups: number[];
+}
+interface CareerBranchResetReport {
+  subq_links_deleted: number;
+  answer_keys_deleted: number;
+  user_answers_deleted: number;
+  questions_reset: number;
+}
 
 const STANDARD_BRANCH_NAME = 'ต้นแบบมาตรฐาน';
 
@@ -44,6 +55,13 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [subBranches, setSubBranches] = useState<OccupationSubBranch[]>([]);
   const [selectedMain, setSelectedMain] = useState<string>('');
   const [selectedSub, setSelectedSub] = useState<string>('');
+  const [originalMain, setOriginalMain] = useState<string>('');
+  const [originalSub, setOriginalSub] = useState<string>('');
+
+  // Conflict detection state
+  const [conflictReport, setConflictReport] = useState<CareerBranchUsageReport | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isCheckingConflict, setIsCheckingConflict] = useState(false);
 
   // Add branch state
   const [isAddingMain, setIsAddingMain] = useState(false);
@@ -112,8 +130,32 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       setSubBranches(subList);
       setSelectedMain(mainCode || '');
       setSelectedSub(subCode || '');
+      setOriginalMain(mainCode || '');
+      setOriginalSub(subCode || '');
     }).catch(() => setBranches([]));
   }, [isOpen, docId]);
+
+  // Check for career branch conflicts when branch changes
+  useEffect(() => {
+    const branchChanged = selectedMain !== originalMain || selectedSub !== originalSub;
+    if (!branchChanged || !isOpen) {
+      setConflictReport(null);
+      return;
+    }
+
+    setIsCheckingConflict(true);
+    invoke<CareerBranchUsageReport>('check_career_branch_usage', { docId })
+      .then(report => {
+        setConflictReport(report);
+      })
+      .catch(err => {
+        console.error('Failed to check career branch usage:', err);
+        setConflictReport(null);
+      })
+      .finally(() => {
+        setIsCheckingConflict(false);
+      });
+  }, [selectedMain, selectedSub, originalMain, originalSub, isOpen, docId]);
 
   if (!isOpen) return null;
 
@@ -130,6 +172,15 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       setSelectedSub(standardSub);
     }
 
+    const branchChanged = selectedMain !== originalMain || effectiveSub !== originalSub;
+
+    // Check if we need confirmation for branch change with conflict
+    if (branchChanged && conflictReport?.has_conflict && !showConfirmDialog) {
+      setShowConfirmDialog(true);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       await invoke('update_document', {
         args: {
@@ -142,11 +193,21 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       });
 
       // Save branch selection to document
-      await invoke('update_document_branch', {
-        docId,
-        branchMain: selectedMain || null,
-        branchSub: effectiveSub || null,
-      });
+      if (branchChanged && conflictReport?.has_conflict) {
+        // Use reset flow for conflicting branch changes
+        await invoke<CareerBranchResetReport>('reset_and_update_career_branch', {
+          docId,
+          newMain: selectedMain || null,
+          newSub: effectiveSub || null,
+        });
+      } else {
+        // Normal flow for non-conflicting changes
+        await invoke('update_document_branch', {
+          docId,
+          branchMain: selectedMain || null,
+          branchSub: effectiveSub || null,
+        });
+      }
 
       onSuccess();
       onClose();
@@ -361,7 +422,24 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
               </div>
             </div>
 
-            {selectedMain && selectedSub && (
+            {isCheckingConflict && (
+              <div className="text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded px-3 py-2">
+                🔍 กำลังตรวจสอบข้อมูลที่เกี่ยวข้อง...
+              </div>
+            )}
+            {conflictReport?.has_conflict && (selectedMain !== originalMain || selectedSub !== originalSub) && (
+              <div className="text-sm text-yellow-800 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700/50 rounded px-3 py-2">
+                ⚠️ <strong>พบข้อมูล Sub-Question ที่ผูกกับสาขาเดิม {conflictReport.affected_question_count} ข้อ</strong>
+                <br />
+                การเปลี่ยนสาขาจะลบข้อมูลและรีเซ็ตกลับเป็น exempted ในหัวข้อ: {conflictReport.affected_section_groups.map((g: number) => `${g}xx.${g === 200 ? '2, 4' : '2-5'}`).join(', ')}
+              </div>
+            )}
+            {selectedMain && selectedSub && !conflictReport?.has_conflict && (selectedMain !== originalMain || selectedSub !== originalSub) && !isCheckingConflict && (
+              <div className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
+                ✅ ไม่พบข้อมูลที่ขัดแย้ง — สามารถเปลี่ยนสาขาได้
+              </div>
+            )}
+            {selectedMain && selectedSub && (selectedMain === originalMain && selectedSub === originalSub) && (
               <div className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
                 ✅ <strong>{branches.find(b => b.code === selectedMain)?.name} / {subBranches.find(s => s.code === selectedSub)?.name}</strong> จะถูกใช้งานเป็นสาขาหลักในทุก Section (เช่น 2xx.2, 3xx.2)
               </div>
@@ -393,6 +471,56 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Confirmation Dialog for Branch Change with Conflict */}
+      {showConfirmDialog && conflictReport?.has_conflict && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white dark:bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-github-text-primary mb-4">
+                ⚠️ ยืนยันการเปลี่ยนสาขาอาชีพ
+              </h3>
+              <div className="text-sm text-github-text-secondary space-y-3 mb-6">
+                <p>
+                  การเปลี่ยนสาขาอาชีพจะส่งผลกระทบต่อข้อมูลที่มีอยู่:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-github-text-primary">
+                  <li>ลบ Sub-Question Links: <strong>{conflictReport.affected_question_count}</strong> ข้อ</li>
+                  <li>รีเซ็ตหัวข้อกลับเป็น <strong>exempted</strong></li>
+                  <li>ลบ Answer Keys และ User Answers ที่เกี่ยวข้อง</li>
+                </ul>
+                <p className="text-yellow-700 dark:text-yellow-400 font-medium">
+                  ข้อมูลที่ถูกลบจะไม่สามารถกู้คืนได้
+                </p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowConfirmDialog(false);
+                    setSelectedMain(originalMain);
+                    setSelectedSub(originalSub);
+                    setConflictReport(null);
+                  }}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => {
+                    setShowConfirmDialog(false);
+                    handleSubmit(new Event('submit') as any);
+                  }}
+                >
+                  ยืนยัน เปลี่ยนสาขาและล้างข้อมูล
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
