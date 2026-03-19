@@ -416,3 +416,98 @@ npx vitest run src/test/integration/EditMetadataModal.integration.test.tsx
 4. **`section_id` ใน `Questions`** ต้องไม่เป็น NULL สำหรับ L1 → JOIN กับ Sections ปลอดภัย (seed templates ทุกตัว set section_id)
 5. **ลบ `has_document_evaluation_activity` guard** — ห้ามใช้ร่วมกับ logic ใหม่ (เดิม block กว้างเกินไป)
 6. **Metadata cleanup** — ต้อง clear fields `useSubQuestions`, `selectedBranch`, `activeSubQuestions` จาก JSON metadata ด้วย ไม่ใช่แค่ลบ relational data
+
+---
+
+## 8. สถานะการพัฒนา (Implementation Status)
+
+### ✅ เสร็จสมบูรณ์ (Completed)
+
+**Backend Implementation:**
+
+- ✅ `check_career_branch_usage()` — ตรวจสอบ conflict จาก metadata JSON `activeSubQuestions`
+- ✅ `reset_and_update_career_branch()` — รีเซ็ตคำถามเป็น exempted และอัปเดต branch แบบ atomic
+- ✅ ลบ `has_document_evaluation_activity()` guard เดิมที่ block กว้างเกินไป
+- ✅ ลงทะเบียน Tauri commands: `check_career_branch_usage`, `reset_and_update_career_branch`
+
+**Frontend Implementation:**
+
+- ✅ Conflict detection state และ UI ใน `EditMetadataModal`
+- ✅ Warning banners แสดงข้อมูล conflict (จำนวนข้อ, section groups ที่กระทบ)
+- ✅ Confirmation dialog พร้อมรายละเอียดข้อมูลที่จะถูกลบ
+- ✅ Silent UI refresh ด้วย `refreshKey` pattern (ไม่ render ทั้งหน้า)
+- ✅ Branch revert เมื่อผู้ใช้กดยกเลิก
+
+**Testing:**
+
+- ✅ Manual testing scenarios 1-3 ผ่านทั้งหมด
+- ✅ Integration tests 5 test cases ครอบคลุม conflict flow
+- ✅ TypeScript และ Rust compilation ผ่านไม่มี warning
+
+**Git Commits:**
+
+- `96ab411` — feat: implement career branch protection with conflict detection and reset
+- `9c44c1f` — test: add integration tests for career branch protection (5 new tests)
+
+**Branch:** `career-branch-metadata-protection`
+
+### 📋 Manual Testing Results
+
+| Scenario                                | สถานะ   | หมายเหตุ                                                |
+| --------------------------------------- | ------- | ------------------------------------------------------- |
+| 1. เปลี่ยนสาขาโดยไม่มี SubQ usage       | ✅ ผ่าน | แสดง "ไม่พบข้อมูลที่ขัดแย้ง" และบันทึกได้ทันที          |
+| 2. เปลี่ยนสาขาโดยมี SubQ usage → ยืนยัน | ✅ ผ่าน | แสดง warning → confirmation → รีเซ็ตเป็น exempted ทันที |
+| 3. เปลี่ยนสาขาโดยมี SubQ usage → ยกเลิก | ✅ ผ่าน | branch กลับค่าเดิม, ไม่มีการเปลี่ยนแปลงใดๆ              |
+
+---
+
+## 9. หมายเหตุสำหรับอนาคต (Future Enhancements)
+
+### 🔄 Cleaning Unused Career Branch Data
+
+หลังจากใช้งานระบบไปแล้วระยะหนึ่ง อาจพิจารณาเพิ่มฟีเจอร์ทำความสะอาดข้อมูลสาขาอาชีพที่ไม่ได้ใช้งาน:
+
+**วัตถุประสงค์:**
+
+- ลบข้อมูล SubQ, answer keys, และ user answers ที่เกี่ยวข้องกับสาขาอาชีพที่ไม่ได้ใช้งานอีกต่อไป
+- ป้องกันข้อมูลเก่าสะสมในฐานข้อมูล
+- รักษาความสะอาดและประสิทธิภาพของระบบ
+
+**เงื่อนไขในการทำความสะอาด:**
+
+1. เอกสารต้องเปลี่ยนสาขาอาชีพไปแล้ว (branch_main/branch_sub ไม่ตรงกับข้อมูลเก่า)
+2. ข้อมูลเก่าต้องไม่ถูกอ้างอิงโดยสาขาปัจจุบัน
+3. ควรมี confirmation จากผู้ใช้ก่อนลบข้อมูล
+
+**ขอบเขตการทำความสะอาด:**
+
+- `QuestionSubQuestionLinks` — ลบ links ที่ไม่ตรงกับสาขาปัจจุบัน
+- `AnswerKeys` — ลบ answer keys ของ SubQ ที่ถูกลบ
+- `UserAnswers` — ลบคำตอบของผู้ใช้สำหรับ SubQ ที่ถูกลบ
+- `Questions.metadata` — ทำความสะอาด JSON fields: `activeSubQuestions`, `selectedSubQuestions`
+
+**การพัฒนาที่แนะนำ:**
+
+1. สร้างฟังก์ชัน `analyze_unused_career_data(doc_id)` — วิเคราะห์ข้อมูลที่จะถูกลบ
+2. สร้างฟังก์ชัน `cleanup_unused_career_data(doc_id, dry_run)` — ทำความสะอาดจริง
+3. เพิ่ม UI ใน Document Settings สำหรับ trigger cleanup
+4. เพิ่ม logging/audit trail สำหรับการลบข้อมูล
+5. พิจารณา soft delete แทน hard delete (เก็บ backup ไว้ระยะหนึ่ง)
+
+**ข้อควรระวัง:**
+
+- ⚠️ **อย่ารีบพัฒนาฟีเจอร์นี้ทันที** — ควรใช้งานระบบไปก่อนอย่างน้อย 1-2 เดือน
+- ⚠️ ต้องมี backup ข้อมูลก่อนทำ cleanup ทุกครั้ง
+- ⚠️ ต้องทดสอบอย่างละเอียดก่อนใช้งานจริง (อาจทำให้ข้อมูลสูญหายถ้าผิดพลาด)
+- ⚠️ พิจารณาให้ผู้ใช้ export ข้อมูลเก่าก่อนลบ
+
+**Timeline แนะนำ:**
+
+- ✅ **ตอนนี้:** ใช้งาน career branch protection และสังเกตพฤติกรรมผู้ใช้
+- 📅 **1-2 เดือนข้างหน้า:** ประเมินความจำเป็นของ cleanup feature
+- 📅 **3-6 เดือนข้างหน้า:** พัฒนา cleanup feature ถ้าจำเป็น (พร้อม comprehensive testing)
+
+---
+
+**เอกสารนี้อัปเดตล่าสุด:** 19 มีนาคม 2026  
+**สถานะ:** ✅ Implementation Complete — Ready for Production Use
