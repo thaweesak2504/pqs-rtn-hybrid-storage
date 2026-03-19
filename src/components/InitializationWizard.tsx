@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/dialog';
+import { invoke } from '@tauri-apps/api/tauri';
+import { AlertTriangle, Clock, Database, FileText, FolderOpen, HardDrive } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useToast } from '../contexts/ToastContext';
+import ConfirmModal from './modals/ConfirmModal';
 import Button from './ui/Button';
 import Card from './ui/Card';
-import { AlertTriangle, Database, FileText, Clock, HardDrive, FolderOpen } from 'lucide-react';
-import ConfirmModal from './modals/ConfirmModal';
 
 interface BackupManifest {
   version: string;
@@ -41,6 +42,7 @@ interface InitializationWizardProps {
 }
 
 const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete, onSkip, systemState }) => {
+  const { showSuccess, showError, showInfo } = useToast();
   const [backupInfo, setBackupInfo] = useState<InitializationBackupInfo | null>(systemState?.backup_info || null);
   const [isLoading, setIsLoading] = useState(!systemState);
   const [isImporting, setIsImporting] = useState(false);
@@ -80,7 +82,7 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete,
     const userInput = prompt(`⚠️ RESTORE FROM BACKUP\n\n${backupInfo_ ? `This will restore the application from the backup:\n\n📅 Created: ${new Date(backupInfo_.manifest.timestamp * 1000).toLocaleString()}\n💾 Database: ${(backupInfo_.manifest.database_size / 1024 / 1024).toFixed(2)} MB\n📁 Media: ${(backupInfo_.manifest.media_size / 1024 / 1024).toFixed(2)} MB\n📄 Files: ${backupInfo_.manifest.total_files}\n\n` : `This will restore from the selected backup file.\n\n`}⚠️ This will REPLACE all current data and cannot be undone!\n\nType "RESTORE" to confirm (case sensitive):`);
 
     if (userInput !== 'RESTORE') {
-      alert('Backup restore cancelled.');
+      showInfo('ยกเลิกการกู้คืนข้อมูลสำรอง');
       return;
     }
 
@@ -89,11 +91,11 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete,
       const result = await invoke<string>('import_hybrid_backup', {
         zipPath: backupPath
       });
-      alert(`✅ Backup restored successfully!\n\n${result}`);
+      showSuccess(`กู้คืนข้อมูลสำเร็จ!\n${result}`);
       onComplete();
     } catch (err) {
       console.error('Failed to import backup:', err);
-      alert(`❌ Failed to restore backup: ${err}`);
+      showError(`กู้คืนข้อมูลล้มเหลว: ${err}`);
     } finally {
       setIsImporting(false);
     }
@@ -115,7 +117,7 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete,
       }
     } catch (err) {
       console.error('Failed to select backup file:', err);
-      alert(`❌ Failed to select backup file: ${err}`);
+      showError(`เลือกไฟล์สำรองล้มเหลว: ${err}`);
     }
   };
 

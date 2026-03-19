@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
-import { confirm } from '@tauri-apps/api/dialog'
-import { FormInput, FormSelect, FormGroup } from '../ui/Form'
+import { AlertCircle, Edit, FileText, Filter, Trash2 } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import UnitSelector from '../common/UnitSelector'
-import { Edit, Trash2, FileText, Filter, AlertCircle } from 'lucide-react'
+import ConfirmModal from '../modals/ConfirmModal'
+import { FormGroup, FormInput, FormSelect } from '../ui/Form'
 
 // Backend Document Struct
 interface Document {
@@ -45,6 +45,7 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
   const [hasSearched, setHasSearched] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [docToDelete, setDocToDelete] = useState<{ id: string; name: string } | null>(null)
 
   const handleSearch = async (e?: React.FormEvent) => {
     // ... code omitted for brevity, keeping handleSearch as is ...
@@ -80,25 +81,24 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
     }
   }
 
-  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, id: string, name: string) => {
     e.preventDefault()
     e.stopPropagation()
+    setDocToDelete({ id, name })
+  }
 
-    // Use Tauri's native dialog API
-    // This is async and returns a boolean Promise directly
+  const handleConfirmDelete = async () => {
+    if (!docToDelete) return
+
     try {
-      const confirmed = await confirm(`Are you sure you want to delete "${name}"?\nThis action cannot be undone.`, { title: 'Confirm Deletion', type: 'warning' })
-
-      if (!confirmed) {
-        return
-      }
-
-      await invoke('delete_document', { id })
+      await invoke('delete_document', { id: docToDelete.id })
+      setDocToDelete(null)
       // Refresh results
       handleSearch()
     } catch (err) {
       console.error("Delete failed:", err)
       setErrorMsg(`Failed to delete document: ${err}`)
+      setDocToDelete(null)
     }
   }
 
@@ -135,6 +135,7 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
     }, 300)
 
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUnit, docType, searchName])
 
   return (
@@ -259,7 +260,7 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
                             type="button"
                             className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-transparent hover:border-red-200 dark:hover:border-red-800"
                             title="ลบเอกสาร (Delete)"
-                            onClick={(e) => handleDelete(e, doc.id, doc.name)}
+                            onClick={(e) => handleDeleteClick(e, doc.id, doc.name)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -273,6 +274,18 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
           )}
         </div>
       )}
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={!!docToDelete}
+        onClose={() => setDocToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="ยืนยันการลบเอกสาร"
+        message={`คุณต้องการลบเอกสาร "${docToDelete?.name}" หรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        variant="danger"
+      />
     </div>
   )
 }

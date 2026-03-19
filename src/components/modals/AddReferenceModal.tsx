@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { Search, Plus, BookOpen, X, Edit, FileText, Lock, Shield } from 'lucide-react';
+import { BookOpen, Edit, FileText, Lock, Plus, Search, Shield, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useToast } from '../../contexts/ToastContext';
 import ConfirmModal from './ConfirmModal';
 
 interface DocumentReference {
@@ -44,6 +45,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
   const [newFilePath, setNewFilePath] = useState('');
   const [creating, setCreating] = useState(false);
   const [refToDelete, setRefToDelete] = useState<DocumentReference | null>(null);
+  const { showError } = useToast();
 
   const [error, setError] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -75,6 +77,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       loadSectionReferences();
       setSelectedIds(new Set());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, activeTab]);
 
   const loadSectionReferences = async () => {
@@ -261,7 +264,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       loadCommonReferences();
       setRefToDelete(null);
     } catch (err: any) {
-      alert('Failed to delete: ' + err);
+      showError('ไม่สามารถลบได้: ' + err);
     }
   };
 

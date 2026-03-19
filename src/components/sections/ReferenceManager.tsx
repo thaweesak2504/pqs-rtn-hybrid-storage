@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import React, { useEffect, useState } from 'react';
+import { useToast } from '../../contexts/ToastContext';
 import AddReferenceModal from '../modals/AddReferenceModal';
 import ConfirmModal from '../modals/ConfirmModal';
 
@@ -29,6 +30,7 @@ interface ReferenceManagerProps {
 }
 
 const ReferenceManager: React.FC<ReferenceManagerProps> = ({ sectionId, readOnly = false, usageCounts }) => {
+  const { showError } = useToast();
   const [references, setReferences] = useState<SectionReferenceDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,6 +39,7 @@ const ReferenceManager: React.FC<ReferenceManagerProps> = ({ sectionId, readOnly
 
   useEffect(() => {
     fetchReferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionId]);
 
   const fetchReferences = async () => {
@@ -68,7 +71,7 @@ const ReferenceManager: React.FC<ReferenceManagerProps> = ({ sectionId, readOnly
       setRefToDelete(null);
     } catch (err) {
       console.error('Failed to remove reference:', err);
-      alert('ไม่สามารถลบเอกสารอ้างอิงได้');
+      showError('ไม่สามารถลบเอกสารอ้างอิงได้');
     }
   };
 

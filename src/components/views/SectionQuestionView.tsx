@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Check, X, Plus } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { Check, Plus, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useToast } from '../../contexts/ToastContext';
 import { QuestionDetail } from '../../types/content';
-import QuestionRenderer from '../questions/QuestionRenderer';
-import ReferenceManager from '../sections/ReferenceManager';
 import AddQuestionModal from '../modals/AddQuestionModal';
 import ConfirmModal from '../modals/ConfirmModal';
+import QuestionRenderer from '../questions/QuestionRenderer';
+import ReferenceManager from '../sections/ReferenceManager';
 
 interface SectionQuestionViewProps {
   isPreviewMode?: boolean;
@@ -24,6 +25,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
   title,
   hideHeader = false
 }) => {
+  const { showError } = useToast();
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -75,7 +77,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
       // Just exit edit mode. The Sidebar might differ until refresh.
     } catch (error) {
       console.error("Failed to update section title:", error);
-      alert("Failed to save title");
+      showError("ไม่สามารถบันทึกชื่อหัวข้อได้");
     }
   };
 
@@ -89,6 +91,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
 
   useEffect(() => {
     fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId, sectionNumber, sectionId]);
 
   const fetchQuestions = async () => {
@@ -154,7 +157,7 @@ const SectionQuestionView: React.FC<SectionQuestionViewProps> = ({
       fetchQuestions(); // Refresh
     } catch (error) {
       console.error('Failed to delete question:', error);
-      alert('Failed to delete question');
+      showError('ไม่สามารถลบคำถามได้');
     }
   };
 

@@ -498,6 +498,29 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
   const [editingSubName, setEditingSubName] = useState("");
   const [newSqText, setNewSqText] = useState("");
+  const [branchToDelete, setBranchToDelete] = useState<{ type: 'main' | 'sub'; code: string; name: string } | null>(null);
+
+  // Handler for branch deletion confirmation
+  const handleConfirmDeleteBranch = async () => {
+    if (!branchToDelete) return;
+
+    try {
+      if (branchToDelete.type === 'main') {
+        await invoke('delete_occupation_branch', { code: branchToDelete.code });
+        setDbBranches(prev => prev.filter(b => b.code !== branchToDelete.code));
+        setSelMainBranch("");
+        setSelSubBranch("");
+      } else {
+        await invoke('delete_occupation_sub_branch', { code: branchToDelete.code, branchCode: selMainBranch });
+        setDbSubBranches(prev => prev.filter(s => s.code !== branchToDelete.code));
+        setSelSubBranch("");
+      }
+      setBranchToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete branch:', err);
+      setBranchToDelete(null);
+    }
+  };
 
   // Sync children for required count (L2→L3 for isPerformanceL2, L1→L2 for is306L1)
   const handleSyncRequiredCount = useCallback(async () => {
@@ -1709,7 +1732,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
                             </Tooltip>
                             <Tooltip content="ลบสาขา">
-                              <button onClick={async () => { const br = dbBranches.find(b => b.code === selMainBranch); if (!window.confirm(`ลบสาขา "${br?.name}"?`)) return; await invoke('delete_occupation_branch', { code: selMainBranch }); setDbBranches(prev => prev.filter(b => b.code !== selMainBranch)); setSelMainBranch(""); setSelSubBranch(""); }}
+                              <button onClick={() => { const br = dbBranches.find(b => b.code === selMainBranch); if (br) setBranchToDelete({ type: 'main', code: selMainBranch, name: br.name }); }}
                                 className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-3 h-3" /></button>
                             </Tooltip>
                           </>}
@@ -1776,7 +1799,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                   className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
                               </Tooltip>
                               <Tooltip content="ลบสาขาย่อย">
-                                <button onClick={async () => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (!window.confirm(`ลบสาขาย่อย "${sb?.name}"?`)) return; await invoke('delete_occupation_sub_branch', { code: selSubBranch, branchCode: selMainBranch }); setDbSubBranches(prev => prev.filter(s => s.code !== selSubBranch)); setSelSubBranch(""); }}
+                                <button onClick={() => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (sb) setBranchToDelete({ type: 'sub', code: selSubBranch, name: sb.name }); }}
                                   className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-3 h-3" /></button>
                               </Tooltip>
                             </>}
@@ -2654,6 +2677,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         confirmText="ตกลง"
         variant="warning"
         cancelText="" // Hide cancel button
+      />
+
+      {/* Branch Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={!!branchToDelete}
+        onClose={() => setBranchToDelete(null)}
+        onConfirm={handleConfirmDeleteBranch}
+        title="ยืนยันการลบ"
+        message={`คุณต้องการลบ${branchToDelete?.type === 'main' ? 'สาขา' : 'สาขาย่อย'} "${branchToDelete?.name}" หรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
+        confirmText="ลบ"
+        cancelText="ยกเลิก"
+        variant="danger"
       />
     </div>
   );

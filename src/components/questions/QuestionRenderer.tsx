@@ -1,10 +1,11 @@
-import React from 'react';
-import { QuestionDetail } from '../../types/content';
-import { Plus } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { invoke } from '@tauri-apps/api/tauri';
 import { open } from '@tauri-apps/api/shell';
+import { invoke } from '@tauri-apps/api/tauri';
+import { Plus } from 'lucide-react';
+import React from 'react';
+import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useToast } from '../../contexts/ToastContext';
+import { QuestionDetail } from '../../types/content';
 
 interface QuestionRendererProps {
   question: QuestionDetail;
@@ -31,6 +32,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   visibleMaxDepth,
   forceExpand
 }) => {
+  const { showError } = useToast();
   const toThaiNumber = (num: string | number) => {
     return num.toString();
   };
@@ -66,12 +68,13 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
 
   const [isEditingContent, setIsEditingContent] = React.useState(false);
   // Initial value should be cleaned content
-  const prefixRegex = /^[\d\.]+\s+/;
+  const prefixRegex = /^[\d.]+\s+/;
   const initialCleanContent = question.content.replace(prefixRegex, '');
   const [contentVal, setContentVal] = React.useState(initialCleanContent);
 
   React.useEffect(() => {
     setContentVal(question.content.replace(prefixRegex, ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.content]);
 
   const handleContentSave = async () => {
@@ -99,7 +102,7 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
       // Since props update when parent refetches, we just wait.
     } catch (error) {
       console.error("Failed to update question:", error);
-      alert("Failed to save.");
+      showError("ไม่สามารถบันทึกได้");
     }
   };
 
@@ -122,10 +125,10 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
   const indentClass = level > 0 ? `ml-${Math.min(level * 4, 12)}` : '';
 
   const renderContentWithCitations = () => {
-    let content = question.content;
+    const content = question.content;
 
     // STRIP existing hardcoded prefix (e.g. "101.1 Content" -> "Content")
-    const prefixRegex = /^[\d\.]+\s+/;
+    const prefixRegex = /^[\d.]+\s+/;
     const cleanContent = content.replace(prefixRegex, '');
 
     const citations = question.references || [];
@@ -169,7 +172,9 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   components={{
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     p: ({ node, ...props }) => <span {...props} />,
+                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                     div: ({ node, ...props }) => <span {...props} />
                   }}
                 >
@@ -277,7 +282,8 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                   answerKey = meta.answerKey;
                 }
               }
-            } catch (e) { /* ignore json error */ }
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (_e) { /* ignore json error */ }
 
             // 2. Render Checkboxes (Moc Answer Box Style)
             if (checkboxes) {
@@ -322,12 +328,19 @@ const QuestionRenderer: React.FC<QuestionRendererProps> = ({
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             ol: ({ node, ...props }) => <ol className="list-thai pl-6 space-y-1" {...props} />,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             table: ({ node, ...props }) => <div className="overflow-x-auto my-4"><table className="min-w-full divide-y divide-gray-300 dark:divide-gray-700 border border-gray-300 dark:border-gray-700" {...props} /></div>,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             thead: ({ node, ...props }) => <thead className="bg-gray-50 dark:bg-gray-800" {...props} />,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             tbody: ({ node, ...props }) => <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900" {...props} />,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             tr: ({ node, ...props }) => <tr {...props} />,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             th: ({ node, ...props }) => <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900 dark:text-gray-100" {...props} />,
+                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
                             td: ({ node, ...props }) => <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300" {...props} />
                           }}
                         >

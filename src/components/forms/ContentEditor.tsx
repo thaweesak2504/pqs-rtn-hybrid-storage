@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import React, { useEffect, useState } from 'react';
+import { useToast } from '../../contexts/ToastContext';
 
 interface Question {
   id: string;
@@ -20,6 +21,7 @@ interface ContentEditorProps {
 }
 
 export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, sectionNumber }) => {
+  const { showError } = useToast();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMg, setErrorMsg] = useState('');
@@ -81,6 +83,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
   // Tree Builder Logic
   useEffect(() => {
     fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId, sectionId]);
 
   const buildTree = (items: Question[]) => {
@@ -126,6 +129,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
       const prefix = getPrefix(parentId, questions);
       setNewQContent(prefix);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addingTo]);
 
   const handleAddQuestion = async (parentId: string | null) => {
@@ -165,7 +169,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
       setAddingTo(null);
       fetchQuestions(); // Refresh tree
     } catch (err) {
-      alert(`Failed to add: ${err}`);
+      showError(`ไม่สามารถเพิ่มได้: ${err}`);
       console.error(err);
     }
   };

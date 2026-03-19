@@ -1,6 +1,7 @@
 import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, Trash2, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useToast } from '../../contexts/ToastContext';
 import ConfirmModal from '../modals/ConfirmModal';
 import Button from '../ui/Button';
 
@@ -55,6 +56,7 @@ export type PrintSubView = 'question-only' | 'question-with-key';
 const ActiveDocumentPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
   const navigate = useNavigate();
+  const { showError } = useToast();
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [docData, setDocData] = useState<DocumentHierarchy | null>(null);
   const [activeSection, setActiveSection] = useState<string>('cover'); // 'cover', 'intro', '100', '200', '300', or section numbers
@@ -133,7 +135,7 @@ const ActiveDocumentPage: React.FC = () => {
       setSectionToDelete(null);
     } catch (err) {
       console.error("Failed to delete section:", err);
-      alert(`Error: ${err}`);
+      showError(`ไม่สามารถลบหัวข้อได้: ${err}`);
     }
   };
 
