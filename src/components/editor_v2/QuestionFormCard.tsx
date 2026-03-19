@@ -1,31 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    FileDigit,
-    FileText,
-    Globe,
-    GripVertical,
-    ImageIcon,
-    ListChecks,
-    Lock as LockIcon,
-    Mic,
-    Pencil,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  FileDigit,
+  FileText,
+  Globe,
+  GripVertical,
+  ImageIcon,
+  ListChecks,
+  Lock as LockIcon,
+  Mic,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-    DEFAULT_L1_DESC_BY_SEQ,
-    convertThaiToArabic,
-    toThaiAlphabet,
+  DEFAULT_L1_DESC_BY_SEQ,
+  convertThaiToArabic,
+  toThaiAlphabet,
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -99,7 +98,7 @@ const EMPTY_REFS: QuestionReferenceDetail[] = [];
 const REFERENCE_PAGE_ALLOWED_CHARS = /^[0-9-]*$/;
 const REFERENCE_PAGE_VALID_FORMAT = /^(?:\d+|\d+-\d+)$/;
 const REFERENCE_PAGE_ERROR_MESSAGE = "รูปแบบเลขหน้าไม่ถูกต้อง: ใช้เลขอารบิก และ - เท่านั้น เช่น 5 หรือ 2-56 ฯ";
-const STANDARD_BRANCH_NAME = "ต้นแบบมาตรฐาน";
+
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   prefix,
@@ -489,38 +488,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       : [];
     return Array.from(new Set([...saved, ...alwaysCodes]));
   });
-  const [newMainName, setNewMainName] = useState("");
-  const [newSubName, setNewSubName] = useState("");
-  const [isAddingMain, setIsAddingMain] = useState(false);
-  const [isAddingSub, setIsAddingSub] = useState(false);
-  const [editingMainCode, setEditingMainCode] = useState<string | null>(null);
-  const [editingMainName, setEditingMainName] = useState("");
-  const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
-  const [editingSubName, setEditingSubName] = useState("");
   const [newSqText, setNewSqText] = useState("");
-  const [branchToDelete, setBranchToDelete] = useState<{ type: 'main' | 'sub'; code: string; name: string } | null>(null);
-
-  // Handler for branch deletion confirmation
-  const handleConfirmDeleteBranch = async () => {
-    if (!branchToDelete) return;
-
-    try {
-      if (branchToDelete.type === 'main') {
-        await invoke('delete_occupation_branch', { code: branchToDelete.code });
-        setDbBranches(prev => prev.filter(b => b.code !== branchToDelete.code));
-        setSelMainBranch("");
-        setSelSubBranch("");
-      } else {
-        await invoke('delete_occupation_sub_branch', { code: branchToDelete.code, branchCode: selMainBranch });
-        setDbSubBranches(prev => prev.filter(s => s.code !== branchToDelete.code));
-        setSelSubBranch("");
-      }
-      setBranchToDelete(null);
-    } catch (err) {
-      console.error('Failed to delete branch:', err);
-      setBranchToDelete(null);
-    }
-  };
 
   // Sync children for required count (L2→L3 for isPerformanceL2, L1→L2 for is306L1)
   const handleSyncRequiredCount = useCallback(async () => {
@@ -1702,54 +1670,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>
                         สาขาอาชีพหลัก{sectionOccupationBranches && <span className="ml-1 text-[9px] text-slate-400">(จาก 2xx.2)</span>}
                       </label>
-                      {!sectionOccupationBranches && editingMainCode ? (
-                        <div className="flex gap-1">
-                          <input type="text" maxLength={50} value={editingMainName} onChange={e => setEditingMainName(e.target.value)}
-                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
-                          <button onClick={async () => { if (!editingMainName.trim()) return; await invoke('update_occupation_branch', { code: editingMainCode, name: editingMainName.trim() }); setDbBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b)); setEditingMainCode(null); setEditingMainName(""); }}
-                            className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
-                          <button onClick={() => { setEditingMainCode(null); setEditingMainName(""); }}
-                            className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
-                        </div>
-                      ) : !sectionOccupationBranches && !isAddingMain ? (
-                        <div className="flex gap-1">
-                          <Tooltip
-                            disabled={!sectionSelectedBranch}
-                            content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
-                            position="top-start"
-                            className="flex-1"
-                          >
-                            <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); setIsAddingSub(false); }}
-                              className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
-                              disabled={!!sectionSelectedBranch}>
-                              <option value="">-- เลือก --</option>
-                              {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
-                            </select>
-                          </Tooltip>
-                          {selMainBranch && !sectionSelectedBranch && dbBranches.find(b => b.code === selMainBranch)?.name !== STANDARD_BRANCH_NAME && <>
-                            <Tooltip content="แก้ไขชื่อ">
-                              <button onClick={() => { setEditingMainCode(selMainBranch); setEditingMainName(dbBranches.find(b => b.code === selMainBranch)?.name || ""); }}
-                                className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
-                            </Tooltip>
-                            <Tooltip content="ลบสาขา">
-                              <button onClick={() => { const br = dbBranches.find(b => b.code === selMainBranch); if (br) setBranchToDelete({ type: 'main', code: selMainBranch, name: br.name }); }}
-                                className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-3 h-3" /></button>
-                            </Tooltip>
-                          </>}
-                          {!sectionSelectedBranch && (
-                            <Tooltip content="เพิ่มสาขาใหม่">
-                              <button onClick={() => setIsAddingMain(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`}><Plus className="w-3 h-3" /></button>
-                            </Tooltip>
-                          )}
-                        </div>
-                      ) : !sectionOccupationBranches ? (
-                        <div className="flex gap-1">
-                          <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName} onChange={e => setNewMainName(e.target.value)}
-                            className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
-                          <button onClick={async () => { if (!newMainName.trim()) return; const nc = (dbBranches.length + 1).toString(); try { const created = await invoke<{ code: string; name: string }>('create_occupation_branch', { code: nc, name: newMainName.trim() }); setDbBranches(prev => [...prev, created]); setSelMainBranch(nc); setSelSubBranch(""); } catch (e: any) { console.error(e); } setNewMainName(""); setIsAddingMain(false); }}
-                            className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
-                          <button onClick={() => { setNewMainName(""); setIsAddingMain(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
-                        </div>
+                      {!sectionOccupationBranches ? (
+                        <Tooltip
+                          disabled={!sectionSelectedBranch}
+                          content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
+                          position="top-start"
+                          className="w-full"
+                        >
+                          <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); }}
+                            className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                            disabled={!!sectionSelectedBranch}>
+                            <option value="">-- เลือก --</option>
+                            {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
+                          </select>
+                        </Tooltip>
                       ) : (
                         /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
                         <Tooltip
@@ -1770,53 +1704,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     {selMainBranch && (
                       <div className="min-w-[140px] max-w-[280px] w-fit">
                         <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>สาขาย่อย</label>
-                        {!sectionOccupationBranches && editingSubCode ? (
-                          <div className="flex gap-1">
-                            <input type="text" maxLength={50} value={editingSubName} onChange={e => setEditingSubName(e.target.value)}
-                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
-                            <button onClick={async () => { if (!editingSubName.trim()) return; await invoke('update_occupation_sub_branch', { code: editingSubCode, branchCode: selMainBranch, name: editingSubName.trim() }); setDbSubBranches(prev => prev.map(sb => sb.code === editingSubCode ? { ...sb, name: editingSubName.trim() } : sb)); setEditingSubCode(null); setEditingSubName(""); }}
-                              className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
-                            <button onClick={() => { setEditingSubCode(null); setEditingSubName(""); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
-                          </div>
-                        ) : !sectionOccupationBranches && !isAddingSub ? (
-                          <div className="flex gap-1">
-                            <Tooltip
-                              disabled={!sectionSelectedBranch}
-                              content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
-                              position="top-start"
-                              className="flex-1"
-                            >
-                              <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                                className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
-                                disabled={!!sectionSelectedBranch}>
-                                <option value="">-- เลือก --</option>
-                                {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
-                              </select>
-                            </Tooltip>
-                            {selSubBranch && !sectionSelectedBranch && !(dbBranches.find(b => b.code === selMainBranch)?.name === STANDARD_BRANCH_NAME && dbSubBranches.find(sb => sb.code === selSubBranch)?.name === STANDARD_BRANCH_NAME) && <>
-                              <Tooltip content="แก้ไขชื่อ">
-                                <button onClick={() => { setEditingSubCode(selSubBranch); setEditingSubName(dbSubBranches.find(sb => sb.code === selSubBranch)?.name || ""); }}
-                                  className={`px-1.5 py-1 text-[10px] rounded border ${sqClr.editBtn}`}><Pencil className="w-3 h-3" /></button>
-                              </Tooltip>
-                              <Tooltip content="ลบสาขาย่อย">
-                                <button onClick={() => { const sb = dbSubBranches.find(s => s.code === selSubBranch); if (sb) setBranchToDelete({ type: 'sub', code: selSubBranch, name: sb.name }); }}
-                                  className="px-1.5 py-1 text-[10px] rounded border border-red-200 dark:border-red-800/50 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-3 h-3" /></button>
-                              </Tooltip>
-                            </>}
-                            {!sectionSelectedBranch && (
-                              <Tooltip content="เพิ่มสาขาย่อยใหม่">
-                                <button onClick={() => setIsAddingSub(true)} className={`px-1.5 py-1 text-[10px] font-bold rounded border ${sqClr.addBtn}`}><Plus className="w-3 h-3" /></button>
-                              </Tooltip>
-                            )}
-                          </div>
-                        ) : !sectionOccupationBranches ? (
-                          <div className="flex gap-1">
-                            <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName} onChange={e => setNewSubName(e.target.value)}
-                              className={`flex-1 px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none`} autoFocus />
-                            <button onClick={async () => { if (!newSubName.trim()) return; const nc = (dbSubBranches.length + 1).toString(); try { const created = await invoke<{ code: string; branch_code: string; name: string }>('create_occupation_sub_branch', { code: nc, branchCode: selMainBranch, name: newSubName.trim() }); setDbSubBranches(prev => [...prev, created]); setSelSubBranch(nc); } catch (e: any) { console.error(e); } setNewSubName(""); setIsAddingSub(false); }}
-                              className={`px-1.5 py-1 text-[10px] font-bold rounded ${sqClr.btn}`}><CheckCircle className="w-3 h-3" /></button>
-                            <button onClick={() => { setNewSubName(""); setIsAddingSub(false); }} className="px-1.5 py-1 text-[10px] rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100"><X className="w-3 h-3" /></button>
-                          </div>
+                        {!sectionOccupationBranches ? (
+                          <Tooltip
+                            disabled={!sectionSelectedBranch}
+                            content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
+                            position="top-start"
+                            className="w-full"
+                          >
+                            <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
+                              className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
+                              disabled={!!sectionSelectedBranch}>
+                              <option value="">-- เลือก --</option>
+                              {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
+                            </select>
+                          </Tooltip>
                         ) : (
                           /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
                           <Tooltip
@@ -2679,17 +2580,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         cancelText="" // Hide cancel button
       />
 
-      {/* Branch Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={!!branchToDelete}
-        onClose={() => setBranchToDelete(null)}
-        onConfirm={handleConfirmDeleteBranch}
-        title="ยืนยันการลบ"
-        message={`คุณต้องการลบ${branchToDelete?.type === 'main' ? 'สาขา' : 'สาขาย่อย'} "${branchToDelete?.name}" หรือไม่?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
-        confirmText="ลบ"
-        cancelText="ยกเลิก"
-        variant="danger"
-      />
     </div>
   );
 };
