@@ -754,6 +754,25 @@ pub struct BranchUsageReport {
     pub affected_sections: Vec<String>,
 }
 
+/// Debug: Get sample metadata with activeSubQuestions for inspection
+pub fn debug_get_active_subquestions_metadata() -> Result<Vec<String>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    let mut stmt = conn.prepare(
+        "SELECT q.metadata FROM Questions q
+         WHERE q.metadata IS NOT NULL 
+           AND q.metadata LIKE '%activeSubQuestions%'
+         LIMIT 5"
+    ).map_err(|e| e.to_string())?;
+    
+    let rows: Vec<String> = stmt.query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    
+    Ok(rows)
+}
+
 /// Check if a branch is used in any document across the entire system
 /// Returns usage report with document IDs and affected sections
 pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageReport, String> {
@@ -779,8 +798,10 @@ pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageRepor
     let mut document_ids = std::collections::HashSet::new();
     let mut affected_sections = std::collections::HashSet::new();
     
-    // Pattern: branch_code-sub_code-XXX (e.g., "1-1-001", "2-3-005")
-    let pattern_prefix = format!("{}-", branch_code);
+    // Sub-Question code format: {S}{L}{branch_main}{branch_sub}
+    // Example: "2211" = Section 200, Sequence 2, Branch 1, Sub-branch 1
+    // We need to check if any code contains the branch_code at position 2 (0-indexed)
+    // Pattern: codes like "2211", "2212", "3211" where position [2] = branch_code
     
     for (doc_id, _q_id, metadata_json, section_group, sequence) in rows {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
@@ -788,7 +809,15 @@ pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageRepor
             if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
                 let has_match = active.iter().any(|code| {
                     if let Some(code_str) = code.as_str() {
-                        code_str.starts_with(&pattern_prefix)
+                        // Check if code length >= 3 and position [2] matches branch_code
+                        // Format: {S}{L}{branch}{sub...}
+                        //         [0][1][2]   [3...]
+                        if code_str.len() >= 3 {
+                            let branch_char = &code_str[2..3];
+                            branch_char == branch_code
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }
@@ -839,8 +868,9 @@ pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> R
     let mut document_ids = std::collections::HashSet::new();
     let mut affected_sections = std::collections::HashSet::new();
     
-    // Pattern: branch_code-sub_code-XXX (e.g., "1-1-001", "2-3-005")
-    let pattern_prefix = format!("{}-{}-", branch_code, sub_code);
+    // Sub-Question code format: {S}{L}{branch_main}{branch_sub}
+    // Example: "2211" = Section 200, Sequence 2, Branch 1, Sub-branch 1
+    // We need to check position [2] = branch_code AND position [3] = sub_code
     
     for (doc_id, _q_id, metadata_json, section_group, sequence) in rows {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
@@ -848,7 +878,16 @@ pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> R
             if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
                 let has_match = active.iter().any(|code| {
                     if let Some(code_str) = code.as_str() {
-                        code_str.starts_with(&pattern_prefix)
+                        // Check if code length >= 4 and positions [2] and [3] match
+                        // Format: {S}{L}{branch}{sub}
+                        //         [0][1][2]    [3]
+                        if code_str.len() >= 4 {
+                            let branch_char = &code_str[2..3];
+                            let sub_char = &code_str[3..4];
+                            branch_char == branch_code && sub_char == sub_code
+                        } else {
+                            false
+                        }
                     } else {
                         false
                     }

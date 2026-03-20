@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Metadata Inspector</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Debug: activeSubQuestions Metadata</h1>
+    <button onclick="inspectMetadata()">Inspect Metadata</button>
+    <div id="output"></div>
+
+    <script>
+        async function inspectMetadata() {
+            try {
+                const { invoke } = window.__TAURI__.tauri;
+                const metadata = await invoke('debug_get_active_subquestions_metadata');
+                
+                const output = document.getElementById('output');
+                output.innerHTML = '<h2>Found ' + metadata.length + ' questions with activeSubQuestions:</h2>';
+                
+                metadata.forEach((json, index) => {
+                    const parsed = JSON.parse(json);
+                    output.innerHTML += `
+                        <h3>Question ${index + 1}:</h3>
+                        <pre>${JSON.stringify(parsed, null, 2)}</pre>
+                        <p><strong>activeSubQuestions:</strong> ${JSON.stringify(parsed.activeSubQuestions)}</p>
+                        <hr>
+                    `;
+                });
+            } catch (err) {
+                document.getElementById('output').innerHTML = '<p style="color: red;">Error: ' + err + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>
