@@ -509,5 +509,129 @@ npx vitest run src/test/integration/EditMetadataModal.integration.test.tsx
 
 ---
 
-**เอกสารนี้อัปเดตล่าสุด:** 19 มีนาคม 2026  
+## 10. การลบสาขาอาชีพที่ไม่ได้ใช้งาน (Delete Unused Career Branches)
+
+### ✅ Implementation Complete — 20 มีนาคม 2026
+
+**วัตถุประสงค์:**
+
+- เพิ่มความสามารถในการลบสาขาอาชีพหลัก/ย่อยที่ไม่ได้ใช้งานในเอกสารใดๆ
+- ป้องกันการลบสาขาที่กำลังถูกใช้งาน (assigned to documents)
+- ป้องกันการลบ "ต้นแบบมาตรฐาน" (STANDARD_BRANCH_NAME)
+
+### 🏗️ Architecture
+
+**Backend (content_database.rs):**
+
+```rust
+#[derive(serde::Serialize)]
+pub struct BranchUsageReport {
+    pub is_used: bool,
+    pub document_count: i64,
+    pub document_names: Vec<String>,
+}
+
+// ตรวจสอบ main branch
+pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageReport, String> {
+    // SELECT id, name FROM Documents WHERE occupation_branch_main = ?1
+}
+
+// ตรวจสอบ sub-branch
+pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> Result<BranchUsageReport, String> {
+    // SELECT id, name FROM Documents WHERE occupation_branch_main = ?1 AND occupation_branch_sub = ?2
+}
+```
+
+**แนวทาง:** ตรวจสอบที่ `Documents` table โดยตรง — **เหมือนกับ career branch protection** (ไม่ parse metadata JSON)
+
+**Frontend (EditMetadataModal.tsx):**
+
+Dialog มี 4 สถานะ:
+
+1. 🔍 **Checking** — "กำลังตรวจสอบการใช้งาน..."
+2. ❌ **Blocked** — "ไม่สามารถลบได้ — กำลังถูกใช้งานใน X เอกสาร" + รายชื่อเอกสาร (ปุ่ม "ปิด" เท่านั้น)
+3. ✅ **Allowed** — "ไม่พบเอกสารที่ใช้สาขานี้ — ปลอดภัยที่จะลบ" (ปุ่ม "ยกเลิก" + "ยืนยัน ลบ")
+4. ❌ **Error** — "ไม่สามารถตรวจสอบการใช้งานได้"
+
+### 🔐 Protection Rules
+
+1. **ห้ามลบ "ต้นแบบมาตรฐาน"** — ไม่แสดงปุ่ม Delete
+2. **ห้ามลบสาขาที่ assigned to documents** — แสดง blocked dialog พร้อมรายชื่อเอกสาร
+3. **Cascade delete** — ลบ main branch → sub-branches ลบตามไปด้วย (database foreign key)
+4. **Auto-reset selection** — ถ้าลบสาขาที่กำลังเลือกอยู่ → reset เป็น "ต้นแบบมาตรฐาน"
+
+### 🎯 User Flow
+
+```
+[คลิกปุ่ม Delete (Trash2 icon)]
+  ↓
+[Dialog เปิดทันที — สถานะ "กำลังตรวจสอบ..."]
+  ↓
+[Backend: SELECT FROM Documents WHERE occupation_branch_main = ?]
+  ↓
+  ├─ มีเอกสารใช้งาน → แสดง Blocked State
+  │   • รายชื่อเอกสาร (scrollable list)
+  │   • คำแนะนำ: "กรุณาเปลี่ยนสาขาอาชีพในเอกสารเหล่านี้ก่อน"
+  │   • ปุ่ม [ปิด] เท่านั้น
+  │
+  └─ ไม่มีเอกสารใช้งาน → แสดง Allowed State
+      • "✅ ไม่พบเอกสารที่ใช้สาขานี้"
+      • "⚠️ การกระทำนี้ไม่สามารถย้อนกลับได้"
+      • ปุ่ม [ยกเลิก] [ยืนยัน ลบ]
+        ↓
+      [ยืนยัน] → delete_occupation_branch → รีเฟรช UI
+```
+
+### 📋 Manual Testing Results
+
+| Scenario                                 | สถานะ   | หมายเหตุ                                          |
+| ---------------------------------------- | ------- | ------------------------------------------------- |
+| 1. ลบสาขาที่ไม่มีเอกสารใช้งาน            | ✅ ผ่าน | แสดง "ไม่พบเอกสาร" → ยืนยัน → ลบสำเร็จ            |
+| 2. พยายามลบสาขาที่มีเอกสารใช้งาน         | ✅ ผ่าน | แสดง blocked dialog + รายชื่อเอกสาร → ไม่มีปุ่มลบ |
+| 3. พยายามลบ "ต้นแบบมาตรฐาน"              | ✅ ผ่าน | ไม่แสดงปุ่ม Delete (protected)                    |
+| 4. ลบ main branch → sub-branches cascade | ✅ ผ่าน | Sub-branches หายตามไปด้วย                         |
+| 5. ลบสาขาที่กำลังเลือกอยู่               | ✅ ผ่าน | Auto-reset เป็น "ต้นแบบมาตรฐาน"                   |
+| 6. Database cleanup หลังลบเอกสารทั้งหมด  | ✅ ผ่าน | ไม่มีข้อมูล orphaned, CASCADE DELETE ทำงานถูกต้อง |
+
+### 🔧 Key Implementation Details
+
+**ความแตกต่างจาก Career Branch Change:**
+
+- **Change:** ตรวจสอบ SubQ usage ใน metadata → แสดง warning → reset to exempted
+- **Delete:** ตรวจสอบ document assignment → block deletion (ไม่มี reset option)
+
+**ทำไมไม่ใช้ metadata parsing:**
+
+- Delete ต้องการความแม่นยำสูง — ตรวจสอบว่า branch ถูก **assign** ให้เอกสารหรือไม่
+- Documents table เป็น single source of truth สำหรับ branch assignment
+- Metadata JSON เก็บ SubQ usage ซึ่งเป็นคนละเรื่องกับ branch assignment
+
+**Self-contained Dialog:**
+
+- ไม่ใช้ `setErrorMsg` (ซึ่งจะไปแสดงที่ top ของ form)
+- ทุกข้อความอยู่ใน dialog เท่านั้น
+- Dialog state เดียว (`deleteDialog`) จัดการทุกสถานะ
+
+### 📦 Commits
+
+- `a11c03f` — feat: add delete career branch/sub-branch with global usage detection
+- `92c94c1` — fix: correct Sub-Question code pattern matching in branch usage detection
+- `4014def` — refactor: rewrite delete branch with correct approach matching career branch protection
+
+**Branch:** `career-branch-metadata-protection`
+
+### 🗄️ Database Integrity Verification
+
+**CASCADE DELETE ทำงานถูกต้อง:**
+
+- Documents ลบ → Sections ลบตาม
+- Sections ลบ → Questions ลบตาม
+- Questions ลบ → QuestionChoices, QuestionAnswerKeys, UserAnswers ลบตาม
+- OccupationBranches ลบ → OccupationSubBranches ลบตาม (FK constraint)
+
+**ตรวจสอบแล้ว:** ไม่มีข้อมูล orphaned หลังลบเอกสารทั้งหมดออกจาก App
+
+---
+
+**เอกสารนี้อัปเดตล่าสุด:** 20 มีนาคม 2026  
 **สถานะ:** ✅ Implementation Complete — Ready for Production Use
