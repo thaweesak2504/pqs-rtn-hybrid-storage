@@ -689,8 +689,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           </div>
         )}
 
-        {/* Root-level inline create form */}
-        {isCreating && creatingAtParent === null && (
+        {/* Root-level inline create form (only when NOT inserting after a specific question) */}
+        {isCreating && creatingAtParent === null && insertingAfterId === null && (
           <div className="mt-1 mb-1">
             <QuestionFormCard
               prefix={(is200 || is300)
