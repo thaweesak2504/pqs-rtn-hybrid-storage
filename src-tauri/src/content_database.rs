@@ -749,167 +749,63 @@ pub struct CareerBranchUsageReport {
 #[derive(serde::Serialize)]
 pub struct BranchUsageReport {
     pub is_used: bool,
-    pub usage_count: i64,
-    pub document_ids: Vec<String>,
-    pub affected_sections: Vec<String>,
+    pub document_count: i64,
+    pub document_names: Vec<String>,
 }
 
-/// Debug: Get sample metadata with activeSubQuestions for inspection
-pub fn debug_get_active_subquestions_metadata() -> Result<Vec<String>, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    let mut stmt = conn.prepare(
-        "SELECT q.metadata FROM Questions q
-         WHERE q.metadata IS NOT NULL 
-           AND q.metadata LIKE '%activeSubQuestions%'
-         LIMIT 5"
-    ).map_err(|e| e.to_string())?;
-    
-    let rows: Vec<String> = stmt.query_map([], |row| row.get(0))
-        .map_err(|e| e.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| e.to_string())?;
-    
-    Ok(rows)
-}
-
-/// Check if a branch is used in any document across the entire system
-/// Returns usage report with document IDs and affected sections
+/// Check if a main branch is assigned to any document
+/// Same approach as career branch protection — check Documents table directly
 pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageReport, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
-    // Query all Questions with metadata containing activeSubQuestions
     let mut stmt = conn.prepare(
-        "SELECT q.document_id, q.id, q.metadata, s.section_group, q.sequence
-         FROM Questions q
-         JOIN Sections s ON s.id = q.section_id
-         WHERE q.metadata IS NOT NULL
-           AND q.parent_id IS NULL"
+        "SELECT id, name FROM Documents WHERE occupation_branch_main = ?1"
     ).map_err(|e| e.to_string())?;
     
-    let rows: Vec<(String, String, String, i32, i32)> = stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    let docs: Vec<(String, String)> = stmt.query_map(params![branch_code], |row| {
+        Ok((row.get(0)?, row.get(1)?))
     })
     .map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| e.to_string())?;
     
-    let mut usage_count = 0i64;
-    let mut document_ids = std::collections::HashSet::new();
-    let mut affected_sections = std::collections::HashSet::new();
-    
-    // Sub-Question code format: {S}{L}{branch_main}{branch_sub}
-    // Example: "2211" = Section 200, Sequence 2, Branch 1, Sub-branch 1
-    // We need to check if any code contains the branch_code at position 2 (0-indexed)
-    // Pattern: codes like "2211", "2212", "3211" where position [2] = branch_code
-    
-    for (doc_id, _q_id, metadata_json, section_group, sequence) in rows {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
-            // Check if activeSubQuestions exists and contains codes matching this branch
-            if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
-                let has_match = active.iter().any(|code| {
-                    if let Some(code_str) = code.as_str() {
-                        // Check if code length >= 3 and position [2] matches branch_code
-                        // Format: {S}{L}{branch}{sub...}
-                        //         [0][1][2]   [3...]
-                        if code_str.len() >= 3 {
-                            let branch_char = &code_str[2..3];
-                            branch_char == branch_code
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    }
-                });
-                
-                if has_match {
-                    usage_count += 1;
-                    document_ids.insert(doc_id.clone());
-                    affected_sections.insert(format!("{}xx.{}", section_group, sequence));
-                }
-            }
-        }
-    }
-    
-    let document_ids_vec: Vec<String> = document_ids.into_iter().collect();
-    let affected_sections_vec: Vec<String> = affected_sections.into_iter().collect();
+    let document_count = docs.len() as i64;
+    let document_names: Vec<String> = docs.into_iter()
+        .map(|(id, name)| format!("{} ({})", name, id))
+        .collect();
     
     Ok(BranchUsageReport {
-        is_used: usage_count > 0,
-        usage_count,
-        document_ids: document_ids_vec,
-        affected_sections: affected_sections_vec,
+        is_used: document_count > 0,
+        document_count,
+        document_names,
     })
 }
 
-/// Check if a sub-branch is used in any document across the entire system
-/// Returns usage report with document IDs and affected sections
+/// Check if a sub-branch is assigned to any document
+/// Same approach as career branch protection — check Documents table directly
 pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> Result<BranchUsageReport, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
-    // Query all Questions with metadata containing activeSubQuestions
     let mut stmt = conn.prepare(
-        "SELECT q.document_id, q.id, q.metadata, s.section_group, q.sequence
-         FROM Questions q
-         JOIN Sections s ON s.id = q.section_id
-         WHERE q.metadata IS NOT NULL
-           AND q.parent_id IS NULL"
+        "SELECT id, name FROM Documents WHERE occupation_branch_main = ?1 AND occupation_branch_sub = ?2"
     ).map_err(|e| e.to_string())?;
     
-    let rows: Vec<(String, String, String, i32, i32)> = stmt.query_map([], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    let docs: Vec<(String, String)> = stmt.query_map(params![branch_code, sub_code], |row| {
+        Ok((row.get(0)?, row.get(1)?))
     })
     .map_err(|e| e.to_string())?
     .collect::<Result<Vec<_>, _>>()
     .map_err(|e| e.to_string())?;
     
-    let mut usage_count = 0i64;
-    let mut document_ids = std::collections::HashSet::new();
-    let mut affected_sections = std::collections::HashSet::new();
-    
-    // Sub-Question code format: {S}{L}{branch_main}{branch_sub}
-    // Example: "2211" = Section 200, Sequence 2, Branch 1, Sub-branch 1
-    // We need to check position [2] = branch_code AND position [3] = sub_code
-    
-    for (doc_id, _q_id, metadata_json, section_group, sequence) in rows {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
-            // Check if activeSubQuestions exists and contains codes matching this sub-branch
-            if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
-                let has_match = active.iter().any(|code| {
-                    if let Some(code_str) = code.as_str() {
-                        // Check if code length >= 4 and positions [2] and [3] match
-                        // Format: {S}{L}{branch}{sub}
-                        //         [0][1][2]    [3]
-                        if code_str.len() >= 4 {
-                            let branch_char = &code_str[2..3];
-                            let sub_char = &code_str[3..4];
-                            branch_char == branch_code && sub_char == sub_code
-                        } else {
-                            false
-                        }
-                    } else {
-                        false
-                    }
-                });
-                
-                if has_match {
-                    usage_count += 1;
-                    document_ids.insert(doc_id.clone());
-                    affected_sections.insert(format!("{}xx.{}", section_group, sequence));
-                }
-            }
-        }
-    }
-    
-    let document_ids_vec: Vec<String> = document_ids.into_iter().collect();
-    let affected_sections_vec: Vec<String> = affected_sections.into_iter().collect();
+    let document_count = docs.len() as i64;
+    let document_names: Vec<String> = docs.into_iter()
+        .map(|(id, name)| format!("{} ({})", name, id))
+        .collect();
     
     Ok(BranchUsageReport {
-        is_used: usage_count > 0,
-        usage_count,
-        document_ids: document_ids_vec,
-        affected_sections: affected_sections_vec,
+        is_used: document_count > 0,
+        document_count,
+        document_names,
     })
 }
 

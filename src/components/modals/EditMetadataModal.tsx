@@ -76,19 +76,14 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [editingSubName, setEditingSubName] = useState('');
 
   // Delete branch state
-  const [branchToDelete, setBranchToDelete] = useState<{
+  const [deleteDialog, setDeleteDialog] = useState<{
     type: 'main' | 'sub';
     code: string;
     name: string;
     branchCode?: string;
+    isChecking: boolean;
+    report: { is_used: boolean; document_count: number; document_names: string[] } | null;
   } | null>(null);
-  const [deleteUsageReport, setDeleteUsageReport] = useState<{
-    is_used: boolean;
-    usage_count: number;
-    document_ids: string[];
-    affected_sections: string[];
-  } | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const selectedMainBranch = branches.find((branch) => branch.code === selectedMain);
   const selectedSubBranch = subBranches.find((branch) => branch.code === selectedSub);
@@ -106,64 +101,50 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     }
   };
 
-  // Handler: Delete branch with usage check
+  // Handler: Open delete dialog and check usage
   const handleDeleteBranch = async (type: 'main' | 'sub', code: string, name: string, branchCode?: string) => {
-    // Check usage first
+    // Open dialog immediately in "checking" state
+    setDeleteDialog({ type, code, name, branchCode, isChecking: true, report: null });
+
     try {
       const report = type === 'main'
-        ? await invoke<{ is_used: boolean; usage_count: number; document_ids: string[]; affected_sections: string[] }>('check_branch_usage_global', { branchCode: code })
-        : await invoke<{ is_used: boolean; usage_count: number; document_ids: string[]; affected_sections: string[] }>('check_sub_branch_usage_global', { branchCode: branchCode!, subCode: code });
-      
-      setDeleteUsageReport(report);
-      setBranchToDelete({ type, code, name, branchCode });
-      
-      if (report.is_used) {
-        // Show error - cannot delete used branch
-        setErrorMsg(`ไม่สามารถลบ${type === 'main' ? 'สาขา' : 'สาขาย่อย'} "${name}" ได้\nกำลังถูกใช้งานใน ${report.usage_count} ข้อ จาก ${report.document_ids.length} เอกสาร`);
-        setBranchToDelete(null);
-        setDeleteUsageReport(null);
-      } else {
-        // Show confirmation for unused branch
-        setShowDeleteConfirm(true);
-      }
+        ? await invoke<{ is_used: boolean; document_count: number; document_names: string[] }>('check_branch_usage_global', { branchCode: code })
+        : await invoke<{ is_used: boolean; document_count: number; document_names: string[] }>('check_sub_branch_usage_global', { branchCode: branchCode!, subCode: code });
+
+      setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report } : null);
     } catch (err) {
       console.error('Failed to check branch usage:', err);
-      setErrorMsg('ไม่สามารถตรวจสอบการใช้งานสาขาได้');
+      // Show error inside dialog
+      setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report: null } : null);
     }
   };
 
   // Handler: Confirm delete after user confirmation
   const handleConfirmDelete = async () => {
-    if (!branchToDelete) return;
+    if (!deleteDialog || deleteDialog.report?.is_used) return;
 
     try {
-      if (branchToDelete.type === 'main') {
-        await invoke('delete_occupation_branch', { code: branchToDelete.code });
-        setBranches(prev => prev.filter(b => b.code !== branchToDelete.code));
-        // If deleted branch was selected, reset to standard
-        if (selectedMain === branchToDelete.code) {
+      if (deleteDialog.type === 'main') {
+        await invoke('delete_occupation_branch', { code: deleteDialog.code });
+        setBranches(prev => prev.filter(b => b.code !== deleteDialog.code));
+        if (selectedMain === deleteDialog.code) {
           const standardBranch = branches.find(b => b.name === STANDARD_BRANCH_NAME);
           setSelectedMain(standardBranch?.code || '');
           setSelectedSub('');
           if (standardBranch) loadSubBranches(standardBranch.code);
         }
       } else {
-        await invoke('delete_occupation_sub_branch', { code: branchToDelete.code, branchCode: branchToDelete.branchCode! });
-        setSubBranches(prev => prev.filter(s => s.code !== branchToDelete.code));
-        // If deleted sub-branch was selected, reset to standard
-        if (selectedSub === branchToDelete.code) {
+        await invoke('delete_occupation_sub_branch', { code: deleteDialog.code, branchCode: deleteDialog.branchCode! });
+        setSubBranches(prev => prev.filter(s => s.code !== deleteDialog.code));
+        if (selectedSub === deleteDialog.code) {
           const standardSub = subBranches.find(s => s.name === STANDARD_BRANCH_NAME);
           setSelectedSub(standardSub?.code || '');
         }
       }
-      
-      setShowDeleteConfirm(false);
-      setBranchToDelete(null);
-      setDeleteUsageReport(null);
+      setDeleteDialog(null);
     } catch (err) {
       console.error('Failed to delete branch:', err);
-      setErrorMsg(normalizePolicyGuardError(err, 'Failed to delete'));
-      setShowDeleteConfirm(false);
+      setDeleteDialog(null);
     }
   };
 
@@ -610,48 +591,79 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
-      {showDeleteConfirm && branchToDelete && (
+      {/* Delete Branch Dialog — self-contained: checking → blocked / allowed */}
+      {deleteDialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60">
           <div className="bg-white dark:bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-2xl max-w-md w-full mx-4">
             <div className="p-6">
               <h3 className="text-lg font-bold text-github-text-primary mb-4">
-                🗑️ ยืนยันการลบ{branchToDelete.type === 'main' ? 'สาขาอาชีพหลัก' : 'สาขาอาชีพย่อย'}
+                {deleteDialog.report?.is_used ? '⚠️' : '🗑️'} ลบ{deleteDialog.type === 'main' ? 'สาขาอาชีพหลัก' : 'สาขาอาชีพย่อย'}
               </h3>
               <div className="text-sm text-github-text-secondary space-y-3 mb-6">
                 <p>
-                  คุณต้องการลบ <strong className="text-github-text-primary">{branchToDelete.name}</strong> ({branchToDelete.code}) หรือไม่?
+                  {deleteDialog.type === 'main' ? 'สาขา' : 'สาขาย่อย'}: <strong className="text-github-text-primary">{deleteDialog.name}</strong> ({deleteDialog.code})
                 </p>
-                {deleteUsageReport && !deleteUsageReport.is_used && (
-                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
-                    <p className="text-green-700 dark:text-green-400 text-xs">
-                      ✅ ไม่พบการใช้งานในระบบ — ปลอดภัยที่จะลบ
-                    </p>
+
+                {/* State 1: Checking usage */}
+                {deleteDialog.isChecking && (
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50 rounded px-3 py-2">
+                    <p className="text-blue-700 dark:text-blue-400 text-xs">🔍 กำลังตรวจสอบการใช้งาน...</p>
                   </div>
                 )}
-                <p className="text-yellow-700 dark:text-yellow-400 font-medium text-xs">
-                  ⚠️ การกระทำนี้ไม่สามารถย้อนกลับได้
-                </p>
+
+                {/* State 2: Branch is in use — BLOCKED */}
+                {deleteDialog.report?.is_used && (
+                  <>
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded px-3 py-2">
+                      <p className="text-red-700 dark:text-red-400 text-xs font-medium">
+                        ❌ ไม่สามารถลบได้ — กำลังถูกใช้งานใน {deleteDialog.report.document_count} เอกสาร
+                      </p>
+                    </div>
+                    <div className="bg-github-bg-primary border border-github-border-primary rounded px-3 py-2 max-h-32 overflow-y-auto">
+                      <p className="text-xs font-medium text-github-text-secondary mb-1">เอกสารที่ใช้สาขานี้:</p>
+                      <ul className="text-xs text-github-text-primary space-y-0.5">
+                        {deleteDialog.report.document_names.map((name, i) => (
+                          <li key={i}>• {name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <p className="text-xs text-github-text-secondary">
+                      กรุณาเปลี่ยนสาขาอาชีพในเอกสารเหล่านี้ก่อน จึงจะลบสาขานี้ได้
+                    </p>
+                  </>
+                )}
+
+                {/* State 3: Branch is NOT in use — safe to delete */}
+                {deleteDialog.report && !deleteDialog.report.is_used && (
+                  <>
+                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
+                      <p className="text-green-700 dark:text-green-400 text-xs">
+                        ✅ ไม่พบเอกสารที่ใช้สาขานี้ — ปลอดภัยที่จะลบ
+                      </p>
+                    </div>
+                    <p className="text-yellow-700 dark:text-yellow-400 font-medium text-xs">
+                      ⚠️ การกระทำนี้ไม่สามารถย้อนกลับได้
+                    </p>
+                  </>
+                )}
+
+                {/* State 4: Error checking */}
+                {!deleteDialog.isChecking && !deleteDialog.report && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded px-3 py-2">
+                    <p className="text-red-700 dark:text-red-400 text-xs">❌ ไม่สามารถตรวจสอบการใช้งานได้</p>
+                  </div>
+                )}
               </div>
+
               <div className="flex justify-end space-x-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setBranchToDelete(null);
-                    setDeleteUsageReport(null);
-                  }}
-                >
-                  ยกเลิก
+                <Button type="button" variant="ghost" onClick={() => setDeleteDialog(null)}>
+                  {deleteDialog.report?.is_used ? 'ปิด' : 'ยกเลิก'}
                 </Button>
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={handleConfirmDelete}
-                >
-                  ยืนยัน ลบ{branchToDelete.type === 'main' ? 'สาขา' : 'สาขาย่อย'}
-                </Button>
+                {deleteDialog.report && !deleteDialog.report.is_used && (
+                  <Button type="button" variant="danger" onClick={handleConfirmDelete}>
+                    ยืนยัน ลบ{deleteDialog.type === 'main' ? 'สาขา' : 'สาขาย่อย'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
