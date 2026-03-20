@@ -746,6 +746,134 @@ pub struct CareerBranchUsageReport {
     pub affected_section_groups: Vec<i32>,
 }
 
+#[derive(serde::Serialize)]
+pub struct BranchUsageReport {
+    pub is_used: bool,
+    pub usage_count: i64,
+    pub document_ids: Vec<String>,
+    pub affected_sections: Vec<String>,
+}
+
+/// Check if a branch is used in any document across the entire system
+/// Returns usage report with document IDs and affected sections
+pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageReport, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Query all Questions with metadata containing activeSubQuestions
+    let mut stmt = conn.prepare(
+        "SELECT q.document_id, q.id, q.metadata, s.section_group, q.sequence
+         FROM Questions q
+         JOIN Sections s ON s.id = q.section_id
+         WHERE q.metadata IS NOT NULL
+           AND q.parent_id IS NULL"
+    ).map_err(|e| e.to_string())?;
+    
+    let rows: Vec<(String, String, String, i32, i32)> = stmt.query_map([], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+    
+    let mut usage_count = 0i64;
+    let mut document_ids = std::collections::HashSet::new();
+    let mut affected_sections = std::collections::HashSet::new();
+    
+    // Pattern: branch_code-sub_code-XXX (e.g., "1-1-001", "2-3-005")
+    let pattern_prefix = format!("{}-", branch_code);
+    
+    for (doc_id, _q_id, metadata_json, section_group, sequence) in rows {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+            // Check if activeSubQuestions exists and contains codes matching this branch
+            if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
+                let has_match = active.iter().any(|code| {
+                    if let Some(code_str) = code.as_str() {
+                        code_str.starts_with(&pattern_prefix)
+                    } else {
+                        false
+                    }
+                });
+                
+                if has_match {
+                    usage_count += 1;
+                    document_ids.insert(doc_id.clone());
+                    affected_sections.insert(format!("{}xx.{}", section_group, sequence));
+                }
+            }
+        }
+    }
+    
+    let document_ids_vec: Vec<String> = document_ids.into_iter().collect();
+    let affected_sections_vec: Vec<String> = affected_sections.into_iter().collect();
+    
+    Ok(BranchUsageReport {
+        is_used: usage_count > 0,
+        usage_count,
+        document_ids: document_ids_vec,
+        affected_sections: affected_sections_vec,
+    })
+}
+
+/// Check if a sub-branch is used in any document across the entire system
+/// Returns usage report with document IDs and affected sections
+pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> Result<BranchUsageReport, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    
+    // Query all Questions with metadata containing activeSubQuestions
+    let mut stmt = conn.prepare(
+        "SELECT q.document_id, q.id, q.metadata, s.section_group, q.sequence
+         FROM Questions q
+         JOIN Sections s ON s.id = q.section_id
+         WHERE q.metadata IS NOT NULL
+           AND q.parent_id IS NULL"
+    ).map_err(|e| e.to_string())?;
+    
+    let rows: Vec<(String, String, String, i32, i32)> = stmt.query_map([], |row| {
+        Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    })
+    .map_err(|e| e.to_string())?
+    .collect::<Result<Vec<_>, _>>()
+    .map_err(|e| e.to_string())?;
+    
+    let mut usage_count = 0i64;
+    let mut document_ids = std::collections::HashSet::new();
+    let mut affected_sections = std::collections::HashSet::new();
+    
+    // Pattern: branch_code-sub_code-XXX (e.g., "1-1-001", "2-3-005")
+    let pattern_prefix = format!("{}-{}-", branch_code, sub_code);
+    
+    for (doc_id, _q_id, metadata_json, section_group, sequence) in rows {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
+            // Check if activeSubQuestions exists and contains codes matching this sub-branch
+            if let Some(active) = v.get("activeSubQuestions").and_then(|a| a.as_array()) {
+                let has_match = active.iter().any(|code| {
+                    if let Some(code_str) = code.as_str() {
+                        code_str.starts_with(&pattern_prefix)
+                    } else {
+                        false
+                    }
+                });
+                
+                if has_match {
+                    usage_count += 1;
+                    document_ids.insert(doc_id.clone());
+                    affected_sections.insert(format!("{}xx.{}", section_group, sequence));
+                }
+            }
+        }
+    }
+    
+    let document_ids_vec: Vec<String> = document_ids.into_iter().collect();
+    let affected_sections_vec: Vec<String> = affected_sections.into_iter().collect();
+    
+    Ok(BranchUsageReport {
+        is_used: usage_count > 0,
+        usage_count,
+        document_ids: document_ids_vec,
+        affected_sections: affected_sections_vec,
+    })
+}
+
 /// Check if changing career branch will affect existing SubQ usage in target questions
 /// Target questions: 2xx.2, 2xx.4 (section_group=200, sequence=2,4)
 ///                   3xx.2-3xx.5 (section_group=300, sequence=2,3,4,5)

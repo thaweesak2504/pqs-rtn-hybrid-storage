@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { CheckCircle, Pencil, Plus, X } from 'lucide-react';
+import { CheckCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { normalizePolicyGuardError } from '../../utils/policyGuards';
 import Button from '../ui/Button';
@@ -75,6 +75,21 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
   const [editingSubName, setEditingSubName] = useState('');
 
+  // Delete branch state
+  const [branchToDelete, setBranchToDelete] = useState<{
+    type: 'main' | 'sub';
+    code: string;
+    name: string;
+    branchCode?: string;
+  } | null>(null);
+  const [deleteUsageReport, setDeleteUsageReport] = useState<{
+    is_used: boolean;
+    usage_count: number;
+    document_ids: string[];
+    affected_sections: string[];
+  } | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   const selectedMainBranch = branches.find((branch) => branch.code === selectedMain);
   const selectedSubBranch = subBranches.find((branch) => branch.code === selectedSub);
   const isProtectedMainBranch = selectedMainBranch?.name === STANDARD_BRANCH_NAME;
@@ -88,6 +103,67 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       setSubBranches(data);
     } catch {
       setSubBranches([]);
+    }
+  };
+
+  // Handler: Delete branch with usage check
+  const handleDeleteBranch = async (type: 'main' | 'sub', code: string, name: string, branchCode?: string) => {
+    // Check usage first
+    try {
+      const report = type === 'main'
+        ? await invoke<{ is_used: boolean; usage_count: number; document_ids: string[]; affected_sections: string[] }>('check_branch_usage_global', { branchCode: code })
+        : await invoke<{ is_used: boolean; usage_count: number; document_ids: string[]; affected_sections: string[] }>('check_sub_branch_usage_global', { branchCode: branchCode!, subCode: code });
+      
+      setDeleteUsageReport(report);
+      setBranchToDelete({ type, code, name, branchCode });
+      
+      if (report.is_used) {
+        // Show error - cannot delete used branch
+        setErrorMsg(`ไม่สามารถลบ${type === 'main' ? 'สาขา' : 'สาขาย่อย'} "${name}" ได้\nกำลังถูกใช้งานใน ${report.usage_count} ข้อ จาก ${report.document_ids.length} เอกสาร`);
+        setBranchToDelete(null);
+        setDeleteUsageReport(null);
+      } else {
+        // Show confirmation for unused branch
+        setShowDeleteConfirm(true);
+      }
+    } catch (err) {
+      console.error('Failed to check branch usage:', err);
+      setErrorMsg('ไม่สามารถตรวจสอบการใช้งานสาขาได้');
+    }
+  };
+
+  // Handler: Confirm delete after user confirmation
+  const handleConfirmDelete = async () => {
+    if (!branchToDelete) return;
+
+    try {
+      if (branchToDelete.type === 'main') {
+        await invoke('delete_occupation_branch', { code: branchToDelete.code });
+        setBranches(prev => prev.filter(b => b.code !== branchToDelete.code));
+        // If deleted branch was selected, reset to standard
+        if (selectedMain === branchToDelete.code) {
+          const standardBranch = branches.find(b => b.name === STANDARD_BRANCH_NAME);
+          setSelectedMain(standardBranch?.code || '');
+          setSelectedSub('');
+          if (standardBranch) loadSubBranches(standardBranch.code);
+        }
+      } else {
+        await invoke('delete_occupation_sub_branch', { code: branchToDelete.code, branchCode: branchToDelete.branchCode! });
+        setSubBranches(prev => prev.filter(s => s.code !== branchToDelete.code));
+        // If deleted sub-branch was selected, reset to standard
+        if (selectedSub === branchToDelete.code) {
+          const standardSub = subBranches.find(s => s.name === STANDARD_BRANCH_NAME);
+          setSelectedSub(standardSub?.code || '');
+        }
+      }
+      
+      setShowDeleteConfirm(false);
+      setBranchToDelete(null);
+      setDeleteUsageReport(null);
+    } catch (err) {
+      console.error('Failed to delete branch:', err);
+      setErrorMsg(normalizePolicyGuardError(err, 'Failed to delete'));
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -350,10 +426,16 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                       ))}
                     </select>
                     {selectedMain && !isProtectedMainBranch && (
-                      <Button type="button" variant="outline" className="px-3" onClick={() => {
-                        setEditingMainCode(selectedMain);
-                        setEditingMainName(branches.find(b => b.code === selectedMain)?.name || "");
-                      }} title="แก้ไขชื่อสาขา"><Pencil className="w-4 h-4" /></Button>
+                      <>
+                        <Button type="button" variant="outline" className="px-3" onClick={() => {
+                          setEditingMainCode(selectedMain);
+                          setEditingMainName(branches.find(b => b.code === selectedMain)?.name || "");
+                        }} title="แก้ไขชื่อสาขา"><Pencil className="w-4 h-4" /></Button>
+                        <Button type="button" variant="outline" className="px-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => {
+                          const branch = branches.find(b => b.code === selectedMain);
+                          if (branch) handleDeleteBranch('main', selectedMain, branch.name);
+                        }} title="ลบสาขา"><Trash2 className="w-4 h-4" /></Button>
+                      </>
                     )}
                     <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingMain(true)} title="เพิ่มสาขาใหม่"><Plus className="w-4 h-4" /></Button>
                   </div>
@@ -409,10 +491,16 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                     {selectedMain && (
                       <>
                         {selectedSub && !isProtectedSubBranch && (
-                          <Button type="button" variant="outline" className="px-3" onClick={() => {
-                            setEditingSubCode(selectedSub);
-                            setEditingSubName(subBranches.find(s => s.code === selectedSub)?.name || "");
-                          }} title="แก้ไขชื่อสาขาย่อย"><Pencil className="w-4 h-4" /></Button>
+                          <>
+                            <Button type="button" variant="outline" className="px-3" onClick={() => {
+                              setEditingSubCode(selectedSub);
+                              setEditingSubName(subBranches.find(s => s.code === selectedSub)?.name || "");
+                            }} title="แก้ไขชื่อสาขาย่อย"><Pencil className="w-4 h-4" /></Button>
+                            <Button type="button" variant="outline" className="px-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" onClick={() => {
+                              const subBranch = subBranches.find(s => s.code === selectedSub);
+                              if (subBranch) handleDeleteBranch('sub', selectedSub, subBranch.name, selectedMain);
+                            }} title="ลบสาขาย่อย"><Trash2 className="w-4 h-4" /></Button>
+                          </>
                         )}
                         <Button type="button" variant="outline" className="px-3" onClick={() => setIsAddingSub(true)} title="เพิ่มสาขาย่อยใหม่"><Plus className="w-4 h-4" /></Button>
                       </>
@@ -515,6 +603,54 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                   }}
                 >
                   ยืนยัน เปลี่ยนสาขาและล้างข้อมูล
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {showDeleteConfirm && branchToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white dark:bg-github-bg-secondary border border-github-border-primary rounded-lg shadow-2xl max-w-md w-full mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-github-text-primary mb-4">
+                🗑️ ยืนยันการลบ{branchToDelete.type === 'main' ? 'สาขาอาชีพหลัก' : 'สาขาอาชีพย่อย'}
+              </h3>
+              <div className="text-sm text-github-text-secondary space-y-3 mb-6">
+                <p>
+                  คุณต้องการลบ <strong className="text-github-text-primary">{branchToDelete.name}</strong> ({branchToDelete.code}) หรือไม่?
+                </p>
+                {deleteUsageReport && !deleteUsageReport.is_used && (
+                  <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
+                    <p className="text-green-700 dark:text-green-400 text-xs">
+                      ✅ ไม่พบการใช้งานในระบบ — ปลอดภัยที่จะลบ
+                    </p>
+                  </div>
+                )}
+                <p className="text-yellow-700 dark:text-yellow-400 font-medium text-xs">
+                  ⚠️ การกระทำนี้ไม่สามารถย้อนกลับได้
+                </p>
+              </div>
+              <div className="flex justify-end space-x-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setBranchToDelete(null);
+                    setDeleteUsageReport(null);
+                  }}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={handleConfirmDelete}
+                >
+                  ยืนยัน ลบ{branchToDelete.type === 'main' ? 'สาขา' : 'สาขาย่อย'}
                 </Button>
               </div>
             </div>

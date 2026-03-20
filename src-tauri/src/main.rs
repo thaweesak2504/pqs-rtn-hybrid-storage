@@ -1106,6 +1106,21 @@ fn reset_and_update_career_branch(
     content_database::reset_and_update_career_branch(doc_id, new_main, new_sub)
 }
 
+#[tauri::command]
+fn check_branch_usage_global(
+    branch_code: String,
+) -> Result<content_database::BranchUsageReport, String> {
+    content_database::check_branch_usage_global(branch_code)
+}
+
+#[tauri::command]
+fn check_sub_branch_usage_global(
+    branch_code: String,
+    sub_code: String,
+) -> Result<content_database::BranchUsageReport, String> {
+    content_database::check_sub_branch_usage_global(branch_code, sub_code)
+}
+
 // ==========================================
 // Occupation Branch Commands
 // ==========================================
@@ -1481,6 +1496,8 @@ fn main() {
             update_document_branch,
             check_career_branch_usage,
             reset_and_update_career_branch,
+            check_branch_usage_global,
+            check_sub_branch_usage_global,
             save_trainee_answer,
             save_qualifier_assessment,
             get_trainee_answers,
