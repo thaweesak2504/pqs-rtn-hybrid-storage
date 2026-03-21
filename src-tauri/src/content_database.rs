@@ -5952,12 +5952,11 @@ pub struct SubQuestionUsageResponse {
 pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsageResponse, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // 1. Get leaf descendant IDs (recursive) — only questions that have NO children.
-    // Parent/group-header questions define which SubQs are available; leaf questions
-    // are the actual "users".  In 300Template L2 headers sync selectedSubQuestions
-    // to L3 children, so counting both would double-count.
-    // Using NOT EXISTS instead of is_group_header flag for robustness — the flag
-    // may not be consistently maintained across all creation / migration paths.
+    // 1. Get countable descendant IDs (recursive).
+    // Include ALL descendants EXCEPT those whose children are 'required_instance'
+    // (300Template: L2 syncs its selectedSubQuestions to L3 copies, so counting
+    // both L2 and L3 would double-count).  In 200Template, L2 has normal children
+    // with independent SubQ selections — both L2 and L3 must be counted.
     let mut stmt_ids = conn.prepare(
         "WITH RECURSIVE descendants(id) AS (
             SELECT id FROM Questions WHERE parent_id = ?1
@@ -5966,7 +5965,10 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
             JOIN descendants d ON q.parent_id = d.id
         )
         SELECT d.id FROM descendants d
-        WHERE NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = d.id)"
+        WHERE NOT EXISTS (
+            SELECT 1 FROM Questions c
+            WHERE c.parent_id = d.id AND c.question_type = 'required_instance'
+        )"
     ).map_err(|e| format!("Failed to prepare descendant query: {}", e))?;
 
     let descendant_ids: Vec<String> = stmt_ids.query_map(params![parent_id], |row| row.get(0))
@@ -5983,7 +5985,7 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
         });
     }
 
-    // 2. Collect counts for each sub_question_code used by leaf descendants only
+    // 2. Collect counts for each sub_question_code — same filter as above
     let mut stmt_counts = conn.prepare(
         "WITH RECURSIVE descendants(id) AS (
             SELECT id FROM Questions WHERE parent_id = ?1
@@ -5994,7 +5996,10 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
         SELECT ql.sub_question_code, COUNT(DISTINCT ql.question_id) as usage_count
         FROM QuestionSubQuestionLinks ql
         JOIN descendants d ON ql.question_id = d.id
-        WHERE NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = d.id)
+        WHERE NOT EXISTS (
+            SELECT 1 FROM Questions c
+            WHERE c.parent_id = d.id AND c.question_type = 'required_instance'
+        )
         GROUP BY ql.sub_question_code"
     ).map_err(|e| format!("Failed to prepare recursive usage count query: {}", e))?;
 
