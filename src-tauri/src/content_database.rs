@@ -458,7 +458,28 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
             sequence
         ],
     ).map_err(|e| format!("Failed to insert document: {}", e))?;
-    
+
+    // Set default occupation branch to ต้นแบบมาตรฐาน / ต้นแบบมาตรฐาน
+    ensure_standard_occupation_branch_exists(&conn)?;
+    let default_main: Option<String> = conn.query_row(
+        "SELECT code FROM OccupationBranches WHERE name = ?1 LIMIT 1",
+        params![STANDARD_BRANCH_NAME],
+        |row| row.get(0),
+    ).optional().map_err(|e| format!("Failed to find standard branch: {}", e))?.or(None);
+
+    if let Some(ref main_code) = default_main {
+        let default_sub: Option<String> = conn.query_row(
+            "SELECT code FROM OccupationSubBranches WHERE branch_code = ?1 AND name = ?2 LIMIT 1",
+            params![main_code, STANDARD_BRANCH_NAME],
+            |row| row.get(0),
+        ).optional().map_err(|e| format!("Failed to find standard sub-branch: {}", e))?.or(None);
+
+        conn.execute(
+            "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2 WHERE id = ?3",
+            params![default_main, default_sub, new_id],
+        ).map_err(|e| format!("Failed to set default branch: {}", e))?;
+    }
+
     // Seed Template (100, 200, 300)
     // Need unit name for 200 System Description
     let unit_name: String = conn.query_row(
