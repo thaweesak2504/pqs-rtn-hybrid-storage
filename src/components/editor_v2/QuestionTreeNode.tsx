@@ -190,11 +190,12 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     ? ownSubQuestionList
     : parentSubQuestionList;
 
-  // When this question owns SubQ (L1), it becomes the usage root for all descendants.
-  // Otherwise, pass through the inherited subQUsageParentId.
-  const effectiveSubQUsageParentId = questionUsesOwnSubQuestions
-    ? question.id
-    : subQUsageParentId;
+  // Preserve the topmost SubQ owner as the usage root for a consistent overview.
+  // In 200Template only L1 has useSubQuestions; in 300Template both L1 AND L2 may
+  // have it, but we want the L1 scope for all descendants.  Once an ancestor has
+  // set subQUsageParentId, keep it — only set it when no ancestor has done so yet.
+  const effectiveSubQUsageParentId = subQUsageParentId
+    || (questionUsesOwnSubQuestions ? question.id : undefined);
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
