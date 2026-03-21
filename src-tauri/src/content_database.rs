@@ -5952,8 +5952,10 @@ pub struct SubQuestionUsageResponse {
 pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsageResponse, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    // 1. Get ALL descendant IDs (recursive) — includes both L2 group headers and L3 leaves
-    // Both L2 and L3 store selectedSubQuestions and should be counted for usage.
+    // 1. Get leaf descendant IDs (recursive) — only non-group-header (scorable) questions.
+    // Group headers define which SubQs are available; leaf questions are the actual "users".
+    // In 300Template, L2 headers sync selectedSubQuestions to L3 children, so counting
+    // both would double-count.  Filtering on is_group_header = 0 keeps only leaves.
     let mut stmt_ids = conn.prepare(
         "WITH RECURSIVE descendants(id) AS (
             SELECT id FROM Questions WHERE parent_id = ?1
@@ -5961,7 +5963,9 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
             SELECT q.id FROM Questions q
             JOIN descendants d ON q.parent_id = d.id
         )
-        SELECT id FROM descendants"
+        SELECT id FROM descendants d
+        JOIN Questions q2 ON q2.id = d.id
+        WHERE q2.is_group_header = 0"
     ).map_err(|e| format!("Failed to prepare descendant query: {}", e))?;
 
     let descendant_ids: Vec<String> = stmt_ids.query_map(params![parent_id], |row| row.get(0))
@@ -5978,7 +5982,7 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
         });
     }
 
-    // 2. Collect counts for each sub_question_code used by ANY descendant (L2 + L3)
+    // 2. Collect counts for each sub_question_code used by leaf descendants only
     let mut stmt_counts = conn.prepare(
         "WITH RECURSIVE descendants(id) AS (
             SELECT id FROM Questions WHERE parent_id = ?1
@@ -5989,6 +5993,8 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
         SELECT ql.sub_question_code, COUNT(DISTINCT ql.question_id) as usage_count
         FROM QuestionSubQuestionLinks ql
         JOIN descendants d ON ql.question_id = d.id
+        JOIN Questions q2 ON q2.id = d.id
+        WHERE q2.is_group_header = 0
         GROUP BY ql.sub_question_code"
     ).map_err(|e| format!("Failed to prepare recursive usage count query: {}", e))?;
 
