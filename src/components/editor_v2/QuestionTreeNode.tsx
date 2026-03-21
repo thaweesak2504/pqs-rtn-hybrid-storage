@@ -55,6 +55,7 @@ interface QuestionTreeNodeProps {
   onRefresh?: () => void;
   onQuestionsUpdated?: () => void;
   usageRefreshKey?: number;
+  subQUsageParentId?: string;
   viewMode?: ViewMode;
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
@@ -96,6 +97,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   onRefresh,
   onQuestionsUpdated,
   usageRefreshKey = 0,
+  subQUsageParentId,
   viewMode = 'edit',
   traineeAnswer,
   answerMap,
@@ -187,6 +189,12 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const effectiveChildSubQuestionList = questionUsesOwnSubQuestions
     ? ownSubQuestionList
     : parentSubQuestionList;
+
+  // When this question owns SubQ (L1), it becomes the usage root for all descendants.
+  // Otherwise, pass through the inherited subQUsageParentId.
+  const effectiveSubQUsageParentId = questionUsesOwnSubQuestions
+    ? question.id
+    : subQUsageParentId;
 
   // Extract initial image from metadata
   const initialImage = useMemo(() => {
@@ -334,6 +342,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           parentId={question.parent_id || null}
           currentSectionNumber={sectionNumber}
           usageRefreshKey={usageRefreshKey}
+          subQUsageParentId={effectiveSubQUsageParentId}
         />
       </div>
     );
@@ -392,6 +401,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             onRefresh={onRefresh}
             currentSectionNumber={sectionNumber}
             usageRefreshKey={usageRefreshKey}
+            subQUsageParentId={effectiveSubQUsageParentId}
           />
         </div>
       )}
@@ -442,6 +452,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 onRefresh={onRefresh}
                 onQuestionsUpdated={onQuestionsUpdated}
                 usageRefreshKey={usageRefreshKey}
+                subQUsageParentId={effectiveSubQUsageParentId}
                 traineeAnswer={answerMap?.get(`${child.id}:`)}
                 answerMap={answerMap}
               />
@@ -469,6 +480,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             onRefresh={onRefresh}
             currentSectionNumber={sectionNumber}
             usageRefreshKey={usageRefreshKey}
+            subQUsageParentId={effectiveSubQUsageParentId}
           />
         </div>
       )}

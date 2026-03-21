@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-  DEFAULT_L1_DESC_BY_SEQ,
-  convertThaiToArabic,
-  toThaiAlphabet,
+    DEFAULT_L1_DESC_BY_SEQ,
+    convertThaiToArabic,
+    toThaiAlphabet,
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -83,6 +83,7 @@ interface QuestionFormCardProps {
   onRefresh?: () => void; // Callback to refresh question tree after DB changes
   currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
   usageRefreshKey?: number;
+  subQUsageParentId?: string; // L1 ancestor ID for consistent SubQ usage counting across L2/L3
 }
 
 interface AnswerKeyRow {
@@ -131,6 +132,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   onRefresh,
   currentSectionNumber,
   usageRefreshKey = 0,
+  subQUsageParentId,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -686,16 +688,17 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const hasParentSubQ = !!(parentSubQuestionList && parentSubQuestionList.length > 0);
 
   // ---- SubQ Usage Count (fetched from backend via QuestionSubQuestionLinks table) ----
-  // When editing a child (L2) question, parentId is the L1 group header.
-  // Ask the backend: how many L2 siblings have selected each SubQ code?
+  // Use subQUsageParentId (L1 ancestor) when available so L2 and L3 show the same overview.
+  // Falls back to parentId for backward compatibility.
+  const usageParentId = subQUsageParentId || parentId;
   interface SubQuestionUsageResponse { usage_map: Record<string, number>; total_children: number; }
   const [subQUsageData, setSubQUsageData] = useState<SubQuestionUsageResponse>({ usage_map: {}, total_children: 0 });
   useEffect(() => {
-    if (!hasParentSubQ || !parentId) { setSubQUsageData({ usage_map: {}, total_children: 0 }); return; }
-    invoke<SubQuestionUsageResponse>('get_sub_question_usage_counts', { parentId })
+    if (!hasParentSubQ || !usageParentId) { setSubQUsageData({ usage_map: {}, total_children: 0 }); return; }
+    invoke<SubQuestionUsageResponse>('get_sub_question_usage_counts', { parentId: usageParentId })
       .then(data => setSubQUsageData(data))
       .catch(() => setSubQUsageData({ usage_map: {}, total_children: 0 }));
-  }, [hasParentSubQ, parentId, usageRefreshKey]);
+  }, [hasParentSubQ, usageParentId, usageRefreshKey]);
 
   // Sync selectedSubQCodes เมื่อ parentSubQuestionList เปลี่ยน (reorder/delete)
   // For 300Template: also inject alwaysChecked codes
