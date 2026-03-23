@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus,
 import React, { useEffect, useMemo, useState } from "react";
 import { QuestionDetail } from "../../types/content";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
+import Tooltip from "../ui/Tooltip";
 import OralAssessmentBox from "./OralAssessmentBox";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionMetadataDisplay from "./QuestionMetadataDisplay";
@@ -456,17 +457,19 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           {inlineSubQItems && !shouldHideInlineSubQBadges && (
             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
               {inlineSubQItems.map(({ sq, checked }, idx) => (
-                <span key={sq.code} className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                  <span className={`text-sm font-normal ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
-                  <span className={`w-3.5 h-3.5 inline-flex items-center justify-center rounded border text-[9px] font-bold shrink-0
-                    ${checked
-                      ? is300 ? "border-purple-400 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" : "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
-                      : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
-                    }`}
-                  >
-                    {checked && "✔"}
+                <Tooltip key={sq.code} content={sq.text} position="left">
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400 whitespace-nowrap cursor-help">
+                    <span className={`text-sm font-normal ${is300 ? 'text-purple-600 dark:text-purple-400' : 'text-orange-600 dark:text-orange-400'}`}>{toThaiAlphabet(idx + 1)}.</span>
+                    <span className={`w-3.5 h-3.5 inline-flex items-center justify-center rounded border text-[9px] font-bold shrink-0
+                      ${checked
+                        ? is300 ? "border-purple-400 bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400" : "border-amber-400 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400"
+                        : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
+                      }`}
+                    >
+                      {checked && "✔"}
+                    </span>
                   </span>
-                </span>
+                </Tooltip>
               ))}
             </div>
           )}

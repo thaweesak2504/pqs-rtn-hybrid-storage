@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
 import { QuestionDetail } from '../../types/content';
+import Tooltip from '../ui/Tooltip';
 
 // ============ Helpers ============
 
@@ -247,13 +248,16 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         <div className="ml-[3ch] flex items-center gap-1.5 flex-wrap">
           {inlineSubQItems.map((sq) => {
             const realIndex = parentSubQuestionList!.findIndex(p => p.code === sq.code);
+            const sqItem = parentSubQuestionList!.find(p => p.code === sq.code);
             return (
-              <span key={sq.code} className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                <span className="text-black dark:text-white">{toThaiAlphabet(realIndex)}</span>
-                <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-black dark:border-white text-black dark:text-white text-[9px] font-bold shrink-0">
-                  ✓
+              <Tooltip key={sq.code} content={sqItem?.text || sq.code} position="left">
+                <span className="inline-flex items-center gap-0.5 whitespace-nowrap cursor-help">
+                  <span className="text-black dark:text-white">{toThaiAlphabet(realIndex)}</span>
+                  <span className="w-3.5 h-3.5 inline-flex items-center justify-center rounded border border-black dark:border-white text-black dark:text-white text-[9px] font-bold shrink-0">
+                    ✓
+                  </span>
                 </span>
-              </span>
+              </Tooltip>
             );
           })}
         </div>
