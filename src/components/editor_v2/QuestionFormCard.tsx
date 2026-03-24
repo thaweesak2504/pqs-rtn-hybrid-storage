@@ -1091,7 +1091,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       hasError = true;
     }
     // NOTE: is300 from outer scope (line 654) is reused here — no redeclaration needed
-    const showAnswerKey = !is300 && (!isDefaultL1 && requireAnswerKey && !useSubQuestions && (!hasParentSubQ || activeSubQCodes.length > 0));
+    // Mirror the UI display condition (line 2180): show/validate AK when the AK editor is visible.
+    // Old condition used activeSubQCodes (an L1-only field) — leaf questions never have it,
+    // so validation was always skipped for 200Template SubQ leaf questions.
+    const showAnswerKey = !is300 && (!isDefaultL1 && requireAnswerKey && !useSubQuestions && !(hasParentSubQ && selectedSubQCodes.length === 0));
     if (showAnswerKey) {
       if (hasParentSubQ && selectedSubQCodes.length > 0) {
         // ตรวจว่าทุก subQ ที่เลือกมี answer key
