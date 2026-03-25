@@ -15,7 +15,7 @@ const CoverPageView: React.FC<CoverPageViewProps> = ({ id, name, hierarchy, isPr
     return num.toString();
   };
 
-  // Preview Mode - A4 Paper Format (Official RTN - matching ExampleCover.tsx)
+  // Preview Mode - A4 Paper Format (Official RTN)
   if (isPreviewMode) {
     const displayUnits = hierarchy.slice(0, 3);
 

@@ -15,7 +15,6 @@ import { logger } from './utils/logger';
 import ActiveDocumentPage from './components/pages/ActiveDocumentPage';
 import ContactPage from './components/pages/ContactPage';
 import EditorPage from './components/pages/EditorPage';
-// import ExamplePage from './components/pages/ExamplePage'; // Old static example — retained for now
 import HistoryPage from './components/pages/HistoryPage';
 import PqsExamplePage from './components/pages/PqsExamplePage';
 import RegistrationPage from './components/pages/RegistrationPage';
