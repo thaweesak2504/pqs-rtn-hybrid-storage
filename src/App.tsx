@@ -15,8 +15,9 @@ import { logger } from './utils/logger';
 import ActiveDocumentPage from './components/pages/ActiveDocumentPage';
 import ContactPage from './components/pages/ContactPage';
 import EditorPage from './components/pages/EditorPage';
-import ExamplePage from './components/pages/ExamplePage';
+// import ExamplePage from './components/pages/ExamplePage'; // Old static example — retained for now
 import HistoryPage from './components/pages/HistoryPage';
+import PqsExamplePage from './components/pages/PqsExamplePage';
 import RegistrationPage from './components/pages/RegistrationPage';
 import SignInPage from './components/pages/SignInPage';
 import TeamPage from './components/pages/TeamPage';
@@ -92,7 +93,7 @@ function App() {
 
                             {/* Editor and Visitor routes */}
                             <Route path="editor" element={<EditorPage />} />
-                            <Route path="example" element={<ExamplePage />} />
+                            <Route path="example" element={<PqsExamplePage />} />
                             <Route path="pqs/:docId" element={<ActiveDocumentPage />} />
 
                             {/* Admin Dashboard routes */}
