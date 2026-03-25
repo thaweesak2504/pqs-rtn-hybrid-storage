@@ -660,8 +660,19 @@ pub fn search_documents(
     Ok(docs)
 }
 
+/// IDs of built-in example documents that must never be deleted.
+const PROTECTED_DOCUMENT_IDS: &[&str] = &["22724201001"];
+
 /// Delete a document by ID
 pub fn delete_document(id: String) -> Result<String, String> {
+    // Guard: built-in example documents are protected from deletion.
+    if PROTECTED_DOCUMENT_IDS.contains(&id.as_str()) {
+        return Err(format!(
+            "เอกสาร {} เป็นเอกสารตัวอย่างที่ติดมากับแอปพลิเคชัน ไม่อนุญาตให้ลบ",
+            id
+        ));
+    }
+
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     
     // Check if document exists first
