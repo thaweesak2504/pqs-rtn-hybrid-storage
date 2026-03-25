@@ -1,7 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { render, RenderOptions, screen } from "@testing-library/react";
+import React, { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import QuestionRenderer from "../../components/questions/QuestionRenderer";
+import { ToastProvider } from "../../contexts/ToastContext";
 import { QuestionDetail } from "../../types/content";
+
+const AllProviders = ({ children }: { children: React.ReactNode }) => (
+  <ToastProvider>{children}</ToastProvider>
+);
+
+const renderWithProviders = (ui: ReactElement, options?: Omit<RenderOptions, 'wrapper'>) =>
+  render(ui, { wrapper: AllProviders, ...options });
 
 /**
  * Phase B Template Testing - QuestionRenderer Component
@@ -105,7 +114,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         is_header: false,
       });
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={question}
           level={1}
@@ -120,7 +129,7 @@ describe("QuestionRenderer - Template Rendering", () => {
     it("renders section 100 group header", () => {
       const header = mockSection100Header();
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={header}
           level={0}
@@ -136,7 +145,7 @@ describe("QuestionRenderer - Template Rendering", () => {
     it("renders section 300 standard group header", () => {
       const header = mockSection300Header();
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={header}
           level={0}
@@ -153,7 +162,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         "ความรู้พื้นฐาน"
       );
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={exemptedGroup}
           level={0}
@@ -177,7 +186,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         mockSection300ExemptedGroup(5, "ชั่วโมงทดสอบ"),    // 3xx.5 exempted
       ];
 
-      render(
+      renderWithProviders(
         <div>
           {groups.map((group) => (
             <QuestionRenderer
@@ -204,7 +213,7 @@ describe("QuestionRenderer - Template Rendering", () => {
       const groupHeader = mockSection300Header();
       groupHeader.group_score = 85;
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={groupHeader}
           level={0}
@@ -222,7 +231,7 @@ describe("QuestionRenderer - Template Rendering", () => {
       const exempted = mockSection300ExemptedGroup(2, "ความรู้พื้นฐาน");
       exempted.group_score = 50; // Backend calculated, but display should show 0
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={exempted}
           level={0}
@@ -240,7 +249,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         is_header: false,
       });
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={question}
           level={1}
@@ -259,7 +268,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         content: "Test Question",
       });
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={question}
           level={1}
@@ -277,7 +286,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         content: "Editable Question",
       });
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={question}
           level={1}
@@ -295,7 +304,7 @@ describe("QuestionRenderer - Template Rendering", () => {
     it("displays section numbers in Thai digits (๑๐๐ = 100)", () => {
       const question = mockSection100Header();
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={question}
           level={0}
@@ -330,7 +339,7 @@ describe("QuestionRenderer - Template Rendering", () => {
         }),
       ];
 
-      render(
+      renderWithProviders(
         <QuestionRenderer
           question={parent}
           level={0}

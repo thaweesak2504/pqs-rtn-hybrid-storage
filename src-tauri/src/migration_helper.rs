@@ -1,10 +1,10 @@
-use rusqlite::Result;
 use crate::content_database::get_content_connection;
+use rusqlite::Result;
 
 /// Migrate existing documents to have Section 101
 pub fn migrate_create_section_101() -> Result<usize, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Insert Section 101 for all documents that don't have it yet
     let affected_rows = conn.execute(
         "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
@@ -22,6 +22,6 @@ pub fn migrate_create_section_101() -> Result<usize, String> {
          )",
         [],
     ).map_err(|e| format!("Migration failed: {}", e))?;
-    
+
     Ok(affected_rows)
 }

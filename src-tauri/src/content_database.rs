@@ -1,9 +1,9 @@
+use crate::logger;
+use base64::{engine::general_purpose, Engine as _};
+use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 use std::path::PathBuf;
-use base64::{Engine as _, engine::general_purpose};
-use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
-use crate::logger;
 
 const STANDARD_BRANCH_NAME: &str = "ต้นแบบมาตรฐาน";
 const STANDARD_BRANCH_PREFERRED_CODE: &str = "STD";
@@ -152,7 +152,8 @@ fn install_standard_occupation_branch_guards(conn: &Connection) -> Result<(), St
     "#
     .replace("__STANDARD_BRANCH_NAME__", STANDARD_BRANCH_NAME);
 
-    conn.execute_batch(&trigger_sql).map_err(|e| e.to_string())?;
+    conn.execute_batch(&trigger_sql)
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -170,7 +171,11 @@ fn is_protected_main_branch(conn: &Connection, code: &str) -> Result<bool, Strin
     Ok(matches!(name.as_deref(), Some(STANDARD_BRANCH_NAME)))
 }
 
-fn is_protected_sub_branch(conn: &Connection, branch_code: &str, code: &str) -> Result<bool, String> {
+fn is_protected_sub_branch(
+    conn: &Connection,
+    branch_code: &str,
+    code: &str,
+) -> Result<bool, String> {
     let sub_name = conn
         .query_row(
             "SELECT name FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2",
@@ -189,13 +194,12 @@ fn is_protected_sub_branch(conn: &Connection, branch_code: &str, code: &str) -> 
 
 /// Get path to the content database file
 pub fn get_content_database_path() -> Result<PathBuf, String> {
-    let app_data = app_data_dir(&Config::default())
-        .ok_or("Failed to get app data directory")?;
-    
+    let app_data = app_data_dir(&Config::default()).ok_or("Failed to get app data directory")?;
+
     let db_dir = app_data.join("pqs-rtn-hybrid-storage");
     std::fs::create_dir_all(&db_dir)
         .map_err(|e| format!("Failed to create database directory: {}", e))?;
-    
+
     // Using 'content.db' as requested by user
     Ok(db_dir.join("content.db"))
 }
@@ -204,13 +208,13 @@ pub fn get_portable_data_dir() -> Result<std::path::PathBuf, String> {
     // Strategy:
     // Dev Mode: Use AppData/pqs-rtn-hybrid-storage/storage to AVOID triggering watchers in src-tauri
     // Release Mode: Use exe_dir/data to keep it PORTABLE on USB
-    
+
     if cfg!(debug_assertions) {
-         let app_data = app_data_dir(&Config::default())
-            .ok_or("Failed to get app data directory")?;
-        
+        let app_data =
+            app_data_dir(&Config::default()).ok_or("Failed to get app data directory")?;
+
         let dev_storage = app_data.join("pqs-rtn-hybrid-storage").join("data");
-        
+
         if !dev_storage.exists() {
             std::fs::create_dir_all(&dev_storage).map_err(|e| e.to_string())?;
         }
@@ -219,7 +223,7 @@ pub fn get_portable_data_dir() -> Result<std::path::PathBuf, String> {
         let mut p = std::env::current_exe().map_err(|e| e.to_string())?;
         p.pop();
         let data_dir = p.join("data");
-        
+
         if !data_dir.exists() {
             std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
         }
@@ -229,28 +233,33 @@ pub fn get_portable_data_dir() -> Result<std::path::PathBuf, String> {
 
 /// Get connection to content database
 pub fn get_content_connection() -> SqlResult<Connection> {
-    let db_path = get_content_database_path().map_err(|e| rusqlite::Error::SqliteFailure(
-        rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
-        Some(e)
-    ))?;
-    
+    let db_path = get_content_database_path().map_err(|e| {
+        rusqlite::Error::SqliteFailure(
+            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
+            Some(e),
+        )
+    })?;
+
     let conn = Connection::open(db_path)?;
-    
+
     // Set busy timeout to 5 seconds to handle concurrency
     conn.busy_timeout(std::time::Duration::from_secs(5))?;
 
     // SQLite configuration for performance
     // journal_mode returns a result row — must use query, not execute
     let _: String = conn.query_row("PRAGMA journal_mode=WAL", [], |row| row.get(0))?;
-    conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA temp_store = MEMORY;")?;
-    
+    conn.execute_batch(
+        "PRAGMA foreign_keys = ON; PRAGMA synchronous = NORMAL; PRAGMA temp_store = MEMORY;",
+    )?;
+
     Ok(conn)
 }
 
 /// Initialize the content database (create tables if not exist)
 pub fn initialize_content_database() -> Result<String, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect to content database: {}", e))?;
-    
+    let conn = get_content_connection()
+        .map_err(|e| format!("Failed to connect to content database: {}", e))?;
+
     // Create OwnerUnits table
     // This schema MUST match sql/OwnerUnits.sql structure
     conn.execute(
@@ -262,7 +271,8 @@ pub fn initialize_content_database() -> Result<String, String> {
             unit_level INT
         )",
         [],
-    ).map_err(|e| format!("Failed to create OwnerUnits table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create OwnerUnits table: {}", e))?;
 
     // Create Documents table
     conn.execute(
@@ -280,13 +290,23 @@ pub fn initialize_content_database() -> Result<String, String> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    ).map_err(|e| format!("Failed to create Documents table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create Documents table: {}", e))?;
 
     // Migration: add occupation_branch columns if not exist (safe to run multiple times)
-    let _ = conn.execute("ALTER TABLE Documents ADD COLUMN occupation_branch_main VARCHAR(10)", []);
-    let _ = conn.execute("ALTER TABLE Documents ADD COLUMN occupation_branch_sub VARCHAR(10)", []);
+    let _ = conn.execute(
+        "ALTER TABLE Documents ADD COLUMN occupation_branch_main VARCHAR(10)",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE Documents ADD COLUMN occupation_branch_sub VARCHAR(10)",
+        [],
+    );
     // Phase1: is_template flag — distinguishes seeded template docs from user-created ones
-    let _ = conn.execute("ALTER TABLE Documents ADD COLUMN is_template BOOLEAN DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE Documents ADD COLUMN is_template BOOLEAN DEFAULT 0",
+        [],
+    );
 
     // Create Sections table
     conn.execute(
@@ -308,30 +328,40 @@ pub fn initialize_content_database() -> Result<String, String> {
             FOREIGN KEY (document_id) REFERENCES Documents(id) ON DELETE CASCADE
         )",
         [],
-    ).map_err(|e| format!("Failed to create Sections table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create Sections table: {}", e))?;
 
     // Migration: Add scoring columns to Sections if missing
     let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_value INTEGER", []);
-    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_unit VARCHAR(20) DEFAULT 'weeks'", []);
+    let _ = conn.execute(
+        "ALTER TABLE Sections ADD COLUMN duration_unit VARCHAR(20) DEFAULT 'weeks'",
+        [],
+    );
     let _ = conn.execute("ALTER TABLE Sections ADD COLUMN total_score INTEGER", []);
     // Phase1: is_template flag — distinguishes seeded sections from user-created ones
-    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN is_template BOOLEAN DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE Sections ADD COLUMN is_template BOOLEAN DEFAULT 0",
+        [],
+    );
 
     // Create indexes for Sections
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_sections_document ON Sections(document_id)",
         [],
-    ).map_err(|e| format!("Failed to create sections document index: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create sections document index: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_sections_number ON Sections(document_id, section_number)",
         [],
-    ).map_err(|e| format!("Failed to create sections number index: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create sections number index: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_sections_group ON Sections(document_id, section_group)",
         [],
-    ).map_err(|e| format!("Failed to create sections group index: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create sections group index: {}", e))?;
 
     // Initialize Questions, Choices, References tables
     initialize_question_tables(&conn)?;
@@ -340,10 +370,13 @@ pub fn initialize_content_database() -> Result<String, String> {
     match migrate_section_links_to_ref_children() {
         Ok(count) => {
             if count > 0 {
-                logger::info(&format!("Migrated {} section links to L3 section_ref Questions", count));
+                logger::info(format!(
+                    "Migrated {} section links to L3 section_ref Questions",
+                    count
+                ));
             }
-        },
-        Err(e) => logger::warn(&format!("Section link→L3 migration warning: {}", e)),
+        }
+        Err(e) => logger::warn(format!("Section link→L3 migration warning: {}", e)),
     }
 
     // Seed OwnerUnits if empty
@@ -381,11 +414,9 @@ pub fn initialize_content_database() -> Result<String, String> {
 
 /// Seed OwnerUnits from SQL file if table is empty
 fn seed_owner_units(conn: &Connection) -> Result<(), String> {
-    let count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM OwnerUnits",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM OwnerUnits", [], |row| row.get(0))
+        .unwrap_or(0);
 
     if count == 0 {
         logger::info("Seeding OwnerUnits from embedded SQL...");
@@ -400,47 +431,47 @@ fn seed_owner_units(conn: &Connection) -> Result<(), String> {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct CreateDocumentArgs {
     pub name: String,
-    pub unit_id: String, // 7-digit ID (e.g., "2272400")
+    pub unit_id: String,   // 7-digit ID (e.g., "2272400")
     pub unit_code: String, // 5-digit code (e.g., "22724")
     pub applied_to: String,
-    pub doc_type: String, // "10" or "20"
+    pub doc_type: String,   // "10" or "20"
     pub user_level: String, // "0", "1", or "2"
 }
 
 /// Generate new Document ID
-pub fn generate_document_id(unit_code: &str, doc_type: &str, user_level: &str) -> SqlResult<String> {
+pub fn generate_document_id(
+    unit_code: &str,
+    doc_type: &str,
+    user_level: &str,
+) -> SqlResult<String> {
     let conn = get_content_connection()?;
-    
+
     // Pattern to match existing sequences for this unit/type/level
     // ID format: UUUUU (5) + TT (2) + L (1) + SSS (3) = 11 digits
     // Match prefix: UUUUU + TT + L
     let prefix = format!("{}{}{}", unit_code, doc_type, user_level);
-    
+
     // Find max sequence for this prefix
-    let mut stmt = conn.prepare(
-        "SELECT MAX(sequence) FROM Documents WHERE id LIKE ?1"
-    )?;
-    
-    let max_seq: Option<i32> = stmt.query_row(
-        params![format!("{}%", prefix)], 
-        |row| row.get(0)
-    ).unwrap_or(None);
-    
+    let mut stmt = conn.prepare("SELECT MAX(sequence) FROM Documents WHERE id LIKE ?1")?;
+
+    let max_seq: Option<i32> = stmt
+        .query_row(params![format!("{}%", prefix)], |row| row.get(0))
+        .unwrap_or(None);
+
     let next_seq = max_seq.unwrap_or(0) + 1;
     let new_id = format!("{}{:03}", prefix, next_seq);
-    
+
     Ok(new_id)
 }
 
 /// Create a new document
 pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
-    let conn = get_content_connection()
-        .map_err(|e| format!("Failed to connect: {}", e))?;
-        
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
     // Generate ID
     let new_id = generate_document_id(&args.unit_code, &args.doc_type, &args.user_level)
         .map_err(|e| format!("Failed to generate ID: {}", e))?;
-        
+
     // Parse sequence for storage
     let sequence = new_id[8..11].parse::<i32>().unwrap_or(0);
 
@@ -448,24 +479,21 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
         "INSERT INTO Documents (id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, sequence)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
-            new_id, 
-            args.name, 
-            args.applied_to, 
-            args.unit_id, 
-            args.unit_code, 
-            args.doc_type, 
-            args.user_level, 
-            sequence
+            new_id,            args.name,            args.applied_to,            args.unit_id,            args.unit_code,            args.doc_type,            args.user_level,            sequence
         ],
     ).map_err(|e| format!("Failed to insert document: {}", e))?;
 
     // Set default occupation branch to ต้นแบบมาตรฐาน / ต้นแบบมาตรฐาน
     ensure_standard_occupation_branch_exists(&conn)?;
-    let default_main: Option<String> = conn.query_row(
-        "SELECT code FROM OccupationBranches WHERE name = ?1 LIMIT 1",
-        params![STANDARD_BRANCH_NAME],
-        |row| row.get(0),
-    ).optional().map_err(|e| format!("Failed to find standard branch: {}", e))?.or(None);
+    let default_main: Option<String> = conn
+        .query_row(
+            "SELECT code FROM OccupationBranches WHERE name = ?1 LIMIT 1",
+            params![STANDARD_BRANCH_NAME],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to find standard branch: {}", e))?
+        .or(None);
 
     if let Some(ref main_code) = default_main {
         let default_sub: Option<String> = conn.query_row(
@@ -482,11 +510,13 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
 
     // Seed Template (100, 200, 300)
     // Need unit name for 200 System Description
-    let unit_name: String = conn.query_row(
-        "SELECT unit_name FROM OwnerUnits WHERE unit_id = ?1",
-        params![args.unit_id], 
-        |row| row.get(0)
-    ).unwrap_or("Unknown Unit".to_string());
+    let unit_name: String = conn
+        .query_row(
+            "SELECT unit_name FROM OwnerUnits WHERE unit_id = ?1",
+            params![args.unit_id],
+            |row| row.get(0),
+        )
+        .unwrap_or("Unknown Unit".to_string());
 
     seed_document_template(&conn, &new_id, &unit_name)
         .map_err(|e| format!("Failed to seed template: {}", e))?;
@@ -503,16 +533,17 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
 
 /// Seed content database from SQL file
 pub fn seed_content_database_from_file(file_path: &str) -> Result<String, String> {
-    logger::info(&format!("Seeding content database from file: {}", file_path));
-    
+    logger::info(format!("Seeding content database from file: {}", file_path));
+
     let sql_content = std::fs::read_to_string(file_path)
         .map_err(|e| format!("Failed to read SQL file: {}", e))?;
-        
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect to content database: {}", e))?;
-    
+
+    let conn = get_content_connection()
+        .map_err(|e| format!("Failed to connect to content database: {}", e))?;
+
     conn.execute_batch(&sql_content)
         .map_err(|e| format!("Failed to execute SQL batch: {}", e))?;
-        
+
     Ok("Content database seeded successfully".to_string())
 }
 
@@ -528,10 +559,11 @@ pub struct OwnerUnit {
 /// Get owner units, optionally filtered by parent_id
 pub fn get_owner_units(parent_id: Option<String>) -> Result<Vec<OwnerUnit>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    let mut query = String::from("SELECT unit_id, unit_name, unit_abbr, parent_id, unit_level FROM OwnerUnits");
+
+    let mut query =
+        String::from("SELECT unit_id, unit_name, unit_abbr, parent_id, unit_level FROM OwnerUnits");
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
+
     if let Some(pid) = &parent_id {
         query.push_str(" WHERE parent_id = ?1");
         params.push(Box::new(pid.clone()));
@@ -541,14 +573,15 @@ pub fn get_owner_units(parent_id: Option<String>) -> Result<Vec<OwnerUnit>, Stri
         // Let's assume NULL for roots based on SQL
         query.push_str(" WHERE parent_id IS NULL");
     }
-    
+
     query.push_str(" ORDER BY unit_id");
-    
-    let mut stmt = conn.prepare(&query).map_err(|e| format!("Failed to prepare query: {}", e))?;
-    
-    let unit_iter = stmt.query_map(
-        rusqlite::params_from_iter(params.iter()), 
-        |row| {
+
+    let mut stmt = conn
+        .prepare(&query)
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+    let unit_iter = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             Ok(OwnerUnit {
                 unit_id: row.get(0)?,
                 unit_name: row.get(1)?,
@@ -556,14 +589,14 @@ pub fn get_owner_units(parent_id: Option<String>) -> Result<Vec<OwnerUnit>, Stri
                 parent_id: row.get(3)?,
                 unit_level: row.get(4)?,
             })
-        }
-    ).map_err(|e| format!("Failed to query map: {}", e))?;
-    
+        })
+        .map_err(|e| format!("Failed to query map: {}", e))?;
+
     let mut units = Vec::new();
     for unit in unit_iter {
         units.push(unit.map_err(|e| format!("Failed to retrieve unit row: {}", e))?);
     }
-    
+
     Ok(units)
 }
 
@@ -586,16 +619,15 @@ pub fn search_documents(
     unit_id_prefix: Option<String>,
     doc_type: Option<String>,
     name_part: Option<String>,
-    status: Option<String>
+    status: Option<String>,
 ) -> Result<Vec<Document>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let mut query = String::from(
-        "SELECT id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, status, created_at, updated_at 
-         FROM Documents WHERE 1=1"
+        "SELECT id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, status, created_at, updated_at         FROM Documents WHERE 1=1"
     );
     let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
+
     // Filter by Unit Hierarchy (using LIKE 'prefix%')
     if let Some(prefix) = unit_id_prefix {
         if !prefix.is_empty() {
@@ -604,12 +636,12 @@ pub fn search_documents(
             params.push(Box::new(format!("{}%", prefix)));
         }
     }
-    
+
     // Filter by Doc Type
     if let Some(dtype) = doc_type {
         if !dtype.is_empty() {
-             query.push_str(" AND doc_type = ?");
-             params.push(Box::new(dtype));
+            query.push_str(" AND doc_type = ?");
+            params.push(Box::new(dtype));
         }
     }
 
@@ -628,14 +660,15 @@ pub fn search_documents(
             params.push(Box::new(st));
         }
     }
-    
+
     query.push_str(" ORDER BY updated_at DESC, created_at DESC LIMIT 100"); // Sort by newest first, limit results
 
-    let mut stmt = conn.prepare(&query).map_err(|e| format!("Failed to prepare query: {}", e))?;
-    
-    let doc_iter = stmt.query_map(
-        rusqlite::params_from_iter(params.iter()),
-        |row| {
+    let mut stmt = conn
+        .prepare(&query)
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+    let doc_iter = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
             Ok(Document {
                 id: row.get(0)?,
                 name: row.get(1)?,
@@ -649,14 +682,14 @@ pub fn search_documents(
                 created_at: row.get(8)?,
                 updated_at: row.get(9)?,
             })
-        }
-    ).map_err(|e| format!("Failed to query map: {}", e))?;
+        })
+        .map_err(|e| format!("Failed to query map: {}", e))?;
 
     let mut docs = Vec::new();
     for doc in doc_iter {
         docs.push(doc.map_err(|e| format!("Failed to retrieve row: {}", e))?);
     }
-    
+
     Ok(docs)
 }
 
@@ -674,24 +707,24 @@ pub fn delete_document(id: String) -> Result<String, String> {
     }
 
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Check if document exists first
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
-        params![id],
-        |row| row.get(0)
-    ).unwrap_or(false);
-    
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
+            params![id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
     if !exists {
         return Err(format!("Document with ID {} not found", id));
     }
-    
+
     // Perform delete
-    conn.execute(
-        "DELETE FROM Documents WHERE id = ?1",
-        params![id]
-    ).map_err(|e| format!("Failed to delete document: {}", e))?;
-    
+    conn.execute("DELETE FROM Documents WHERE id = ?1", params![id])
+        .map_err(|e| format!("Failed to delete document: {}", e))?;
+
     Ok(format!("Document {} deleted successfully", id))
 }
 
@@ -707,24 +740,26 @@ pub struct UpdateDocumentArgs {
 /// Update an existing document
 pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Check if document exists
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
-        params![args.id],
-        |row| row.get(0)
-    ).unwrap_or(false);
-    
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
+            params![args.id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
     if !exists {
         return Err(format!("Document with ID {} not found", args.id));
     }
-    
+
     // Perform update
     conn.execute(
         "UPDATE Documents SET name = ?1, applied_to = ?2, doc_type = ?3, user_level = ?4, updated_at = CURRENT_TIMESTAMP WHERE id = ?5",
         params![args.name, args.applied_to, args.doc_type, args.user_level, args.id]
     ).map_err(|e| format!("Failed to update document: {}", e))?;
-    
+
     Ok(format!("Document {} updated successfully", args.id))
 }
 
@@ -740,11 +775,14 @@ pub fn get_document_branch(doc_id: String) -> Result<DocumentBranch, String> {
     conn.query_row(
         "SELECT occupation_branch_main, occupation_branch_sub FROM Documents WHERE id = ?1",
         params![doc_id],
-        |row| Ok(DocumentBranch {
-            occupation_branch_main: row.get(0)?,
-            occupation_branch_sub: row.get(1)?,
-        })
-    ).map_err(|e| e.to_string())
+        |row| {
+            Ok(DocumentBranch {
+                occupation_branch_main: row.get(0)?,
+                occupation_branch_sub: row.get(1)?,
+            })
+        },
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn update_document_branch_with_conn(
@@ -753,6 +791,32 @@ fn update_document_branch_with_conn(
     branch_main: Option<String>,
     branch_sub: Option<String>,
 ) -> Result<(), String> {
+    // Policy: block branch change if evaluation has started (UserAnswers exist)
+    // unless the new values are identical to the current ones.
+    let current: Result<(Option<String>, Option<String>), _> = conn.query_row(
+        "SELECT occupation_branch_main, occupation_branch_sub FROM Documents WHERE id = ?1",
+        params![doc_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    );
+    if let Ok((cur_main, cur_sub)) = current {
+        let changing = cur_main != branch_main || cur_sub != branch_sub;
+        if changing {
+            // Check if UserAnswers table exists and has rows for this document
+            let has_answers: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM UserAnswers WHERE document_id = ?1)",
+                    params![doc_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+            if has_answers {
+                return Err(
+                    "Cannot change document branch after evaluation has started".to_string()
+                );
+            }
+        }
+    }
+
     conn.execute(
         "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
         params![branch_main, branch_sub, doc_id]
@@ -762,7 +826,11 @@ fn update_document_branch_with_conn(
 }
 
 /// Update occupation branch selection for a document
-pub fn update_document_branch(doc_id: String, branch_main: Option<String>, branch_sub: Option<String>) -> Result<(), String> {
+pub fn update_document_branch(
+    doc_id: String,
+    branch_main: Option<String>,
+    branch_sub: Option<String>,
+) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     update_document_branch_with_conn(&conn, &doc_id, branch_main, branch_sub)
 }
@@ -789,23 +857,23 @@ pub struct BranchUsageReport {
 /// Same approach as career branch protection — check Documents table directly
 pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageReport, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    let mut stmt = conn.prepare(
-        "SELECT id, name FROM Documents WHERE occupation_branch_main = ?1"
-    ).map_err(|e| e.to_string())?;
-    
-    let docs: Vec<(String, String)> = stmt.query_map(params![branch_code], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
-    
+
+    let mut stmt = conn
+        .prepare("SELECT id, name FROM Documents WHERE occupation_branch_main = ?1")
+        .map_err(|e| e.to_string())?;
+
+    let docs: Vec<(String, String)> = stmt
+        .query_map(params![branch_code], |row| Ok((row.get(0)?, row.get(1)?)))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
     let document_count = docs.len() as i64;
-    let document_names: Vec<String> = docs.into_iter()
+    let document_names: Vec<String> = docs
+        .into_iter()
         .map(|(id, name)| format!("{} ({})", name, id))
         .collect();
-    
+
     Ok(BranchUsageReport {
         is_used: document_count > 0,
         document_count,
@@ -815,25 +883,30 @@ pub fn check_branch_usage_global(branch_code: String) -> Result<BranchUsageRepor
 
 /// Check if a sub-branch is assigned to any document
 /// Same approach as career branch protection — check Documents table directly
-pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> Result<BranchUsageReport, String> {
+pub fn check_sub_branch_usage_global(
+    branch_code: String,
+    sub_code: String,
+) -> Result<BranchUsageReport, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let mut stmt = conn.prepare(
         "SELECT id, name FROM Documents WHERE occupation_branch_main = ?1 AND occupation_branch_sub = ?2"
     ).map_err(|e| e.to_string())?;
-    
-    let docs: Vec<(String, String)> = stmt.query_map(params![branch_code, sub_code], |row| {
-        Ok((row.get(0)?, row.get(1)?))
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
-    
+
+    let docs: Vec<(String, String)> = stmt
+        .query_map(params![branch_code, sub_code], |row| {
+            Ok((row.get(0)?, row.get(1)?))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
     let document_count = docs.len() as i64;
-    let document_names: Vec<String> = docs.into_iter()
+    let document_names: Vec<String> = docs
+        .into_iter()
         .map(|(id, name)| format!("{} ({})", name, id))
         .collect();
-    
+
     Ok(BranchUsageReport {
         is_used: document_count > 0,
         document_count,
@@ -847,10 +920,11 @@ pub fn check_sub_branch_usage_global(branch_code: String, sub_code: String) -> R
 /// For L1 questions, SubQ usage is indicated by metadata JSON field 'activeSubQuestions'
 pub fn check_career_branch_usage(doc_id: String) -> Result<CareerBranchUsageReport, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Check for L1 questions with activeSubQuestions in metadata JSON
-    let mut stmt = conn.prepare(
-        "SELECT q.id, q.metadata, s.section_group
+    let mut stmt = conn
+        .prepare(
+            "SELECT q.id, q.metadata, s.section_group
          FROM Questions q
          JOIN Sections s ON s.id = q.section_id
          WHERE q.document_id = ?1
@@ -859,19 +933,21 @@ pub fn check_career_branch_usage(doc_id: String) -> Result<CareerBranchUsageRepo
            AND (
              (s.section_group = 200 AND q.sequence IN (2, 4))
              OR (s.section_group = 300 AND q.sequence IN (2, 3, 4, 5))
-           )"
-    ).map_err(|e| e.to_string())?;
-    
-    let rows: Vec<(String, String, i32)> = stmt.query_map(params![doc_id], |row| {
-        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
-    })
-    .map_err(|e| e.to_string())?
-    .collect::<Result<Vec<_>, _>>()
-    .map_err(|e| e.to_string())?;
-    
+           )",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows: Vec<(String, String, i32)> = stmt
+        .query_map(params![doc_id], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+
     let mut affected_count = 0i64;
     let mut affected_groups = std::collections::HashSet::new();
-    
+
     for (_id, metadata_json, section_group) in rows {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
             // Check if activeSubQuestions exists and is non-empty array
@@ -883,9 +959,9 @@ pub fn check_career_branch_usage(doc_id: String) -> Result<CareerBranchUsageRepo
             }
         }
     }
-    
+
     let section_groups: Vec<i32> = affected_groups.into_iter().collect();
-    
+
     Ok(CareerBranchUsageReport {
         has_conflict: affected_count > 0,
         affected_question_count: affected_count,
@@ -909,38 +985,41 @@ pub fn reset_and_update_career_branch(
     new_sub: Option<String>,
 ) -> Result<CareerBranchResetReport, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
-    
+
     // Step 1: Find target L1 question IDs and their section_groups
     let target_questions: Vec<(String, i32)> = {
-        let mut stmt = tx.prepare(
-            "SELECT q.id, s.section_group
+        let mut stmt = tx
+            .prepare(
+                "SELECT q.id, s.section_group
              FROM Questions q
              JOIN Sections s ON s.id = q.section_id
              WHERE q.document_id = ?1 AND q.parent_id IS NULL
              AND ((s.section_group = 200 AND q.sequence IN (2, 4))
-               OR (s.section_group = 300 AND q.sequence IN (2, 3, 4, 5)))"
-        ).map_err(|e| e.to_string())?;
-        
-        let rows = stmt.query_map(params![doc_id], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
-        })
-        .map_err(|e| e.to_string())?;
-        
+               OR (s.section_group = 300 AND q.sequence IN (2, 3, 4, 5)))",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map(params![doc_id], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i32>(1)?))
+            })
+            .map_err(|e| e.to_string())?;
+
         rows.collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?
     };
-    
+
     if target_questions.is_empty() {
         // No target questions, just update branch
         tx.execute(
             "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
             params![new_main, new_sub, doc_id]
         ).map_err(|e| e.to_string())?;
-        
+
         tx.commit().map_err(|e| e.to_string())?;
-        
+
         return Ok(CareerBranchResetReport {
             subq_links_deleted: 0,
             answer_keys_deleted: 0,
@@ -948,57 +1027,87 @@ pub fn reset_and_update_career_branch(
             questions_reset: 0,
         });
     }
-    
+
     let target_l1_ids: Vec<String> = target_questions.iter().map(|(id, _)| id.clone()).collect();
-    
+
     // Step 2: Collect ALL affected IDs (L1 + children recursively)
     let mut all_affected_ids = target_l1_ids.clone();
-    
+
     // Get all children (recursive)
     for l1_id in &target_l1_ids {
-        let mut child_stmt = tx.prepare(
-            "WITH RECURSIVE descendants AS (
+        let mut child_stmt = tx
+            .prepare(
+                "WITH RECURSIVE descendants AS (
                 SELECT id FROM Questions WHERE parent_id = ?1
                 UNION ALL
                 SELECT q.id FROM Questions q
                 JOIN descendants d ON q.parent_id = d.id
              )
-             SELECT id FROM descendants"
-        ).map_err(|e| e.to_string())?;
-        
-        let children: Vec<String> = child_stmt.query_map(params![l1_id], |row| row.get(0))
+             SELECT id FROM descendants",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let children: Vec<String> = child_stmt
+            .query_map(params![l1_id], |row| row.get(0))
             .map_err(|e| e.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| e.to_string())?;
-        
+
         all_affected_ids.extend(children);
     }
-    
+
     // Step 3: Delete relational data for ALL affected IDs
-    let placeholders = all_affected_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-    
-    let subq_links_deleted = tx.execute(
-        &format!("DELETE FROM QuestionSubQuestionLinks WHERE question_id IN ({})", placeholders),
-        rusqlite::params_from_iter(all_affected_ids.iter())
-    ).map_err(|e| e.to_string())?;
-    
-    let answer_keys_deleted = tx.execute(
-        &format!("DELETE FROM QuestionAnswerKeys WHERE question_id IN ({})", placeholders),
-        rusqlite::params_from_iter(all_affected_ids.iter())
-    ).map_err(|e| e.to_string())?;
-    
-    let user_answers_deleted = tx.execute(
-        &format!("DELETE FROM UserAnswers WHERE question_id IN ({})", placeholders),
-        rusqlite::params_from_iter(all_affected_ids.iter())
-    ).map_err(|e| e.to_string())?;
-    
+    let placeholders = all_affected_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let subq_links_deleted = tx
+        .execute(
+            &format!(
+                "DELETE FROM QuestionSubQuestionLinks WHERE question_id IN ({})",
+                placeholders
+            ),
+            rusqlite::params_from_iter(all_affected_ids.iter()),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let answer_keys_deleted = tx
+        .execute(
+            &format!(
+                "DELETE FROM QuestionAnswerKeys WHERE question_id IN ({})",
+                placeholders
+            ),
+            rusqlite::params_from_iter(all_affected_ids.iter()),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let user_answers_deleted = tx
+        .execute(
+            &format!(
+                "DELETE FROM UserAnswers WHERE question_id IN ({})",
+                placeholders
+            ),
+            rusqlite::params_from_iter(all_affected_ids.iter()),
+        )
+        .map_err(|e| e.to_string())?;
+
     // Step 4: Delete children (same as update_question_score exempted path)
-    let l1_placeholders = target_l1_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let l1_placeholders = target_l1_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
     tx.execute(
-        &format!("DELETE FROM Questions WHERE parent_id IN ({})", l1_placeholders),
-        rusqlite::params_from_iter(target_l1_ids.iter())
-    ).map_err(|e| e.to_string())?;
-    
+        &format!(
+            "DELETE FROM Questions WHERE parent_id IN ({})",
+            l1_placeholders
+        ),
+        rusqlite::params_from_iter(target_l1_ids.iter()),
+    )
+    .map_err(|e| e.to_string())?;
+
     // Step 5: Reset L1 targets to exempted (same pattern as update_question_score)
     let questions_reset = target_questions.len();
     for (q_id, section_group) in &target_questions {
@@ -1007,71 +1116,74 @@ pub fn reset_and_update_career_branch(
         } else {
             "(ไม่ต้องปฏิบัติ)"
         };
-        
+
         tx.execute(
-            "UPDATE Questions SET 
-                score = 0, 
-                is_scored = 0, 
-                question_type = 'exempted', 
-                display_text = ?2, 
-                group_score = 0, 
-                is_group_header = 0, 
-                description = NULL 
-             WHERE id = ?1",
-            params![q_id, display_text]
-        ).map_err(|e| e.to_string())?;
+            "UPDATE Questions SET                score = 0,                is_scored = 0,                question_type = 'exempted',                display_text = ?2,                group_score = 0,                is_group_header = 0,                description = NULL             WHERE id = ?1",
+            params![q_id, display_text],
+        )
+        .map_err(|e| e.to_string())?;
     }
-    
+
     // Step 5b: Clear metadata SubQ fields
     tx.execute(
-        &format!("UPDATE Questions SET metadata = '{{}}' WHERE id IN ({}) AND metadata IS NOT NULL", l1_placeholders),
-        rusqlite::params_from_iter(target_l1_ids.iter())
-    ).map_err(|e| e.to_string())?;
-    
+        &format!(
+            "UPDATE Questions SET metadata = '{{}}' WHERE id IN ({}) AND metadata IS NOT NULL",
+            l1_placeholders
+        ),
+        rusqlite::params_from_iter(target_l1_ids.iter()),
+    )
+    .map_err(|e| e.to_string())?;
+
     // Step 6: Recalculate section total_score for affected sections
     let mut section_ids: Vec<i64> = Vec::new();
     for l1_id in &target_l1_ids {
-        let section_id: Option<i64> = tx.query_row(
-            "SELECT section_id FROM Questions WHERE id = ?1",
-            params![l1_id],
-            |row| row.get(0)
-        ).optional().map_err(|e| e.to_string())?.flatten();
-        
+        let section_id: Option<i64> = tx
+            .query_row(
+                "SELECT section_id FROM Questions WHERE id = ?1",
+                params![l1_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .flatten();
+
         if let Some(sid) = section_id {
             if !section_ids.contains(&sid) {
                 section_ids.push(sid);
             }
         }
     }
-    
+
     for sid in section_ids {
-        let section_total: i32 = tx.query_row(
-            "SELECT COALESCE(SUM(
-                CASE 
-                    WHEN question_type = 'exempted' THEN 0
+        let section_total: i32 = tx
+            .query_row(
+                "SELECT COALESCE(SUM(
+                CASE                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 AND parent_id IS NULL THEN score
                     ELSE 0
                 END
             ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
-            params![sid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
-        
+                params![sid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+
         tx.execute(
             "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
-            params![section_total, sid]
-        ).map_err(|e| e.to_string())?;
+            params![section_total, sid],
+        )
+        .map_err(|e| e.to_string())?;
     }
-    
+
     // Step 7: Update branch
     tx.execute(
         "UPDATE Documents SET occupation_branch_main = ?1, occupation_branch_sub = ?2, updated_at = CURRENT_TIMESTAMP WHERE id = ?3",
         params![new_main, new_sub, doc_id]
     ).map_err(|e| e.to_string())?;
-    
+
     tx.commit().map_err(|e| e.to_string())?;
-    
+
     Ok(CareerBranchResetReport {
         subq_links_deleted,
         answer_keys_deleted,
@@ -1089,19 +1201,19 @@ pub struct DocumentStats {
 /// Get statistics for the dashboard
 pub fn get_document_stats() -> Result<DocumentStats, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    let total_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM Documents",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0);
-    
-    let draft_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM Documents WHERE status = 'draft'",
-        [],
-        |row| row.get(0)
-    ).unwrap_or(0);
-    
+
+    let total_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM Documents", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let draft_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM Documents WHERE status = 'draft'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
     Ok(DocumentStats {
         total_count,
         draft_count,
@@ -1125,9 +1237,9 @@ pub struct Question {
     pub answer_type: Option<String>,
     pub metadata: Option<String>, // JSON string
     pub score: Option<i32>,
-    pub question_type: Option<String>,   // 'normal', 'exempted', 'required_instance'
+    pub question_type: Option<String>, // 'normal', 'exempted', 'required_instance'
     pub group_score: Option<i32>,
-    pub display_text: Option<String>,    // e.g. "(ไม่ต้องปฏิบัติ)"
+    pub display_text: Option<String>, // e.g. "(ไม่ต้องปฏิบัติ)"
     pub is_group_header: Option<bool>,
     pub is_scored: Option<bool>,
 }
@@ -1173,14 +1285,14 @@ pub struct QuestionReference {
     pub display_order: i32,
 }
 
-
-
 /// Generate a pseudo-unique ID (Time based)
 fn generate_uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let start = SystemTime::now();
-    let since_the_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
-    format!("{:x}", since_the_epoch.as_nanos()) 
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    format!("{:x}", since_the_epoch.as_nanos())
     // Note: In a high-concurrency server this isn't safe, but for a single-user desktop app it's fine.
     // Ideally we'd mix in some random bits.
 }
@@ -1214,19 +1326,41 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY(parent_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
         [],
-    ).map_err(|e| format!("Failed to create Questions table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create Questions table: {}", e))?;
 
     // Migration: Add new columns if missing (swallow errors if they exist)
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN section_id INTEGER", []);
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN answer_type VARCHAR(20) DEFAULT 'text'", []);
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN score INTEGER DEFAULT 0", []);
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN question_type VARCHAR(20) DEFAULT 'normal'", []);
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN group_score INTEGER DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN answer_type VARCHAR(20) DEFAULT 'text'",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN score INTEGER DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN question_type VARCHAR(20) DEFAULT 'normal'",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN group_score INTEGER DEFAULT 0",
+        [],
+    );
     let _ = conn.execute("ALTER TABLE Questions ADD COLUMN display_text TEXT", []);
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_group_header BOOLEAN DEFAULT 0", []);
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_scored BOOLEAN DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN is_group_header BOOLEAN DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN is_scored BOOLEAN DEFAULT 0",
+        [],
+    );
     // Phase1: is_template flag — template-seeded questions are read-only
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN is_template BOOLEAN DEFAULT 0", []);
+    let _ = conn.execute(
+        "ALTER TABLE Questions ADD COLUMN is_template BOOLEAN DEFAULT 0",
+        [],
+    );
 
     // Data migration: Fix existing Section 300 questions with correct scoring flags
     // Rule: L1 questions (parent_id IS NULL) with sequence 2-6 in section 300 docs → group headers
@@ -1332,8 +1466,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     let _ = conn.execute(
         "UPDATE Sections SET total_score = (
              SELECT COALESCE(SUM(
-                 CASE 
-                     WHEN q.is_group_header = 1 THEN q.group_score
+                 CASE                     WHEN q.is_group_header = 1 THEN q.group_score
                      WHEN q.is_scored = 1 AND q.is_group_header = 0 AND q.parent_id IS NULL THEN q.score
                      ELSE 0
                  END
@@ -1357,7 +1490,8 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
         [],
-    ).map_err(|e| format!("Failed to create QuestionChoices table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create QuestionChoices table: {}", e))?;
 
     // QuestionReferences Table (Inline Citations) - NEW
     conn.execute(
@@ -1371,7 +1505,8 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY (reference_id) REFERENCES DocumentReferences(id) ON DELETE RESTRICT
         )",
         [],
-    ).map_err(|e| format!("Failed to create QuestionReferences table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create QuestionReferences table: {}", e))?;
 
     // QuestionSectionLinks Table — links 3xx.1.4/1.5 questions to 100/200 Sections
     // Similar pattern to QuestionReferences but for Section selection
@@ -1387,12 +1522,14 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             UNIQUE(question_id, section_id)
         )",
         [],
-    ).map_err(|e| format!("Failed to create QuestionSectionLinks table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create QuestionSectionLinks table: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_qsl_question ON QuestionSectionLinks(question_id)",
         [],
-    ).map_err(|e| format!("Failed to create QuestionSectionLinks index: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create QuestionSectionLinks index: {}", e))?;
 
     // UserAnswers Table (Data Storage) - Refactored for Integrity
     conn.execute(
@@ -1459,12 +1596,21 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
 
     // Migration: Add new assessment columns if missing
     let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN answer_text TEXT", []);
-    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN status VARCHAR(20) DEFAULT 'pending'", []);
+    let _ = conn.execute(
+        "ALTER TABLE UserAnswers ADD COLUMN status VARCHAR(20) DEFAULT 'pending'",
+        [],
+    );
     let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN feedback TEXT", []);
-    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN assessed_at DATETIME", []);
+    let _ = conn.execute(
+        "ALTER TABLE UserAnswers ADD COLUMN assessed_at DATETIME",
+        [],
+    );
     let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN assessed_by TEXT", []);
-    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN sub_question_code VARCHAR(20) DEFAULT ''", []);
-    
+    let _ = conn.execute(
+        "ALTER TABLE UserAnswers ADD COLUMN sub_question_code VARCHAR(20) DEFAULT ''",
+        [],
+    );
+
     // Ensure we have a unique index including sub_question_code (SQLite doesn't support ALTER TABLE DROP CONSTRAINT)
     let _ = conn.execute("DROP INDEX IF EXISTS idx_user_answers_composite", []);
     let _ = conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_answers_composite ON UserAnswers(user_id, question_id, document_id, sub_question_code)", []);
@@ -1487,17 +1633,20 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE
         )",
         [],
-    ).map_err(|e| format!("Failed to create UserProgress table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create UserProgress table: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_user_progress_user ON UserProgress(user_id)",
         [],
-    ).map_err(|e| format!("Failed to create index on UserProgress.user_id: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create index on UserProgress.user_id: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_user_progress_doc ON UserProgress(user_id, document_id)",
         [],
-    ).map_err(|e| format!("Failed to create index on UserProgress: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create index on UserProgress: {}", e))?;
 
     // References Table - Reusable reference documents
     // Updated Schema 2026-02-09: Added classification, file_path. Removed usage of is_common/short_name
@@ -1513,18 +1662,29 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    ).map_err(|e| format!("Failed to create DocumentReferences table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create DocumentReferences table: {}", e))?;
 
     // Migration: Add new columns if missing
     let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN classification VARCHAR(20) DEFAULT 'Unclassified'", []);
-    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN file_path TEXT", []);
-    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN category VARCHAR(50)", []);
-    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN resource_type VARCHAR(20) DEFAULT 'DOCUMENT'", []);
+    let _ = conn.execute(
+        "ALTER TABLE DocumentReferences ADD COLUMN file_path TEXT",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE DocumentReferences ADD COLUMN category VARCHAR(50)",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE DocumentReferences ADD COLUMN resource_type VARCHAR(20) DEFAULT 'DOCUMENT'",
+        [],
+    );
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_doc_refs_code ON DocumentReferences(code)",
         [],
-    ).map_err(|e| format!("Failed to create index on DocumentReferences.code: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create index on DocumentReferences.code: {}", e))?;
 
     // SectionReferences Table - Many-to-many link between Sections and DocumentReferences
     conn.execute(
@@ -1539,17 +1699,30 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY(reference_id) REFERENCES DocumentReferences(id) ON DELETE RESTRICT
         )",
         [],
-    ).map_err(|e| format!("Failed to create SectionReferences table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create SectionReferences table: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_section_refs_section ON SectionReferences(section_id)",
         [],
-    ).map_err(|e| format!("Failed to create index on SectionReferences.section_id: {}", e))?;
+    )
+    .map_err(|e| {
+        format!(
+            "Failed to create index on SectionReferences.section_id: {}",
+            e
+        )
+    })?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_section_refs_reference ON SectionReferences(reference_id)",
         [],
-    ).map_err(|e| format!("Failed to create index on SectionReferences.reference_id: {}", e))?;
+    )
+    .map_err(|e| {
+        format!(
+            "Failed to create index on SectionReferences.reference_id: {}",
+            e
+        )
+    })?;
 
     // OccupationBranches Table - Global main branches (สาขาอาชีพหลัก)
     conn.execute(
@@ -1559,7 +1732,8 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
-    ).map_err(|e| format!("Failed to create OccupationBranches table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create OccupationBranches table: {}", e))?;
 
     // OccupationSubBranches Table - Sub-branches (สาขาอาชีพย่อย)
     conn.execute(
@@ -1572,10 +1746,11 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY (branch_code) REFERENCES OccupationBranches(code) ON DELETE CASCADE
         )",
         [],
-    ).map_err(|e| format!("Failed to create OccupationSubBranches table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create OccupationSubBranches table: {}", e))?;
 
-    install_standard_occupation_branch_guards(&conn)?;
-    ensure_standard_occupation_branch_exists(&conn)?;
+    install_standard_occupation_branch_guards(conn)?;
+    ensure_standard_occupation_branch_exists(conn)?;
 
     // OccupationSubQuestions Table - Reusable sub-question templates
     conn.execute(
@@ -1608,12 +1783,14 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY (question_id) REFERENCES Questions(id) ON DELETE CASCADE
         )",
         [],
-    ).map_err(|e| format!("Failed to create QuestionSubQuestionLinks table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create QuestionSubQuestionLinks table: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_qsql_question ON QuestionSubQuestionLinks(question_id)",
         [],
-    ).map_err(|e| format!("Failed to create index on QuestionSubQuestionLinks: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create index on QuestionSubQuestionLinks: {}", e))?;
 
     // QuestionAnswerKeys Table - Normalized storage for answer keys
     // Replaces JSON 'answerKeys' and 'answerKey' in Questions.metadata
@@ -1629,12 +1806,14 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             UNIQUE(question_id, sub_question_code)
         )",
         [],
-    ).map_err(|e| format!("Failed to create QuestionAnswerKeys table: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create QuestionAnswerKeys table: {}", e))?;
 
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_qak_question ON QuestionAnswerKeys(question_id)",
         [],
-    ).map_err(|e| format!("Failed to create index on QuestionAnswerKeys: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to create index on QuestionAnswerKeys: {}", e))?;
 
     // One-time data migration: extract selectedSubQuestions from JSON metadata → QuestionSubQuestionLinks
     // This is safe to run on every startup — it only processes questions not yet in the links table.
@@ -1675,18 +1854,22 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
 fn migrate_selected_sub_questions_to_table(conn: &Connection) -> Result<(), String> {
     // Only process questions that have metadata containing 'selectedSubQuestions'
     // and do not already have any entries in QuestionSubQuestionLinks.
-    let mut stmt = conn.prepare(
-        "SELECT id, metadata FROM Questions
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, metadata FROM Questions
          WHERE metadata IS NOT NULL
            AND metadata LIKE '%selectedSubQuestions%'
-           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionSubQuestionLinks)"
-    ).map_err(|e| format!("Failed to prepare migration query: {}", e))?;
+           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionSubQuestionLinks)",
+        )
+        .map_err(|e| format!("Failed to prepare migration query: {}", e))?;
 
-    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    }).map_err(|e| format!("Failed to query migration rows: {}", e))?
-    .filter_map(|r| r.ok())
-    .collect();
+    let rows: Vec<(String, String)> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("Failed to query migration rows: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
 
     for (question_id, metadata_json) in rows {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
@@ -1710,36 +1893,47 @@ fn migrate_selected_sub_questions_to_table(conn: &Connection) -> Result<(), Stri
 /// Migrate answer keys from JSON metadata to QuestionAnswerKeys table.
 /// Safe to run multiple times; skips questions that already have entries.
 fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
-    let mut stmt = conn.prepare(
-        "SELECT id, metadata FROM Questions
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, metadata FROM Questions
          WHERE metadata IS NOT NULL
            AND (metadata LIKE '%\"answerKeys\"%' OR metadata LIKE '%\"answerKey\"%')
-           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionAnswerKeys)"
-    ).map_err(|e| format!("Failed to prepare answer key migration query: {}", e))?;
+           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionAnswerKeys)",
+        )
+        .map_err(|e| format!("Failed to prepare answer key migration query: {}", e))?;
 
-    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    }).map_err(|e| format!("Failed to query migration rows: {}", e))?
-    .filter_map(|r| r.ok())
-    .collect();
+    let rows: Vec<(String, String)> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("Failed to query migration rows: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
 
     for (question_id, metadata_json) in rows {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
             let mut order_index = 0;
-            
+
             // Multiple answer keys object
             if let Some(keys) = v.get("answerKeys").and_then(|c| c.as_object()) {
                 // Determine order by sorting the keys string (e.g. \"ก.\", \"ข.\")
                 let mut sorted_keys: Vec<_> = keys.iter().collect();
                 sorted_keys.sort_by_key(|&(k, _)| k);
-                
+
                 for (code, key_data) in sorted_keys {
                     let mut text = String::new();
                     let mut is_required = true;
 
                     if let Some(data_obj) = key_data.as_object() {
-                        text = data_obj.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string();
-                        is_required = data_obj.get("is_required").and_then(|b| b.as_bool()).unwrap_or(true);
+                        text = data_obj
+                            .get("text")
+                            .and_then(|t| t.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        is_required = data_obj
+                            .get("is_required")
+                            .and_then(|b| b.as_bool())
+                            .unwrap_or(true);
                     } else if let Some(s) = key_data.as_str() {
                         text = s.to_string();
                     }
@@ -1767,18 +1961,20 @@ fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
     }
 
     // 2. Handle metadata placeholders (requireAnswerKey: true but no key text yet)
-    let mut placeholder_stmt = conn.prepare(
-        "SELECT id FROM Questions
+    let mut placeholder_stmt = conn
+        .prepare(
+            "SELECT id FROM Questions
          WHERE metadata IS NOT NULL
            AND metadata LIKE '%\"requireAnswerKey\"%'
-           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionAnswerKeys)"
-    ).map_err(|e| e.to_string())?;
+           AND id NOT IN (SELECT DISTINCT question_id FROM QuestionAnswerKeys)",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let placeholder_rows: Vec<String> = placeholder_stmt.query_map([], |row| {
-        row.get(0)
-    }).map_err(|e| e.to_string())?
-    .filter_map(|r| r.ok())
-    .collect();
+    let placeholder_rows: Vec<String> = placeholder_stmt
+        .query_map([], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
 
     for q_id in placeholder_rows {
         // Insert a "main" placeholder entry so foreign keys work
@@ -1795,24 +1991,30 @@ fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
 /// Scrub legacy answer keys from JSON metadata.
 /// This should only be run AFTER migrate_answer_keys_to_table.
 fn scrub_legacy_answer_keys_from_metadata(conn: &Connection) -> Result<(), String> {
-    let mut stmt = conn.prepare(
-        "SELECT id, metadata FROM Questions 
-         WHERE metadata IS NOT NULL 
-           AND (metadata LIKE '%\"answerKey\"%' OR metadata LIKE '%\"answerKeys\"%')"
-    ).map_err(|e| format!("Failed to prepare scrub query: {}", e))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, metadata FROM Questions         WHERE metadata IS NOT NULL           AND (metadata LIKE '%\"answerKey\"%' OR metadata LIKE '%\"answerKeys\"%')",
+        )
+        .map_err(|e| format!("Failed to prepare scrub query: {}", e))?;
 
-    let rows: Vec<(String, String)> = stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-    }).map_err(|e| format!("Failed to query scrub rows: {}", e))?
-    .filter_map(|r| r.ok())
-    .collect();
+    let rows: Vec<(String, String)> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })
+        .map_err(|e| format!("Failed to query scrub rows: {}", e))?
+        .filter_map(|r| r.ok())
+        .collect();
 
     for (question_id, metadata_json) in rows {
         if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&metadata_json) {
             if let Some(meta_obj) = v.as_object_mut() {
                 let mut changed = false;
-                if meta_obj.remove("answerKey").is_some() { changed = true; }
-                if meta_obj.remove("answerKeys").is_some() { changed = true; }
+                if meta_obj.remove("answerKey").is_some() {
+                    changed = true;
+                }
+                if meta_obj.remove("answerKeys").is_some() {
+                    changed = true;
+                }
 
                 if changed {
                     let new_metadata = serde_json::to_string(&v).unwrap_or_default();
@@ -1829,7 +2031,11 @@ fn scrub_legacy_answer_keys_from_metadata(conn: &Connection) -> Result<(), Strin
 }
 
 /// Seed template questions for a new document
-pub fn seed_document_template(conn: &Connection, doc_id: &str, unit_name: &str) -> Result<(), String> {
+pub fn seed_document_template(
+    conn: &Connection,
+    doc_id: &str,
+    unit_name: &str,
+) -> Result<(), String> {
     // 100 Introduction
     let q100_id = generate_uuid();
     conn.execute(
@@ -1838,14 +2044,26 @@ pub fn seed_document_template(conn: &Connection, doc_id: &str, unit_name: &str) 
     ).map_err(|e| format!("Failed to seed 100: {}", e))?;
 
     // 200 System Description (Using unit name as placeholder context)
-    let q200_id = format!("{:x}2", SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    let q200_id = format!(
+        "{:x}2",
+        SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
     conn.execute(
         "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 200, ?3, ?4, ?5, 'none')",
         params![q200_id, doc_id, 200, format!("200 System Description ({})", unit_name), true]
     ).map_err(|e| format!("Failed to seed 200: {}", e))?;
 
     // 300 Operations
-    let q300_id = format!("{:x}3", SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+    let q300_id = format!(
+        "{:x}3",
+        SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
     conn.execute(
         "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 300, ?3, ?4, ?5, 'none')",
         params![q300_id, doc_id, 300, "300 Operations", true]
@@ -1858,86 +2076,101 @@ use std::time::SystemTime;
 
 pub fn get_document_questions(doc_id: String) -> Result<Vec<Question>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let mut stmt = conn.prepare(
         "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata,
                 score, question_type, group_score, display_text, is_group_header, is_scored
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
-    let mut answer_keys_stmt = conn.prepare(
-        "SELECT question_id, sub_question_code, answer_key_text, is_required, order_index
+    let mut answer_keys_stmt = conn
+        .prepare(
+            "SELECT question_id, sub_question_code, answer_key_text, is_required, order_index
          FROM QuestionAnswerKeys
          WHERE question_id IN (SELECT id FROM Questions WHERE document_id = ?1)
-         ORDER BY question_id, order_index"
-    ).map_err(|e| format!("Failed to prepare answer keys query: {}", e))?;
+         ORDER BY question_id, order_index",
+        )
+        .map_err(|e| format!("Failed to prepare answer keys query: {}", e))?;
 
     // Group answer keys by question_id
-    let mut answer_keys_map: std::collections::HashMap<String, Vec<(String, String, bool)>> = std::collections::HashMap::new();
-    let ak_rows = answer_keys_stmt.query_map(params![doc_id], |row| {
-        Ok((
-            row.get::<_, String>(0)?, // question_id
-            row.get::<_, String>(1)?, // sub_question_code
-            row.get::<_, String>(2)?, // answer_key_text
-            row.get::<_, bool>(3)?,   // is_required
-        ))
-    }).map_err(|e| format!("Failed to query answer keys: {}", e))?;
+    let mut answer_keys_map: std::collections::HashMap<String, Vec<(String, String, bool)>> =
+        std::collections::HashMap::new();
+    let ak_rows = answer_keys_stmt
+        .query_map(params![doc_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?, // question_id
+                row.get::<_, String>(1)?, // sub_question_code
+                row.get::<_, String>(2)?, // answer_key_text
+                row.get::<_, bool>(3)?,   // is_required
+            ))
+        })
+        .map_err(|e| format!("Failed to query answer keys: {}", e))?;
 
-    for ak_res in ak_rows {
-        if let Ok((qid, code, text, required)) = ak_res {
-            answer_keys_map.entry(qid).or_default().push((code, text, required));
-        }
+    for (qid, code, text, required) in ak_rows.flatten() {
+        answer_keys_map
+            .entry(qid)
+            .or_default()
+            .push((code, text, required));
     }
 
-    let question_iter = stmt.query_map(params![doc_id], |row| {
-        let qid: String = row.get(0)?;
-        let mut metadata: Option<String> = row.get(9)?;
+    let question_iter = stmt
+        .query_map(params![doc_id], |row| {
+            let qid: String = row.get(0)?;
+            let mut metadata: Option<String> = row.get(9)?;
 
-        // Inject answer keys into metadata JSON
-        if let Some(keys) = answer_keys_map.get(&qid) {
-            let mut meta_val = if let Some(meta_str) = &metadata {
-                serde_json::from_str::<serde_json::Value>(meta_str).unwrap_or(serde_json::json!({}))
-            } else {
-                serde_json::json!({})
-            };
-
-            if let Some(meta_obj) = meta_val.as_object_mut() {
-                // If there's only one key and it has no sub_question_code, set "answerKey"
-                if keys.len() == 1 && keys[0].0.is_empty() {
-                    meta_obj.insert("answerKey".to_string(), serde_json::Value::String(keys[0].1.clone()));
-                    meta_obj.remove("answerKeys");
+            // Inject answer keys into metadata JSON
+            if let Some(keys) = answer_keys_map.get(&qid) {
+                let mut meta_val = if let Some(meta_str) = &metadata {
+                    serde_json::from_str::<serde_json::Value>(meta_str)
+                        .unwrap_or(serde_json::json!({}))
                 } else {
-                    // Otherwise, set "answerKeys" object mapping code -> text string
-                    let mut keys_obj = serde_json::Map::new();
-                    for (code, text, _req) in keys {
-                        keys_obj.insert(code.clone(), serde_json::Value::String(text.clone()));
-                    }
-                    meta_obj.insert("answerKeys".to_string(), serde_json::Value::Object(keys_obj));
-                    meta_obj.remove("answerKey");
-                }
-                metadata = Some(serde_json::to_string(meta_obj).unwrap_or_default());
-            }
-        }
+                    serde_json::json!({})
+                };
 
-        Ok(Question {
-            id: qid,
-            document_id: row.get(1)?,
-            section_id: row.get(2)?,
-            parent_id: row.get(3)?,
-            sequence: row.get(4)?,
-            content: row.get(5)?,
-            is_header: row.get(6)?,
-            description: row.get(7)?,
-            answer_type: row.get(8)?,
-            metadata,
-            score: row.get(10)?,
-            question_type: row.get(11)?,
-            group_score: row.get(12)?,
-            display_text: row.get(13)?,
-            is_group_header: row.get(14)?,
-            is_scored: row.get(15)?,
+                if let Some(meta_obj) = meta_val.as_object_mut() {
+                    // If there's only one key and it has no sub_question_code, set "answerKey"
+                    if keys.len() == 1 && keys[0].0.is_empty() {
+                        meta_obj.insert(
+                            "answerKey".to_string(),
+                            serde_json::Value::String(keys[0].1.clone()),
+                        );
+                        meta_obj.remove("answerKeys");
+                    } else {
+                        // Otherwise, set "answerKeys" object mapping code -> text string
+                        let mut keys_obj = serde_json::Map::new();
+                        for (code, text, _req) in keys {
+                            keys_obj.insert(code.clone(), serde_json::Value::String(text.clone()));
+                        }
+                        meta_obj.insert(
+                            "answerKeys".to_string(),
+                            serde_json::Value::Object(keys_obj),
+                        );
+                        meta_obj.remove("answerKey");
+                    }
+                    metadata = Some(serde_json::to_string(meta_obj).unwrap_or_default());
+                }
+            }
+
+            Ok(Question {
+                id: qid,
+                document_id: row.get(1)?,
+                section_id: row.get(2)?,
+                parent_id: row.get(3)?,
+                sequence: row.get(4)?,
+                content: row.get(5)?,
+                is_header: row.get(6)?,
+                description: row.get(7)?,
+                answer_type: row.get(8)?,
+                metadata,
+                score: row.get(10)?,
+                question_type: row.get(11)?,
+                group_score: row.get(12)?,
+                display_text: row.get(13)?,
+                is_group_header: row.get(14)?,
+                is_scored: row.get(15)?,
+            })
         })
-    }).map_err(|e| format!("Query map failed: {}", e))?;
+        .map_err(|e| format!("Query map failed: {}", e))?;
 
     let mut questions = Vec::new();
     for q in question_iter {
@@ -1967,7 +2200,7 @@ pub struct QuestionDetail {
 
 pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<QuestionDetail>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // 1. Get Questions
     let mut stmt = conn.prepare(
         "SELECT id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata,
@@ -1975,106 +2208,124 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
          FROM Questions WHERE document_id = ?1 ORDER BY sequence"
     ).map_err(|e| format!("Failed to prepare query: {}", e))?;
 
-    let mut answer_keys_stmt = conn.prepare(
-        "SELECT question_id, sub_question_code, answer_key_text, is_required, order_index
+    let mut answer_keys_stmt = conn
+        .prepare(
+            "SELECT question_id, sub_question_code, answer_key_text, is_required, order_index
          FROM QuestionAnswerKeys
          WHERE question_id IN (SELECT id FROM Questions WHERE document_id = ?1)
-         ORDER BY question_id, order_index"
-    ).map_err(|e| format!("Failed to prepare answer keys query: {}", e))?;
+         ORDER BY question_id, order_index",
+        )
+        .map_err(|e| format!("Failed to prepare answer keys query: {}", e))?;
 
-    let mut answer_keys_map: std::collections::HashMap<String, Vec<(String, String, bool)>> = std::collections::HashMap::new();
-    let ak_rows = answer_keys_stmt.query_map(params![doc_id], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, bool>(3)?,
-        ))
-    }).map_err(|e| format!("Failed to query answer keys: {}", e))?;
+    let mut answer_keys_map: std::collections::HashMap<String, Vec<(String, String, bool)>> =
+        std::collections::HashMap::new();
+    let ak_rows = answer_keys_stmt
+        .query_map(params![doc_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, bool>(3)?,
+            ))
+        })
+        .map_err(|e| format!("Failed to query answer keys: {}", e))?;
 
-    for ak_res in ak_rows {
-        if let Ok((qid, code, text, required)) = ak_res {
-            answer_keys_map.entry(qid).or_default().push((code, text, required));
-        }
+    for (qid, code, text, required) in ak_rows.flatten() {
+        answer_keys_map
+            .entry(qid)
+            .or_default()
+            .push((code, text, required));
     }
 
-    let questions_iter = stmt.query_map(params![doc_id], |row| {
-        let qid: String = row.get(0)?;
-        let mut metadata: Option<String> = row.get(9)?;
+    let questions_iter = stmt
+        .query_map(params![doc_id], |row| {
+            let qid: String = row.get(0)?;
+            let mut metadata: Option<String> = row.get(9)?;
 
-        if let Some(keys) = answer_keys_map.get(&qid) {
-            let mut meta_val = if let Some(meta_str) = &metadata {
-                serde_json::from_str::<serde_json::Value>(meta_str).unwrap_or(serde_json::json!({}))
-            } else {
-                serde_json::json!({})
-            };
-
-            if let Some(meta_obj) = meta_val.as_object_mut() {
-                if keys.len() == 1 && keys[0].0.is_empty() {
-                    meta_obj.insert("answerKey".to_string(), serde_json::Value::String(keys[0].1.clone()));
-                    meta_obj.remove("answerKeys");
+            if let Some(keys) = answer_keys_map.get(&qid) {
+                let mut meta_val = if let Some(meta_str) = &metadata {
+                    serde_json::from_str::<serde_json::Value>(meta_str)
+                        .unwrap_or(serde_json::json!({}))
                 } else {
-                    let mut keys_obj = serde_json::Map::new();
-                    for (code, text, _req) in keys {
-                        keys_obj.insert(code.clone(), serde_json::Value::String(text.clone()));
-                    }
-                    meta_obj.insert("answerKeys".to_string(), serde_json::Value::Object(keys_obj));
-                    meta_obj.remove("answerKey");
-                }
-                metadata = Some(serde_json::to_string(meta_obj).unwrap_or_default());
-            }
-        }
+                    serde_json::json!({})
+                };
 
-        Ok(Question {
-            id: qid,
-            document_id: row.get(1)?,
-            section_id: row.get(2)?,
-            parent_id: row.get(3)?,
-            sequence: row.get(4)?,
-            content: row.get(5)?,
-            is_header: row.get(6)?,
-            description: row.get(7)?,
-            answer_type: row.get(8)?,
-            metadata,
-            score: row.get(10)?,
-            question_type: row.get(11)?,
-            group_score: row.get(12)?,
-            display_text: row.get(13)?,
-            is_group_header: row.get(14)?,
-            is_scored: row.get(15)?,
+                if let Some(meta_obj) = meta_val.as_object_mut() {
+                    if keys.len() == 1 && keys[0].0.is_empty() {
+                        meta_obj.insert(
+                            "answerKey".to_string(),
+                            serde_json::Value::String(keys[0].1.clone()),
+                        );
+                        meta_obj.remove("answerKeys");
+                    } else {
+                        let mut keys_obj = serde_json::Map::new();
+                        for (code, text, _req) in keys {
+                            keys_obj.insert(code.clone(), serde_json::Value::String(text.clone()));
+                        }
+                        meta_obj.insert(
+                            "answerKeys".to_string(),
+                            serde_json::Value::Object(keys_obj),
+                        );
+                        meta_obj.remove("answerKey");
+                    }
+                    metadata = Some(serde_json::to_string(meta_obj).unwrap_or_default());
+                }
+            }
+
+            Ok(Question {
+                id: qid,
+                document_id: row.get(1)?,
+                section_id: row.get(2)?,
+                parent_id: row.get(3)?,
+                sequence: row.get(4)?,
+                content: row.get(5)?,
+                is_header: row.get(6)?,
+                description: row.get(7)?,
+                answer_type: row.get(8)?,
+                metadata,
+                score: row.get(10)?,
+                question_type: row.get(11)?,
+                group_score: row.get(12)?,
+                display_text: row.get(13)?,
+                is_group_header: row.get(14)?,
+                is_scored: row.get(15)?,
+            })
         })
-    }).map_err(|e| format!("Query map failed: {}", e))?;
+        .map_err(|e| format!("Query map failed: {}", e))?;
 
     let mut details = Vec::new();
 
     for q_res in questions_iter {
         let q = q_res.map_err(|e| e.to_string())?;
-        
+
         // 2. Get Choices for this question
-        let mut choice_stmt = conn.prepare(
-            "SELECT id, question_id, label, content, is_correct, sequence 
-             FROM QuestionChoices WHERE question_id = ?1 ORDER BY sequence"
-        ).map_err(|e| e.to_string())?;
-        
-        let choices = choice_stmt.query_map(params![q.id], |row| {
-             Ok(QuestionChoice {
-                id: row.get(0)?,
-                question_id: row.get(1)?,
-                label: row.get(2)?,
-                content: row.get(3)?,
-                is_correct: row.get(4)?,
-                sequence: row.get(5)?,
-             })
-        }).map_err(|e| e.to_string())?
-          .collect::<Result<Vec<_>, _>>()
-          .map_err(|e| e.to_string())?;
+        let mut choice_stmt = conn
+            .prepare(
+                "SELECT id, question_id, label, content, is_correct, sequence             FROM QuestionChoices WHERE question_id = ?1 ORDER BY sequence",
+            )
+            .map_err(|e| e.to_string())?;
+
+        let choices = choice_stmt
+            .query_map(params![q.id], |row| {
+                Ok(QuestionChoice {
+                    id: row.get(0)?,
+                    question_id: row.get(1)?,
+                    label: row.get(2)?,
+                    content: row.get(3)?,
+                    is_correct: row.get(4)?,
+                    sequence: row.get(5)?,
+                })
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
 
         // 3. Get References for this question
         // Optimized to Sort by Section Reference Order (Standard Order)
         // We JOIN SectionReferences (sr) on qr.reference_id AND the question's section_id.
         // NOTE: If section_id is NULL (unlikely for Section 100+), this might fail sorting.
         // Assuming all questions here have a valid section_id context or we use the linked one.
-        
+
         // Let's use a subquery or join.
         // Filter by section_id from the question itself: q.section_id.
         let mut ref_stmt = conn.prepare(
@@ -2087,38 +2338,40 @@ pub fn get_document_questions_with_details(doc_id: String) -> Result<Vec<Questio
              ORDER BY sr.display_order"
         ).map_err(|e| e.to_string())?;
 
-        let references = ref_stmt.query_map(params![q.id, q.section_id], |row| {
-             // If sr.display_order is NULL (e.g. ad-hoc reference not in section list?), fallback to 0 or something.
-             // But usually it should be there.
-             let section_display_order: Option<i32> = row.get(4).unwrap_or(None);
-             
-             // Calculate Thai Letter based on Section Order, NOT Question Insertion Order
-             let thai_letter = match section_display_order {
-                 Some(order) => get_thai_letter(order),
-                 None => "?".to_string() 
-             };
+        let references = ref_stmt
+            .query_map(params![q.id, q.section_id], |row| {
+                // If sr.display_order is NULL (e.g. ad-hoc reference not in section list?), fallback to 0 or something.
+                // But usually it should be there.
+                let section_display_order: Option<i32> = row.get(4).unwrap_or(None);
 
-            Ok(QuestionReferenceDetail {
-                id: row.get(0)?,
-                question_id: row.get(1)?,
-                reference: DocumentReference {
-                    id: row.get(5)?,
-                    code: row.get(6)?,
-                    title: row.get(7)?,
-                    classification: row.get(8)?,
-                    category: row.get(9)?,
-                    resource_type: row.get(10)?,
-                    file_path: row.get(11)?,
-                    created_at: row.get(12)?,
-                    updated_at: row.get(13)?,
-                },
-                location_text: row.get(3)?,
-                display_order: section_display_order.unwrap_or(0),
-                thai_letter,
+                // Calculate Thai Letter based on Section Order, NOT Question Insertion Order
+                let thai_letter = match section_display_order {
+                    Some(order) => get_thai_letter(order),
+                    None => "?".to_string(),
+                };
+
+                Ok(QuestionReferenceDetail {
+                    id: row.get(0)?,
+                    question_id: row.get(1)?,
+                    reference: DocumentReference {
+                        id: row.get(5)?,
+                        code: row.get(6)?,
+                        title: row.get(7)?,
+                        classification: row.get(8)?,
+                        category: row.get(9)?,
+                        resource_type: row.get(10)?,
+                        file_path: row.get(11)?,
+                        created_at: row.get(12)?,
+                        updated_at: row.get(13)?,
+                    },
+                    location_text: row.get(3)?,
+                    display_order: section_display_order.unwrap_or(0),
+                    thai_letter,
+                })
             })
-        }).map_err(|e| e.to_string())?
-          .collect::<Result<Vec<_>, _>>()
-          .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
 
         details.push(QuestionDetail {
             question: q,
@@ -2165,7 +2418,7 @@ pub struct CreateQuestionArgs {
 //                     // Extract fields. Be robust against missing/wrong types.
 //                     if let Some(ref_id) = r.get("id").and_then(|i| i.as_i64()) {
 //                         let page = r.get("page").and_then(|s| s.as_str()).unwrap_or("-");
-                        
+
 //                         conn.execute(
 //                             "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
 //                              VALUES (?1, ?2, ?3, ?4)",
@@ -2181,7 +2434,7 @@ pub struct CreateQuestionArgs {
 
 pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Use provided ID or generate new one
     let id = args.id.unwrap_or_else(generate_uuid);
 
@@ -2191,23 +2444,25 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     } else {
         // Find max sequence in this context
         if let Some(pid) = &args.parent_id {
-            let max_seq: Option<i32> = conn.query_row(
-                "SELECT MAX(sequence) FROM Questions WHERE parent_id = ?1",
-                params![pid],
-                |row| row.get(0)
-            ).unwrap_or(None);
+            let max_seq: Option<i32> = conn
+                .query_row(
+                    "SELECT MAX(sequence) FROM Questions WHERE parent_id = ?1",
+                    params![pid],
+                    |row| row.get(0),
+                )
+                .unwrap_or(None);
             max_seq.unwrap_or(0) + 1
         } else {
             // Root level: Must filter by Document AND Section
             // Root level: Must filter by Document AND Section
             let max_seq_val: Option<i32> = if let Some(sid) = args.section_id {
-                 conn.query_row(
+                conn.query_row(
                     "SELECT MAX(sequence) FROM Questions WHERE document_id = ?1 AND section_id = ?2 AND parent_id IS NULL",
                     params![args.document_id, sid],
                     |row| row.get(0)
                 ).unwrap_or(None)
             } else {
-                 conn.query_row(
+                conn.query_row(
                     "SELECT MAX(sequence) FROM Questions WHERE document_id = ?1 AND section_id IS NULL AND parent_id IS NULL",
                     params![args.document_id],
                     |row| row.get(0)
@@ -2218,17 +2473,9 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
     };
 
     conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored) 
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+        "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored)         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         params![
-            id, 
-            args.document_id, 
-            args.section_id, 
-            args.parent_id, 
-            sequence, 
-            args.content, 
-            args.is_header, 
-            args.description,
+            id,            args.document_id,            args.section_id,            args.parent_id,            sequence,            args.content,            args.is_header,            args.description,
             args.answer_type.unwrap_or("text".to_string()),
             args.metadata,
             args.score.unwrap_or(0),
@@ -2246,7 +2493,8 @@ pub fn create_question(args: CreateQuestionArgs) -> Result<String, String> {
         conn.execute(
             "UPDATE Questions SET is_group_header = 1, is_scored = 0 WHERE id = ?1",
             params![parent_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Sync selectedSubQuestions JSON → QuestionSubQuestionLinks relational table
@@ -2275,8 +2523,7 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
 
     // Use COALESCE so scoring fields are preserved when not explicitly provided (None → keep DB value)
     conn.execute(
-        "UPDATE Questions 
-         SET content = ?2, description = ?3, metadata = ?4,
+        "UPDATE Questions         SET content = ?2, description = ?3, metadata = ?4,
              score = COALESCE(?5, score),
              question_type = COALESCE(?6, question_type),
              group_score = COALESCE(?7, group_score),
@@ -2285,8 +2532,8 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
              is_scored = COALESCE(?10, is_scored)
          WHERE id = ?1",
         params![
-            args.id, 
-            args.content, 
+            args.id,
+            args.content,
             args.description,
             args.metadata,
             args.score,
@@ -2295,7 +2542,7 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
             args.display_text,
             args.is_group_header,
             args.is_scored
-        ]
+        ],
     )
     .map_err(|e| e.to_string())?;
 
@@ -2309,12 +2556,17 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
 /// Sync the selectedSubQuestions field in JSON metadata → QuestionSubQuestionLinks table.
 /// Clears existing links for this question, then re-inserts from current metadata.
 /// Safe to call on every save — idempotent when metadata hasn't changed.
-fn sync_question_sub_question_links(conn: &Connection, question_id: &str, metadata_json: Option<&str>) -> Result<(), String> {
+fn sync_question_sub_question_links(
+    conn: &Connection,
+    question_id: &str,
+    metadata_json: Option<&str>,
+) -> Result<(), String> {
     // 1. Delete existing links for this question
     conn.execute(
         "DELETE FROM QuestionSubQuestionLinks WHERE question_id = ?1",
         params![question_id],
-    ).map_err(|e| format!("Failed to delete existing SubQ links: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to delete existing SubQ links: {}", e))?;
 
     // 2. Insert new links from metadata
     if let Some(json_str) = metadata_json {
@@ -2338,55 +2590,54 @@ fn sync_question_sub_question_links(conn: &Connection, question_id: &str, metada
 
 pub fn delete_question(id: String) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| e.to_string())?;
-    
+
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // 1. Get info before delete to handle re-indexing (context for siblings)
     // We need to know who are the siblings.
     // Siblings share same parent_id (if not null) OR (document_id + section_id + parent_id is null)
-    let (document_id, section_id, parent_id, sequence): (String, Option<i64>, Option<String>, i32) = tx.query_row(
-        "SELECT document_id, section_id, parent_id, sequence FROM Questions WHERE id = ?1",
-        params![id],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
-    ).map_err(|e| format!("Question not found: {}", e))?;
+    let (document_id, section_id, parent_id, sequence): (String, Option<i64>, Option<String>, i32) =
+        tx.query_row(
+            "SELECT document_id, section_id, parent_id, sequence FROM Questions WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .map_err(|e| format!("Question not found: {}", e))?;
 
     // 2. Delete the question (Cascade will remove children, choices, answers, refs)
-    tx.execute(
-        "DELETE FROM Questions WHERE id = ?1",
-        params![id],
-    ).map_err(|e| e.to_string())?;
+    tx.execute("DELETE FROM Questions WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
 
     // 3. Re-index siblings (Shift Left)
     // Logic depends on whether parent_id exists
     match parent_id {
         Some(ref pid) => {
             // Sibling check by parent_id
-             tx.execute(
-                "UPDATE Questions 
-                 SET sequence = sequence - 1 
-                 WHERE parent_id = ?1 AND sequence > ?2",
+            tx.execute(
+                "UPDATE Questions                 SET sequence = sequence - 1                 WHERE parent_id = ?1 AND sequence > ?2",
                 params![pid, sequence],
-            ).map_err(|e| e.to_string())?;
-        },
+            )
+            .map_err(|e| e.to_string())?;
+        }
         None => {
             // Sibling check by document_id + section_id (for L1 roots)
-             tx.execute(
-                "UPDATE Questions 
-                 SET sequence = sequence - 1 
-                 WHERE document_id = ?1 AND section_id IS ?2 AND parent_id IS NULL AND sequence > ?3",
+            tx.execute(
+                "UPDATE Questions                 SET sequence = sequence - 1                 WHERE document_id = ?1 AND section_id IS ?2 AND parent_id IS NULL AND sequence > ?3",
                 params![document_id, section_id, sequence],
             ).map_err(|e| e.to_string())?;
         }
     }
-    
+
     // 4. If this question had a parent, check if parent now has 0 children
     //    → revert parent's is_group_header=0, is_scored=1 and recalculate scores
     if let Some(ref pid) = parent_id {
-        let child_count: i32 = tx.query_row(
-            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
-            params![pid],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let child_count: i32 = tx
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+                params![pid],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         if child_count == 0 {
             tx.execute(
@@ -2403,10 +2654,9 @@ pub fn delete_question(id: String) -> Result<(), String> {
         let conn2 = get_content_connection().map_err(|e| e.to_string())?;
         let _ = recalculate_group_score_chain(&conn2, pid);
     }
-    
+
     Ok(())
 }
-
 
 /// Reorder questions by receiving an ordered list of question IDs.
 /// Reassigns sequence = 1, 2, 3, ... in the given order.
@@ -2419,13 +2669,13 @@ pub fn reorder_questions(question_ids: Vec<String>) -> Result<(), String> {
         tx.execute(
             "UPDATE Questions SET sequence = ?1 WHERE id = ?2",
             params![new_seq, id],
-        ).map_err(|e| format!("Failed to update sequence for {}: {}", id, e))?;
+        )
+        .map_err(|e| format!("Failed to update sequence for {}: {}", id, e))?;
     }
 
     tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
-
 
 #[derive(serde::Serialize)]
 pub struct DocumentHierarchy {
@@ -2438,8 +2688,7 @@ pub fn get_document_with_hierarchy(id: String) -> Result<DocumentHierarchy, Stri
 
     // 1. Fetch Document
     let doc: Document = conn.query_row(
-        "SELECT id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, status, created_at, updated_at 
-         FROM Documents WHERE id = ?1",
+        "SELECT id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, status, created_at, updated_at         FROM Documents WHERE id = ?1",
         params![id],
         |row| {
             Ok(Document {
@@ -2462,10 +2711,10 @@ pub fn get_document_with_hierarchy(id: String) -> Result<DocumentHierarchy, Stri
     if let Some(mut current_unit_id) = doc.unit_owner_id.clone() {
         loop {
             // Find current unit
-             let unit_res: Result<(String, Option<String>), _> = conn.query_row(
+            let unit_res: Result<(String, Option<String>), _> = conn.query_row(
                 "SELECT unit_name, parent_id FROM OwnerUnits WHERE unit_id = ?1",
                 params![current_unit_id],
-                |row| Ok((row.get(0)?, row.get(1)?))
+                |row| Ok((row.get(0)?, row.get(1)?)),
             );
 
             match unit_res {
@@ -2476,20 +2725,20 @@ pub fn get_document_with_hierarchy(id: String) -> Result<DocumentHierarchy, Stri
                     } else {
                         break; // No parent, root reached
                     }
-                },
+                }
                 Err(_) => break, // Unit not found
             }
         }
     }
-    
-    // User asked for 'L4' + 'L3' + 'L2' + 'L1'. 
-    // Our loop collects [Leaf, Parent, Grandparent...]. 
+
+    // User asked for 'L4' + 'L3' + 'L2' + 'L1'.
+    // Our loop collects [Leaf, Parent, Grandparent...].
     // So hierarchy_names is already [L4, L3, L2, L1].
     // We just return it as is.
 
     Ok(DocumentHierarchy {
         document: doc,
-        hierarchy: hierarchy_names
+        hierarchy: hierarchy_names,
     })
 }
 
@@ -2529,7 +2778,10 @@ pub fn create_section(request: CreateSectionRequest) -> Result<Section, String> 
     create_section_with_conn(&conn, request)
 }
 
-fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) -> Result<Section, String> {
+fn create_section_with_conn(
+    conn: &Connection,
+    request: CreateSectionRequest,
+) -> Result<Section, String> {
     // Validation: Check if number already exists
     let exists: bool = conn
         .query_row(
@@ -2538,11 +2790,14 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
-    
+
     if exists {
-        return Err(format!("Section {} already exists for this document", request.section_number));
+        return Err(format!(
+            "Section {} already exists for this document",
+            request.section_number
+        ));
     }
-    
+
     // Validate section number range
     let valid_range = match request.section_group {
         100 => 101..=199,
@@ -2550,11 +2805,14 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
         300 => 301..=399,
         _ => return Err("Invalid section group. Must be 100, 200, or 300".to_string()),
     };
-    
+
     if !valid_range.contains(&request.section_number) {
-        return Err(format!("Section number must be in range {:?} for section group {}", valid_range, request.section_group));
+        return Err(format!(
+            "Section number must be in range {:?} for section group {}",
+            valid_range, request.section_group
+        ));
     }
-    
+
     // Section 101 (group 100) must always use the fixed header title.
     if request.section_group == 100
         && request.section_number == 101
@@ -2565,7 +2823,7 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
             FIXED_SECTION_101_TITLE
         ));
     }
-    
+
     // Get next display_order
     let max_order: i32 = conn
         .query_row(
@@ -2574,7 +2832,7 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
             |row| row.get(0),
         )
         .unwrap_or(0);
-    
+
     // Insert
     conn.execute(
         "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
@@ -2589,32 +2847,41 @@ fn create_section_with_conn(conn: &Connection, request: CreateSectionRequest) ->
         ],
     )
     .map_err(|e| e.to_string())?;
-    
+
     let id = conn.last_insert_rowid();
 
     // Auto-seed template for Section 200 series (201-299)
-    if request.section_group == 200 && request.section_number >= 200 && request.section_number <= 299 {
-       seed_section_200_template(&conn, &request.document_id, id, request.section_number)?;
+    if request.section_group == 200
+        && request.section_number >= 200
+        && request.section_number <= 299
+    {
+        seed_section_200_template(conn, &request.document_id, id, request.section_number)?;
     // Auto-seed template for Section 300 series (301-399)
-    } else if request.section_group == 300 && request.section_number >= 300 && request.section_number <= 399 {
-       seed_section_300_template(&conn, &request.document_id, id, request.section_number)?;
+    } else if request.section_group == 300
+        && request.section_number >= 300
+        && request.section_number <= 399
+    {
+        seed_section_300_template(conn, &request.document_id, id, request.section_number)?;
     }
-    
+
     // Return created section
-    get_section_by_id(&conn, id)
+    get_section_by_id(conn, id)
 }
 
 #[cfg(test)]
 /// Helper to convert Arabic number to Thai digits
 fn to_thai_digit(n: i32) -> String {
     let thai_digits = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
-    n.to_string().chars().map(|c| {
-        if let Some(d) = c.to_digit(10) {
-            thai_digits[d as usize].to_string()
-        } else {
-            c.to_string()
-        }
-    }).collect()
+    n.to_string()
+        .chars()
+        .map(|c| {
+            if let Some(d) = c.to_digit(10) {
+                thai_digits[d as usize].to_string()
+            } else {
+                c.to_string()
+            }
+        })
+        .collect()
 }
 
 /// Seed Section 300 Template (3xx.1 - 3xx.7)
@@ -2623,13 +2890,25 @@ fn to_thai_digit(n: i32) -> String {
 ///   3xx.1.4 - 3xx.1.5 → is_scored = true  (can have score)
 ///   3xx.2 - 3xx.6     → is_scored = true, is_group_header = true (score = sum of children)
 ///   3xx.7.1 - 3xx.7.2 → is_scored = false (knowledge test, separate evaluation)
-fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
+fn seed_section_300_template(
+    conn: &Connection,
+    doc_id: &str,
+    section_id: i64,
+    _section_num: i32,
+) -> Result<(), String> {
     // Helper closure with scoring fields + display_text
-    let insert_q = |parent: Option<&str>, seq: i32, content: String, desc: Option<String>, is_scored: bool, is_group_header: bool, question_type: &str, display_text: Option<&str>| -> Result<String, String> {
+    let insert_q = |parent: Option<&str>,
+                    seq: i32,
+                    content: String,
+                    desc: Option<String>,
+                    is_scored: bool,
+                    is_group_header: bool,
+                    question_type: &str,
+                    display_text: Option<&str>|
+     -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type, score, question_type, display_text, group_score, is_group_header, is_scored) 
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none', 0, ?8, ?9, 0, ?10, ?11)",
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, description, is_header, answer_type, score, question_type, display_text, group_score, is_group_header, is_scored)             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, 'none', 0, ?8, ?9, 0, ?10, ?11)",
             params![q_id, doc_id, section_id, parent, seq, content, desc, question_type, display_text, is_group_header, is_scored]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
@@ -2637,42 +2916,176 @@ fn seed_section_300_template(conn: &Connection, doc_id: &str, section_id: i64, _
 
     // 3xx.1 - คุณสมบัติก่อนการทดสอบ (group header, may have score from 1.4-1.5)
     let q1_desc = "เพื่อให้การทดสอบตาม มาตรฐานการทดสอบกำลังพลเกิดประโยชน์สูงสุด และสำเร็จตามวัตถุประสงค์ ผู้เข้ารับการทดสอบ ต้องมีคุณสมบัติ ดังต่อไปนี้".to_string();
-    let q1_id = insert_q(None, 1, "คุณสมบัติก่อนการทดสอบ".to_string(), Some(q1_desc), false, true, "normal", None)?;
+    let q1_id = insert_q(
+        None,
+        1,
+        "คุณสมบัติก่อนการทดสอบ".to_string(),
+        Some(q1_desc),
+        false,
+        true,
+        "normal",
+        None,
+    )?;
 
     // 3xx.1.1 - 3xx.1.3: NOT scored, default EXEMPTED (prerequisites — most positions skip these)
     let exempted_text = "(ไม่ต้องปฏิบัติ)";
-    insert_q(Some(&q1_id), 1, "ผ่านการอบรม".to_string(), None, false, false, "exempted", Some(exempted_text))?;
-    insert_q(Some(&q1_id), 2, "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(), None, false, false, "exempted", Some(exempted_text))?;
-    insert_q(Some(&q1_id), 3, "ผ่านการปฏิบัติหน้าที่".to_string(), None, false, false, "exempted", Some(exempted_text))?;
+    insert_q(
+        Some(&q1_id),
+        1,
+        "ผ่านการอบรม".to_string(),
+        None,
+        false,
+        false,
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        Some(&q1_id),
+        2,
+        "ผ่านมาตรฐานการทดสอบกําลังพล".to_string(),
+        None,
+        false,
+        false,
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        Some(&q1_id),
+        3,
+        "ผ่านการปฏิบัติหน้าที่".to_string(),
+        None,
+        false,
+        false,
+        "exempted",
+        Some(exempted_text),
+    )?;
     // 3xx.1.4 - 3xx.1.5: SCORED, default EXEMPTED (section selectors — configured per position)
-    insert_q(Some(&q1_id), 4, "ผ่านการทดสอบความรู้พื้นฐาน".to_string(), None, true, false, "exempted", Some(exempted_text))?;
-    insert_q(Some(&q1_id), 5, "ผ่านการทดสอบระบบ".to_string(), None, true, false, "exempted", Some(exempted_text))?;
+    insert_q(
+        Some(&q1_id),
+        4,
+        "ผ่านการทดสอบความรู้พื้นฐาน".to_string(),
+        None,
+        true,
+        false,
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        Some(&q1_id),
+        5,
+        "ผ่านการทดสอบระบบ".to_string(),
+        None,
+        true,
+        false,
+        "exempted",
+        Some(exempted_text),
+    )?;
 
     // 3xx.2 - 3xx.5: GROUP headers, default EXEMPTED (configured per position)
-    insert_q(None, 2, "การทดสอบปฏิบัติงานปกติ".to_string(), None, false, true, "exempted", Some(exempted_text))?;
-    insert_q(None, 3, "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(), None, false, true, "exempted", Some(exempted_text))?;
-    insert_q(None, 4, "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(), None, false, true, "exempted", Some(exempted_text))?;
-    insert_q(None, 5, "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(), None, false, true, "exempted", Some(exempted_text))?;
+    insert_q(
+        None,
+        2,
+        "การทดสอบปฏิบัติงานปกติ".to_string(),
+        None,
+        false,
+        true,
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        None,
+        3,
+        "การทดสอบการปฏิบัติงานกรณีพิเศษ".to_string(),
+        None,
+        false,
+        true,
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        None,
+        4,
+        "การทดสอบการปฏิบัติงานกรณีเหตุขัดข้อง".to_string(),
+        None,
+        false,
+        true,
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        None,
+        5,
+        "การทดสอบการปฏิบัติงานกรณีเหตุฉุกเฉิน".to_string(),
+        None,
+        false,
+        true,
+        "exempted",
+        Some(exempted_text),
+    )?;
 
     // 3xx.6: GROUP header, default EXEMPTED (configured per position)
-    insert_q(None, 6, "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(), None, false, true, "exempted", Some(exempted_text))?;
+    insert_q(
+        None,
+        6,
+        "การทดสอบการปฏิบัติงานประจําตําแหน่ง".to_string(),
+        None,
+        false,
+        true,
+        "exempted",
+        Some(exempted_text),
+    )?;
 
     // 3xx.7: สอบความรู้ (group header, children NOT scored)
-    let q7_id = insert_q(None, 7, "สอบความรู้".to_string(), None, false, true, "normal", None)?;
-    insert_q(Some(&q7_id), 1, "สอบข้อเขียน".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal", None)?;
-    insert_q(Some(&q7_id), 2, "สอบปากเปล่า".to_string(), Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()), false, false, "normal", None)?;
+    let q7_id = insert_q(
+        None,
+        7,
+        "สอบความรู้".to_string(),
+        None,
+        false,
+        true,
+        "normal",
+        None,
+    )?;
+    insert_q(
+        Some(&q7_id),
+        1,
+        "สอบข้อเขียน".to_string(),
+        Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()),
+        false,
+        false,
+        "normal",
+        None,
+    )?;
+    insert_q(
+        Some(&q7_id),
+        2,
+        "สอบปากเปล่า".to_string(),
+        Some("ขึ้นอยู่กับผู้บังคับหน่วยกำหนด".to_string()),
+        false,
+        false,
+        "normal",
+        None,
+    )?;
 
     Ok(())
 }
 
 /// Seed Section 200 Template (2xx.1 - 2xx.6)
-fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _section_num: i32) -> Result<(), String> {
+fn seed_section_200_template(
+    conn: &Connection,
+    doc_id: &str,
+    section_id: i64,
+    _section_num: i32,
+) -> Result<(), String> {
     // Helper closure: all 2xx L1 questions start exempted and are activated per position later.
-    let insert_q = |seq: i32, content: String, question_type: &str, display_text: Option<&str>| -> Result<String, String> {
+    let insert_q = |seq: i32,
+                    content: String,
+                    question_type: &str,
+                    display_text: Option<&str>|
+     -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, question_type, display_text) 
-             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'text', ?6, ?7)",
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, question_type, display_text)             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'text', ?6, ?7)",
             params![q_id, doc_id, section_id, seq, content, question_type, display_text]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
@@ -2682,12 +3095,37 @@ fn seed_section_200_template(conn: &Connection, doc_id: &str, section_id: i64, _
 
     insert_q(1, "หน้าที่".to_string(), "exempted", Some(exempted_text))?;
     // 2xx.2: ส่วนประกอบ — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
-    insert_q(2, "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string(), "exempted", Some(exempted_text))?;
-    insert_q(3, "หลักการทำงาน".to_string(), "exempted", Some(exempted_text))?;
+    insert_q(
+        2,
+        "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string(),
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        3,
+        "หลักการทำงาน".to_string(),
+        "exempted",
+        Some(exempted_text),
+    )?;
     // 2xx.4: ค่าทำงาน — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
-    insert_q(4, "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(), "exempted", Some(exempted_text))?;
-    insert_q(5, "การเชื่อมต่อระบบ".to_string(), "exempted", Some(exempted_text))?;
-    insert_q(6, "ข้อระมัดระวังอันตราย".to_string(), "exempted", Some(exempted_text))?;
+    insert_q(
+        4,
+        "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(),
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        5,
+        "การเชื่อมต่อระบบ".to_string(),
+        "exempted",
+        Some(exempted_text),
+    )?;
+    insert_q(
+        6,
+        "ข้อระมัดระวังอันตราย".to_string(),
+        "exempted",
+        Some(exempted_text),
+    )?;
 
     Ok(())
 }
@@ -2709,7 +3147,6 @@ pub fn update_section(args: UpdateSectionArgs) -> Result<(), String> {
 }
 
 fn update_section_with_conn(conn: &Connection, args: UpdateSectionArgs) -> Result<(), String> {
-
     let (section_group, section_number): (i32, i32) = conn
         .query_row(
             "SELECT section_group, section_number FROM Sections WHERE id = ?1",
@@ -2718,7 +3155,10 @@ fn update_section_with_conn(conn: &Connection, args: UpdateSectionArgs) -> Resul
         )
         .map_err(|e| e.to_string())?;
 
-    if section_group == 100 && section_number == 101 && args.title_th.trim() != FIXED_SECTION_101_TITLE {
+    if section_group == 100
+        && section_number == 101
+        && args.title_th.trim() != FIXED_SECTION_101_TITLE
+    {
         return Err(format!(
             "Section 101 title is fixed and cannot be changed. Required title: {}",
             FIXED_SECTION_101_TITLE
@@ -2737,18 +3177,17 @@ fn update_section_with_conn(conn: &Connection, args: UpdateSectionArgs) -> Resul
 /// Get sections by document ID
 pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let mut stmt = conn
         .prepare(
-            "SELECT id, document_id, section_group, section_number, title_th, menu_label, 
-                    display_order, is_system_defined, duration_value, duration_unit, total_score,
+            "SELECT id, document_id, section_group, section_number, title_th, menu_label,                    display_order, is_system_defined, duration_value, duration_unit, total_score,
                     created_at, updated_at
              FROM Sections
              WHERE document_id = ?1
-             ORDER BY section_group, section_number"
+             ORDER BY section_group, section_number",
         )
         .map_err(|e| e.to_string())?;
-    
+
     let sections = stmt
         .query_map(params![document_id], |row| {
             Ok(Section {
@@ -2770,7 +3209,7 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
-    
+
     Ok(sections)
 }
 
@@ -2781,22 +3220,26 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // Find all section_ref questions whose refSectionId points to a non-existent section
-    let mut stmt = conn.prepare(
-        "SELECT q.id, q.parent_id, q.metadata
+    let mut stmt = conn
+        .prepare(
+            "SELECT q.id, q.parent_id, q.metadata
          FROM Questions q
          WHERE q.question_type = 'section_ref'
-           AND q.metadata IS NOT NULL"
-    ).map_err(|e| e.to_string())?;
+           AND q.metadata IS NOT NULL",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let rows: Vec<(String, Option<String>, String)> = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Option<String>>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    }).map_err(|e| e.to_string())?
-     .filter_map(|r| r.ok())
-     .collect();
+    let rows: Vec<(String, Option<String>, String)> = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
 
     let mut removed = 0usize;
     let mut affected_parents: Vec<String> = Vec::new();
@@ -2809,11 +3252,13 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
 
         if let Some(ref_sid) = ref_section_id {
             // Check if the referenced section still exists
-            let exists: bool = conn.query_row(
-                "SELECT EXISTS(SELECT 1 FROM Sections WHERE id = ?1)",
-                params![ref_sid],
-                |row| row.get(0),
-            ).unwrap_or(false);
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM Sections WHERE id = ?1)",
+                    params![ref_sid],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
 
             if !exists {
                 // Delete the orphaned section_ref question
@@ -2857,22 +3302,26 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
     // were deleted in a prior cleanup that didn't auto-exempt the parent.
     // Restrict to parent_id IS NULL (L1 only) and sequence 2-6 to avoid catching 3xx.1 or 3xx.7.
     {
-        let mut stale_stmt = conn.prepare(
-            "SELECT q.id, q.parent_id FROM Questions q
+        let mut stale_stmt = conn
+            .prepare(
+                "SELECT q.id, q.parent_id FROM Questions q
              JOIN Sections s ON q.section_id = s.id
              WHERE s.section_group = 300
                AND q.question_type NOT IN ('exempted', 'section_ref')
                AND q.is_group_header = 1
                AND q.parent_id IS NULL
                AND q.sequence BETWEEN 2 AND 6
-               AND NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = q.id)"
-        ).map_err(|e| e.to_string())?;
+               AND NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = q.id)",
+            )
+            .map_err(|e| e.to_string())?;
 
-        let stranded: Vec<(String, Option<String>)> = stale_stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
-        }).map_err(|e| e.to_string())?
-         .filter_map(|r| r.ok())
-         .collect();
+        let stranded: Vec<(String, Option<String>)> = stale_stmt
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
         for (qid, parent_id) in &stranded {
             conn.execute(
@@ -2889,7 +3338,10 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
     }
 
     if removed > 0 {
-        eprintln!("[cleanup_orphaned_section_refs] Cleaned up {} orphaned/stranded question(s) total", removed);
+        eprintln!(
+            "[cleanup_orphaned_section_refs] Cleaned up {} orphaned/stranded question(s) total",
+            removed
+        );
     }
 
     Ok(removed)
@@ -2910,7 +3362,7 @@ fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| e.to_string())?;
-    
+
     if is_system && section_number != 101 {
         return Err("Cannot delete system-defined section".to_string());
     }
@@ -2918,20 +3370,23 @@ fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String> {
     // --- Clean up orphaned section_ref children in OTHER sections that link to this section ---
     // Find all section_ref questions whose metadata contains refSectionId pointing to this section
     {
-        let mut ref_stmt = conn.prepare(
-            "SELECT id, parent_id FROM Questions
+        let mut ref_stmt = conn
+            .prepare(
+                "SELECT id, parent_id FROM Questions
              WHERE question_type = 'section_ref'
                AND section_id != ?1
-               AND metadata LIKE ?2"
-        ).map_err(|e| e.to_string())?;
+               AND metadata LIKE ?2",
+            )
+            .map_err(|e| e.to_string())?;
 
         let pattern = format!("%\"refSectionId\":{}%", id);
-        let orphaned_refs: Vec<(String, Option<String>)> = ref_stmt.query_map(
-            params![id, pattern],
-            |row| Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
-        ).map_err(|e| e.to_string())?
-         .filter_map(|r| r.ok())
-         .collect();
+        let orphaned_refs: Vec<(String, Option<String>)> = ref_stmt
+            .query_map(params![id, pattern], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
 
         let mut affected_parents: Vec<String> = Vec::new();
 
@@ -2962,16 +3417,17 @@ fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String> {
                 ).map_err(|e| e.to_string())?;
             }
 
-            let _ = recalculate_group_score_chain(&conn, pid);
+            let _ = recalculate_group_score_chain(conn, pid);
         }
     }
 
     // --- Clean up UserProgress for this section ---
     conn.execute(
         "DELETE FROM UserProgress WHERE section_id = ?1",
-        params![id]
-    ).ok(); // Ignore if table doesn't exist
-    
+        params![id],
+    )
+    .ok(); // Ignore if table doesn't exist
+
     // Delete QuestionSectionLinks for all questions in this section (may not cascade automatically)
     conn.execute(
         "DELETE FROM QuestionSectionLinks WHERE question_id IN (SELECT id FROM Questions WHERE section_id = ?1)",
@@ -2992,21 +3448,20 @@ fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String> {
 /// Update section (for display_order reordering, etc.)
 pub fn update_section_order(id: i64, new_order: i32) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     conn.execute(
         "UPDATE Sections SET display_order = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
         params![new_order, id],
     )
     .map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
 /// Helper function to get section by ID
 fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
     conn.query_row(
-        "SELECT id, document_id, section_group, section_number, title_th, menu_label, 
-                display_order, is_system_defined, duration_value, duration_unit, total_score,
+        "SELECT id, document_id, section_group, section_number, title_th, menu_label,                display_order, is_system_defined, duration_value, duration_unit, total_score,
                 created_at, updated_at
          FROM Sections WHERE id = ?1",
         params![id],
@@ -3026,7 +3481,7 @@ fn get_section_by_id(conn: &Connection, id: i64) -> Result<Section, String> {
                 created_at: row.get(11)?,
                 updated_at: row.get(12)?,
             })
-        }
+        },
     )
     .map_err(|e| e.to_string())
 }
@@ -3075,7 +3530,12 @@ fn get_thai_letter(order: i32) -> String {
         .to_string()
 }
 /// Helper to bundle a file into the portable data directory
-fn bundle_reference_file(code: &str, category: &str, source_path: &str, pqs_id: Option<&str>) -> Result<String, String> {
+fn bundle_reference_file(
+    code: &str,
+    category: &str,
+    source_path: &str,
+    pqs_id: Option<&str>,
+) -> Result<String, String> {
     if source_path.trim().is_empty() || source_path.starts_with("http") {
         return Ok(source_path.to_string());
     }
@@ -3089,16 +3549,17 @@ fn bundle_reference_file(code: &str, category: &str, source_path: &str, pqs_id: 
         return Ok(source_path.to_string()); // Fallback
     }
 
-    let file_name = source.file_name()
+    let file_name = source
+        .file_name()
         .ok_or_else(|| "Invalid file name".to_string())?
         .to_str()
         .ok_or_else(|| "Invalid file name encoding".to_string())?;
 
     let data_dir = get_portable_data_dir()?;
-    
+
     // Use PQS ID as subfolder if provided, otherwise use 'COMMON' or just root
     let root_folder = pqs_id.unwrap_or("COMMON");
-    
+
     // Flattened structure: data/{ID}/references/{CATEGORY}/{code}_{filename}
     let dest_dir = data_dir.join(root_folder).join("references").join(category);
     std::fs::create_dir_all(&dest_dir).map_err(|e| format!("Failed to create dest dir: {}", e))?;
@@ -3106,20 +3567,30 @@ fn bundle_reference_file(code: &str, category: &str, source_path: &str, pqs_id: 
     // NEW: Prefix with code for better organization
     let new_file_name = format!("{}_{}", code, file_name);
     let dest_path = dest_dir.join(&new_file_name);
-    
+
     // Only copy if source and dest are different
     if source != dest_path {
-        std::fs::copy(source, &dest_path).map_err(|e| format!("Failed to copy file from {} to {}: {}", source_path, dest_path.display(), e))?;
+        std::fs::copy(source, &dest_path).map_err(|e| {
+            format!(
+                "Failed to copy file from {} to {}: {}",
+                source_path,
+                dest_path.display(),
+                e
+            )
+        })?;
     }
 
     // Return relative path including the root folder (e.g., "data/100/references/CATEGORY/CODE_filename")
-    Ok(format!("data/{}/references/{}/{}", root_folder, category, new_file_name))
+    Ok(format!(
+        "data/{}/references/{}/{}",
+        root_folder, category, new_file_name
+    ))
 }
 
 /// Create a new reference document
 pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentReference, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Auto-generate type-based sequential code if empty
     let final_code = if request.code.trim().is_empty() {
         let cat_prefix = match request.category.as_deref().unwrap_or("OTHER") {
@@ -3136,30 +3607,28 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
             "Confidential" => "2",
             "Secret" => "3",
             "Top Secret" => "4",
-            _ => "0", 
+            _ => "0",
         };
 
-        let pattern = format!("{}-{}%", cat_prefix, class_digit); 
-        let prefix_len = cat_prefix.len() + 1 + 1; 
+        let pattern = format!("{}-{}%", cat_prefix, class_digit);
+        let prefix_len = cat_prefix.len() + 1 + 1;
 
         let max_num: i32 = conn
             .query_row(
                 &format!(
-                    "SELECT COALESCE(MAX(CAST(SUBSTR(code, {}) AS INTEGER)), 0) 
-                     FROM DocumentReferences 
-                     WHERE code LIKE ? AND LENGTH(code) >= ?",
-                    prefix_len + 1 
+                    "SELECT COALESCE(MAX(CAST(SUBSTR(code, {}) AS INTEGER)), 0)                     FROM DocumentReferences                     WHERE code LIKE ? AND LENGTH(code) >= ?",
+                    prefix_len + 1
                 ),
-                params![pattern, prefix_len + 3], 
+                params![pattern, prefix_len + 3],
                 |row| row.get(0),
             )
             .unwrap_or(0);
-        
+
         format!("{}-{}{:03}", cat_prefix, class_digit, max_num + 1)
     } else {
         request.code.clone()
     };
-    
+
     // Check if code already exists
     let exists: bool = conn
         .query_row(
@@ -3168,23 +3637,26 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
-    
+
     if exists {
-        return Err(format!("Reference with code '{}' already exists", final_code));
+        return Err(format!(
+            "Reference with code '{}' already exists",
+            final_code
+        ));
     }
 
     // Auto-Bundling: Copy file to data/ directory
     let final_file_path = if let Some(path) = &request.file_path {
         Some(bundle_reference_file(
-            &final_code, 
-            request.category.as_deref().unwrap_or("OTHER"), 
+            &final_code,
+            request.category.as_deref().unwrap_or("OTHER"),
             path,
-            request.pqs_id.as_deref()
+            request.pqs_id.as_deref(),
         )?)
     } else {
         None
     };
-    
+
     // Insert
     conn.execute(
         "INSERT INTO DocumentReferences (code, title, category, classification, resource_type, file_path)
@@ -3199,9 +3671,9 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
         ],
     )
     .map_err(|e| e.to_string())?;
-    
+
     let id = conn.last_insert_rowid();
-    
+
     // Return created reference
     get_reference_by_id(&conn, id)
 }
@@ -3213,29 +3685,29 @@ pub fn get_references(
     category: Option<String>,
 ) -> Result<Vec<DocumentReference>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let mut sql = "SELECT id, code, title, category, classification, resource_type, file_path, created_at, updated_at
                    FROM DocumentReferences WHERE 1=1".to_string();
     let mut params_vec: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    
+
     if let Some(s) = search {
         sql.push_str(" AND (code LIKE ?1 OR title LIKE ?1)");
         let search_pattern = format!("%{}%", s);
         params_vec.push(Box::new(search_pattern));
     }
-    
+
     if let Some(cat) = category {
         let param_idx = params_vec.len() + 1;
         sql.push_str(&format!(" AND category = ?{}", param_idx));
         params_vec.push(Box::new(cat));
     }
-    
+
     sql.push_str(" ORDER BY LENGTH(title) ASC, title ASC");
-    
+
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    
+
     let params_refs: Vec<&dyn rusqlite::ToSql> = params_vec.iter().map(|b| b.as_ref()).collect();
-    
+
     let refs = stmt
         .query_map(&params_refs[..], |row| {
             Ok(DocumentReference {
@@ -3253,59 +3725,74 @@ pub fn get_references(
         .map_err(|e| e.to_string())?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|e| e.to_string())?;
-    
+
     Ok(refs)
 }
 
 /// Delete a reference (cascades to remove from all sections and questions)
 pub fn delete_reference(id: i64) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    // 0. Get file path before deleting record
-    let file_path: Option<String> = conn.query_row(
-        "SELECT file_path FROM DocumentReferences WHERE id = ?1",
-        params![id],
-        |row| row.get(0)
-    ).unwrap_or(None);
 
-    let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+    // 0. Get file path before deleting record
+    let file_path: Option<String> = conn
+        .query_row(
+            "SELECT file_path FROM DocumentReferences WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .unwrap_or(None);
+
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
 
     // 1. Remove from all sections first (Cascade logic)
-    tx.execute("DELETE FROM SectionReferences WHERE reference_id = ?1", params![id])
-        .map_err(|e| format!("Failed to remove section links: {}", e))?;
-    
+    tx.execute(
+        "DELETE FROM SectionReferences WHERE reference_id = ?1",
+        params![id],
+    )
+    .map_err(|e| format!("Failed to remove section links: {}", e))?;
+
     // 2. Remove from all questions
-    tx.execute("DELETE FROM QuestionReferences WHERE reference_id = ?1", params![id])
-        .map_err(|e| format!("Failed to remove question links: {}", e))?;
+    tx.execute(
+        "DELETE FROM QuestionReferences WHERE reference_id = ?1",
+        params![id],
+    )
+    .map_err(|e| format!("Failed to remove question links: {}", e))?;
 
     // 3. Delete master reference
     tx.execute("DELETE FROM DocumentReferences WHERE id = ?1", params![id])
         .map_err(|e| format!("Failed to remove master record: {}", e))?;
-    
-    tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
-    
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+
     // 4. Delete physical file if it exists and is managed (starts with data/)
     if let Some(path) = file_path {
         if path.starts_with("data/") {
             if let Ok(data_dir) = get_portable_data_dir() {
                 // Strip "data/" prefix to get relative path
                 let relative_path = if path.starts_with("data/") {
-                     path.strip_prefix("data/").unwrap_or(&path)
+                    path.strip_prefix("data/").unwrap_or(&path)
                 } else {
-                     path.strip_prefix("data\\").unwrap_or(&path)
+                    path.strip_prefix("data\\").unwrap_or(&path)
                 };
-                
+
                 let full_path = data_dir.join(relative_path);
-                
+
                 if full_path.exists() {
-                     let _ = std::fs::remove_file(&full_path).map_err(|e| 
-                        println!("Warning: Failed to delete physical file {}: {}", full_path.display(), e)
-                     );
-                     
-                     // Optional: Try to remove parent directory if empty (cleanup)
-                     if let Some(parent) = full_path.parent() {
-                         let _ = std::fs::remove_dir(parent); 
-                     }
+                    let _ = std::fs::remove_file(&full_path).map_err(|e| {
+                        println!(
+                            "Warning: Failed to delete physical file {}: {}",
+                            full_path.display(),
+                            e
+                        )
+                    });
+
+                    // Optional: Try to remove parent directory if empty (cleanup)
+                    if let Some(parent) = full_path.parent() {
+                        let _ = std::fs::remove_dir(parent);
+                    }
                 }
             }
         }
@@ -3317,25 +3804,29 @@ pub fn delete_reference(id: i64) -> Result<(), String> {
 /// Delete all references from the master list (and all sections)
 pub fn delete_all_references() -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // 0. Get all file paths before deleting records
     let file_paths: Vec<String> = {
-        let mut stmt = conn.prepare("SELECT file_path FROM DocumentReferences WHERE file_path IS NOT NULL")
+        let mut stmt = conn
+            .prepare("SELECT file_path FROM DocumentReferences WHERE file_path IS NOT NULL")
             .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-        
-        let paths = stmt.query_map([], |row| row.get(0))
+
+        let paths = stmt
+            .query_map([], |row| row.get(0))
             .map_err(|e| format!("Failed to fetch file paths: {}", e))?
             .collect::<Result<Vec<String>, _>>()
             .map_err(|e| format!("Failed to collect file paths: {}", e))?;
         paths
     };
 
-    let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
 
     // 1. Remove all links in sections
     tx.execute("DELETE FROM SectionReferences", [])
         .map_err(|e| format!("Failed to clear section links: {}", e))?;
-    
+
     // 2. Remove all inline question references
     tx.execute("DELETE FROM QuestionReferences", [])
         .map_err(|e| format!("Failed to clear question references: {}", e))?;
@@ -3343,28 +3834,29 @@ pub fn delete_all_references() -> Result<(), String> {
     // 3. Delete all master references
     tx.execute("DELETE FROM DocumentReferences", [])
         .map_err(|e| format!("Failed to clear master references: {}", e))?;
-    
-    tx.commit().map_err(|e| format!("Failed to commit transaction: {}", e))?;
-    
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit transaction: {}", e))?;
+
     // 4. Delete all physical files
     if let Ok(data_dir) = get_portable_data_dir() {
         for path in file_paths {
             if path.starts_with("data/") {
-                 let relative_path = if path.starts_with("data/") {
-                      path.strip_prefix("data/").unwrap_or(&path)
-                 } else {
-                      path.strip_prefix("data\\").unwrap_or(&path)
-                 };
-                
-                 let full_path = data_dir.join(relative_path);
-                 if full_path.exists() {
-                     let _ = std::fs::remove_file(&full_path);
-                 }
+                let relative_path = if path.starts_with("data/") {
+                    path.strip_prefix("data/").unwrap_or(&path)
+                } else {
+                    path.strip_prefix("data\\").unwrap_or(&path)
+                };
+
+                let full_path = data_dir.join(relative_path);
+                if full_path.exists() {
+                    let _ = std::fs::remove_file(&full_path);
+                }
             }
         }
         // Optional: Clean up empty directories could be complex here, skipping for now
     }
-    
+
     Ok(())
 }
 
@@ -3375,7 +3867,7 @@ pub fn add_section_reference(
     display_order: Option<i32>,
 ) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Check if already linked
     let exists: bool = conn
         .query_row(
@@ -3384,11 +3876,11 @@ pub fn add_section_reference(
             |row| row.get(0),
         )
         .map_err(|e| e.to_string())?;
-    
+
     if exists {
         return Err("This reference is already linked to this section".to_string());
     }
-    
+
     // Get next display_order if not provided
     let order = if let Some(o) = display_order {
         o
@@ -3402,14 +3894,14 @@ pub fn add_section_reference(
             .unwrap_or(0);
         max_order + 1
     };
-    
+
     conn.execute(
         "INSERT INTO SectionReferences (section_id, reference_id, display_order)
          VALUES (?1, ?2, ?3)",
         params![section_id, reference_id, order],
     )
     .map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
@@ -3417,32 +3909,37 @@ pub fn add_section_reference(
 /// Remove reference from section and re-index
 pub fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // 1. Get info before delete to handle re-indexing
-    let (section_id, deleted_order): (i64, i32) = tx.query_row(
-        "SELECT section_id, display_order FROM SectionReferences WHERE id = ?1",
-        params![section_ref_id],
-        |row| Ok((row.get(0)?, row.get(1)?))
-    ).map_err(|e| format!("Reference not found: {}", e))?;
+    let (section_id, deleted_order): (i64, i32) = tx
+        .query_row(
+            "SELECT section_id, display_order FROM SectionReferences WHERE id = ?1",
+            params![section_ref_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Reference not found: {}", e))?;
 
     // 1.5 Check dependency: Is this reference used by any question in this section?
     // We need to find the reference_id first. Wait, we selected section_id and display_order, but we need reference_id too.
-    let reference_id: i64 = tx.query_row(
-        "SELECT reference_id FROM SectionReferences WHERE id = ?1",
-        params![section_ref_id],
-        |row| row.get(0)
-    ).map_err(|e| format!("Reference ID not found: {}", e))?;
+    let reference_id: i64 = tx
+        .query_row(
+            "SELECT reference_id FROM SectionReferences WHERE id = ?1",
+            params![section_ref_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Reference ID not found: {}", e))?;
 
-    let usage_count: i64 = tx.query_row(
-        "SELECT COUNT(*) 
-         FROM QuestionReferences qr
+    let usage_count: i64 = tx
+        .query_row(
+            "SELECT COUNT(*)         FROM QuestionReferences qr
          JOIN Questions q ON qr.question_id = q.id
          WHERE qr.reference_id = ?1 AND q.section_id = ?2",
-        params![reference_id, section_id],
-        |row| row.get(0)
-    ).unwrap_or(0);
+            params![reference_id, section_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     if usage_count > 0 {
         return Err(format!("Cannot remove reference: It is currently used by {} question(s) in this section. Please unlink it from questions first.", usage_count));
@@ -3452,45 +3949,42 @@ pub fn remove_section_reference(section_ref_id: i64) -> Result<(), String> {
     tx.execute(
         "DELETE FROM SectionReferences WHERE id = ?1",
         params![section_ref_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // 3. Re-index adjacent items (Shift Left)
     tx.execute(
-        "UPDATE SectionReferences 
-         SET display_order = display_order - 1 
-         WHERE section_id = ?1 AND display_order > ?2",
+        "UPDATE SectionReferences         SET display_order = display_order - 1         WHERE section_id = ?1 AND display_order > ?2",
         params![section_id, deleted_order],
-    ).map_err(|e| e.to_string())?;
-    
+    )
+    .map_err(|e| e.to_string())?;
+
     tx.commit().map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
 
 /// Get all references for a section (with Thai letters)
 pub fn get_section_references(section_id: i64) -> Result<Vec<SectionReferenceDetail>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Sort by Title Length (ASC) then Title (ASC) for aesthetics
     let mut stmt = conn
         .prepare(
             "SELECT sr.id, sr.section_id, sr.reference_id, sr.display_order,
                     dr.id, dr.code, dr.title, dr.category, dr.classification, dr.resource_type, dr.file_path, dr.created_at, dr.updated_at,
-                    (SELECT COUNT(*) 
-                     FROM QuestionReferences qr 
-                     JOIN Questions q ON qr.question_id = q.id 
-                     WHERE qr.reference_id = sr.reference_id AND q.section_id = sr.section_id) as usage_count
+                    (SELECT COUNT(*)                     FROM QuestionReferences qr                     JOIN Questions q ON qr.question_id = q.id                     WHERE qr.reference_id = sr.reference_id AND q.section_id = sr.section_id) as usage_count
              FROM SectionReferences sr
              JOIN DocumentReferences dr ON sr.reference_id = dr.id
              WHERE sr.section_id = ?1
              ORDER BY sr.display_order ASC"
         )
         .map_err(|e| e.to_string())?;
-    
+
     let refs = stmt
         .query_map(params![section_id], |row| {
             let display_order: i32 = row.get(3)?;
-            
+
             Ok(SectionReferenceDetail {
                 id: row.get(0)?,
                 section_id: row.get(1)?,
@@ -3555,64 +4049,63 @@ pub struct UpdateReferenceArgs {
 /// Update an existing reference
 pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Check if reference exists
-    let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE id = ?1)",
-        params![args.id],
-        |row| row.get(0)
-    ).unwrap_or(false);
-    
+    let exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE id = ?1)",
+            params![args.id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
     if !exists {
         return Err(format!("Reference with ID {} not found", args.id));
     }
-    
+
     // Check if new code conflicts with another reference
-    let code_conflict: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE code = ?1 AND id != ?2)",
-        params![args.code, args.id],
-        |row| row.get(0)
-    ).unwrap_or(false);
-    
+    let code_conflict: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM DocumentReferences WHERE code = ?1 AND id != ?2)",
+            params![args.code, args.id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
     if code_conflict {
         return Err(format!("Reference code '{}' already exists", args.code));
     }
 
     // 1. Get existing file_path BEFORE update
-    let old_file_path: Option<String> = conn.query_row(
-        "SELECT file_path FROM DocumentReferences WHERE id = ?1",
-        params![args.id],
-        |row| row.get(0)
-    ).unwrap_or(None);
-    
+    let old_file_path: Option<String> = conn
+        .query_row(
+            "SELECT file_path FROM DocumentReferences WHERE id = ?1",
+            params![args.id],
+            |row| row.get(0),
+        )
+        .unwrap_or(None);
+
     // Auto-Bundling on update
     let final_file_path = if let Some(path) = &args.file_path {
         Some(bundle_reference_file(
-            &args.code, 
-            args.category.as_deref().unwrap_or("OTHER"), 
+            &args.code,
+            args.category.as_deref().unwrap_or("OTHER"),
             path,
-            args.pqs_id.as_deref()
+            args.pqs_id.as_deref(),
         )?)
     } else {
         None
     };
-    
+
     // Perform update
     conn.execute(
-        "UPDATE DocumentReferences 
-         SET code = ?1, title = ?2, category = ?3, classification = ?4, resource_type = ?5, file_path = ?6, updated_at = CURRENT_TIMESTAMP 
-         WHERE id = ?7",
+        "UPDATE DocumentReferences         SET code = ?1, title = ?2, category = ?3, classification = ?4, resource_type = ?5, file_path = ?6, updated_at = CURRENT_TIMESTAMP         WHERE id = ?7",
         params![
-            args.code, 
-            args.title, 
-            args.category, 
-            args.classification.unwrap_or("Unclassified".to_string()), 
-            args.resource_type.unwrap_or("DOCUMENT".to_string()),
-            final_file_path, 
-            args.id
+            args.code,            args.title,            args.category,            args.classification.unwrap_or("Unclassified".to_string()),            args.resource_type.unwrap_or("DOCUMENT".to_string()),
+            final_file_path,            args.id
         ]
     ).map_err(|e| format!("Failed to update reference: {}", e))?;
-    
+
     // 2. Cleanup old file if path changed
     if let Some(old_path) = old_file_path {
         // If we have a new path, and it's different from the old one
@@ -3626,22 +4119,26 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
             if let Ok(data_dir) = get_portable_data_dir() {
                 // Strip "data/" prefix to get relative path
                 let relative_path = if old_path.starts_with("data/") {
-                     old_path.strip_prefix("data/").unwrap_or(&old_path)
+                    old_path.strip_prefix("data/").unwrap_or(&old_path)
                 } else {
-                     old_path.strip_prefix("data\\").unwrap_or(&old_path)
+                    old_path.strip_prefix("data\\").unwrap_or(&old_path)
                 };
-                
+
                 let full_path = data_dir.join(relative_path);
-                
+
                 if full_path.exists() {
-                     let _ = std::fs::remove_file(&full_path).map_err(|e| 
-                        println!("Warning: Failed to delete old physical file {}: {}", full_path.display(), e)
-                     );
-                     
-                     // Optional: Try to remove parent directory if empty
-                     if let Some(parent) = full_path.parent() {
-                         let _ = std::fs::remove_dir(parent); 
-                     }
+                    let _ = std::fs::remove_file(&full_path).map_err(|e| {
+                        println!(
+                            "Warning: Failed to delete old physical file {}: {}",
+                            full_path.display(),
+                            e
+                        )
+                    });
+
+                    // Optional: Try to remove parent directory if empty
+                    if let Some(parent) = full_path.parent() {
+                        let _ = std::fs::remove_dir(parent);
+                    }
                 }
             }
         }
@@ -3651,14 +4148,20 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
 }
 
 /// Upload an image for a question (copies to data/{doc_id}/question-images/{prefix}_{filename})
-pub fn upload_question_image(source_path: String, document_id: String, question_id: String, friendly_prefix: Option<String>) -> Result<String, String> {
+pub fn upload_question_image(
+    source_path: String,
+    document_id: String,
+    question_id: String,
+    friendly_prefix: Option<String>,
+) -> Result<String, String> {
     let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-    
+
     // Target: data/{document_id}/question-images/
     let target_dir = data_dir.join(&document_id).join("question-images");
-    
+
     if !target_dir.exists() {
-        std::fs::create_dir_all(&target_dir).map_err(|e| format!("Failed to create images directory: {}", e))?;
+        std::fs::create_dir_all(&target_dir)
+            .map_err(|e| format!("Failed to create images directory: {}", e))?;
     }
 
     let path = std::path::Path::new(&source_path);
@@ -3676,14 +4179,20 @@ pub fn upload_question_image(source_path: String, document_id: String, question_
         let safe_stem = original_stem.replace(" ", "_"); // Basic sanitization
         format!("{}_{}.{}", safe_prefix, safe_stem, extension)
     } else {
-        format!("{}_{}.{}", question_id, generate_uuid().chars().take(8).collect::<String>(), extension)
+        format!(
+            "{}_{}.{}",
+            question_id,
+            generate_uuid().chars().take(8).collect::<String>(),
+            extension
+        )
     };
-    
+
     // Check collision, if exists, append short UUID
     let mut target_path = target_dir.join(&filename);
     if target_path.exists() {
-        let new_filename = format!("{}_{}.{}", 
-            filename.trim_end_matches(&format!(".{}", extension)), 
+        let new_filename = format!(
+            "{}_{}.{}",
+            filename.trim_end_matches(&format!(".{}", extension)),
             generate_uuid().chars().take(4).collect::<String>(),
             extension
         );
@@ -3692,13 +4201,17 @@ pub fn upload_question_image(source_path: String, document_id: String, question_
 
     println!("DEBUG: Uploading image to {:?}", target_path);
 
-    std::fs::copy(&source_path, &target_path).map_err(|e| format!("Failed to copy image: {}", e))?;
+    std::fs::copy(&source_path, &target_path)
+        .map_err(|e| format!("Failed to copy image: {}", e))?;
 
     // Return relative path: data/{document_id}/question-images/{filename}
     // Note: We return the relative path from "data" root or just the portable path string?
     // Frontend expects "data/..." string.
     let relative_filename = target_path.file_name().unwrap().to_string_lossy();
-    Ok(format!("data/{}/question-images/{}", document_id, relative_filename))
+    Ok(format!(
+        "data/{}/question-images/{}",
+        document_id, relative_filename
+    ))
 }
 
 pub fn delete_question_image(relative_path: String) -> Result<(), String> {
@@ -3709,11 +4222,14 @@ pub fn delete_question_image(relative_path: String) -> Result<(), String> {
     let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
     // relative_path is "data/..."
     // strip "data/"
-    let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+    let suffix = relative_path
+        .strip_prefix("data/")
+        .unwrap_or(&relative_path);
     let target_path = data_dir.join(suffix);
-    
+
     if target_path.exists() {
-        std::fs::remove_file(target_path).map_err(|e| format!("Failed to delete image file: {}", e))?;
+        std::fs::remove_file(target_path)
+            .map_err(|e| format!("Failed to delete image file: {}", e))?;
     }
     Ok(())
 }
@@ -3725,16 +4241,18 @@ pub fn resolve_image_path(relative_path: String) -> Result<String, String> {
     }
 
     let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-    
+
     // relative_path is "data/images/xyz.jpg"
     // we want to join data_dir (which ends in "data") with "images/xyz.jpg"
-    // OR if data_dir is the parent? 
+    // OR if data_dir is the parent?
     // get_portable_data_dir returns ".../data".
     // So if we strip "data/" from relative path, we get "images/xyz.jpg".
-    
-    let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+
+    let suffix = relative_path
+        .strip_prefix("data/")
+        .unwrap_or(&relative_path);
     let abs_path = data_dir.join(suffix);
-    
+
     Ok(abs_path.to_string_lossy().to_string())
 }
 
@@ -3742,19 +4260,20 @@ pub fn resolve_image_path(relative_path: String) -> Result<String, String> {
 pub fn get_question_image_base64(relative_path: String) -> Result<String, String> {
     let abs_path_str = resolve_image_path(relative_path)?;
     let path = std::path::Path::new(&abs_path_str);
-    
+
     if !path.exists() {
         return Err(format!("Image file not found: {}", abs_path_str));
     }
 
     let data = std::fs::read(path).map_err(|e| format!("Failed to read image file: {}", e))?;
-    
+
     // Simple mime type detection
-    let extension = path.extension()
+    let extension = path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("jpg")
         .to_lowercase();
-        
+
     let mime_type = match extension.as_str() {
         "png" => "image/png",
         "gif" => "image/gif",
@@ -3764,7 +4283,7 @@ pub fn get_question_image_base64(relative_path: String) -> Result<String, String
     };
 
     let base64_data = general_purpose::STANDARD.encode(&data);
-    
+
     Ok(format!("data:{};base64,{}", mime_type, base64_data))
 }
 
@@ -3789,7 +4308,9 @@ fn get_question_section_group(conn: &Connection, question_id: &str) -> Result<Op
         )
         .map_err(|e| e.to_string())?;
 
-    let mut rows = stmt.query(params![question_id]).map_err(|e| e.to_string())?;
+    let mut rows = stmt
+        .query(params![question_id])
+        .map_err(|e| e.to_string())?;
     if let Some(row) = rows.next().map_err(|e| e.to_string())? {
         let group: i32 = row.get(0).map_err(|e| e.to_string())?;
         Ok(Some(group))
@@ -3809,7 +4330,10 @@ fn ensure_section_300_policy_allows_question_action(
     Ok(())
 }
 
-fn add_question_reference_with_conn(conn: &Connection, req: AddQuestionReferenceRequest) -> Result<(), String> {
+fn add_question_reference_with_conn(
+    conn: &Connection,
+    req: AddQuestionReferenceRequest,
+) -> Result<(), String> {
     ensure_section_300_policy_allows_question_action(conn, &req.question_id, "references")?;
 
     // Check if already linked
@@ -3837,7 +4361,12 @@ fn add_question_reference_with_conn(conn: &Connection, req: AddQuestionReference
     conn.execute(
         "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
          VALUES (?1, ?2, ?3, ?4)",
-        params![req.question_id, req.reference_id, req.location_text, max_order + 1],
+        params![
+            req.question_id,
+            req.reference_id,
+            req.location_text,
+            max_order + 1
+        ],
     )
     .map_err(|e| e.to_string())?;
 
@@ -3853,31 +4382,28 @@ pub fn add_question_reference(req: AddQuestionReferenceRequest) -> Result<(), St
 /// Remove a reference link from a question
 pub fn remove_question_reference(id: i32) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
-    conn.execute(
-        "DELETE FROM QuestionReferences WHERE id = ?1",
-        params![id],
-    )
-    .map_err(|e| e.to_string())?;
-    
+
+    conn.execute("DELETE FROM QuestionReferences WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+
     Ok(())
 }
 
 /// Update page number/location text for a question reference link
-pub fn update_question_reference_location(id: i32, location_text: Option<String>) -> Result<(), String> {
+pub fn update_question_reference_location(
+    id: i32,
+    location_text: Option<String>,
+) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     conn.execute(
         "UPDATE QuestionReferences SET location_text = ?1 WHERE id = ?2",
         params![location_text, id],
     )
     .map_err(|e| e.to_string())?;
-    
+
     Ok(())
 }
-
-
-
 
 // ==========================================
 // Occupation Branch Management (Global)
@@ -3913,13 +4439,21 @@ pub struct OccupationSubQuestion {
 pub fn get_occupation_branches() -> Result<Vec<OccupationBranch>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     ensure_standard_occupation_branch_exists(&conn)?;
-    let mut stmt = conn.prepare("SELECT code, name FROM OccupationBranches ORDER BY code")
+    let mut stmt = conn
+        .prepare("SELECT code, name FROM OccupationBranches ORDER BY code")
         .map_err(|e| e.to_string())?;
-    let rows = stmt.query_map([], |row| {
-        Ok(OccupationBranch { code: row.get(0)?, name: row.get(1)? })
-    }).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(OccupationBranch {
+                code: row.get(0)?,
+                name: row.get(1)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
     let mut result = Vec::new();
-    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    for r in rows {
+        result.push(r.map_err(|e| e.to_string())?);
+    }
     Ok(result)
 }
 
@@ -3929,7 +4463,8 @@ pub fn create_occupation_branch(code: String, name: String) -> Result<Occupation
     conn.execute(
         "INSERT INTO OccupationBranches (code, name) VALUES (?1, ?2)",
         params![code, name],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(OccupationBranch { code, name })
 }
 
@@ -3942,7 +4477,8 @@ pub fn update_occupation_branch(code: String, name: String) -> Result<(), String
     conn.execute(
         "UPDATE OccupationBranches SET name = ?1 WHERE code = ?2",
         params![name, code],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -3952,43 +4488,68 @@ pub fn delete_occupation_branch(code: String) -> Result<(), String> {
     if is_protected_main_branch(&conn, &code)? {
         return Err("Cannot delete the protected standard occupation branch".to_string());
     }
-    conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
+    conn.execute("PRAGMA foreign_keys = ON", [])
+        .map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM OccupationBranches WHERE code = ?1",
         params![code],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 // --- Sub-Branches ---
 
 /// Get sub-branches for a given main branch
-pub fn get_occupation_sub_branches(branch_code: String) -> Result<Vec<OccupationSubBranch>, String> {
+pub fn get_occupation_sub_branches(
+    branch_code: String,
+) -> Result<Vec<OccupationSubBranch>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     ensure_standard_occupation_branch_exists(&conn)?;
     let mut stmt = conn.prepare(
         "SELECT code, branch_code, name FROM OccupationSubBranches WHERE branch_code = ?1 ORDER BY code"
     ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map(params![branch_code], |row| {
-        Ok(OccupationSubBranch { code: row.get(0)?, branch_code: row.get(1)?, name: row.get(2)? })
-    }).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![branch_code], |row| {
+            Ok(OccupationSubBranch {
+                code: row.get(0)?,
+                branch_code: row.get(1)?,
+                name: row.get(2)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
     let mut result = Vec::new();
-    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    for r in rows {
+        result.push(r.map_err(|e| e.to_string())?);
+    }
     Ok(result)
 }
 
 /// Create a new sub-branch
-pub fn create_occupation_sub_branch(code: String, branch_code: String, name: String) -> Result<OccupationSubBranch, String> {
+pub fn create_occupation_sub_branch(
+    code: String,
+    branch_code: String,
+    name: String,
+) -> Result<OccupationSubBranch, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     conn.execute(
         "INSERT INTO OccupationSubBranches (code, branch_code, name) VALUES (?1, ?2, ?3)",
         params![code, branch_code, name],
-    ).map_err(|e| e.to_string())?;
-    Ok(OccupationSubBranch { code, branch_code, name })
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(OccupationSubBranch {
+        code,
+        branch_code,
+        name,
+    })
 }
 
 /// Update a sub-branch name
-pub fn update_occupation_sub_branch(code: String, branch_code: String, name: String) -> Result<(), String> {
+pub fn update_occupation_sub_branch(
+    code: String,
+    branch_code: String,
+    name: String,
+) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     if is_protected_sub_branch(&conn, &branch_code, &code)? && name != STANDARD_BRANCH_NAME {
         return Err("Cannot rename the protected standard occupation sub-branch".to_string());
@@ -3996,7 +4557,8 @@ pub fn update_occupation_sub_branch(code: String, branch_code: String, name: Str
     conn.execute(
         "UPDATE OccupationSubBranches SET name = ?1 WHERE branch_code = ?2 AND code = ?3",
         params![name, branch_code, code],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -4006,61 +4568,80 @@ pub fn delete_occupation_sub_branch(code: String, branch_code: String) -> Result
     if is_protected_sub_branch(&conn, &branch_code, &code)? {
         return Err("Cannot delete the protected standard occupation sub-branch".to_string());
     }
-    conn.execute("PRAGMA foreign_keys = ON", []).map_err(|e| e.to_string())?;
+    conn.execute("PRAGMA foreign_keys = ON", [])
+        .map_err(|e| e.to_string())?;
     conn.execute(
         "DELETE FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2",
         params![branch_code, code],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 // --- Sub-Questions ---
 
 /// Get sub-questions for a given branch + sub-branch pair
-pub fn get_occupation_sub_questions(branch_code: String, sub_branch_code: String) -> Result<Vec<OccupationSubQuestion>, String> {
+pub fn get_occupation_sub_questions(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<Vec<OccupationSubQuestion>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    let mut stmt = conn.prepare(
-        "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
          FROM OccupationSubQuestions WHERE branch_code = ?1 AND sub_branch_code = ?2
-         ORDER BY sequence, id"
-    ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map(params![branch_code, sub_branch_code], |row| {
-        Ok(OccupationSubQuestion {
-            id: row.get(0)?,
-            branch_code: row.get(1)?,
-            sub_branch_code: row.get(2)?,
-            code: row.get(3)?,
-            text: row.get(4)?,
-            always_checked: row.get(5)?,
-            sequence: row.get(6)?,
+         ORDER BY sequence, id",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![branch_code, sub_branch_code], |row| {
+            Ok(OccupationSubQuestion {
+                id: row.get(0)?,
+                branch_code: row.get(1)?,
+                sub_branch_code: row.get(2)?,
+                code: row.get(3)?,
+                text: row.get(4)?,
+                always_checked: row.get(5)?,
+                sequence: row.get(6)?,
+            })
         })
-    }).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
     let mut result = Vec::new();
-    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    for r in rows {
+        result.push(r.map_err(|e| e.to_string())?);
+    }
     Ok(result)
 }
 
 /// Get ALL sub-questions for a given main branch (across all sub-branches)
-pub fn get_all_sub_questions_for_branch(branch_code: String) -> Result<Vec<OccupationSubQuestion>, String> {
+pub fn get_all_sub_questions_for_branch(
+    branch_code: String,
+) -> Result<Vec<OccupationSubQuestion>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    let mut stmt = conn.prepare(
-        "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
          FROM OccupationSubQuestions WHERE branch_code = ?1
-         ORDER BY sub_branch_code, sequence, id"
-    ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map(params![branch_code], |row| {
-        Ok(OccupationSubQuestion {
-            id: row.get(0)?,
-            branch_code: row.get(1)?,
-            sub_branch_code: row.get(2)?,
-            code: row.get(3)?,
-            text: row.get(4)?,
-            always_checked: row.get(5)?,
-            sequence: row.get(6)?,
+         ORDER BY sub_branch_code, sequence, id",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![branch_code], |row| {
+            Ok(OccupationSubQuestion {
+                id: row.get(0)?,
+                branch_code: row.get(1)?,
+                sub_branch_code: row.get(2)?,
+                code: row.get(3)?,
+                text: row.get(4)?,
+                always_checked: row.get(5)?,
+                sequence: row.get(6)?,
+            })
         })
-    }).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
     let mut result = Vec::new();
-    for r in rows { result.push(r.map_err(|e| e.to_string())?); }
+    for r in rows {
+        result.push(r.map_err(|e| e.to_string())?);
+    }
     Ok(result)
 }
 
@@ -4074,22 +4655,24 @@ pub struct CreateSubQuestionRequest {
 }
 
 /// Create a new sub-question
-pub fn create_occupation_sub_question(req: CreateSubQuestionRequest) -> Result<OccupationSubQuestion, String> {
+pub fn create_occupation_sub_question(
+    req: CreateSubQuestionRequest,
+) -> Result<OccupationSubQuestion, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    
+
     // Get next sequence
     let max_seq: i32 = conn.query_row(
         "SELECT COALESCE(MAX(sequence), 0) FROM OccupationSubQuestions WHERE branch_code = ?1 AND sub_branch_code = ?2",
         params![req.branch_code, req.sub_branch_code],
         |row| row.get(0),
     ).unwrap_or(0);
-    
+
     conn.execute(
         "INSERT INTO OccupationSubQuestions (branch_code, sub_branch_code, code, text, always_checked, sequence)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
         params![req.branch_code, req.sub_branch_code, req.code, req.text, req.always_checked.unwrap_or(false), max_seq + 1],
     ).map_err(|e| e.to_string())?;
-    
+
     let id = conn.last_insert_rowid();
     Ok(OccupationSubQuestion {
         id,
@@ -4103,18 +4686,24 @@ pub fn create_occupation_sub_question(req: CreateSubQuestionRequest) -> Result<O
 }
 
 /// Update a sub-question text
-pub fn update_occupation_sub_question(id: i64, text: String, always_checked: Option<bool>) -> Result<(), String> {
+pub fn update_occupation_sub_question(
+    id: i64,
+    text: String,
+    always_checked: Option<bool>,
+) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     if let Some(ac) = always_checked {
         conn.execute(
             "UPDATE OccupationSubQuestions SET text = ?1, always_checked = ?2 WHERE id = ?3",
             params![text, ac, id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     } else {
         conn.execute(
             "UPDATE OccupationSubQuestions SET text = ?1 WHERE id = ?2",
             params![text, id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -4122,8 +4711,11 @@ pub fn update_occupation_sub_question(id: i64, text: String, always_checked: Opt
 /// Delete a sub-question
 pub fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    conn.execute("DELETE FROM OccupationSubQuestions WHERE id = ?1", params![id])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM OccupationSubQuestions WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -4198,7 +4790,10 @@ pub fn upsert_user_progress(args: UpsertUserProgressArgs) -> Result<UserProgress
 }
 
 /// Get all progress entries for a user in a document
-pub fn get_user_progress(user_id: String, document_id: String) -> Result<Vec<UserProgress>, String> {
+pub fn get_user_progress(
+    user_id: String,
+    document_id: String,
+) -> Result<Vec<UserProgress>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     let mut stmt = conn.prepare(
@@ -4206,22 +4801,24 @@ pub fn get_user_progress(user_id: String, document_id: String) -> Result<Vec<Use
          FROM UserProgress WHERE user_id = ?1 AND document_id = ?2"
     ).map_err(|e| e.to_string())?;
 
-    let rows = stmt.query_map(params![user_id, document_id], |row| {
-        Ok(UserProgress {
-            id: row.get(0)?,
-            user_id: row.get(1)?,
-            document_id: row.get(2)?,
-            section_id: row.get(3)?,
-            earned_score: row.get(4)?,
-            max_score: row.get(5)?,
-            completion_percentage: row.get(6)?,
-            is_passed: row.get(7)?,
-            passing_score: row.get(8)?,
-            last_updated: row.get(9)?,
+    let rows = stmt
+        .query_map(params![user_id, document_id], |row| {
+            Ok(UserProgress {
+                id: row.get(0)?,
+                user_id: row.get(1)?,
+                document_id: row.get(2)?,
+                section_id: row.get(3)?,
+                earned_score: row.get(4)?,
+                max_score: row.get(5)?,
+                completion_percentage: row.get(6)?,
+                is_passed: row.get(7)?,
+                passing_score: row.get(8)?,
+                last_updated: row.get(9)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-      .collect::<Result<Vec<_>, _>>()
-      .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(rows)
 }
@@ -4232,24 +4829,26 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
 
     // Sum L1 questions: group headers use group_score, others use score if is_scored
     // Only count top-level questions (parent_id IS NULL) to avoid double-counting
-    let total: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(
-            CASE 
-                WHEN question_type = 'exempted' THEN 0
+    let total: i32 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(
+            CASE                WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN group_score
                 WHEN is_scored = 1 AND parent_id IS NULL THEN score
                 ELSE 0
             END
         ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
-        params![section_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+            params![section_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Auto-update the section's total_score
     conn.execute(
         "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
         params![total, section_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(total)
 }
@@ -4260,24 +4859,26 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
 pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let total: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(
-            CASE 
-                WHEN question_type = 'exempted' THEN 0
+    let total: i32 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(
+            CASE                WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN group_score
                 WHEN is_scored = 1 THEN score
                 ELSE 0
             END
         ), 0) FROM Questions WHERE parent_id = ?1",
-        params![parent_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+            params![parent_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Auto-update the parent's group_score
     conn.execute(
         "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
         params![total, parent_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(total)
 }
@@ -4285,14 +4886,17 @@ pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
 /// Batch-recalculate group_score for all group headers in a section, bottom-up (L2 → L1),
 /// using a single connection and transaction to avoid SQLite write-lock contention.
 /// Returns a map of question_id → new group_score.
-pub fn batch_recalculate_section_group_scores(section_id: i64) -> Result<Vec<(String, i32)>, String> {
+pub fn batch_recalculate_section_group_scores(
+    section_id: i64,
+) -> Result<Vec<(String, i32)>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // L2 group headers first (children of L1)
     let mut l2_stmt = conn.prepare(
         "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NOT NULL AND is_group_header = 1"
     ).map_err(|e| e.to_string())?;
-    let l2_ids: Vec<String> = l2_stmt.query_map(params![section_id], |row| row.get(0))
+    let l2_ids: Vec<String> = l2_stmt
+        .query_map(params![section_id], |row| row.get(0))
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -4301,7 +4905,8 @@ pub fn batch_recalculate_section_group_scores(section_id: i64) -> Result<Vec<(St
     let mut l1_stmt = conn.prepare(
         "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND is_group_header = 1"
     ).map_err(|e| e.to_string())?;
-    let l1_ids: Vec<String> = l1_stmt.query_map(params![section_id], |row| row.get(0))
+    let l1_ids: Vec<String> = l1_stmt
+        .query_map(params![section_id], |row| row.get(0))
         .map_err(|e| e.to_string())?
         .filter_map(|r| r.ok())
         .collect();
@@ -4309,25 +4914,28 @@ pub fn batch_recalculate_section_group_scores(section_id: i64) -> Result<Vec<(St
     let mut results = Vec::new();
 
     // Single transaction for all writes
-    conn.execute("BEGIN IMMEDIATE", []).map_err(|e| e.to_string())?;
+    conn.execute("BEGIN IMMEDIATE", [])
+        .map_err(|e| e.to_string())?;
 
     let calc_and_update = |conn: &Connection, parent_id: &str| -> Result<i32, String> {
-        let total: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(
-                CASE 
-                    WHEN question_type = 'exempted' THEN 0
+        let total: i32 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(
+                CASE                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
                 END
             ), 0) FROM Questions WHERE parent_id = ?1",
-            params![parent_id],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+                params![parent_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
         conn.execute(
             "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
             params![total, parent_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
         Ok(total)
     };
 
@@ -4364,8 +4972,9 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
         conn.execute(
             "DELETE FROM Questions WHERE parent_id = ?1",
             params![args.id],
-        ).map_err(|e| e.to_string())?;
-        
+        )
+        .map_err(|e| e.to_string())?;
+
         // Set question to exempted and revert group_header status, clear description
         conn.execute(
             "UPDATE Questions SET score = 0, is_scored = 0, question_type = ?2, display_text = ?3, group_score = 0, is_group_header = 0, description = NULL WHERE id = ?1",
@@ -4379,77 +4988,88 @@ pub fn update_question_score(args: UpdateQuestionScoreArgs) -> Result<(), String
     }
 
     // If this question has a parent, recalculate parent's group_score (L2 → L1)
-    let parent_id: Option<String> = conn.query_row(
-        "SELECT parent_id FROM Questions WHERE id = ?1",
-        params![args.id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let parent_id: Option<String> = conn
+        .query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1",
+            params![args.id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     if let Some(ref pid) = parent_id {
         // Sum children: group headers contribute group_score, scored items contribute score
-        let group_total: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(
-                CASE 
-                    WHEN question_type = 'exempted' THEN 0
+        let group_total: i32 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(
+                CASE                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
                 END
             ), 0) FROM Questions WHERE parent_id = ?1",
-            params![pid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+                params![pid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
         conn.execute(
             "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
             params![group_total, pid],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         // Also propagate up: if parent has a grandparent, recalculate grandparent's group_score (L1 → section)
-        let grandparent_id: Option<String> = conn.query_row(
-            "SELECT parent_id FROM Questions WHERE id = ?1",
-            params![pid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+        let grandparent_id: Option<String> = conn
+            .query_row(
+                "SELECT parent_id FROM Questions WHERE id = ?1",
+                params![pid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         if let Some(ref gpid) = grandparent_id {
-            let gp_total: i32 = conn.query_row(
-                "SELECT COALESCE(SUM(
-                    CASE 
-                        WHEN question_type = 'exempted' THEN 0
+            let gp_total: i32 = conn
+                .query_row(
+                    "SELECT COALESCE(SUM(
+                    CASE                        WHEN question_type = 'exempted' THEN 0
                         WHEN is_group_header = 1 THEN group_score
                         WHEN is_scored = 1 THEN score
                         ELSE 0
                     END
                 ), 0) FROM Questions WHERE parent_id = ?1",
-                params![gpid],
-                |row| row.get(0)
-            ).map_err(|e| e.to_string())?;
+                    params![gpid],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
             conn.execute(
                 "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
                 params![gp_total, gpid],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
         }
 
         // Propagate to section total_score
-        let section_id: Option<i64> = conn.query_row(
-            "SELECT section_id FROM Questions WHERE id = ?1",
-            params![pid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+        let section_id: Option<i64> = conn
+            .query_row(
+                "SELECT section_id FROM Questions WHERE id = ?1",
+                params![pid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         if let Some(sid) = section_id {
-            let section_total: i32 = conn.query_row(
-                "SELECT COALESCE(SUM(
-                    CASE 
-                        WHEN question_type = 'exempted' THEN 0
+            let section_total: i32 = conn
+                .query_row(
+                    "SELECT COALESCE(SUM(
+                    CASE                        WHEN question_type = 'exempted' THEN 0
                         WHEN is_group_header = 1 THEN group_score
                         WHEN is_scored = 1 AND parent_id IS NULL THEN score
                         ELSE 0
                     END
                 ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
-                params![sid],
-                |row| row.get(0)
-            ).map_err(|e| e.to_string())?;
+                    params![sid],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
 
             conn.execute(
                 "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
@@ -4486,7 +5106,9 @@ pub struct AddQuestionSectionLinkRequest {
 }
 
 /// Add a single section link to a question (3xx.1.4 or 3xx.1.5)
-pub fn add_question_section_link(req: AddQuestionSectionLinkRequest) -> Result<QuestionSectionLink, String> {
+pub fn add_question_section_link(
+    req: AddQuestionSectionLinkRequest,
+) -> Result<QuestionSectionLink, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // Check if already linked
@@ -4513,7 +5135,8 @@ pub fn add_question_section_link(req: AddQuestionSectionLinkRequest) -> Result<Q
         "INSERT INTO QuestionSectionLinks (question_id, section_id, score, display_order)
          VALUES (?1, ?2, ?3, ?4)",
         params![req.question_id, req.section_id, score, max_order + 1],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     let id = conn.last_insert_rowid();
 
@@ -4528,7 +5151,9 @@ pub struct BatchAddQuestionSectionLinksRequest {
 }
 
 /// Batch add multiple section links at once (for "Select All")
-pub fn batch_add_question_section_links(req: BatchAddQuestionSectionLinksRequest) -> Result<Vec<QuestionSectionLink>, String> {
+pub fn batch_add_question_section_links(
+    req: BatchAddQuestionSectionLinksRequest,
+) -> Result<Vec<QuestionSectionLink>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     let max_order: i32 = conn.query_row(
@@ -4551,7 +5176,8 @@ pub fn batch_add_question_section_links(req: BatchAddQuestionSectionLinksRequest
                 "INSERT INTO QuestionSectionLinks (question_id, section_id, score, display_order)
                  VALUES (?1, ?2, 0, ?3)",
                 params![req.question_id, section_id, max_order + 1 + i as i32],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
             created_ids.push(conn.last_insert_rowid());
         }
     }
@@ -4563,16 +5189,22 @@ pub fn batch_add_question_section_links(req: BatchAddQuestionSectionLinksRequest
 /// Remove a single section link by its ID
 pub fn remove_question_section_link(id: i64) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    conn.execute("DELETE FROM QuestionSectionLinks WHERE id = ?1", params![id])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM QuestionSectionLinks WHERE id = ?1",
+        params![id],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Remove all section links for a question (for "Deselect All")
 pub fn remove_all_question_section_links(question_id: String) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    conn.execute("DELETE FROM QuestionSectionLinks WHERE question_id = ?1", params![question_id])
-        .map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM QuestionSectionLinks WHERE question_id = ?1",
+        params![question_id],
+    )
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -4582,35 +5214,45 @@ pub fn get_question_section_links(question_id: String) -> Result<Vec<QuestionSec
     get_question_section_links_inner(&conn, &question_id)
 }
 
-fn get_question_section_links_inner(conn: &Connection, question_id: &str) -> Result<Vec<QuestionSectionLink>, String> {
-    let mut stmt = conn.prepare(
-        "SELECT qsl.id, qsl.question_id, qsl.section_id, qsl.score, qsl.display_order,
+fn get_question_section_links_inner(
+    conn: &Connection,
+    question_id: &str,
+) -> Result<Vec<QuestionSectionLink>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT qsl.id, qsl.question_id, qsl.section_id, qsl.score, qsl.display_order,
                 s.section_number, s.title_th, s.section_group
          FROM QuestionSectionLinks qsl
          JOIN Sections s ON qsl.section_id = s.id
          WHERE qsl.question_id = ?1
-         ORDER BY s.section_number"
-    ).map_err(|e| e.to_string())?;
+         ORDER BY s.section_number",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let links = stmt.query_map(params![question_id], |row| {
-        Ok(QuestionSectionLink {
-            id: row.get(0)?,
-            question_id: row.get(1)?,
-            section_id: row.get(2)?,
-            score: row.get(3)?,
-            display_order: row.get(4)?,
-            section_number: row.get(5)?,
-            section_title: row.get(6)?,
-            section_group: row.get(7)?,
+    let links = stmt
+        .query_map(params![question_id], |row| {
+            Ok(QuestionSectionLink {
+                id: row.get(0)?,
+                question_id: row.get(1)?,
+                section_id: row.get(2)?,
+                score: row.get(3)?,
+                display_order: row.get(4)?,
+                section_number: row.get(5)?,
+                section_title: row.get(6)?,
+                section_group: row.get(7)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-      .collect::<Result<Vec<_>, _>>()
-      .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(links)
 }
 
-fn get_question_section_link_by_id(conn: &Connection, id: i64) -> Result<QuestionSectionLink, String> {
+fn get_question_section_link_by_id(
+    conn: &Connection,
+    id: i64,
+) -> Result<QuestionSectionLink, String> {
     conn.query_row(
         "SELECT qsl.id, qsl.question_id, qsl.section_id, qsl.score, qsl.display_order,
                 s.section_number, s.title_th, s.section_group
@@ -4618,17 +5260,20 @@ fn get_question_section_link_by_id(conn: &Connection, id: i64) -> Result<Questio
          JOIN Sections s ON qsl.section_id = s.id
          WHERE qsl.id = ?1",
         params![id],
-        |row| Ok(QuestionSectionLink {
-            id: row.get(0)?,
-            question_id: row.get(1)?,
-            section_id: row.get(2)?,
-            score: row.get(3)?,
-            display_order: row.get(4)?,
-            section_number: row.get(5)?,
-            section_title: row.get(6)?,
-            section_group: row.get(7)?,
-        })
-    ).map_err(|e| format!("Failed to get section link: {}", e))
+        |row| {
+            Ok(QuestionSectionLink {
+                id: row.get(0)?,
+                question_id: row.get(1)?,
+                section_id: row.get(2)?,
+                score: row.get(3)?,
+                display_order: row.get(4)?,
+                section_number: row.get(5)?,
+                section_title: row.get(6)?,
+                section_group: row.get(7)?,
+            })
+        },
+    )
+    .map_err(|e| format!("Failed to get section link: {}", e))
 }
 
 #[derive(serde::Deserialize)]
@@ -4644,7 +5289,8 @@ pub fn update_section_link_score(args: UpdateSectionLinkScoreArgs) -> Result<(),
     conn.execute(
         "UPDATE QuestionSectionLinks SET score = ?1 WHERE id = ?2",
         params![args.score, args.id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -4655,65 +5301,75 @@ pub fn recalculate_section_link_scores(question_id: String) -> Result<i32, Strin
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // 1. Sum all link scores for this question
-    let link_total: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(score), 0) FROM QuestionSectionLinks WHERE question_id = ?1",
-        params![question_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let link_total: i32 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(score), 0) FROM QuestionSectionLinks WHERE question_id = ?1",
+            params![question_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     // 2. Update this question's group_score (3xx.1.4 or 3xx.1.5)
     conn.execute(
         "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
         params![link_total, question_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // 3. Propagate up: get parent (3xx.1) and recalculate its group_score
-    let parent_id: Option<String> = conn.query_row(
-        "SELECT parent_id FROM Questions WHERE id = ?1",
-        params![question_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let parent_id: Option<String> = conn
+        .query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1",
+            params![question_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     if let Some(pid) = parent_id {
         // Sum group_score of scored children (3xx.1.4 + 3xx.1.5) + direct scores
-        let parent_total: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(
-                CASE 
-                    WHEN question_type = 'exempted' THEN 0
+        let parent_total: i32 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(
+                CASE                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
                 END
             ), 0) FROM Questions WHERE parent_id = ?1",
-            params![pid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+                params![pid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         conn.execute(
             "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
             params![parent_total, pid],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
 
         // 4. Propagate to section total_score
-        let section_id: Option<i64> = conn.query_row(
-            "SELECT section_id FROM Questions WHERE id = ?1",
-            params![pid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+        let section_id: Option<i64> = conn
+            .query_row(
+                "SELECT section_id FROM Questions WHERE id = ?1",
+                params![pid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         if let Some(sid) = section_id {
-            let section_total: i32 = conn.query_row(
-                "SELECT COALESCE(SUM(
-                    CASE 
-                        WHEN question_type = 'exempted' THEN 0
+            let section_total: i32 = conn
+                .query_row(
+                    "SELECT COALESCE(SUM(
+                    CASE                        WHEN question_type = 'exempted' THEN 0
                         WHEN is_group_header = 1 THEN group_score
                         WHEN is_scored = 1 AND is_group_header = 0 AND parent_id IS NULL THEN score
                         ELSE 0
                     END
                 ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
-                params![sid],
-                |row| row.get(0)
-            ).map_err(|e| e.to_string())?;
+                    params![sid],
+                    |row| row.get(0),
+                )
+                .map_err(|e| e.to_string())?;
 
             conn.execute(
                 "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
@@ -4734,76 +5390,86 @@ pub fn recalculate_section_link_scores(question_id: String) -> Result<i32, Strin
 /// Helper: recalculate group_score chain from a parent upward (parent → grandparent → section total)
 fn recalculate_group_score_chain(conn: &Connection, parent_id: &str) -> Result<(), String> {
     // 1. Recalculate parent's group_score from its children
-    let parent_total: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(
-            CASE 
-                WHEN question_type = 'exempted' THEN 0
+    let parent_total: i32 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(
+            CASE                WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN group_score
                 WHEN is_scored = 1 THEN score
                 ELSE 0
             END
         ), 0) FROM Questions WHERE parent_id = ?1",
-        params![parent_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+            params![parent_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     conn.execute(
         "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
         params![parent_total, parent_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // 2. Get grandparent and propagate up
-    let grandparent_id: Option<String> = conn.query_row(
-        "SELECT parent_id FROM Questions WHERE id = ?1",
-        params![parent_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let grandparent_id: Option<String> = conn
+        .query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1",
+            params![parent_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     if let Some(ref gpid) = grandparent_id {
-        let gp_total: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(
-                CASE 
-                    WHEN question_type = 'exempted' THEN 0
+        let gp_total: i32 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(
+                CASE                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 THEN score
                     ELSE 0
                 END
             ), 0) FROM Questions WHERE parent_id = ?1",
-            params![gpid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+                params![gpid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         conn.execute(
             "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
             params![gp_total, gpid],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // 3. Propagate to section total_score
-    let section_id: Option<i64> = conn.query_row(
-        "SELECT section_id FROM Questions WHERE id = ?1",
-        params![parent_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let section_id: Option<i64> = conn
+        .query_row(
+            "SELECT section_id FROM Questions WHERE id = ?1",
+            params![parent_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     if let Some(sid) = section_id {
-        let section_total: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(
-                CASE 
-                    WHEN question_type = 'exempted' THEN 0
+        let section_total: i32 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(
+                CASE                    WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN group_score
                     WHEN is_scored = 1 AND parent_id IS NULL THEN score
                     ELSE 0
                 END
             ), 0) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
-            params![sid],
-            |row| row.get(0)
-        ).map_err(|e| e.to_string())?;
+                params![sid],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         conn.execute(
             "UPDATE Sections SET total_score = ?1, updated_at = CURRENT_TIMESTAMP WHERE id = ?2",
             params![section_total, sid],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     Ok(())
@@ -4831,50 +5497,76 @@ pub fn get_section_ref_children(parent_id: String) -> Result<Vec<SectionRefChild
 pub fn get_back_referencing_section_ids(section_id: i64) -> Result<Vec<i64>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let mut stmt = conn.prepare(
-        "SELECT DISTINCT q.section_id FROM Questions q
+    let mut stmt = conn
+        .prepare(
+            "SELECT DISTINCT q.section_id FROM Questions q
          WHERE q.question_type = 'section_ref'
-           AND q.metadata LIKE ?1"
-    ).map_err(|e| e.to_string())?;
+           AND q.metadata LIKE ?1",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let ids: Vec<i64> = stmt.query_map(
-        params![format!("%\"refSectionId\":{}%", section_id)],
-        |row| row.get(0),
-    ).map_err(|e| e.to_string())?
-     .filter_map(|r| r.ok())
-     .collect();
+    let ids: Vec<i64> = stmt
+        .query_map(
+            params![format!("%\"refSectionId\":{}%", section_id)],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
 
     Ok(ids)
 }
 
-fn get_section_ref_children_inner(conn: &Connection, parent_id: &str) -> Result<Vec<SectionRefChild>, String> {
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_id, sequence, content, score, metadata
+fn get_section_ref_children_inner(
+    conn: &Connection,
+    parent_id: &str,
+) -> Result<Vec<SectionRefChild>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, parent_id, sequence, content, score, metadata
          FROM Questions
          WHERE parent_id = ?1 AND question_type = 'section_ref'
-         ORDER BY sequence"
-    ).map_err(|e| e.to_string())?;
+         ORDER BY sequence",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let children = stmt.query_map(params![parent_id], |row| {
-        let id: String = row.get(0)?;
-        let parent_id: String = row.get(1)?;
-        let sequence: i32 = row.get(2)?;
-        let content: String = row.get(3)?;
-        let score: i32 = row.get::<_, Option<i32>>(4)?.unwrap_or(0);
-        let metadata: Option<String> = row.get(5)?;
+    let children = stmt
+        .query_map(params![parent_id], |row| {
+            let id: String = row.get(0)?;
+            let parent_id: String = row.get(1)?;
+            let sequence: i32 = row.get(2)?;
+            let content: String = row.get(3)?;
+            let score: i32 = row.get::<_, Option<i32>>(4)?.unwrap_or(0);
+            let metadata: Option<String> = row.get(5)?;
 
-        let (ref_section_id, ref_section_number) = if let Some(meta_str) = metadata {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&meta_str) {
-                let sid = v.get("refSectionId").and_then(|r| r.as_i64()).unwrap_or(0);
-                let snum = v.get("refSectionNumber").and_then(|r| r.as_i64()).unwrap_or(0) as i32;
-                (sid, snum)
-            } else { (0, 0) }
-        } else { (0, 0) };
+            let (ref_section_id, ref_section_number) = if let Some(meta_str) = metadata {
+                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&meta_str) {
+                    let sid = v.get("refSectionId").and_then(|r| r.as_i64()).unwrap_or(0);
+                    let snum = v
+                        .get("refSectionNumber")
+                        .and_then(|r| r.as_i64())
+                        .unwrap_or(0) as i32;
+                    (sid, snum)
+                } else {
+                    (0, 0)
+                }
+            } else {
+                (0, 0)
+            };
 
-        Ok(SectionRefChild { id, parent_id, sequence, content, score, ref_section_id, ref_section_number })
-    }).map_err(|e| e.to_string())?
-      .collect::<Result<Vec<_>, _>>()
-      .map_err(|e| e.to_string())?;
+            Ok(SectionRefChild {
+                id,
+                parent_id,
+                sequence,
+                content,
+                score,
+                ref_section_id,
+                ref_section_number,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(children)
 }
@@ -4901,15 +5593,20 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
 
     // Prevent bidirectional reference: if target section already references back to this section,
     // creating this link would cause a circular dependency in progress computation.
-    let back_ref_exists: bool = conn.query_row(
-        "SELECT EXISTS(
+    let back_ref_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(
             SELECT 1 FROM Questions
             WHERE section_id = ?1 AND question_type = 'section_ref'
               AND metadata LIKE ?2
         )",
-        params![args.linked_section_id, format!("%\"refSectionId\":{}%", args.section_id)],
-        |row| row.get(0),
-    ).unwrap_or(false);
+            params![
+                args.linked_section_id,
+                format!("%\"refSectionId\":{}%", args.section_id)
+            ],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
 
     if back_ref_exists {
         return Err(format!("Cannot add: section {} already references this section (would create circular dependency)", args.linked_section_number));
@@ -4926,11 +5623,13 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
         return Err("This section is already added as a child question".to_string());
     }
 
-    let max_seq: i32 = conn.query_row(
-        "SELECT COALESCE(MAX(sequence), 0) FROM Questions WHERE parent_id = ?1",
-        params![args.parent_id],
-        |row| row.get(0),
-    ).unwrap_or(0);
+    let max_seq: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(sequence), 0) FROM Questions WHERE parent_id = ?1",
+            params![args.parent_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     let id = generate_uuid();
     let score = args.score.unwrap_or(0);
@@ -4938,7 +5637,8 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
     let metadata = serde_json::json!({
         "refSectionId": args.linked_section_id,
         "refSectionNumber": args.linked_section_number
-    }).to_string();
+    })
+    .to_string();
 
     conn.execute(
         "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
@@ -4950,14 +5650,20 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
     conn.execute(
         "UPDATE Questions SET is_group_header = 1 WHERE id = ?1",
         params![args.parent_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     // Propagate scores up the chain
     recalculate_group_score_chain(&conn, &args.parent_id)?;
 
     Ok(SectionRefChild {
-        id, parent_id: args.parent_id, sequence, content: args.linked_section_title,
-        score, ref_section_id: args.linked_section_id, ref_section_number: args.linked_section_number,
+        id,
+        parent_id: args.parent_id,
+        sequence,
+        content: args.linked_section_title,
+        score,
+        ref_section_id: args.linked_section_id,
+        ref_section_number: args.linked_section_number,
     })
 }
 
@@ -4977,14 +5683,18 @@ pub struct BatchSectionItem {
 }
 
 /// Batch add multiple sections as L3 children (for "Select All")
-pub fn batch_add_section_ref_children(args: BatchAddSectionRefChildrenArgs) -> Result<Vec<SectionRefChild>, String> {
+pub fn batch_add_section_ref_children(
+    args: BatchAddSectionRefChildrenArgs,
+) -> Result<Vec<SectionRefChild>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let mut max_seq: i32 = conn.query_row(
-        "SELECT COALESCE(MAX(sequence), 0) FROM Questions WHERE parent_id = ?1",
-        params![args.parent_id],
-        |row| row.get(0),
-    ).unwrap_or(0);
+    let mut max_seq: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(sequence), 0) FROM Questions WHERE parent_id = ?1",
+            params![args.parent_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     for item in &args.sections {
         // Skip self-references
@@ -5014,7 +5724,8 @@ pub fn batch_add_section_ref_children(args: BatchAddSectionRefChildrenArgs) -> R
             let metadata = serde_json::json!({
                 "refSectionId": item.linked_section_id,
                 "refSectionNumber": item.linked_section_number
-            }).to_string();
+            })
+            .to_string();
 
             conn.execute(
                 "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
@@ -5028,7 +5739,8 @@ pub fn batch_add_section_ref_children(args: BatchAddSectionRefChildrenArgs) -> R
     conn.execute(
         "UPDATE Questions SET is_group_header = 1 WHERE id = ?1",
         params![args.parent_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     recalculate_group_score_chain(&conn, &args.parent_id)?;
 
@@ -5039,14 +5751,19 @@ pub fn batch_add_section_ref_children(args: BatchAddSectionRefChildrenArgs) -> R
 pub fn remove_section_ref_child(question_id: String) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let parent_id: Option<String> = conn.query_row(
-        "SELECT parent_id FROM Questions WHERE id = ?1",
-        params![question_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
-
-    conn.execute("DELETE FROM Questions WHERE id = ?1 AND question_type = 'section_ref'", params![question_id])
+    let parent_id: Option<String> = conn
+        .query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1",
+            params![question_id],
+            |row| row.get(0),
+        )
         .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "DELETE FROM Questions WHERE id = ?1 AND question_type = 'section_ref'",
+        params![question_id],
+    )
+    .map_err(|e| e.to_string())?;
 
     if let Some(pid) = parent_id {
         recalculate_group_score_chain(&conn, &pid)?;
@@ -5062,7 +5779,8 @@ pub fn remove_all_section_ref_children(parent_id: String) -> Result<(), String> 
     conn.execute(
         "DELETE FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'",
         params![parent_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
     recalculate_group_score_chain(&conn, &parent_id)?;
 
@@ -5076,13 +5794,16 @@ pub fn update_section_ref_score(question_id: String, score: i32) -> Result<(), S
     conn.execute(
         "UPDATE Questions SET score = ?1 WHERE id = ?2 AND question_type = 'section_ref'",
         params![score, question_id],
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
 
-    let parent_id: Option<String> = conn.query_row(
-        "SELECT parent_id FROM Questions WHERE id = ?1",
-        params![question_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let parent_id: Option<String> = conn
+        .query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1",
+            params![question_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     if let Some(pid) = parent_id {
         recalculate_group_score_chain(&conn, &pid)?;
@@ -5097,36 +5818,62 @@ pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // Check if there are any links to migrate
-    let link_count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM QuestionSectionLinks", [],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    let link_count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM QuestionSectionLinks", [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(0);
 
-    if link_count == 0 { return Ok(0); }
+    if link_count == 0 {
+        return Ok(0);
+    }
 
-    let mut stmt = conn.prepare(
-        "SELECT qsl.id, qsl.question_id, qsl.section_id, qsl.score, qsl.display_order,
+    let mut stmt = conn
+        .prepare(
+            "SELECT qsl.id, qsl.question_id, qsl.section_id, qsl.score, qsl.display_order,
                 s.section_number, s.title_th,
                 q.document_id, q.section_id as q_section_id
          FROM QuestionSectionLinks qsl
          JOIN Sections s ON qsl.section_id = s.id
          JOIN Questions q ON qsl.question_id = q.id
-         ORDER BY qsl.question_id, qsl.display_order"
-    ).map_err(|e| e.to_string())?;
+         ORDER BY qsl.question_id, qsl.display_order",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let links: Vec<(i64, String, i64, i32, i32, i32, String, String, Option<i64>)> = stmt.query_map([], |row| {
-        Ok((
-            row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?,
-            row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?,
-        ))
-    }).map_err(|e| e.to_string())?
-      .collect::<Result<Vec<_>, _>>()
-      .map_err(|e| e.to_string())?;
+    type LinkRow = (i64, String, i64, i32, i32, i32, String, String, Option<i64>);
+    let links: Vec<LinkRow> = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+                row.get(7)?,
+                row.get(8)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     let mut migrated = 0;
     let mut seen_parents: std::collections::HashSet<String> = std::collections::HashSet::new();
 
-    for (_link_id, parent_id, section_id, score, display_order, section_number, section_title, document_id, q_section_id) in &links {
+    for (
+        _link_id,
+        parent_id,
+        section_id,
+        score,
+        display_order,
+        section_number,
+        section_title,
+        document_id,
+        q_section_id,
+    ) in &links
+    {
         // Check if L3 question already exists for this section ref
         let exists: bool = conn.query_row(
             "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
@@ -5139,7 +5886,8 @@ pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
             let metadata = serde_json::json!({
                 "refSectionId": section_id,
                 "refSectionNumber": section_number
-            }).to_string();
+            })
+            .to_string();
 
             conn.execute(
                 "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, metadata, score, question_type, group_score, is_group_header, is_scored)
@@ -5158,13 +5906,15 @@ pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
         conn.execute(
             "UPDATE Questions SET is_group_header = 1 WHERE id = ?1",
             params![pid],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
         recalculate_group_score_chain(&conn, pid)?;
     }
 
     // Delete migrated links
     if migrated > 0 {
-        conn.execute("DELETE FROM QuestionSectionLinks", []).map_err(|e| e.to_string())?;
+        conn.execute("DELETE FROM QuestionSectionLinks", [])
+            .map_err(|e| e.to_string())?;
     }
 
     Ok(migrated)
@@ -5192,11 +5942,13 @@ fn thai_number(n: i32) -> String {
 
 pub fn check_has_children(parent_id: String) -> Result<bool, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-    let count: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
-        params![parent_id],
-        |row| row.get(0),
-    ).unwrap_or(0);
+    let count: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+            params![parent_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
     Ok(count > 0)
 }
 
@@ -5216,26 +5968,33 @@ pub fn get_required_count_children(parent_id: String) -> Result<Vec<RequiredCoun
     get_required_count_children_inner(&conn, &parent_id)
 }
 
-fn get_required_count_children_inner(conn: &Connection, parent_id: &str) -> Result<Vec<RequiredCountChild>, String> {
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_id, sequence, content, score, is_scored
+fn get_required_count_children_inner(
+    conn: &Connection,
+    parent_id: &str,
+) -> Result<Vec<RequiredCountChild>, String> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, parent_id, sequence, content, score, is_scored
          FROM Questions
          WHERE parent_id = ?1 AND question_type = 'required_instance'
-         ORDER BY sequence"
-    ).map_err(|e| e.to_string())?;
+         ORDER BY sequence",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let children = stmt.query_map(params![parent_id], |row| {
-        Ok(RequiredCountChild {
-            id: row.get(0)?,
-            parent_id: row.get(1)?,
-            sequence: row.get(2)?,
-            content: row.get(3)?,
-            score: row.get(4)?,
-            is_scored: row.get(5)?,
+    let children = stmt
+        .query_map(params![parent_id], |row| {
+            Ok(RequiredCountChild {
+                id: row.get(0)?,
+                parent_id: row.get(1)?,
+                sequence: row.get(2)?,
+                content: row.get(3)?,
+                score: row.get(4)?,
+                is_scored: row.get(5)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-      .collect::<Result<Vec<_>, _>>()
-      .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(children)
 }
@@ -5253,15 +6012,19 @@ pub struct SyncRequiredCountArgs {
 /// Sync L3 "ครั้งที่ X" children for an L2 question (3xx.2-3xx.6).
 /// Creates/deletes children to match desired_count.
 /// Each child: content = "{thai_alpha}. {parent_content} ครั้งที่ {N}", score = score_per_instance.
-pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<RequiredCountChild>, String> {
+pub fn sync_required_count_children(
+    args: SyncRequiredCountArgs,
+) -> Result<Vec<RequiredCountChild>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // Get parent question content, metadata, and answer_type to inherit
-    let (parent_content, parent_metadata, parent_answer_type): (String, Option<String>, String) = conn.query_row(
-        "SELECT content, metadata, COALESCE(answer_type, 'text') FROM Questions WHERE id = ?1",
-        params![args.parent_id],
-        |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-    ).map_err(|e| e.to_string())?;
+    let (parent_content, parent_metadata, parent_answer_type): (String, Option<String>, String) =
+        conn.query_row(
+            "SELECT content, metadata, COALESCE(answer_type, 'text') FROM Questions WHERE id = ?1",
+            params![args.parent_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|e| e.to_string())?;
 
     // Use content_override if provided (e.g. 3xx.6 L1 uses description text for L2 children)
     let effective_content = args.content_override.unwrap_or(parent_content);
@@ -5296,7 +6059,8 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
             conn.execute(
                 "DELETE FROM Questions WHERE id = ?1 AND question_type = 'required_instance'",
                 params![id],
-            ).map_err(|e| e.to_string())?;
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
 
@@ -5318,13 +6082,15 @@ pub fn sync_required_count_children(args: SyncRequiredCountArgs) -> Result<Vec<R
         conn.execute(
             "UPDATE Questions SET is_group_header = 1, is_scored = 0 WHERE id = ?1",
             params![args.parent_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     } else {
         // No children — revert to scored leaf
         conn.execute(
             "UPDATE Questions SET is_group_header = 0, is_scored = 1 WHERE id = ?1",
             params![args.parent_id],
-        ).map_err(|e| e.to_string())?;
+        )
+        .map_err(|e| e.to_string())?;
     }
 
     // Recalculate scores up the chain
@@ -5380,21 +6146,23 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
          WHERE ua.user_id = ?1 AND ua.document_id = ?2"
     ).map_err(|e| e.to_string())?;
 
-    let rows = stmt.query_map(params![user_id, document_id], |row| {
-        Ok(UserAnswer {
-            user_id: row.get(0)?,
-            question_id: row.get(1)?,
-            document_id: row.get(2)?,
-            sub_question_code: row.get(3)?,
-            answer_text: row.get(4)?,
-            status: row.get(5)?,
-            feedback: row.get(6)?,
-            assessed_at: row.get(7)?,
-            assessed_by: row.get(8)?,
-            updated_at: row.get(9)?,
-            answer_key: row.get(10)?,
+    let rows = stmt
+        .query_map(params![user_id, document_id], |row| {
+            Ok(UserAnswer {
+                user_id: row.get(0)?,
+                question_id: row.get(1)?,
+                document_id: row.get(2)?,
+                sub_question_code: row.get(3)?,
+                answer_text: row.get(4)?,
+                status: row.get(5)?,
+                feedback: row.get(6)?,
+                assessed_at: row.get(7)?,
+                assessed_by: row.get(8)?,
+                updated_at: row.get(9)?,
+                answer_key: row.get(10)?,
+            })
         })
-    }).map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
 
     let mut result = Vec::new();
     for row in rows {
@@ -5404,7 +6172,11 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
     Ok(result)
 }
 
-fn ensure_answer_key_placeholder(conn: &Connection, question_id: &str, sub_question_code: &str) -> Result<(), String> {
+fn ensure_answer_key_placeholder(
+    conn: &Connection,
+    question_id: &str,
+    sub_question_code: &str,
+) -> Result<(), String> {
     let normalized_sub_question_code = sub_question_code.trim();
     let exists: i32 = conn.query_row(
         "SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = ?2",
@@ -5427,7 +6199,7 @@ fn ensure_answer_key_placeholder(conn: &Connection, question_id: &str, sub_quest
 pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     ensure_answer_key_placeholder(&conn, &args.question_id, &args.sub_question_code)?;
-    
+
     conn.execute(
         "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, 'pending', CURRENT_TIMESTAMP)
@@ -5441,7 +6213,7 @@ pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String
         println!("DB ERROR in save_trainee_answer: {}", err_msg);
         err_msg
     })?;
-    
+
     Ok("Answer saved successfully".to_string())
 }
 
@@ -5449,7 +6221,7 @@ pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String
 pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     ensure_answer_key_placeholder(&conn, &args.question_id, &args.sub_question_code)?;
-    
+
     conn.execute(
         "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, status, feedback, assessed_by, assessed_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -5464,7 +6236,7 @@ pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<St
 
     // Auto-recalculate progress for this section after each assessment save
     let _ = recalculate_section_progress(args.user_id, args.document_id);
-    
+
     Ok("Assessment saved successfully".to_string())
 }
 
@@ -5489,26 +6261,43 @@ fn extract_ref_section_id(metadata: Option<String>) -> Option<i64> {
         .filter(|id| *id > 0)
 }
 
-fn compute_section_progress(conn: &Connection, user_id: &str, document_id: &str, section_id: i64) -> Result<ComputedSectionProgress, String> {
+fn compute_section_progress(
+    conn: &Connection,
+    user_id: &str,
+    document_id: &str,
+    section_id: i64,
+) -> Result<ComputedSectionProgress, String> {
     let mut visited = std::collections::HashSet::new();
     compute_section_progress_inner(conn, user_id, document_id, section_id, &mut visited)
 }
 
-fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id: &str, section_id: i64, visited: &mut std::collections::HashSet<i64>) -> Result<ComputedSectionProgress, String> {
+fn compute_section_progress_inner(
+    conn: &Connection,
+    user_id: &str,
+    document_id: &str,
+    section_id: i64,
+    visited: &mut std::collections::HashSet<i64>,
+) -> Result<ComputedSectionProgress, String> {
     // Cycle detection: prevent infinite recursion from circular section_refs
     if !visited.insert(section_id) {
-        return Err(format!("Circular section_ref detected at section_id={}", section_id));
+        return Err(format!(
+            "Circular section_ref detected at section_id={}",
+            section_id
+        ));
     }
 
-    let section_group: i32 = conn.query_row(
-        "SELECT section_group FROM Sections WHERE id = ?1",
-        params![section_id],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
- 
+    let section_group: i32 = conn
+        .query_row(
+            "SELECT section_group FROM Sections WHERE id = ?1",
+            params![section_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
     if section_group == 300 {
-        let section_total_score: i32 = conn.query_row(
-            "SELECT COALESCE(SUM(
+        let section_total_score: i32 = conn
+            .query_row(
+                "SELECT COALESCE(SUM(
                 CASE
                     WHEN question_type = 'exempted' THEN 0
                     WHEN is_group_header = 1 THEN COALESCE(group_score, 0)
@@ -5518,29 +6307,33 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
              ), 0)
              FROM Questions
              WHERE section_id = ?1 AND parent_id IS NULL",
-            params![section_id],
-            |row| row.get(0)
-        ).unwrap_or(0);
- 
-        let mut stmt = conn.prepare(
-            "SELECT id, metadata, COALESCE(score, 0), question_type
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
+
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, metadata, COALESCE(score, 0), question_type
              FROM Questions
              WHERE section_id = ?1
                AND question_type != 'exempted'
                AND is_group_header = 0
                AND is_scored = 1
-             ORDER BY sequence, id"
-        ).map_err(|e| e.to_string())?;
- 
+             ORDER BY sequence, id",
+            )
+            .map_err(|e| e.to_string())?;
 
-        let rows = stmt.query_map(params![section_id], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, i32>(2).unwrap_or(0),
-                row.get::<_, String>(3)?,
-            ))
-        }).map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![section_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, i32>(2).unwrap_or(0),
+                    row.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
 
         let mut earned_score = 0;
         let mut total_questions = 0;
@@ -5559,7 +6352,13 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
                     if ref_section_id == section_id {
                         continue;
                     }
-                    match compute_section_progress_inner(conn, user_id, document_id, ref_section_id, visited) {
+                    match compute_section_progress_inner(
+                        conn,
+                        user_id,
+                        document_id,
+                        ref_section_id,
+                        visited,
+                    ) {
                         Ok(linked_progress) => {
                             if linked_progress.is_passed {
                                 earned_score += score;
@@ -5568,7 +6367,8 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
                             } else if linked_progress.answered_questions > 0
                                 || linked_progress.pending_with_answer > 0
                                 || linked_progress.needs_improvement_questions > 0
-                                || linked_progress.completion_percentage > 0.0 {
+                                || linked_progress.completion_percentage > 0.0
+                            {
                                 answered_questions += 1;
                                 pending_with_answer += 1;
                             }
@@ -5642,16 +6442,19 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         });
     }
 
-    let section_number: i32 = conn.query_row(
-        "SELECT section_number FROM Sections WHERE id = ?1",
-        params![section_id],
-        |row| row.get(0)
-    ).unwrap_or(0);
+    let section_number: i32 = conn
+        .query_row(
+            "SELECT section_number FROM Sections WHERE id = ?1",
+            params![section_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
     let seq_start = section_number;
     let seq_end = section_number + 100;
 
-    let max_score: i32 = conn.query_row(
-        "SELECT COALESCE(SUM(
+    let max_score: i32 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(
             CASE
                 WHEN question_type = 'exempted' THEN 0
                 WHEN is_group_header = 1 THEN COALESCE(group_score, 0)
@@ -5662,17 +6465,16 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
          FROM Questions
          WHERE section_id = ?1
             OR (section_id = 0 AND sequence >= ?2 AND sequence < ?3)",
-        params![section_id, seq_start, seq_end],
-        |row| row.get(0)
-    ).unwrap_or(0);
+            params![section_id, seq_start, seq_end],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     let earned_score: f64 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE
                 WHEN q.is_group_header = 1 THEN 0
-                WHEN q.is_scored = 1 THEN 
-                    CAST(COALESCE(q.score, 0) AS FLOAT) / 
-                    COALESCE((SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = q.id), 1)
+                WHEN q.is_scored = 1 THEN                    CAST(COALESCE(q.score, 0) AS FLOAT) /                    COALESCE((SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = q.id), 1)
                 ELSE 0
             END
          ), 0.0)
@@ -5738,7 +6540,9 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
         0.0
     };
     let completion_percentage = if total_questions > 0 {
-        ((passed_questions + pending_with_answer + needs_improvement_questions) as f64 / total_questions as f64) * 100.0
+        ((passed_questions + pending_with_answer + needs_improvement_questions) as f64
+            / total_questions as f64)
+            * 100.0
     } else {
         0.0
     };
@@ -5752,8 +6556,16 @@ fn compute_section_progress_inner(conn: &Connection, user_id: &str, document_id:
     visited.remove(&section_id);
 
     Ok(ComputedSectionProgress {
-        earned_score: if max_score > 0 { earned_score_i32 } else { passed_questions },
-        max_score: if max_score > 0 { max_score } else { total_questions },
+        earned_score: if max_score > 0 {
+            earned_score_i32
+        } else {
+            passed_questions
+        },
+        max_score: if max_score > 0 {
+            max_score
+        } else {
+            total_questions
+        },
         completion_percentage,
         is_passed,
         passing_score: 100,
@@ -5771,15 +6583,17 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // Get all sections for this document
-    let mut sect_stmt = conn.prepare(
-        "SELECT id, total_score FROM Sections WHERE document_id = ?1"
-    ).map_err(|e| e.to_string())?;
+    let mut sect_stmt = conn
+        .prepare("SELECT id, total_score FROM Sections WHERE document_id = ?1")
+        .map_err(|e| e.to_string())?;
 
-    let sections: Vec<(i64, i32)> = sect_stmt.query_map(params![document_id], |row| {
-        Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1).unwrap_or(0)))
-    }).map_err(|e| e.to_string())?
-      .filter_map(|r| r.ok())
-      .collect();
+    let sections: Vec<(i64, i32)> = sect_stmt
+        .query_map(params![document_id], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1).unwrap_or(0)))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
 
     for (section_id, _max_score) in sections {
         let progress = compute_section_progress(&conn, &user_id, &document_id, section_id)?;
@@ -5805,7 +6619,11 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
 
 /// Get progress for a specific section for the ScoreProgressBanner
 #[tauri::command]
-pub fn get_section_progress(user_id: String, document_id: String, section_id: i64) -> Result<serde_json::Value, String> {
+pub fn get_section_progress(
+    user_id: String,
+    document_id: String,
+    section_id: i64,
+) -> Result<serde_json::Value, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     let progress = compute_section_progress(&conn, &user_id, &document_id, section_id)?;
 
@@ -5847,11 +6665,13 @@ pub fn get_section_dev_metrics(
 ) -> Result<DevSectionMetrics, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let total_questions_raw: i32 = conn.query_row(
-        "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND document_id = ?2",
-        params![section_id, document_id],
-        |row| row.get(0),
-    ).unwrap_or(0);
+    let total_questions_raw: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND document_id = ?2",
+            params![section_id, document_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     let total_leaf_questions: i32 = conn.query_row(
         "SELECT COUNT(*) FROM Questions
@@ -5867,23 +6687,27 @@ pub fn get_section_dev_metrics(
         |row| row.get(0),
     ).unwrap_or(0);
 
-    let total_with_answer_keys: i32 = conn.query_row(
-        "SELECT COUNT(DISTINCT question_id)
+    let total_with_answer_keys: i32 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT question_id)
          FROM QuestionAnswerKeys ak
          JOIN Questions q ON q.id = ak.question_id
          WHERE q.section_id = ?1 AND q.document_id = ?2 AND q.question_type != 'exempted'",
-        params![section_id, document_id],
-        |row| row.get(0),
-    ).unwrap_or(0);
+            params![section_id, document_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
-    let total_sub_questions: i32 = conn.query_row(
-        "SELECT COUNT(*)
+    let total_sub_questions: i32 = conn
+        .query_row(
+            "SELECT COUNT(*)
          FROM QuestionAnswerKeys ak
          JOIN Questions q ON q.id = ak.question_id
          WHERE q.section_id = ?1 AND q.document_id = ?2 AND q.question_type != 'exempted'",
-        params![section_id, document_id],
-        |row| row.get(0),
-    ).unwrap_or(0);
+            params![section_id, document_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
 
     let total_required_questions = total_leaf_questions - total_exempted;
     let total_answer_targets = total_sub_questions;
@@ -5960,7 +6784,9 @@ pub struct SubQuestionUsageResponse {
 /// plus the total count of all descendant questions under this parent.
 /// Uses QuestionSubQuestionLinks (relational) instead of JSON metadata for accuracy.
 #[tauri::command]
-pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsageResponse, String> {
+pub fn get_sub_question_usage_counts(
+    parent_id: String,
+) -> Result<SubQuestionUsageResponse, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // 1. Get countable descendant IDs (recursive).
@@ -5968,8 +6794,9 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
     // (300Template: L2 syncs its selectedSubQuestions to L3 copies, so counting
     // both L2 and L3 would double-count).  In 200Template, L2 has normal children
     // with independent SubQ selections — both L2 and L3 must be counted.
-    let mut stmt_ids = conn.prepare(
-        "WITH RECURSIVE descendants(id) AS (
+    let mut stmt_ids = conn
+        .prepare(
+            "WITH RECURSIVE descendants(id) AS (
             SELECT id FROM Questions WHERE parent_id = ?1
             UNION ALL
             SELECT q.id FROM Questions q
@@ -5979,10 +6806,12 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
         WHERE NOT EXISTS (
             SELECT 1 FROM Questions c
             WHERE c.parent_id = d.id AND c.question_type = 'required_instance'
-        )"
-    ).map_err(|e| format!("Failed to prepare descendant query: {}", e))?;
+        )",
+        )
+        .map_err(|e| format!("Failed to prepare descendant query: {}", e))?;
 
-    let descendant_ids: Vec<String> = stmt_ids.query_map(params![parent_id], |row| row.get(0))
+    let descendant_ids: Vec<String> = stmt_ids
+        .query_map(params![parent_id], |row| row.get(0))
         .map_err(|e| format!("Failed to query descendants: {}", e))?
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| format!("Failed to collect descendant IDs: {}", e))?;
@@ -5997,8 +6826,9 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
     }
 
     // 2. Collect counts for each sub_question_code — same filter as above
-    let mut stmt_counts = conn.prepare(
-        "WITH RECURSIVE descendants(id) AS (
+    let mut stmt_counts = conn
+        .prepare(
+            "WITH RECURSIVE descendants(id) AS (
             SELECT id FROM Questions WHERE parent_id = ?1
             UNION ALL
             SELECT q.id FROM Questions q
@@ -6011,12 +6841,15 @@ pub fn get_sub_question_usage_counts(parent_id: String) -> Result<SubQuestionUsa
             SELECT 1 FROM Questions c
             WHERE c.parent_id = d.id AND c.question_type = 'required_instance'
         )
-        GROUP BY ql.sub_question_code"
-    ).map_err(|e| format!("Failed to prepare recursive usage count query: {}", e))?;
+        GROUP BY ql.sub_question_code",
+        )
+        .map_err(|e| format!("Failed to prepare recursive usage count query: {}", e))?;
 
-    let rows = stmt_counts.query_map(params![parent_id], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-    }).map_err(|e| format!("Failed to query recursive usage counts: {}", e))?;
+    let rows = stmt_counts
+        .query_map(params![parent_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map_err(|e| format!("Failed to query recursive usage counts: {}", e))?;
 
     let mut usage_map = std::collections::HashMap::new();
     for row in rows {
@@ -6052,31 +6885,39 @@ pub struct ReplaceAnswerKeyItem {
 pub fn get_question_answer_keys(question_id: String) -> Result<Vec<AnswerKey>, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let mut stmt = conn.prepare(
-        "SELECT id, question_id, sub_question_code, answer_key_text, is_required, order_index
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, question_id, sub_question_code, answer_key_text, is_required, order_index
          FROM QuestionAnswerKeys
          WHERE question_id = ?1
-         ORDER BY order_index"
-    ).map_err(|e| e.to_string())?;
+         ORDER BY order_index",
+        )
+        .map_err(|e| e.to_string())?;
 
-    let keys = stmt.query_map(params![question_id], |row| {
-        Ok(AnswerKey {
-            id: row.get(0)?,
-            question_id: row.get(1)?,
-            sub_question_code: row.get(2)?,
-            answer_key_text: row.get(3)?,
-            is_required: row.get(4)?,
-            order_index: row.get(5)?,
+    let keys = stmt
+        .query_map(params![question_id], |row| {
+            Ok(AnswerKey {
+                id: row.get(0)?,
+                question_id: row.get(1)?,
+                sub_question_code: row.get(2)?,
+                answer_key_text: row.get(3)?,
+                is_required: row.get(4)?,
+                order_index: row.get(5)?,
+            })
         })
-    }).map_err(|e| e.to_string())?
-      .collect::<Result<Vec<_>, _>>()
-      .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
 
     Ok(keys)
 }
 
 #[tauri::command]
-pub fn update_answer_key(question_id: String, sub_code: String, new_text: String) -> Result<String, String> {
+pub fn update_answer_key(
+    question_id: String,
+    sub_code: String,
+    new_text: String,
+) -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     update_answer_key_with_conn(&conn, question_id, sub_code, new_text)
 }
@@ -6095,7 +6936,8 @@ fn update_answer_key_with_conn(
         conn.execute(
             "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = ?2",
             params![question_id, sub_code],
-        ).map_err(|e| format!("Failed to delete answer key: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to delete answer key: {}", e))?;
 
         if sub_code.is_empty() {
             let _ = conn.execute(
@@ -6116,7 +6958,7 @@ fn update_answer_key_with_conn(
         params![question_id, sub_code, trimmed],
     ).map_err(|e| format!("Failed to update answer key: {}", e))?;
 
-    // Cleanup: If this is a single-part question (empty sub_code), 
+    // Cleanup: If this is a single-part question (empty sub_code),
     // remove any legacy 'main' entries that might have been created by mistake
     if sub_code.is_empty() {
         let _ = conn.execute(
@@ -6129,7 +6971,10 @@ fn update_answer_key_with_conn(
 }
 
 #[tauri::command]
-pub fn replace_question_answer_keys(question_id: String, items: Vec<ReplaceAnswerKeyItem>) -> Result<String, String> {
+pub fn replace_question_answer_keys(
+    question_id: String,
+    items: Vec<ReplaceAnswerKeyItem>,
+) -> Result<String, String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     replace_question_answer_keys_with_conn(&mut conn, question_id, items)
 }
@@ -6145,12 +6990,15 @@ fn replace_question_answer_keys_with_conn(
         ensure_section_300_policy_allows_question_action(conn, &question_id, "answer keys")?;
     }
 
-    let tx = conn.transaction().map_err(|e| format!("Failed to start transaction: {}", e))?;
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
 
     tx.execute(
         "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1",
         params![question_id],
-    ).map_err(|e| format!("Failed to clear answer keys: {}", e))?;
+    )
+    .map_err(|e| format!("Failed to clear answer keys: {}", e))?;
 
     for (idx, item) in items.iter().enumerate() {
         let text = item.text.trim();
@@ -6166,7 +7014,8 @@ fn replace_question_answer_keys_with_conn(
         ).map_err(|e| format!("Failed to insert answer key: {}", e))?;
     }
 
-    tx.commit().map_err(|e| format!("Failed to commit answer key replacement: {}", e))?;
+    tx.commit()
+        .map_err(|e| format!("Failed to commit answer key replacement: {}", e))?;
     Ok("Answer keys replaced successfully".to_string())
 }
 
@@ -6209,7 +7058,7 @@ mod tests {
         // Create test document
         let doc_id = "22724201001";
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?, 'Test Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [doc_id],
         ).expect("Failed to create document");
@@ -6221,23 +7070,30 @@ mod tests {
             [doc_id],
         ).expect("Failed to create section");
 
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ?1",
-            [doc_id],
-            |row| row.get(0),
-        ).expect("Failed to get section id");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ?1",
+                [doc_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to get section id");
 
         // Seed template
         seed_section_300_template(&conn, doc_id, section_id, 301).expect("Failed to seed template");
 
         // Verify 7 L1 questions created
-        let l1_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
-            [section_id],
-            |row| row.get(0),
-        ).expect("Failed to count L1");
+        let l1_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE section_id = ?1 AND parent_id IS NULL",
+                [section_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to count L1");
 
-        assert_eq!(l1_count, 7, "Should have 7 L1 questions (3xx.1 through 3xx.7)");
+        assert_eq!(
+            l1_count, 7,
+            "Should have 7 L1 questions (3xx.1 through 3xx.7)"
+        );
 
         // Verify 3xx.1 has 5 children
         let q1_id: String = conn.query_row(
@@ -6246,11 +7102,13 @@ mod tests {
             |row| row.get(0),
         ).expect("Failed to get q1");
 
-        let q1_children: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
-            [&q1_id],
-            |row| row.get(0),
-        ).expect("Failed to count q1 children");
+        let q1_children: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+                [&q1_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to count q1 children");
 
         assert_eq!(q1_children, 5, "3xx.1 should have 5 children");
 
@@ -6261,11 +7119,13 @@ mod tests {
             |row| row.get(0),
         ).expect("Failed to get q7");
 
-        let q7_children: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
-            [&q7_id],
-            |row| row.get(0),
-        ).expect("Failed to count q7 children");
+        let q7_children: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+                [&q7_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to count q7 children");
 
         assert_eq!(q7_children, 2, "3xx.7 should have 2 children");
     }
@@ -6315,7 +7175,9 @@ mod tests {
                 params![standard_code.clone()],
             )
             .expect_err("Standard main branch rename should be blocked");
-        assert!(update_main_err.to_string().contains("protected standard occupation branch"));
+        assert!(update_main_err
+            .to_string()
+            .contains("protected standard occupation branch"));
 
         let delete_main_err = conn
             .execute(
@@ -6323,7 +7185,9 @@ mod tests {
                 params![standard_code.clone()],
             )
             .expect_err("Standard main branch delete should be blocked");
-        assert!(delete_main_err.to_string().contains("protected standard occupation branch"));
+        assert!(delete_main_err
+            .to_string()
+            .contains("protected standard occupation branch"));
 
         let standard_sub_code: String = conn
             .query_row(
@@ -6339,7 +7203,9 @@ mod tests {
                 params![standard_code.clone(), standard_sub_code.clone()],
             )
             .expect_err("Standard sub branch rename should be blocked");
-        assert!(update_sub_err.to_string().contains("protected standard occupation sub-branch"));
+        assert!(update_sub_err
+            .to_string()
+            .contains("protected standard occupation sub-branch"));
 
         let delete_sub_err = conn
             .execute(
@@ -6347,7 +7213,9 @@ mod tests {
                 params![standard_code, standard_sub_code],
             )
             .expect_err("Standard sub branch delete should be blocked");
-        assert!(delete_sub_err.to_string().contains("protected standard occupation sub-branch"));
+        assert!(delete_sub_err
+            .to_string()
+            .contains("protected standard occupation sub-branch"));
     }
 
     #[test]
@@ -6357,7 +7225,7 @@ mod tests {
 
         let doc_id = "22724201001";
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?, 'Test', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [doc_id],
         ).expect("Failed to create document");
@@ -6368,11 +7236,13 @@ mod tests {
             [doc_id],
         ).expect("Failed to create section");
 
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ?1",
-            [doc_id],
-            |row| row.get(0),
-        ).expect("Failed to get section");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ?1",
+                [doc_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to get section");
 
         seed_section_300_template(&conn, doc_id, section_id, 301).expect("Seed failed");
 
@@ -6383,7 +7253,10 @@ mod tests {
             |row| row.get(0),
         ).expect("Query failed");
 
-        assert_eq!(non_group_headers, 0, "All L1 questions should be group headers");
+        assert_eq!(
+            non_group_headers, 0,
+            "All L1 questions should be group headers"
+        );
 
         // Verify 3xx.1.1-3xx.1.3 are NOT scored (prerequisites)
         let q1_id: String = conn.query_row(
@@ -6398,7 +7271,10 @@ mod tests {
             |row| row.get(0),
         ).expect("Query failed");
 
-        assert_eq!(scored_prerequisites, 0, "3xx.1.1-3xx.1.3 should NOT be scored");
+        assert_eq!(
+            scored_prerequisites, 0,
+            "3xx.1.1-3xx.1.3 should NOT be scored"
+        );
 
         // Verify 3xx.1.4-3xx.1.5 ARE scored
         let scored_knowledge: i64 = conn.query_row(
@@ -6417,7 +7293,7 @@ mod tests {
 
         let doc_id = "22724201001";
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?, 'Test', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [doc_id],
         ).expect("Failed to create document");
@@ -6428,11 +7304,13 @@ mod tests {
             [doc_id],
         ).expect("Failed to create section");
 
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ?1",
-            [doc_id],
-            |row| row.get(0),
-        ).expect("Failed to get section");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ?1",
+                [doc_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to get section");
 
         seed_section_300_template(&conn, doc_id, section_id, 301).expect("Seed failed");
 
@@ -6444,7 +7322,10 @@ mod tests {
             |row| row.get(0),
         ).expect("Query failed");
 
-        assert_eq!(exempted_groups, 5, "3xx.2-3xx.6 should default to exempted type");
+        assert_eq!(
+            exempted_groups, 5,
+            "3xx.2-3xx.6 should default to exempted type"
+        );
 
         // Verify they have display_text
         let with_display_text: i64 = conn.query_row(
@@ -6454,7 +7335,10 @@ mod tests {
             |row| row.get(0),
         ).expect("Query failed");
 
-        assert_eq!(with_display_text, 5, "Exempted groups should have display_text");
+        assert_eq!(
+            with_display_text, 5,
+            "Exempted groups should have display_text"
+        );
 
         // Verify 3xx.1.1-3xx.1.3 are exempted (prerequisites)
         let q1_id: String = conn.query_row(
@@ -6463,12 +7347,14 @@ mod tests {
             |row| row.get(0),
         ).expect("Failed to get q1");
 
-        let exempted_prereqs: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions
+        let exempted_prereqs: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions
              WHERE parent_id = ?1 AND sequence BETWEEN 1 AND 3 AND question_type = 'exempted'",
-            [&q1_id],
-            |row| row.get(0),
-        ).expect("Query failed");
+                [&q1_id],
+                |row| row.get(0),
+            )
+            .expect("Query failed");
 
         assert_eq!(exempted_prereqs, 3, "3xx.1.1-3xx.1.3 should be exempted");
     }
@@ -6480,7 +7366,7 @@ mod tests {
 
         let doc_id = "22724201001";
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?, 'Test', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [doc_id],
         ).expect("Failed to create document");
@@ -6491,31 +7377,43 @@ mod tests {
             [doc_id],
         ).expect("Failed to create section");
 
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ?1",
-            [doc_id],
-            |row| row.get(0),
-        ).expect("Failed to get section");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ?1",
+                [doc_id],
+                |row| row.get(0),
+            )
+            .expect("Failed to get section");
 
         seed_section_200_template(&conn, doc_id, section_id, 201).expect("Seed failed");
 
-        let exempted_l1: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions
+        let exempted_l1: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions
              WHERE section_id = ?1 AND parent_id IS NULL AND question_type = 'exempted'",
-            [section_id],
-            |row| row.get(0),
-        ).expect("Query failed");
+                [section_id],
+                |row| row.get(0),
+            )
+            .expect("Query failed");
 
-        assert_eq!(exempted_l1, 6, "All 2xx.1-2xx.6 L1 questions should default to exempted");
+        assert_eq!(
+            exempted_l1, 6,
+            "All 2xx.1-2xx.6 L1 questions should default to exempted"
+        );
 
-        let with_display_text: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions
+        let with_display_text: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions
              WHERE section_id = ?1 AND parent_id IS NULL AND display_text = '(ไม่ต้องอธิบาย)'",
-            [section_id],
-            |row| row.get(0),
-        ).expect("Query failed");
+                [section_id],
+                |row| row.get(0),
+            )
+            .expect("Query failed");
 
-        assert_eq!(with_display_text, 6, "All exempted 2xx L1 questions should show (ไม่ต้องอธิบาย)");
+        assert_eq!(
+            with_display_text, 6,
+            "All exempted 2xx L1 questions should show (ไม่ต้องอธิบาย)"
+        );
     }
 
     // ========================================================================
@@ -6529,7 +7427,7 @@ mod tests {
 
         // Create: doc, section, L1 group, L2 exempted child
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?1, 'Test Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             ["test-doc"],
         ).expect("Insert document failed");
@@ -6541,11 +7439,13 @@ mod tests {
         ).expect("Insert section failed");
 
         // Get section ID from last insert
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
-            ["test-doc"],
-            |row| row.get(0),
-        ).expect("Get section_id failed");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
+                ["test-doc"],
+                |row| row.get(0),
+            )
+            .expect("Get section_id failed");
 
         // L1 group header
         conn.execute(
@@ -6562,7 +7462,8 @@ mod tests {
         ).expect("Insert exempted child failed");
 
         // Call calculate_group_score - exempted type child should result in 0 group score
-        let group_score = calculate_group_score("q1".to_string()).expect("calculate_group_score failed");
+        let group_score =
+            calculate_group_score("q1".to_string()).expect("calculate_group_score failed");
 
         // NOTE: Cannot fully test without modifying calculate_group_score to accept Connection reference.
         // Currently verifies that exempted child doesn't crash the calculation.
@@ -6580,7 +7481,7 @@ mod tests {
 
         // Create test document and section
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?1, 'Test Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             ["test-doc"],
         ).expect("Insert document failed");
@@ -6591,11 +7492,13 @@ mod tests {
             ["test-doc"],
         ).expect("Insert section failed");
 
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
-            ["test-doc"],
-            |row| row.get(0),
-        ).expect("Get section_id failed");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
+                ["test-doc"],
+                |row| row.get(0),
+            )
+            .expect("Get section_id failed");
 
         // Create 3-level hierarchy: L1 -> L2 -> L3
         // L1: group header
@@ -6629,22 +7532,32 @@ mod tests {
         recalculate_group_score_chain(&conn, "q1-1").expect("Cascade chain failed");
 
         // Verify L2 recalculated to 50
-        let l2_score: i32 = conn.query_row(
-            "SELECT group_score FROM Questions WHERE id = ?1",
-            ["q1-1"],
-            |row| row.get(0),
-        ).expect("Query L2 failed");
+        let l2_score: i32 = conn
+            .query_row(
+                "SELECT group_score FROM Questions WHERE id = ?1",
+                ["q1-1"],
+                |row| row.get(0),
+            )
+            .expect("Query L2 failed");
 
-        assert_eq!(l2_score, 50, "L2 group_score should be 50 (sum of L3 children: 20+30)");
+        assert_eq!(
+            l2_score, 50,
+            "L2 group_score should be 50 (sum of L3 children: 20+30)"
+        );
 
         // Verify L1 recalculated to 50 (from L2's new group_score)
-        let l1_score: i32 = conn.query_row(
-            "SELECT group_score FROM Questions WHERE id = ?1",
-            ["q1"],
-            |row| row.get(0),
-        ).expect("Query L1 failed");
+        let l1_score: i32 = conn
+            .query_row(
+                "SELECT group_score FROM Questions WHERE id = ?1",
+                ["q1"],
+                |row| row.get(0),
+            )
+            .expect("Query L1 failed");
 
-        assert_eq!(l1_score, 50, "L1 group_score should be 50 (propagated from L2)");
+        assert_eq!(
+            l1_score, 50,
+            "L1 group_score should be 50 (propagated from L2)"
+        );
     }
 
     #[test]
@@ -6654,7 +7567,7 @@ mod tests {
 
         // Create test document and section
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES (?1, 'Test Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             ["test-doc"],
         ).expect("Insert document failed");
@@ -6665,11 +7578,13 @@ mod tests {
             ["test-doc"],
         ).expect("Insert section failed");
 
-        let section_id: i64 = conn.query_row(
-            "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
-            ["test-doc"],
-            |row| row.get(0),
-        ).expect("Get section_id failed");
+        let section_id: i64 = conn
+            .query_row(
+                "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
+                ["test-doc"],
+                |row| row.get(0),
+            )
+            .expect("Get section_id failed");
 
         // L1 with two children: one normal scored, one exempted
         conn.execute(
@@ -6696,13 +7611,18 @@ mod tests {
         recalculate_group_score_chain(&conn, "q1").expect("Cascade chain failed");
 
         // Verify L1 only counted normal child (40), not exempted (100)
-        let l1_score: i32 = conn.query_row(
-            "SELECT group_score FROM Questions WHERE id = ?1",
-            ["q1"],
-            |row| row.get(0),
-        ).expect("Query L1 failed");
+        let l1_score: i32 = conn
+            .query_row(
+                "SELECT group_score FROM Questions WHERE id = ?1",
+                ["q1"],
+                |row| row.get(0),
+            )
+            .expect("Query L1 failed");
 
-        assert_eq!(l1_score, 40, "L1 should only count non-exempted child (40), not exempted child");
+        assert_eq!(
+            l1_score, 40,
+            "L1 should only count non-exempted child (40), not exempted child"
+        );
     }
 
     // ========================================================================
@@ -6814,9 +7734,11 @@ mod tests {
 
         // Verify the ID format
         let id: String = conn
-            .query_row("SELECT id FROM Documents WHERE id = 'RTN01PQA001'", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT id FROM Documents WHERE id = 'RTN01PQA001'",
+                [],
+                |row| row.get(0),
+            )
             .expect("Failed to query document");
 
         assert_eq!(id.len(), 11, "Document ID should be 11 characters");
@@ -6939,7 +7861,7 @@ mod tests {
         .expect("Failed to create QuestionReferences");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-REF', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
             [],
         )
@@ -6969,7 +7891,9 @@ mod tests {
         );
 
         assert!(res.is_err());
-        assert!(res.unwrap_err().contains("Section 300 does not allow references"));
+        assert!(res
+            .unwrap_err()
+            .contains("Section 300 does not allow references"));
     }
 
     #[test]
@@ -6978,7 +7902,7 @@ mod tests {
         init_content_schema(&conn).expect("Failed to init schema");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-AK', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
             [],
         )
@@ -7009,7 +7933,9 @@ mod tests {
         );
 
         assert!(res.is_err());
-        assert!(res.unwrap_err().contains("Section 300 does not allow answer keys"));
+        assert!(res
+            .unwrap_err()
+            .contains("Section 300 does not allow answer keys"));
     }
 
     #[test]
@@ -7021,7 +7947,7 @@ mod tests {
         init_content_schema(&conn).expect("Failed to init schema");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-AK-EMPTY', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
             [],
         )
@@ -7042,13 +7968,14 @@ mod tests {
         .expect("Failed to create question");
 
         // Empty items must succeed even for Section 300
-        let res = replace_question_answer_keys_with_conn(
-            &mut conn,
-            "QAKEMPTY300".to_string(),
-            vec![],
-        );
+        let res =
+            replace_question_answer_keys_with_conn(&mut conn, "QAKEMPTY300".to_string(), vec![]);
 
-        assert!(res.is_ok(), "Empty items should be allowed in Section 300, got: {:?}", res.err());
+        assert!(
+            res.is_ok(),
+            "Empty items should be allowed in Section 300, got: {:?}",
+            res.err()
+        );
     }
 
     #[test]
@@ -7057,7 +7984,7 @@ mod tests {
         init_content_schema(&conn).expect("Failed to init schema");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-AK-UPD', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
             [],
         )
@@ -7085,7 +8012,9 @@ mod tests {
         );
 
         assert!(res.is_err());
-        assert!(res.unwrap_err().contains("Section 300 does not allow answer keys"));
+        assert!(res
+            .unwrap_err()
+            .contains("Section 300 does not allow answer keys"));
     }
 
     #[test]
@@ -7094,7 +8023,7 @@ mod tests {
         init_content_schema(&conn).expect("Failed to init schema");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-AK-200', 'Doc', '2272420', '22724', 'Test', '20', '1', NULL, NULL, datetime('now'), datetime('now'))",
             [],
         )
@@ -7154,7 +8083,7 @@ mod tests {
         .expect("Failed to create UserAnswers");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-BR', 'Doc', '2272420', '22724', 'Test', '20', '1', '02', '01', datetime('now'), datetime('now'))",
             [],
         )
@@ -7200,7 +8129,7 @@ mod tests {
         .expect("Failed to create UserAnswers");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, occupation_branch_main, occupation_branch_sub, created_at, updated_at)
              VALUES ('DOC-BR2', 'Doc', '2272420', '22724', 'Test', '20', '1', '02', '01', datetime('now'), datetime('now'))",
             [],
         )
@@ -7229,7 +8158,7 @@ mod tests {
         init_content_schema(&conn).expect("Failed to init schema");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES ('DOC-101-CREATE', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [],
         )
@@ -7273,7 +8202,10 @@ mod tests {
             )
             .expect("Failed to count section 101 questions");
 
-        assert_eq!(question_count, 0, "Manually created Section 101 should start empty");
+        assert_eq!(
+            question_count, 0,
+            "Manually created Section 101 should start empty"
+        );
     }
 
     #[test]
@@ -7292,7 +8224,7 @@ mod tests {
         .expect("Failed to create QuestionSectionLinks");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES ('DOC-101-UPD', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [],
         )
@@ -7356,7 +8288,7 @@ mod tests {
         .expect("Failed to create QuestionSectionLinks");
 
         conn.execute(
-            "INSERT INTO Documents (id, name, unit_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
              VALUES ('DOC-101-DEL', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
             [],
         )
@@ -7389,8 +8321,13 @@ mod tests {
         assert!(!exists_101, "Section 101 should be deleted");
 
         let del_201 = delete_section_with_conn(&conn, 20101);
-        assert!(del_201.is_err(), "Other system-defined sections should still be blocked");
-        assert!(del_201.unwrap_err().contains("Cannot delete system-defined section"));
+        assert!(
+            del_201.is_err(),
+            "Other system-defined sections should still be blocked"
+        );
+        assert!(del_201
+            .unwrap_err()
+            .contains("Cannot delete system-defined section"));
     }
 
     // ========================================================================
@@ -7443,4 +8380,3 @@ mod tests {
         // When _temp_dir is dropped, file will be cleaned up automatically
     }
 }
-

@@ -64,7 +64,7 @@ pub fn create_standard_sql_dump() -> Result<String, String> {
         for row in data {
             sql_content.push_str(&format!("{}\n", row));
         }
-        sql_content.push_str("\n");
+        sql_content.push('\n');
     }
 
     // Write to file
@@ -159,7 +159,7 @@ fn copy_database_data(source: &Connection, backup: &Connection) -> Result<(), St
                         i += 1;
                     } else {
                         // Try NULL
-                        if let Ok(_) = row.get::<_, Option<String>>(i) {
+                        if row.get::<_, Option<String>>(i).is_ok() {
                             values.push(serde_json::Value::Null);
                             i += 1;
                         } else {
@@ -261,14 +261,9 @@ fn get_table_data(conn: &Connection, table: &str) -> Result<Vec<String>, String>
         .query_map([], |row| {
             let mut values = Vec::new();
             let mut i = 0;
-            loop {
-                match row.get::<_, String>(i) {
-                    Ok(value) => {
-                        values.push(value);
-                        i += 1;
-                    }
-                    Err(_) => break,
-                }
+            while let Ok(value) = row.get::<_, String>(i) {
+                values.push(value);
+                i += 1;
             }
 
             // Create INSERT statement

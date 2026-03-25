@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActiveDocumentPage from "../../components/pages/ActiveDocumentPage";
+import { ToastProvider } from "../../contexts/ToastContext";
 
 describe("ActiveDocumentPage integration", () => {
   type MockSection = {
@@ -90,11 +91,13 @@ describe("ActiveDocumentPage integration", () => {
 
   it("allows deleting section 101 and refreshes sidebar", async () => {
     render(
-      <MemoryRouter initialEntries={["/editor/DOC-DEL-101"]}>
-        <Routes>
-          <Route path="/editor/:docId" element={<ActiveDocumentPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/editor/DOC-DEL-101"]}>
+          <Routes>
+            <Route path="/editor/:docId" element={<ActiveDocumentPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>,
     );
 
     const section101Button = await screen.findByRole("button", { name: /101 Precautions/i });

@@ -386,7 +386,7 @@ fn export_to_csv(export: &DatabaseExport) -> Result<String, String> {
                             .collect::<Vec<_>>()
                             .join(","),
                     );
-                    csv_content.push_str("\n");
+                    csv_content.push('\n');
 
                     // Add data rows
                     for row in &table.data {
@@ -400,14 +400,14 @@ fn export_to_csv(export: &DatabaseExport) -> Result<String, String> {
                                 })
                                 .collect();
                             csv_content.push_str(&values.join(","));
-                            csv_content.push_str("\n");
+                            csv_content.push('\n');
                         }
                     }
                 }
             }
         }
 
-        csv_content.push_str("\n");
+        csv_content.push('\n');
     }
 
     Ok(csv_content)
@@ -424,20 +424,16 @@ fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
         export.metadata.total_tables
     ));
     sql_content.push_str(&format!("-- Total Rows: {}\n", export.metadata.total_rows));
-    sql_content.push_str("\n");
+    sql_content.push('\n');
     sql_content.push_str("-- Disable foreign keys during import\n");
     sql_content.push_str("PRAGMA foreign_keys = OFF;\n");
     sql_content.push_str("BEGIN TRANSACTION;\n\n");
 
     for table in &export.tables {
-        sql_content.push_str(&format!(
-            "-- ============================================\n"
-        ));
+        sql_content.push_str("-- ============================================\n");
         sql_content.push_str(&format!("-- Table: {}\n", table.name));
         sql_content.push_str(&format!("-- Rows: {}\n", table.row_count));
-        sql_content.push_str(&format!(
-            "-- ============================================\n\n"
-        ));
+        sql_content.push_str("-- ============================================\n\n");
 
         // Add DROP TABLE IF EXISTS
         sql_content.push_str(&format!("DROP TABLE IF EXISTS {};\n\n", table.name));
@@ -491,7 +487,7 @@ fn export_to_sql(export: &DatabaseExport) -> Result<String, String> {
             }
         }
 
-        sql_content.push_str("\n");
+        sql_content.push('\n');
     }
 
     sql_content.push_str("COMMIT;\n");

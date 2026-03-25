@@ -78,17 +78,19 @@ pub mod helpers {
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS Documents (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                unit_id TEXT NOT NULL,
-                unit_code TEXT NOT NULL,
-                applied_to TEXT NOT NULL,
-                doc_type TEXT NOT NULL,
-                user_level TEXT NOT NULL,
-                occupation_branch_main TEXT,
-                occupation_branch_sub TEXT,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                id VARCHAR(11) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                applied_to TEXT,
+                unit_owner_id VARCHAR(7),
+                unit_code VARCHAR(5),
+                doc_type VARCHAR(2),
+                user_level CHAR(1),
+                sequence INT,
+                status VARCHAR(20) DEFAULT 'draft',
+                occupation_branch_main VARCHAR(10),
+                occupation_branch_sub VARCHAR(10),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             [],
         )?;
@@ -299,7 +301,7 @@ mod tests {
         // Verify table was created
         let table_exists: bool = conn
             .query_row(
-                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='documents'",
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='Documents'",
                 [],
                 |row| row.get(0),
             )
@@ -367,42 +369,42 @@ mod tests {
         init_content_schema(&conn).expect("Should initialize schema");
 
         conn.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC001", "Original Title", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC001", "Original Title", "00001", "test", "10", "2"],
         )
         .expect("Insert document should succeed");
 
-        let title: String = conn
+        let name: String = conn
             .query_row(
-                "SELECT title FROM documents WHERE id = ?1",
+                "SELECT name FROM Documents WHERE id = ?1",
                 params!["DOC001"],
                 |row| row.get(0),
             )
             .expect("Should read inserted document");
-        assert_eq!(title, "Original Title");
+        assert_eq!(name, "Original Title");
 
         conn.execute(
-            "UPDATE documents SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
+            "UPDATE Documents SET name = ?1, updated_at = datetime('now') WHERE id = ?2",
             params!["Updated Title", "DOC001"],
         )
         .expect("Update document should succeed");
 
-        let updated_title: String = conn
+        let updated_name: String = conn
             .query_row(
-                "SELECT title FROM documents WHERE id = ?1",
+                "SELECT name FROM Documents WHERE id = ?1",
                 params!["DOC001"],
                 |row| row.get(0),
             )
             .expect("Should read updated document");
-        assert_eq!(updated_title, "Updated Title");
+        assert_eq!(updated_name, "Updated Title");
 
-        conn.execute("DELETE FROM documents WHERE id = ?1", params!["DOC001"])
+        conn.execute("DELETE FROM Documents WHERE id = ?1", params!["DOC001"])
             .expect("Delete document should succeed");
 
         let exists: bool = conn
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM documents WHERE id = ?1)",
+                "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
                 params!["DOC001"],
                 |row| row.get(0),
             )
@@ -416,48 +418,48 @@ mod tests {
         init_content_schema(&conn).expect("Should initialize schema");
 
         conn.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC100", "Doc For Section", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC100", "Doc For Section", "00001", "test", "10", "2"],
         )
         .expect("Insert document should succeed");
 
         conn.execute(
-            "INSERT INTO sections (document_id, section_number, title, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC100", 201, "Section 201"],
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
+            params!["DOC100", 200, 201, "Section 201", "201 Section 201"],
         )
         .expect("Insert section should succeed");
 
         let section_id: i64 = conn
             .query_row(
-                "SELECT id FROM sections WHERE document_id = ?1 AND section_number = ?2",
+                "SELECT id FROM Sections WHERE document_id = ?1 AND section_number = ?2",
                 params!["DOC100", 201],
                 |row| row.get(0),
             )
             .expect("Should read inserted section");
 
         conn.execute(
-            "UPDATE sections SET title = ?1, updated_at = datetime('now') WHERE id = ?2",
+            "UPDATE Sections SET title_th = ?1, updated_at = datetime('now') WHERE id = ?2",
             params!["Section 201 Updated", section_id],
         )
         .expect("Update section should succeed");
 
         let title: String = conn
             .query_row(
-                "SELECT title FROM sections WHERE id = ?1",
+                "SELECT title_th FROM Sections WHERE id = ?1",
                 params![section_id],
                 |row| row.get(0),
             )
             .expect("Should read updated section");
         assert_eq!(title, "Section 201 Updated");
 
-        conn.execute("DELETE FROM sections WHERE id = ?1", params![section_id])
+        conn.execute("DELETE FROM Sections WHERE id = ?1", params![section_id])
             .expect("Delete section should succeed");
 
         let count: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sections WHERE id = ?1",
+                "SELECT COUNT(*) FROM Sections WHERE id = ?1",
                 params![section_id],
                 |row| row.get(0),
             )
@@ -471,55 +473,55 @@ mod tests {
         init_content_schema(&conn).expect("Should initialize schema");
 
         conn.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC200", "Doc For Question", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC200", "Doc For Question", "00001", "test", "10", "2"],
         )
         .expect("Insert document should succeed");
 
         conn.execute(
-            "INSERT INTO sections (document_id, section_number, title, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC200", 202, "Section 202"],
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
+            params!["DOC200", 200, 202, "Section 202", "202 Section 202"],
         )
         .expect("Insert section should succeed");
 
         let section_id: i64 = conn
             .query_row(
-                "SELECT id FROM sections WHERE document_id = ?1 AND section_number = ?2",
+                "SELECT id FROM Sections WHERE document_id = ?1 AND section_number = ?2",
                 params!["DOC200", 202],
                 |row| row.get(0),
             )
             .expect("Should read section id");
 
         conn.execute(
-            "INSERT INTO questions (id, document_id, section_id, content, sequence, created_at, updated_at)
+            "INSERT INTO Questions (id, document_id, section_id, content, sequence, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
             params!["Q-001", "DOC200", section_id, "Original question", 1],
         )
         .expect("Insert question should succeed");
 
         conn.execute(
-            "UPDATE questions SET content = ?1, updated_at = datetime('now') WHERE id = ?2",
+            "UPDATE Questions SET content = ?1, updated_at = datetime('now') WHERE id = ?2",
             params!["Updated question", "Q-001"],
         )
         .expect("Update question should succeed");
 
         let content: String = conn
             .query_row(
-                "SELECT content FROM questions WHERE id = ?1",
+                "SELECT content FROM Questions WHERE id = ?1",
                 params!["Q-001"],
                 |row| row.get(0),
             )
             .expect("Should read updated question");
         assert_eq!(content, "Updated question");
 
-        conn.execute("DELETE FROM questions WHERE id = ?1", params!["Q-001"])
+        conn.execute("DELETE FROM Questions WHERE id = ?1", params!["Q-001"])
             .expect("Delete question should succeed");
 
         let exists: bool = conn
             .query_row(
-                "SELECT EXISTS(SELECT 1 FROM questions WHERE id = ?1)",
+                "SELECT EXISTS(SELECT 1 FROM Questions WHERE id = ?1)",
                 params!["Q-001"],
                 |row| row.get(0),
             )
@@ -533,9 +535,9 @@ mod tests {
         init_content_schema(&conn).expect("Should initialize schema");
 
         conn.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC300", "Doc For References", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC300", "Doc For References", "00001", "test", "10", "2"],
         )
         .expect("Insert document should succeed");
 
@@ -588,29 +590,29 @@ mod tests {
         init_content_schema(&conn).expect("Should initialize schema");
 
         conn.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC400", "Cascade Doc", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC400", "Cascade Doc", "00001", "test", "10", "2"],
         )
         .expect("Insert document should succeed");
 
         conn.execute(
-            "INSERT INTO sections (document_id, section_number, title, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC400", 203, "Section For Cascade"],
+            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
+            params!["DOC400", 200, 203, "Section For Cascade", "203 Cascade"],
         )
         .expect("Insert section should succeed");
 
         let section_id: i64 = conn
             .query_row(
-                "SELECT id FROM sections WHERE document_id = ?1 AND section_number = ?2",
+                "SELECT id FROM Sections WHERE document_id = ?1 AND section_number = ?2",
                 params!["DOC400", 203],
                 |row| row.get(0),
             )
             .expect("Should read section id");
 
         conn.execute(
-            "INSERT INTO questions (id, document_id, section_id, content, sequence, created_at, updated_at)
+            "INSERT INTO Questions (id, document_id, section_id, content, sequence, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'), datetime('now'))",
             params!["Q-CASCADE", "DOC400", section_id, "Question", 1],
         )
@@ -623,19 +625,19 @@ mod tests {
         )
         .expect("Insert reference should succeed");
 
-        conn.execute("DELETE FROM documents WHERE id = ?1", params!["DOC400"])
+        conn.execute("DELETE FROM Documents WHERE id = ?1", params!["DOC400"])
             .expect("Delete document should succeed");
 
         let section_count: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sections WHERE document_id = ?1",
+                "SELECT COUNT(*) FROM Sections WHERE document_id = ?1",
                 params!["DOC400"],
                 |row| row.get(0),
             )
             .expect("Section count should succeed");
         let question_count: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM questions WHERE document_id = ?1",
+                "SELECT COUNT(*) FROM Questions WHERE document_id = ?1",
                 params!["DOC400"],
                 |row| row.get(0),
             )
@@ -663,16 +665,16 @@ mod tests {
             .expect("Should start transaction for rollback test");
 
         tx.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC500", "Rollback Doc", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC500", "Rollback Doc", "00001", "test", "10", "2"],
         )
         .expect("Initial insert should succeed");
 
         let duplicate = tx.execute(
-            "INSERT INTO documents (id, title, unit_id, created_at, updated_at)
-             VALUES (?1, ?2, ?3, datetime('now'), datetime('now'))",
-            params!["DOC500", "Rollback Doc Duplicate", "UNIT001"],
+            "INSERT INTO Documents (id, name, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+            params!["DOC500", "Rollback Doc Duplicate", "00001", "test", "10", "2"],
         );
 
         assert!(duplicate.is_err(), "Duplicate key should fail");
@@ -681,7 +683,7 @@ mod tests {
 
         let count: i32 = conn
             .query_row(
-                "SELECT COUNT(*) FROM documents WHERE id = ?1",
+                "SELECT COUNT(*) FROM Documents WHERE id = ?1",
                 params!["DOC500"],
                 |row| row.get(0),
             )

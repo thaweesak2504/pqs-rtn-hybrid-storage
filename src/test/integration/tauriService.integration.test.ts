@@ -1,10 +1,10 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { describe, expect, it, vi } from "vitest";
 import {
-  safeInvoke,
-  tauriAvatarService,
-  tauriDatabaseService,
-  tauriUserService,
+    safeInvoke,
+    tauriAvatarService,
+    tauriDatabaseService,
+    tauriUserService,
 } from "../../services/tauriService";
 
 const setTauriUnavailable = () => {
@@ -26,10 +26,13 @@ const setTauriAvailable = () => {
 };
 
 describe("tauriService integration", () => {
-  it("safeInvoke rejects when not in tauri environment", async () => {
+  it("safeInvoke calls invoke directly in desktop-only mode", async () => {
     setTauriUnavailable();
+    vi.mocked(invoke).mockResolvedValueOnce([{ id: 1 }]);
 
-    await expect(safeInvoke("get_all_users")).rejects.toThrow("Not running in Tauri environment");
+    const result = await safeInvoke("get_all_users");
+    expect(invoke).toHaveBeenCalledWith("get_all_users", undefined);
+    expect(result).toEqual([{ id: 1 }]);
   });
 
   it("safeInvoke calls invoke when __TAURI__ is present", async () => {

@@ -621,14 +621,14 @@ fn delete_test_users() -> Result<String, String> {
 
     // First, check what users exist
     let user_count: i32 = conn
-        .query_row("SELECT COUNT(*) FROM users", [], |row| Ok(row.get(0)?))
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
         .map_err(|e| format!("Failed to count users: {}", e))?;
 
     // Check what roles exist
     let roles: Vec<String> = conn
         .prepare("SELECT DISTINCT role FROM users")
         .map_err(|e| format!("Failed to prepare roles query: {}", e))?
-        .query_map([], |row| Ok(row.get::<_, String>(0)?))
+        .query_map([], |row| row.get::<_, String>(0))
         .map_err(|e| format!("Failed to query roles: {}", e))?
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| format!("Failed to collect roles: {}", e))?;
@@ -640,13 +640,13 @@ fn delete_test_users() -> Result<String, String> {
 
     // Check users after deletion
     let remaining_count: i32 = conn
-        .query_row("SELECT COUNT(*) FROM users", [], |row| Ok(row.get(0)?))
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
         .map_err(|e| format!("Failed to count remaining users: {}", e))?;
 
     let remaining_roles: Vec<String> = conn
         .prepare("SELECT DISTINCT role FROM users")
         .map_err(|e| format!("Failed to prepare remaining roles query: {}", e))?
-        .query_map([], |row| Ok(row.get::<_, String>(0)?))
+        .query_map([], |row| row.get::<_, String>(0))
         .map_err(|e| format!("Failed to query remaining roles: {}", e))?
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| format!("Failed to collect remaining roles: {}", e))?;
@@ -672,7 +672,7 @@ fn get_users_count() -> Result<i32, String> {
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     let count: i32 = conn
-        .query_row("SELECT COUNT(*) FROM users", [], |row| Ok(row.get(0)?))
+        .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
         .map_err(|e| format!("Failed to count users: {}", e))?;
 
     Ok(count)
@@ -1512,17 +1512,17 @@ fn main() {
         .setup(|app| {
             // Initialize content database (OwnerUnits, Documents, etc.)
             if let Err(e) = content_database::initialize_content_database() {
-                logger::error(&format!("Failed to initialize content database: {}", e));
+                logger::error(format!("Failed to initialize content database: {}", e));
             }
 
             // Clean up orphaned section_ref questions (from sections deleted before cleanup was added)
             if let Err(e) = content_database::cleanup_orphaned_section_refs() {
-                logger::warn(&format!("Failed to cleanup orphaned section_refs: {}", e));
+                logger::warn(format!("Failed to cleanup orphaned section_refs: {}", e));
             }
 
             // Initialize FileManager to ensure directories exist (singleton)
             if let Err(e) = file_manager::FileManager::get_instance() {
-                logger::warn(&format!("Failed to initialize file manager: {}", e));
+                logger::warn(format!("Failed to initialize file manager: {}", e));
                 logger::warn("Avatar operations may not work correctly");
             }
 
@@ -1532,10 +1532,10 @@ fn main() {
                     Ok(_) => {
                         // Force maximize to override any saved state from window-state plugin
                         if let Err(e) = window.maximize() {
-                            logger::warn(&format!("Failed to maximize window: {}", e));
+                            logger::warn(format!("Failed to maximize window: {}", e));
                         }
                     }
-                    Err(e) => logger::error(&format!("Failed to show main window: {}", e)),
+                    Err(e) => logger::error(format!("Failed to show main window: {}", e)),
                 }
             } else {
                 logger::warn("Main window not found");

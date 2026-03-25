@@ -33,7 +33,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     let backup_filename = format!("hybrid_backup_{}.zip", timestamp);
     let backup_path = get_backup_directory()?.join(&backup_filename);
 
-    logger::info(&format!(
+    logger::info(format!(
         "Starting hybrid backup creation: {}",
         backup_filename
     ));
@@ -77,7 +77,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
             .map_err(|e| format!("Failed to write database to zip: {}", e))?;
 
         total_files += 1;
-        logger::debug(&format!("Database file added: {} bytes", database_size));
+        logger::debug(format!("Database file added: {} bytes", database_size));
     } else {
         logger::warn("Database file not found, skipping database backup");
     }
@@ -116,7 +116,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
                 total_files += 1;
             }
         }
-        logger::debug(&format!(
+        logger::debug(format!(
             "Media files added: {} files, {} bytes",
             total_files - 1,
             media_size
@@ -171,11 +171,11 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     // Update manifest with checksum (this is a simplified approach)
     // In production, you might want to recalculate or store checksum separately
 
-    logger::info(&format!(
+    logger::info(format!(
         "Hybrid backup created successfully: {}",
         backup_filename
     ));
-    logger::info(&format!(
+    logger::info(format!(
         "Total files: {}, Database: {} bytes, Media: {} bytes",
         total_files, database_size, media_size
     ));
@@ -234,7 +234,7 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         return Err("Backup file does not exist".to_string());
     }
 
-    logger::info(&format!(
+    logger::info(format!(
         "Starting backup import from: {}",
         zip_path.display()
     ));
@@ -345,7 +345,7 @@ pub fn delete_hybrid_backup(filename: &str) -> Result<String, String> {
 
     fs::remove_file(&backup_path).map_err(|e| format!("Failed to delete backup file: {}", e))?;
 
-    logger::info(&format!("Hybrid backup deleted: {}", filename));
+    logger::info(format!("Hybrid backup deleted: {}", filename));
 
     Ok(format!("Hybrid backup '{}' deleted successfully", filename))
 }

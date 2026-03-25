@@ -1,10 +1,10 @@
+use crate::database::get_connection_safe;
+use crate::file_manager::FileManager;
+use crate::logger;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
-use crate::file_manager::FileManager;
-use crate::database::get_connection_safe;
-use crate::logger;
-use std::io::{Read, Write};
 use std::fs::File;
+use std::io::{Read, Write};
 use std::sync::Arc; // Phase 1.4: Arc for shared FileManager
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -28,50 +28,61 @@ impl HybridAvatarManager {
             Ok(file_manager) => {
                 // file_manager is already Arc<FileManager>, no clone needed
                 Ok(HybridAvatarManager { file_manager })
-            },
+            }
             Err(e) => {
-                logger::critical(&format!("Failed to get FileManager instance in HybridAvatarManager: {}", e));
+                logger::critical(format!(
+                    "Failed to get FileManager instance in HybridAvatarManager: {}",
+                    e
+                ));
                 Err(format!("Failed to initialize HybridAvatarManager: {}", e))
             }
         }
     }
-    
-    pub fn save_avatar(&self, user_id: i32, file_data: &[u8], mime_type: &str) -> Result<HybridAvatarInfo, String> {
-        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
+
+    pub fn save_avatar(
+        &self,
+        user_id: i32,
+        file_data: &[u8],
+        mime_type: &str,
+    ) -> Result<HybridAvatarInfo, String> {
+        let conn =
+            get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
         // First, verify user exists
-        let user_exists = conn.query_row::<i32, _, _>(
-            "SELECT COUNT(*) FROM users WHERE id = ?",
-            params![user_id],
-            |row| Ok(row.get(0)?)
-        ).map_err(|e| format!("Failed to check user existence: {}", e))?;
-        
+        let user_exists = conn
+            .query_row::<i32, _, _>(
+                "SELECT COUNT(*) FROM users WHERE id = ?",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to check user existence: {}", e))?;
+
         if user_exists == 0 {
             return Err(format!("User with ID {} does not exist", user_id));
         }
-        
+
         // Delete old avatar file if exists
-        if let Ok(old_path) = self.get_user_avatar_path(user_id) {
-            if let Some(path) = old_path {
-                let _ = self.file_manager.delete_avatar_file(&path);
-            }
+        if let Ok(Some(path)) = self.get_user_avatar_path(user_id) {
+            let _ = self.file_manager.delete_avatar_file(&path);
         }
-        
+
         // Save new avatar file
-        let avatar_path = self.file_manager.save_avatar_file(user_id, file_data, mime_type)?;
-        
+        let avatar_path = self
+            .file_manager
+            .save_avatar_file(user_id, file_data, mime_type)?;
+
         // Update user record with new avatar path
         let updated_at = chrono::Utc::now().to_rfc3339();
         let file_size = file_data.len() as i32;
-        
+
         conn.execute(
             "UPDATE users SET avatar_path = ?, avatar_updated_at = ?, avatar_mime = ?, avatar_size = ? WHERE id = ?",
             params![avatar_path, updated_at, mime_type, file_size, user_id]
         ).map_err(|e| format!("Failed to update user avatar: {}", e))?;
-        
+
         // Note: avatars table has been removed - no need to delete from it
         // File-based storage is now the only method
-        
+
         Ok(HybridAvatarInfo {
             user_id,
             avatar_path: Some(avatar_path),
@@ -89,17 +100,20 @@ impl HybridAvatarManager {
         user_id: i32,
         mut reader: impl Read,
         mime_type: &str,
-        expected_size: Option<usize>
+        expected_size: Option<usize>,
     ) -> Result<HybridAvatarInfo, String> {
         // ✅ Verify user exists first
-        let conn = get_connection_safe().map_err(|e| format!("Database connection error: {}", e))?;
-        
-        let user_exists = conn.query_row::<i32, _, _>(
-            "SELECT COUNT(*) FROM users WHERE id = ?",
-            params![user_id],
-            |row| Ok(row.get(0)?)
-        ).map_err(|e| format!("Failed to check user: {}", e))?;
-        
+        let conn =
+            get_connection_safe().map_err(|e| format!("Database connection error: {}", e))?;
+
+        let user_exists = conn
+            .query_row::<i32, _, _>(
+                "SELECT COUNT(*) FROM users WHERE id = ?",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to check user: {}", e))?;
+
         if user_exists == 0 {
             return Err(format!("User {} not found", user_id));
         }
@@ -120,26 +134,32 @@ impl HybridAvatarManager {
 
         // ✅ Create filename and file path
         let filename = format!("user_{}.{}", user_id, extension);
-        let file_path = self.file_manager.get_avatar_file_path(&filename)
+        let file_path = self
+            .file_manager
+            .get_avatar_file_path(&filename)
             .map_err(|e| format!("Failed to create file path: {}", e))?;
-        
+
         // ✅ Open file for writing
-        let mut file = File::create(&file_path)
-            .map_err(|e| format!("Failed to create file: {}", e))?;
+        let mut file =
+            File::create(&file_path).map_err(|e| format!("Failed to create file: {}", e))?;
 
         // ✅ Stream copy with 8KB buffer chunks
         const BUFFER_SIZE: usize = 8 * 1024; // 8KB chunks
         const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB limit
-        
+
         let mut buffer = vec![0u8; BUFFER_SIZE];
         let mut total_written = 0usize;
 
-        logger::debug(&format!("Starting streaming upload for user {} (expected size: {:?})", user_id, expected_size));
+        logger::debug(format!(
+            "Starting streaming upload for user {} (expected size: {:?})",
+            user_id, expected_size
+        ));
 
         loop {
-            let bytes_read = reader.read(&mut buffer)
+            let bytes_read = reader
+                .read(&mut buffer)
                 .map_err(|e| format!("Read error: {}", e))?;
-            
+
             if bytes_read == 0 {
                 break; // EOF reached
             }
@@ -147,7 +167,7 @@ impl HybridAvatarManager {
             // ✅ Write chunk to file
             file.write_all(&buffer[..bytes_read])
                 .map_err(|e| format!("Write error: {}", e))?;
-            
+
             total_written += bytes_read;
 
             // ✅ Safety check for size limits
@@ -155,12 +175,15 @@ impl HybridAvatarManager {
                 // Clean up partial file
                 drop(file);
                 let _ = std::fs::remove_file(&file_path);
-                return Err(format!("File too large (max {}MB)", MAX_FILE_SIZE / 1024 / 1024));
+                return Err(format!(
+                    "File too large (max {}MB)",
+                    MAX_FILE_SIZE / 1024 / 1024
+                ));
             }
 
             // Log progress for large files
-            if expected_size.is_some() && total_written % (256 * 1024) == 0 {
-                logger::debug(&format!("Upload progress: {} bytes written", total_written));
+            if expected_size.is_some() && total_written.is_multiple_of(256 * 1024) {
+                logger::debug(format!("Upload progress: {} bytes written", total_written));
             }
         }
 
@@ -168,7 +191,10 @@ impl HybridAvatarManager {
         file.flush().map_err(|e| format!("Flush error: {}", e))?;
         drop(file); // Close file handle
 
-        logger::debug(&format!("Upload completed: {} bytes written for user {}", total_written, user_id));
+        logger::debug(format!(
+            "Upload completed: {} bytes written for user {}",
+            total_written, user_id
+        ));
 
         // ✅ Validate minimum file size (at least 100 bytes for valid image)
         if total_written < 100 {
@@ -179,7 +205,7 @@ impl HybridAvatarManager {
         // ✅ Update database metadata
         let updated_at = chrono::Utc::now().to_rfc3339();
         let file_size = total_written as i32;
-        
+
         conn.execute(
             "UPDATE users SET avatar_path = ?, avatar_updated_at = ?, avatar_mime = ?, avatar_size = ? WHERE id = ?",
             params![filename, updated_at, mime_type, file_size, user_id]
@@ -189,7 +215,10 @@ impl HybridAvatarManager {
             format!("Database update error: {}", e)
         })?;
 
-        logger::info(&format!("Avatar saved successfully for user {} ({} bytes)", user_id, total_written));
+        logger::info(format!(
+            "Avatar saved successfully for user {} ({} bytes)",
+            user_id, total_written
+        ));
 
         Ok(HybridAvatarInfo {
             user_id,
@@ -200,35 +229,38 @@ impl HybridAvatarManager {
             file_exists: true,
         })
     }
-    
+
     pub fn get_user_avatar_path(&self, user_id: i32) -> Result<Option<String>, String> {
-        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
-        let avatar_path: Option<String> = conn.query_row(
-            "SELECT avatar_path FROM users WHERE id = ?",
-            params![user_id],
-            |row| Ok(row.get(0)?)
-        ).map_err(|e| format!("Failed to get avatar path: {}", e))?;
-        
+        let conn =
+            get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+        let avatar_path: Option<String> = conn
+            .query_row(
+                "SELECT avatar_path FROM users WHERE id = ?",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to get avatar path: {}", e))?;
+
         Ok(avatar_path)
     }
-    
+
     pub fn get_user_avatar_info(&self, user_id: i32) -> Result<HybridAvatarInfo, String> {
-        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
-        let (avatar_path, avatar_updated_at, avatar_mime, avatar_size): (Option<String>, Option<String>, Option<String>, Option<i32>) = 
-            conn.query_row(
+        let conn =
+            get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+        let (avatar_path, avatar_updated_at, avatar_mime, avatar_size): (Option<String>, Option<String>, Option<String>, Option<i32>) =            conn.query_row(
                 "SELECT avatar_path, avatar_updated_at, avatar_mime, avatar_size FROM users WHERE id = ?",
                 params![user_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
             ).map_err(|e| format!("Failed to get user avatar info: {}", e))?;
-        
+
         let file_exists = if let Some(path) = &avatar_path {
             self.file_manager.get_avatar_file_path(path).is_ok()
         } else {
             false
         };
-        
+
         Ok(HybridAvatarInfo {
             user_id,
             avatar_path,
@@ -238,43 +270,44 @@ impl HybridAvatarManager {
             file_exists,
         })
     }
-    
+
     pub fn delete_avatar(&self, user_id: i32) -> Result<bool, String> {
-        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
+        let conn =
+            get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
         // First, verify user exists to prevent crashes
         let user_exists: Result<i32, _> = conn.query_row(
             "SELECT COUNT(*) FROM users WHERE id = ?",
             params![user_id],
-            |row| row.get(0)
+            |row| row.get(0),
         );
-        
+
         match user_exists {
-            Ok(count) if count == 0 => {
+            Ok(0) => {
                 return Err(format!("User with ID {} does not exist", user_id));
-            },
+            }
             Err(e) => {
                 return Err(format!("Failed to verify user existence: {}", e));
-            },
+            }
             _ => {}
         }
-        
+
         // Get current avatar path - handle case where avatar_path is NULL safely
         let avatar_path: Option<String> = match conn.query_row(
             "SELECT avatar_path FROM users WHERE id = ?",
             params![user_id],
-            |row| row.get(0)
+            |row| row.get(0),
         ) {
             Ok(path) => path,
             Err(rusqlite::Error::QueryReturnedNoRows) => {
                 // User exists but query returned no rows - shouldn't happen but handle it
                 return Err(format!("User {} found but avatar query failed", user_id));
-            },
+            }
             Err(e) => {
                 return Err(format!("Failed to get avatar path: {}", e));
             }
         };
-        
+
         // Delete file if exists - with proper error handling and retry
         if let Some(path) = avatar_path {
             // Only attempt deletion if path is not empty
@@ -286,12 +319,18 @@ impl HybridAvatarManager {
                         Ok(_) => {
                             delete_success = true;
                             if attempt > 1 {
-                                println!("Successfully deleted avatar file '{}' on attempt {}", path, attempt);
+                                println!(
+                                    "Successfully deleted avatar file '{}' on attempt {}",
+                                    path, attempt
+                                );
                             }
                             break;
-                        },
+                        }
                         Err(e) => {
-                            eprintln!("Attempt {} to delete avatar file '{}' failed: {}", attempt, path, e);
+                            eprintln!(
+                                "Attempt {} to delete avatar file '{}' failed: {}",
+                                attempt, path, e
+                            );
                             if attempt < 3 {
                                 // Wait a bit before retry (file might be in use)
                                 std::thread::sleep(std::time::Duration::from_millis(50));
@@ -302,7 +341,7 @@ impl HybridAvatarManager {
                         }
                     }
                 }
-                
+
                 if !delete_success {
                     // File deletion failed but we'll continue to clear the database
                     // The file can be cleaned up later by a maintenance task
@@ -310,7 +349,7 @@ impl HybridAvatarManager {
                 }
             }
         }
-        
+
         // Update user record - clear all avatar fields
         match conn.execute(
             "UPDATE users SET avatar_path = NULL, avatar_updated_at = NULL, avatar_mime = NULL, avatar_size = NULL WHERE id = ?",
@@ -328,18 +367,18 @@ impl HybridAvatarManager {
             }
         }
     }
-    
+
     pub fn get_avatar_file_data(&self, avatar_path: &str) -> Result<Vec<u8>, String> {
         // Validate input
         if avatar_path.is_empty() {
             return Err("Avatar path is empty".to_string());
         }
-        
+
         // Security: prevent path traversal
         if avatar_path.contains("..") {
             return Err("Invalid avatar path".to_string());
         }
-        
+
         let file_path = match self.file_manager.get_avatar_file_path(avatar_path) {
             Ok(path) => path,
             Err(e) => {
@@ -347,7 +386,7 @@ impl HybridAvatarManager {
                 return Err(format!("Avatar file not accessible: {}", e));
             }
         };
-        
+
         // Try to read file with better error handling
         match std::fs::read(&file_path) {
             Ok(data) => Ok(data),
@@ -356,19 +395,25 @@ impl HybridAvatarManager {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Err(format!("Avatar file not found: {}", avatar_path))
                 } else if e.kind() == std::io::ErrorKind::PermissionDenied {
-                    Err(format!("Permission denied reading avatar file: {}", avatar_path))
+                    Err(format!(
+                        "Permission denied reading avatar file: {}",
+                        avatar_path
+                    ))
                 } else {
-                    Err(format!("Failed to read avatar file '{}': {}", avatar_path, e))
+                    Err(format!(
+                        "Failed to read avatar file '{}': {}",
+                        avatar_path, e
+                    ))
                 }
             }
         }
     }
-    
+
     pub fn get_avatar_base64(&self, avatar_path: &str) -> Result<String, String> {
         let file_data = self.get_avatar_file_data(avatar_path)?;
-        use base64::{Engine as _, engine::general_purpose};
+        use base64::{engine::general_purpose, Engine as _};
         let base64_data = general_purpose::STANDARD.encode(&file_data);
-        
+
         // Determine MIME type from file extension
         let mime_type = if avatar_path.ends_with(".png") {
             "image/png"
@@ -379,65 +424,72 @@ impl HybridAvatarManager {
         } else {
             "image/jpeg"
         };
-        
+
         Ok(format!("data:{};base64,{}", mime_type, base64_data))
     }
-    
+
     pub fn cleanup_orphaned_files(&self) -> Result<u32, String> {
-        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
+        let conn =
+            get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
         // Get all valid avatar paths from database
-        let mut stmt = conn.prepare("SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL")
+        let mut stmt = conn
+            .prepare("SELECT avatar_path FROM users WHERE avatar_path IS NOT NULL")
             .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-        
-        let valid_paths: Result<Vec<String>, _> = stmt.query_map([], |row| {
-            Ok(row.get::<_, String>(0)?)
-        }).map_err(|e| format!("Failed to query avatar paths: {}", e))?
-        .collect();
-        
-        let valid_paths = valid_paths.map_err(|e| format!("Failed to collect avatar paths: {}", e))?;
-        
+
+        let valid_paths: Result<Vec<String>, _> = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Failed to query avatar paths: {}", e))?
+            .collect();
+
+        let valid_paths =
+            valid_paths.map_err(|e| format!("Failed to collect avatar paths: {}", e))?;
+
         // Clean up orphaned files
         self.file_manager.cleanup_orphaned_files(&valid_paths)
     }
-    
+
     pub fn migrate_blob_to_file(&self, user_id: i32) -> Result<bool, String> {
-        let conn = get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-        
+        let conn =
+            get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
         // Check if user already has file-based avatar
-        let has_file_avatar: bool = conn.query_row(
-            "SELECT avatar_path IS NOT NULL FROM users WHERE id = ?",
-            params![user_id],
-            |row| Ok(row.get(0)?)
-        ).map_err(|e| format!("Failed to check file avatar: {}", e))?;
-        
+        let has_file_avatar: bool = conn
+            .query_row(
+                "SELECT avatar_path IS NOT NULL FROM users WHERE id = ?",
+                params![user_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to check file avatar: {}", e))?;
+
         if has_file_avatar {
             return Ok(false); // Already migrated
         }
-        
+
         // Note: avatars table has been removed - no BLOB avatars to migrate
         let blob_avatar: Option<(Vec<u8>, String)> = None;
-        
+
         if let Some((avatar_data, mime_type)) = blob_avatar {
             // Save to file
-            let avatar_path = self.file_manager.save_avatar_file(user_id, &avatar_data, &mime_type)?;
-            
+            let avatar_path =
+                self.file_manager
+                    .save_avatar_file(user_id, &avatar_data, &mime_type)?;
+
             // Update user record
             let updated_at = chrono::Utc::now().to_rfc3339();
             let file_size = avatar_data.len() as i32;
-            
+
             conn.execute(
                 "UPDATE users SET avatar_path = ?, avatar_updated_at = ?, avatar_mime = ?, avatar_size = ? WHERE id = ?",
                 params![avatar_path, updated_at, mime_type, file_size, user_id]
             ).map_err(|e| format!("Failed to update user avatar: {}", e))?;
-            
+
             // Note: avatars table has been removed - no need to delete from it
             // File-based storage is now the only method
-            
+
             Ok(true)
         } else {
             Ok(false) // No BLOB avatar to migrate
         }
     }
 }
-

@@ -1,5 +1,5 @@
 //! Logging utility for PQS RTN Hybrid Storage
-//! 
+//!
 //! Provides debug, info, and error logging with conditional output
 //! based on build configuration (debug vs release).
 
@@ -37,4 +37,3 @@ pub fn error<T: Display>(message: T) {
 pub fn critical<T: Display>(message: T) {
     eprintln!("🚨 [CRITICAL ERROR] {}", message);
 }
-
