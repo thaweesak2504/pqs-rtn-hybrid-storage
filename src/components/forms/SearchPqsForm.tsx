@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import UnitSelector from '../common/UnitSelector'
 import ConfirmModal from '../modals/ConfirmModal'
 import { FormGroup, FormInput, FormSelect } from '../ui/Form'
+import Tooltip from '../ui/Tooltip'
 
 const PROTECTED_DOCUMENT_IDS = new Set(['22724201001'])
 
@@ -244,13 +245,12 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end items-center space-x-1">
                           {PROTECTED_DOCUMENT_IDS.has(doc.id) && (
-                            <span
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
-                              title="เอกสารตัวอย่างที่ติดมากับแอปพลิเคชัน — ไม่สามารถลบได้"
-                            >
-                              <ShieldCheck className="w-3 h-3" />
-                              ตัวอย่าง
-                            </span>
+                            <Tooltip content="เอกสารตัวอย่างที่ติดมากับแอปพลิเคชัน — ไม่สามารถลบได้" position="top">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 cursor-default">
+                                <ShieldCheck className="w-3 h-3" />
+                                ตัวอย่าง
+                              </span>
+                            </Tooltip>
                           )}
                           <button
                             className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors border border-transparent hover:border-blue-200 dark:hover:border-blue-800"
