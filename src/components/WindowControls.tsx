@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Minus, Square, Copy, X } from 'lucide-react'
+import { Copy, Minus, Square, X } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
 
 const WindowControls: React.FC = () => {
@@ -16,22 +16,16 @@ const WindowControls: React.FC = () => {
   useEffect(() => {
     const initWindowApi = async () => {
       try {
-        // Check if Tauri API is available
-        if (typeof window !== 'undefined' && window.__TAURI__) {
-          const { getCurrent } = await import('@tauri-apps/api/window')
+        const { getCurrent } = await import('@tauri-apps/api/window')
           const currentWindow = getCurrent()
           setWindowApi(currentWindow)
           
-          // Check initial maximize state
           try {
             const maximized = await currentWindow.isMaximized()
             setIsMaximized(maximized)
           } catch (error) {
             console.warn('Failed to check initial maximize state:', error)
           }
-        } else {
-          setWindowApi(null)
-        }
       } catch (error) {
         console.warn('Failed to initialize window API:', error)
         setWindowApi(null)

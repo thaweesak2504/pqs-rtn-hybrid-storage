@@ -1,16 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 
-// Check if we're running in Tauri environment
-const isTauriEnvironment = () => {
-  return typeof window !== 'undefined' && window.__TAURI__;
-};
-
-// Safe invoke function that handles non-Tauri environments
+// Desktop App only — invoke() directly, no web fallback
 export const safeInvoke = async (command: string, args?: any) => {
-  if (!isTauriEnvironment()) {
-    throw new Error('Not running in Tauri environment');
-  }
-  
   try {
     const result = await invoke(command, args);
     return result;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 interface WindowVisibilityState {
   isVisible: boolean
@@ -161,8 +161,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
     window.addEventListener('orientationchange', handleResize)
 
     // Tauri window events with proper cleanup tracking
-    if (typeof window !== 'undefined' && window.__TAURI__) {
-      const setupTauriListeners = async () => {
+    const setupTauriListeners = async () => {
         if (!mountedRef.current) return
 
         try {
@@ -230,8 +229,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
         }
       }
 
-      setupTauriListeners()
-    }
+    setupTauriListeners()
 
     // ✅ Comprehensive cleanup function
     return () => {

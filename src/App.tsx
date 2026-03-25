@@ -1,41 +1,41 @@
 import { useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, Route, HashRouter as Router, Routes } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
 import { DarkModeProvider } from './contexts/DarkModeContext';
+import { InitializationProvider } from './contexts/InitializationContext';
+import { LayoutProvider } from './contexts/LayoutContext';
+import { SlideBarProvider } from './contexts/SlideBarContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { UserProfileProvider } from './contexts/UserProfileContext';
-import { BreadcrumbProvider } from './contexts/BreadcrumbContext';
-import { SlideBarProvider } from './contexts/SlideBarContext';
-import { LayoutProvider } from './contexts/LayoutContext';
-import { InitializationProvider } from './contexts/InitializationContext';
 import { useZoomShortcuts } from './hooks/useZoomShortcuts';
 import { logger } from './utils/logger';
 
 // Import pages
-import SignInPage from './components/pages/SignInPage';
-import RegistrationPage from './components/pages/RegistrationPage';
-import EditorPage from './components/pages/EditorPage';
 import ActiveDocumentPage from './components/pages/ActiveDocumentPage';
+import ContactPage from './components/pages/ContactPage';
+import EditorPage from './components/pages/EditorPage';
 import ExamplePage from './components/pages/ExamplePage';
 import HistoryPage from './components/pages/HistoryPage';
+import RegistrationPage from './components/pages/RegistrationPage';
+import SignInPage from './components/pages/SignInPage';
 import TeamPage from './components/pages/TeamPage';
-import ContactPage from './components/pages/ContactPage';
 // import VisitorPage from './components/pages/VisitorPage'; // Retired
 
 import DatabaseViewerPage from './components/pages/DatabaseViewerPage';
 ;
 
 import DashboardPage from './components/pages/DashboardPage';
-import HighRanksPage from './components/pages/HighRanksPage';
 import DatabaseManagementPage from './components/pages/DatabaseManagementPage';
+import HighRanksPage from './components/pages/HighRanksPage';
 
 // Import layouts
 import UnifiedLayout from './components/UnifiedLayout';
 
 // Import components
-import HeroSection from './components/HeroSection';
 import DebugRoute from './components/DebugRoute';
 import GlobalRedirect from './components/GlobalRedirect';
+import HeroSection from './components/HeroSection';
 
 // Tauri commands are handled by individual components
 

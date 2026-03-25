@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import HeaderMenuBar from './HeaderMenuBar'
+import { LogIn } from 'lucide-react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import navyLogo from '../assets/images/navy_logo.webp'
-import DarkModeToggle from './DarkModeToggle'
-import Avatar from './ui/Avatar'
-import HamburgerMenu from './HamburgerMenu'
-import SlideBar from './SlideBar'
-import SearchBarDropdown from './search/SearchBarDropdown'
-import Footer from './Footer'
-import Breadcrumb from './Breadcrumb'
-import WindowControls from './WindowControls'
-import UserProfilePanel from './UserProfilePanel'
-import { useAuth } from '../hooks/useAuth'
 import { useLayout } from '../contexts/LayoutContext'
+import { useAuth } from '../hooks/useAuth'
 import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
-import { LogIn } from 'lucide-react'
+import Breadcrumb from './Breadcrumb'
+import DarkModeToggle from './DarkModeToggle'
+import Footer from './Footer'
+import HamburgerMenu from './HamburgerMenu'
+import HeaderMenuBar from './HeaderMenuBar'
+import SlideBar from './SlideBar'
+import UserProfilePanel from './UserProfilePanel'
+import WindowControls from './WindowControls'
+import SearchBarDropdown from './search/SearchBarDropdown'
+import Avatar from './ui/Avatar'
 import RouteTransition from './ui/RouteTransition'
 
 // Phase 1.2: Custom hooks for better organization
@@ -134,7 +134,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
       <header
         className="bg-github-bg-primary border-b border-github-border-primary flex-shrink-0 z-[70] transition-colors duration-200"
         style={{
-          WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'drag' : 'auto'
+          WebkitAppRegion: 'drag'
         } as React.CSSProperties}
         onMouseDown={async (e) => {
           // Don't start dragging if clicking on interactive elements
@@ -145,18 +145,13 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
             return // Don't start dragging
           }
           
-          if (typeof window !== 'undefined' && window.__TAURI__) {
-            // Try to use Tauri API for dragging
-            try {
+          try {
               const { getCurrent } = await import('@tauri-apps/api/window')
               const currentWindow = getCurrent()
-              
-              // Start dragging using Tauri API
               await currentWindow.startDragging()
             } catch (error) {
               // Ignore drag error
             }
-          }
         }}
       >
         <div className="w-full px-6 lg:px-8">
@@ -187,7 +182,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               </div>
 
               {/* Breadcrumb - ต่อจาก PQS RTN */}
-              <div className="flex-shrink-0 ml-3" style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
+              <div className="flex-shrink-0 ml-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                 <Breadcrumb variant="default" />
               </div>
 
@@ -198,7 +193,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                     className="mx-2 w-px h-6 bg-github-border-primary"
                     aria-hidden="true"
                   />
-                  <div style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}><HeaderMenuBar /></div>
+                  <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}><HeaderMenuBar /></div>
                 </>
               )}
             </div>
@@ -207,7 +202,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               <div className="flex items-center space-x-3 flex-shrink-0 ml-auto">
                 {/* Search Dropdown */}
                 {showFullHeader && (
-                  <div style={{ WebkitAppRegion: typeof window !== 'undefined' && window.__TAURI__ ? 'no-drag' : 'auto' } as React.CSSProperties}>
+                  <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                     <SearchBarDropdown onRightPanelOpen={isRightPanelOpen} />
                   </div>
                 )}
