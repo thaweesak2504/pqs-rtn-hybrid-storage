@@ -252,7 +252,7 @@ pub fn initialize_content_database() -> Result<String, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect to content database: {}", e))?;
     
     // Create OwnerUnits table
-    // This schema MUST match src/example/full_example/OwnerUnits.sql structure
+    // This schema MUST match sql/OwnerUnits.sql structure
     conn.execute(
         "CREATE TABLE IF NOT EXISTS OwnerUnits (
             unit_id VARCHAR(7) PRIMARY KEY,
@@ -389,7 +389,7 @@ fn seed_owner_units(conn: &Connection) -> Result<(), String> {
 
     if count == 0 {
         logger::info("Seeding OwnerUnits from embedded SQL...");
-        let sql = include_str!("../../src/example/full_example/OwnerUnits.sql");
+        let sql = include_str!("../sql/OwnerUnits.sql");
         conn.execute_batch(sql)
             .map_err(|e| format!("Failed to seed OwnerUnits: {}", e))?;
     }
