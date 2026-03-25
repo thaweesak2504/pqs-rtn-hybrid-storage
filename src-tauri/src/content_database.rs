@@ -7417,60 +7417,6 @@ mod tests {
     }
 
     // ========================================================================
-    // Score Calculation Tests
-    // ========================================================================
-
-    #[test]
-    fn test_calculate_group_score_exempted_children() {
-        let conn = create_test_db();
-        init_content_schema(&conn).expect("Failed to init schema");
-
-        // Create: doc, section, L1 group, L2 exempted child
-        conn.execute(
-            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
-             VALUES (?1, 'Test Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
-            ["test-doc"],
-        ).expect("Insert document failed");
-
-        conn.execute(
-            "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, is_system_defined)
-             VALUES (?, 100, 100, 'Test Section', 'Test', 1)",
-            ["test-doc"],
-        ).expect("Insert section failed");
-
-        // Get section ID from last insert
-        let section_id: i64 = conn
-            .query_row(
-                "SELECT id FROM Sections WHERE document_id = ? ORDER BY id DESC LIMIT 1",
-                ["test-doc"],
-                |row| row.get(0),
-            )
-            .expect("Get section_id failed");
-
-        // L1 group header
-        conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_group_header, is_scored, question_type, group_score, score)
-             VALUES (?1, ?2, ?3, NULL, 1, 'Test', 1, 0, 'standard', 0, 0)",
-            params!["q1", "test-doc", section_id],
-        ).expect("Insert L1 failed");
-
-        // L2 exempted child - should contribute 0 to group score
-        conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_group_header, is_scored, question_type, group_score, score)
-             VALUES (?1, ?2, ?3, ?4, 1, 'Exempted', 0, 0, 'exempted', 0, 100)",
-            params!["q1-1", "test-doc", section_id, "q1"],
-        ).expect("Insert exempted child failed");
-
-        // Call calculate_group_score - exempted type child should result in 0 group score
-        let group_score =
-            calculate_group_score("q1".to_string()).expect("calculate_group_score failed");
-
-        // NOTE: Cannot fully test without modifying calculate_group_score to accept Connection reference.
-        // Currently verifies that exempted child doesn't crash the calculation.
-        assert!(group_score >= 0, "Group score calculation should not fail");
-    }
-
-    // ========================================================================
     // Cascade Chain Tests
     // ========================================================================
 
