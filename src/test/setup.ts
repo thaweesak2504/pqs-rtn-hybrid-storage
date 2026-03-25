@@ -26,6 +26,22 @@ vi.mock("@tauri-apps/api/fs", () => ({
   writeBinaryFile: vi.fn(),
 }));
 
+vi.mock("@tauri-apps/api/shell", () => ({
+  open: vi.fn(),
+  Command: vi.fn(),
+}));
+
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrent: vi.fn(() => ({
+    setSize: vi.fn(),
+    setPosition: vi.fn(),
+    center: vi.fn(),
+    setTitle: vi.fn(),
+  })),
+  LogicalSize: vi.fn(),
+  LogicalPosition: vi.fn(),
+}));
+
 class MockIntersectionObserver {
   disconnect() {}
   observe() {}
