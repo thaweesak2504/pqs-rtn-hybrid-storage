@@ -153,10 +153,18 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
   sectionNumber,
   parentSubQuestionList,
 }) => {
+  const meta = useMemo(() => {
+    if (!question.metadata) return {};
+    try { return JSON.parse(question.metadata); } catch { return {}; }
+  }, [question.metadata]);
+
   // Numbering: L0 = ๓xx.๑, L1 = ๓xx.๑.๑, L2 = ก.
   let displayNumber = '';
   let fullPath = '';
-  if (level === 0) {
+  if (meta.refSectionNumber) {
+    displayNumber = toThaiNumber(meta.refSectionNumber);
+    fullPath = `${parentPath} ${displayNumber}`;
+  } else if (level === 0) {
     displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
     fullPath = displayNumber;
   } else if (level === 1) {
@@ -166,11 +174,6 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
     displayNumber = toThaiAlphabet(index);
     fullPath = `${parentPath} ${displayNumber}`;
   }
-
-  const meta = useMemo(() => {
-    if (!question.metadata) return {};
-    try { return JSON.parse(question.metadata); } catch { return {}; }
-  }, [question.metadata]);
 
   const hasChildren = question.children && question.children.length > 0;
 
@@ -222,7 +225,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
     <div className="flex flex-col">
       {/* Question Row */}
       <div className="flex items-baseline">
-        <span className={`${level <= 1 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${!isExamChildPrintNode && question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
+        <span className={`${level <= 1 ? 'min-w-[9ch]' : meta.refSectionNumber ? 'min-w-[4ch] mr-2' : 'min-w-[2ch] mr-1'} ${!isExamChildPrintNode && question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
           {displayNumber}
         </span>
 

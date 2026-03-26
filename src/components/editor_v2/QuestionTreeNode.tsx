@@ -118,7 +118,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     return parsedQuestionMeta.refSectionId ? parsedQuestionMeta : null;
   }, [is300, parsedQuestionMeta]);
   const prefix = refSectionMeta?.refSectionNumber
-    ? `${refSectionMeta.refSectionNumber}.`
+    ? `${refSectionMeta.refSectionNumber}`
     : is200or300
       ? buildPrefix200_300(level, question.sequence as number, sectionNumber, parentSequence)
       : buildPrefix(level, question.sequence as number, sectionNumber);
