@@ -172,7 +172,7 @@ const ActiveDocumentPage: React.FC = () => {
   if (!docId) return <div>Invalid Document ID</div>;
 
   return (
-    <div className="flex h-screen bg-github-bg-primary overflow-hidden">
+    <div className="flex flex-1 min-h-0 bg-github-bg-primary overflow-hidden">
       {/* Left Sidebar */}
       <aside
         className={`${isSidebarOpen ? 'w-64' : 'w-0'} bg-white dark:bg-github-bg-secondary border-r border-gray-200 dark:border-github-border-primary transition-all duration-300 flex flex-col`}

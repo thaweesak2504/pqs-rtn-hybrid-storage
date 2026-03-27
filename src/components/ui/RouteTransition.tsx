@@ -12,7 +12,7 @@ const RouteTransition: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }, [location.pathname])
 
   return (
-    <div className={`transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`transition-opacity duration-300 flex-1 min-h-0 flex flex-col ${visible ? 'opacity-100' : 'opacity-0'}`}>
       {children}
     </div>
   )
