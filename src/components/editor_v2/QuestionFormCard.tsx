@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    FileDigit,
-    FileText,
-    Globe,
-    GripVertical,
-    ImageIcon,
-    ListChecks,
-    Lock as LockIcon,
-    Mic,
-    Plus,
-    Save,
-    Shield,
-    Trash2,
-    Video,
-    X
+  CheckCircle,
+  ChevronDown,
+  ChevronRight,
+  FileDigit,
+  FileText,
+  Globe,
+  GripVertical,
+  ImageIcon,
+  ListChecks,
+  Lock as LockIcon,
+  Mic,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Video,
+  X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-    DEFAULT_L1_DESC_BY_SEQ,
-    convertThaiToArabic,
-    toThaiAlphabet,
+  DEFAULT_L1_DESC_BY_SEQ,
+  convertThaiToArabic,
+  toThaiAlphabet
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -243,6 +243,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
+
+  // Image operation state - defer upload/delete until Save
+  const [pendingImageUpload, setPendingImageUpload] = useState<string | null>(null); // source file path
+  const [pendingImageDelete, setPendingImageDelete] = useState<boolean>(false);
+  const [originalImagePath] = useState<string | null>(initialImage || null); // for rollback on cancel
 
   // ---- Score Editor State (Section 300 only) ----
   const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
@@ -1011,37 +1016,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       });
 
       if (selected && typeof selected === "string") {
-        let targetId = existingId;
-        if (!targetId) {
-          if (generatedId) {
-            targetId = generatedId;
-          } else {
-            targetId = crypto.randomUUID();
-            setGeneratedId(targetId);
-          }
-        }
-        const friendlyPrefix = convertThaiToArabic(prefix);
-        const newPath = await invoke<string>("upload_question_image", {
-          path: selected,
-          documentId: documentId,
-          questionId: targetId,
-          friendlyPrefix: friendlyPrefix,
-        });
-        setImagePath(newPath);
+        // Store pending upload - don't execute until Save
+        setPendingImageUpload(selected);
+        setPendingImageDelete(false);
+        // Show preview using the selected file path
+        setImagePath(selected);
       }
     } catch (err) {
-      console.error("Failed to upload image:", err);
+      console.error("Failed to select image:", err);
     }
   };
 
-  const handleRemoveImage = async () => {
-    if (imagePath) {
-      try {
-        await invoke('delete_question_image', { path: imagePath });
-      } catch (err) {
-        console.error("Failed to delete image file:", err);
-      }
-    }
+  const handleRemoveImage = () => {
+    // Mark for deletion - don't execute until Save
+    setPendingImageDelete(true);
+    setPendingImageUpload(null);
     setImagePath(null);
   };
 
@@ -1080,6 +1069,62 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   const handleSave = async () => {
+    // Execute pending image operations BEFORE saving
+    let finalImagePath = imagePath;
+    
+    // Handle pending image upload
+    if (pendingImageUpload) {
+      try {
+        // Delete old image first if it exists (replacement scenario)
+        if (originalImagePath) {
+          try {
+            await invoke('delete_question_image', { path: originalImagePath });
+          } catch (err) {
+            console.error("Failed to delete old image:", err);
+            // Continue with upload anyway
+          }
+        }
+        
+        let targetId = existingId;
+        if (!targetId) {
+          if (generatedId) {
+            targetId = generatedId;
+          } else {
+            targetId = crypto.randomUUID();
+            setGeneratedId(targetId);
+          }
+        }
+        const friendlyPrefix = convertThaiToArabic(prefix);
+        const newPath = await invoke<string>("upload_question_image", {
+          path: pendingImageUpload,
+          documentId: documentId,
+          questionId: targetId,
+          friendlyPrefix: friendlyPrefix,
+        });
+        finalImagePath = newPath;
+        setImagePath(newPath);
+        setPendingImageUpload(null);
+        setPendingImageDelete(false); // Clear delete flag since we're replacing
+      } catch (err) {
+        console.error("Failed to upload image:", err);
+        if (onAlert) {
+          onAlert("ไม่สามารถอัปโหลดรูปภาพได้", "danger");
+        }
+        return;
+      }
+    }
+    // Handle pending image deletion (only if no new upload)
+    else if (pendingImageDelete && originalImagePath) {
+      try {
+        await invoke('delete_question_image', { path: originalImagePath });
+        finalImagePath = null;
+        setPendingImageDelete(false);
+      } catch (err) {
+        console.error("Failed to delete image file:", err);
+        // Continue anyway - deletion failure shouldn't block save
+      }
+    }
+
     // Reset errors
     setErrors({});
     const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
@@ -1197,7 +1242,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         if (metadataString) {
           try { metaObj = JSON.parse(metadataString); } catch { }
         }
-        if (imagePath) metaObj.image = imagePath;
+        if (finalImagePath) metaObj.image = finalImagePath;
         if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
         const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
 
@@ -1291,7 +1336,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     await onSave({
       content,
       description: showExtraButtons ? description : undefined,
-      image: showExtraButtons ? imagePath || undefined : undefined,
+      image: showExtraButtons ? finalImagePath || undefined : undefined,
       id: !isEdit ? questionId : undefined,
       references: requireRef ? linkedRefs : [],
       metadata: metadataString,
@@ -1347,6 +1392,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Cleanup background-saved L2 if user cancels
   const handleCancel = useCallback(async () => {
+    // Restore original image state (rollback pending operations)
+    setImagePath(originalImagePath);
+    setPendingImageUpload(null);
+    setPendingImageDelete(false);
+    
     if (isBackgroundSaved && generatedId) {
       try {
         await invoke('delete_question', { id: generatedId });
@@ -1355,7 +1405,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
     onCancel();
-  }, [isBackgroundSaved, generatedId, onCancel]);
+  }, [isBackgroundSaved, generatedId, originalImagePath, onCancel]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
