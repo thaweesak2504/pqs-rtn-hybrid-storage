@@ -553,3 +553,29 @@ pub(crate) fn get_thai_letter(idx: usize) -> String {
 | `compute_section_progress_inner` อยู่ที่ไหน? | → `scoring.rs` (เป็น scoring logic)                                               |
 | `cleanup_orphaned_section_refs` อยู่ที่ไหน?  | → `section_refs.rs` (เป็น section_ref logic, ถูกเรียกจาก sections via pub(crate)) |
 | ต้องแก้ `main.rs` มั้ย?                      | ❌ ไม่ต้อง — `mod.rs` re-exports ทุกอย่างด้วย `pub use *`                         |
+
+---
+
+## 11. 2026-03-30 Update: Post-Analysis Recommendations
+
+จากการตรวจสอบล่าสุด (30 มี.ค. 26) ไฟล์ `content_database.rs` ได้เติบโตขึ้นเป็น **8,329 บรรทัด** ซึ่งทำให้การทำ Refactoring มีความจำเป็นเร่งด่วนมากขึ้น โดยมีข้อแนะนำเพิ่มเติมดังนี้:
+
+### 11.1 ปรับปรุงการจัดการ Connection (Phase 2 Enhancement)
+แทนที่จะเปิด Connection ใหม่ในทุกฟังก์ชัน (`get_content_connection`) แนะนำให้ปรับปรุงใน `connection.rs`:
+- **Tauri State Integration**: ใช้ระบบ `.manage(DbConnection)` ของ Tauri เพื่อเก็บ Connection เดียวที่เปิดค้างไว้ (Persistent Connection)
+- **Dependency Injection**: ปรับปรุงฟังก์ชัน CRUD ให้รับ `&Connection` เป็นอาร์กิวเมนต์ เพื่อให้สามารถควบคุม Workflow และ Transaction ได้ดีขึ้นจากภายนอก
+
+### 11.2 การจัดการโครงสร้างใหม่ของ Scoring Logic (Phase 5 Refinement)
+เนื่องจากระบบ Scoring มีความซับซ้อนเพิ่มขึ้น (Scoring Chain, recaluclate_group_score) แนะนำให้:
+- แยก **Scoring Logic** ออกมาเป็น Pure functions ใน `scoring_logic.rs` (ไม่ยุ่งกับ DB)
+- ให้ `scoring.rs` ทำหน้าที่เพียงแค่ดึงข้อมูลจาก DB แล้วส่งต่อให้ Logic ประมวลผล เพื่อลดความซับซ้อนในการทำ Unit Test
+
+### 11.3 กลยุทธ์การย้าย Tests (Phase 6 Enhancement)
+ด้วยปริมาณ Test กว่า 1,300 บรรทัด แจ้งเตือนดังนี้:
+- **Modular Tests**: ย้าย Test ที่เจาะจงแต่ละ Domain ไปไว้ในโมดูลนั้นๆ
+- **Integration Tests**: สำหรับ Test ที่เช็คความสัมพันธ์ข้ามโมดูล (เช่น Cascade Delete) ให้สร้างโฟลเดอร์ `src-tauri/src/content_database/tests/` เพื่อแยกไฟล์ Test ขนาดใหญ่ออกไป
+
+### 11.4 Baseline & Performance Check
+ก่อนเริ่ม Refactoring:
+- ให้ทำการบันทึก **Compile Time** และ **RAM usage ของ Rust Analyzer** ไว้เป็นสถิติ เพื่อตรวจสอบผลลัพธ์หลังจากการแยกไฟล์ (คาดการณ์ว่าประสิทธิภาพจะดีขึ้นอย่างน้อย 30-50%)
+
