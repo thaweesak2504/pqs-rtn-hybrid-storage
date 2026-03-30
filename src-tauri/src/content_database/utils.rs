@@ -1,7 +1,3 @@
-use super::*;
-use crate::logger;
-
-
 /// Generate a pseudo-unique ID (Time based)
 pub fn generate_uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};

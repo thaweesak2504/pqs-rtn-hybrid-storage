@@ -1,6 +1,5 @@
 use super::*;
-use crate::logger;
-use rusqlite::{params, OptionalExtension};
+use rusqlite::params;
 
 /// Create a new reference document
 pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentReference, String> {

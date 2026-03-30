@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct CreateDocumentArgs {
     pub name: String,
