@@ -1,3 +1,4 @@
+use crate::logger;
 use rusqlite::{params, Connection};
 use std::time::SystemTime;
 
@@ -341,30 +342,33 @@ pub fn seed_section_200_template(
     _section_num: i32,
 ) -> Result<(), String> {
     // Helper closure: all 2xx L1 questions start exempted and are activated per position later.
-    let insert_q = |seq: i32,
+    let insert_q = |parent: Option<&str>,
+                    seq: i32,
                     content: String,
                     question_type: &str,
                     display_text: Option<&str>|
      -> Result<String, String> {
         let q_id = generate_uuid();
         conn.execute(
-            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, question_type, display_text)             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'text', ?6, ?7)",
-            params![q_id, doc_id, section_id, seq, content, question_type, display_text]
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type, question_type, display_text)             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 'text', ?7, ?8)",
+            params![q_id, doc_id, section_id, parent, seq, content, question_type, display_text]
         ).map_err(|e| e.to_string())?;
         Ok(q_id)
     };
 
     let exempted_text = "(ไม่ต้องอธิบาย)";
 
-    insert_q(1, "หน้าที่".to_string(), "exempted", Some(exempted_text))?;
+    insert_q(None, 1, "หน้าที่".to_string(), "exempted", Some(exempted_text))?;
     // 2xx.2: ส่วนประกอบ — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
     insert_q(
+        None,
         2,
         "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ".to_string(),
         "exempted",
         Some(exempted_text),
     )?;
     insert_q(
+        None,
         3,
         "หลักการทำงาน".to_string(),
         "exempted",
@@ -372,18 +376,21 @@ pub fn seed_section_200_template(
     )?;
     // 2xx.4: ค่าทำงาน — default exempted, display "(ไม่ต้องอธิบาย)", no scoring, no group_header
     insert_q(
+        None,
         4,
         "ค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน".to_string(),
         "exempted",
         Some(exempted_text),
     )?;
     insert_q(
+        None,
         5,
         "การเชื่อมต่อระบบ".to_string(),
         "exempted",
         Some(exempted_text),
     )?;
     insert_q(
+        None,
         6,
         "ข้อระมัดระวังอันตราย".to_string(),
         "exempted",
@@ -524,7 +531,10 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
                     }
                 }
 
-                eprintln!("[cleanup_orphaned_section_refs] Removed orphaned section_ref question {} (was pointing to deleted section {})", question_id, ref_sid);
+                logger::debug(format!(
+                    "cleanup_orphaned_section_refs removed orphaned section_ref question {} (was pointing to deleted section {})",
+                    question_id, ref_sid
+                ));
                 removed += 1;
             }
         }
@@ -543,17 +553,24 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
                 "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0 WHERE id = ?1",
                 params![pid],
             ).map_err(|e| e.to_string())?;
-            eprintln!("[cleanup_orphaned_section_refs] Auto-exempted parent question {} (no section_ref children remaining)", pid);
+            logger::debug(format!(
+                "cleanup_orphaned_section_refs auto-exempted parent question {} (no section_ref children remaining)",
+                pid
+            ));
         }
 
-        let _ = recalculate_group_score_chain(&conn, pid);
+        if let Err(e) = recalculate_group_score_chain(&conn, pid) {
+            logger::warn(format!(
+                "cleanup_orphaned_section_refs updated data for parent {} but failed to recalculate score chain: {}",
+                pid, e
+            ));
+        }
     }
 
     // --- Catch-up pass: find stranded section selectors in 300-series ---
     // These are L1 group_header questions (3xx.2-3xx.6, sequence 2-6) that were activated
     // (changed from exempted to normal) and had section_ref children added, but those children
     // were deleted in a prior cleanup that didn't auto-exempt the parent.
-    // Restrict to parent_id IS NULL (L1 only) and sequence 2-6 to avoid catching 3xx.1 or 3xx.7.
     {
         let mut stale_stmt = conn
             .prepare(
@@ -583,18 +600,26 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
             ).map_err(|e| e.to_string())?;
 
             if let Some(pid) = parent_id {
-                let _ = recalculate_group_score_chain(&conn, pid);
+                if let Err(e) = recalculate_group_score_chain(&conn, pid) {
+                    logger::warn(format!(
+                        "cleanup_orphaned_section_refs auto-exempted stranded selector {} but failed to recalculate parent {}: {}",
+                        qid, pid, e
+                    ));
+                }
             }
-            eprintln!("[cleanup_orphaned_section_refs] Auto-exempted stranded selector {} (300-series group_header with no children)", qid);
+            logger::debug(format!(
+                "cleanup_orphaned_section_refs auto-exempted stranded selector {} (300-series group_header with no children)",
+                qid
+            ));
             removed += 1;
         }
     }
 
     if removed > 0 {
-        eprintln!(
-            "[cleanup_orphaned_section_refs] Cleaned up {} orphaned/stranded question(s) total",
+        logger::info(format!(
+            "cleanup_orphaned_section_refs cleaned up {} orphaned/stranded question(s) total",
             removed
-        );
+        ));
     }
 
     Ok(removed)
@@ -670,16 +695,25 @@ pub fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String
                 ).map_err(|e| e.to_string())?;
             }
 
-            let _ = recalculate_group_score_chain(conn, pid);
+            if let Err(e) = recalculate_group_score_chain(conn, pid) {
+                logger::warn(format!(
+                    "delete_section removed orphaned section_ref children but failed to recalculate parent {}: {}",
+                    pid, e
+                ));
+            }
         }
     }
 
     // --- Clean up UserProgress for this section ---
-    conn.execute(
+    if let Err(e) = conn.execute(
         "DELETE FROM UserProgress WHERE section_id = ?1",
         params![id],
-    )
-    .ok(); // Ignore if table doesn't exist
+    ) {
+        logger::warn(format!(
+            "delete_section removed section {} but failed to clean UserProgress rows: {}",
+            id, e
+        ));
+    }
 
     // Delete QuestionSectionLinks for all questions in this section (may not cascade automatically)
     conn.execute(

@@ -1,3 +1,4 @@
+use crate::logger;
 use rusqlite::{params, Connection};
 
 use super::*;
@@ -82,7 +83,7 @@ pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String
         params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text]
     ).map_err(|e| {
         let err_msg = format!("Failed to save answer: {}", e);
-        println!("DB ERROR in save_trainee_answer: {}", err_msg);
+        logger::error(format!("save_trainee_answer failed: {}", err_msg));
         err_msg
     })?;
 
@@ -107,7 +108,12 @@ pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<St
     ).map_err(|e| format!("Failed to save assessment: {}", e))?;
 
     // Auto-recalculate progress for this section after each assessment save
-    let _ = recalculate_section_progress(args.user_id, args.document_id);
+    if let Err(e) = recalculate_section_progress(args.user_id, args.document_id) {
+        logger::warn(format!(
+            "save_qualifier_assessment completed but progress recalculation failed: {}",
+            e
+        ));
+    }
 
     Ok("Assessment saved successfully".to_string())
 }
@@ -118,17 +124,17 @@ pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
 
     conn.execute("DELETE FROM UserAnswers", rusqlite::params![])
         .map_err(|e| {
-            println!("Failed to clear UserAnswers: {}", e);
+            logger::error(format!("Failed to clear UserAnswers: {}", e));
             e.to_string()
         })?;
 
     conn.execute("DELETE FROM UserProgress", rusqlite::params![])
         .map_err(|e| {
-            println!("Failed to clear UserProgress: {}", e);
+            logger::error(format!("Failed to clear UserProgress: {}", e));
             e.to_string()
         })?;
 
-    println!("Successfully cleared all records from UserAnswers and UserProgress tables.");
+    logger::info("Successfully cleared all records from UserAnswers and UserProgress tables.");
     Ok(())
 }
 
@@ -191,10 +197,15 @@ pub fn update_answer_key_with_conn(
         .map_err(|e| format!("Failed to delete answer key: {}", e))?;
 
         if sub_code.is_empty() {
-            let _ = conn.execute(
+            if let Err(e) = conn.execute(
                 "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = 'main'",
                 params![question_id],
-            );
+            ) {
+                logger::warn(format!(
+                    "Failed to clean legacy 'main' answer key after delete for question {}: {}",
+                    question_id, e
+                ));
+            }
         }
 
         return Ok("Answer key deleted successfully".to_string());
@@ -212,10 +223,15 @@ pub fn update_answer_key_with_conn(
     // Cleanup: If this is a single-part question (empty sub_code),
     // remove any legacy 'main' entries that might have been created by mistake
     if sub_code.is_empty() {
-        let _ = conn.execute(
+        if let Err(e) = conn.execute(
             "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = 'main'",
             params![question_id],
-        );
+        ) {
+            logger::warn(format!(
+                "Failed to clean legacy 'main' answer key after update for question {}: {}",
+                question_id, e
+            ));
+        }
     }
 
     Ok("Answer key updated successfully".to_string())

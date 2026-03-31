@@ -487,15 +487,11 @@ pub fn delete_question(id: String) -> Result<(), String> {
                 params![pid],
             ).map_err(|e| e.to_string())?;
         }
+
+        recalculate_group_score_chain(&tx, pid)?;
     }
 
     tx.commit().map_err(|e| e.to_string())?;
-
-    // Recalculate scores after commit (needs its own connection)
-    if let Some(ref pid) = parent_id {
-        let conn2 = get_content_connection().map_err(|e| e.to_string())?;
-        let _ = recalculate_group_score_chain(&conn2, pid);
-    }
 
     Ok(())
 }

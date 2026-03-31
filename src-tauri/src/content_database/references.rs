@@ -1,4 +1,5 @@
 use super::*;
+use crate::logger;
 use rusqlite::params;
 
 /// Create a new reference document
@@ -91,6 +92,7 @@ pub fn create_reference(request: CreateReferenceRequest) -> Result<DocumentRefer
     // Return created reference
     get_reference_by_id(&conn, id)
 }
+
 pub fn get_references(
     search: Option<String>,
     category: Option<String>,
@@ -139,6 +141,7 @@ pub fn get_references(
 
     Ok(refs)
 }
+
 /// Delete a reference (cascades to remove from all sections and questions)
 pub fn delete_reference(id: i64) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -191,25 +194,37 @@ pub fn delete_reference(id: i64) -> Result<(), String> {
                 let full_path = data_dir.join(relative_path);
 
                 if full_path.exists() {
-                    let _ = std::fs::remove_file(&full_path).map_err(|e| {
-                        println!(
-                            "Warning: Failed to delete physical file {}: {}",
+                    if let Err(e) = std::fs::remove_file(&full_path) {
+                        logger::warn(format!(
+                            "Failed to delete physical reference file {}: {}",
                             full_path.display(),
                             e
-                        )
-                    });
+                        ));
+                    }
 
                     // Optional: Try to remove parent directory if empty (cleanup)
                     if let Some(parent) = full_path.parent() {
-                        let _ = std::fs::remove_dir(parent);
+                        if let Err(e) = std::fs::remove_dir(parent) {
+                            logger::debug(format!(
+                                "Skipping non-empty reference directory cleanup {}: {}",
+                                parent.display(),
+                                e
+                            ));
+                        }
                     }
                 }
+            } else {
+                logger::warn(format!(
+                    "Reference {} deleted from database but portable data directory was unavailable for file cleanup",
+                    id
+                ));
             }
         }
     }
 
     Ok(())
 }
+
 /// Delete all references from the master list (and all sections)
 pub fn delete_all_references() -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -259,15 +274,26 @@ pub fn delete_all_references() -> Result<(), String> {
 
                 let full_path = data_dir.join(relative_path);
                 if full_path.exists() {
-                    let _ = std::fs::remove_file(&full_path);
+                    if let Err(e) = std::fs::remove_file(&full_path) {
+                        logger::warn(format!(
+                            "Failed to delete physical reference file {} during bulk cleanup: {}",
+                            full_path.display(),
+                            e
+                        ));
+                    }
                 }
             }
         }
         // Optional: Clean up empty directories could be complex here, skipping for now
+    } else {
+        logger::warn(
+            "References were deleted from database but portable data directory was unavailable for bulk file cleanup",
+        );
     }
 
     Ok(())
 }
+
 /// Add reference to a section
 pub fn add_section_reference(
     section_id: i64,
@@ -497,17 +523,23 @@ pub fn update_reference(args: UpdateReferenceArgs) -> Result<(), String> {
                 let full_path = data_dir.join(relative_path);
 
                 if full_path.exists() {
-                    let _ = std::fs::remove_file(&full_path).map_err(|e| {
-                        println!(
-                            "Warning: Failed to delete old physical file {}: {}",
+                    if let Err(e) = std::fs::remove_file(&full_path) {
+                        logger::warn(format!(
+                            "Failed to delete old physical reference file {}: {}",
                             full_path.display(),
                             e
-                        )
-                    });
+                        ));
+                    }
 
                     // Optional: Try to remove parent directory if empty
                     if let Some(parent) = full_path.parent() {
-                        let _ = std::fs::remove_dir(parent);
+                        if let Err(e) = std::fs::remove_dir(parent) {
+                            logger::debug(format!(
+                                "Skipping non-empty reference directory cleanup {}: {}",
+                                parent.display(),
+                                e
+                            ));
+                        }
                     }
                 }
             }

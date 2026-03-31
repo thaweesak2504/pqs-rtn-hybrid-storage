@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, Transaction};
 
 use super::*;
 
@@ -150,36 +150,38 @@ pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
 pub fn batch_recalculate_section_group_scores(
     section_id: i64,
 ) -> Result<Vec<(String, i32)>, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
     // L2 group headers first (children of L1)
-    let mut l2_stmt = conn.prepare(
-        "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NOT NULL AND is_group_header = 1"
-    ).map_err(|e| e.to_string())?;
-    let l2_ids: Vec<String> = l2_stmt
-        .query_map(params![section_id], |row| row.get(0))
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+    let l2_ids: Vec<String> = {
+        let mut l2_stmt = conn.prepare(
+            "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NOT NULL AND is_group_header = 1"
+        ).map_err(|e| e.to_string())?;
+        let rows = l2_stmt
+            .query_map(params![section_id], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        let ids = rows.filter_map(|r| r.ok()).collect::<Vec<String>>();
+        ids
+    };
 
     // L1 group headers (top-level)
-    let mut l1_stmt = conn.prepare(
-        "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND is_group_header = 1"
-    ).map_err(|e| e.to_string())?;
-    let l1_ids: Vec<String> = l1_stmt
-        .query_map(params![section_id], |row| row.get(0))
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
+    let l1_ids: Vec<String> = {
+        let mut l1_stmt = conn.prepare(
+            "SELECT id FROM Questions WHERE section_id = ?1 AND parent_id IS NULL AND is_group_header = 1"
+        ).map_err(|e| e.to_string())?;
+        let rows = l1_stmt
+            .query_map(params![section_id], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        let ids = rows.filter_map(|r| r.ok()).collect::<Vec<String>>();
+        ids
+    };
 
     let mut results = Vec::new();
 
-    // Single transaction for all writes
-    conn.execute("BEGIN IMMEDIATE", [])
-        .map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
-    let calc_and_update = |conn: &Connection, parent_id: &str| -> Result<i32, String> {
-        let total: i32 = conn
+    let calc_and_update = |tx: &Transaction, parent_id: &str| -> Result<i32, String> {
+        let total: i32 = tx
             .query_row(
                 "SELECT COALESCE(SUM(
                 CASE                    WHEN question_type = 'exempted' THEN 0
@@ -192,7 +194,7 @@ pub fn batch_recalculate_section_group_scores(
                 |row| row.get(0),
             )
             .map_err(|e| e.to_string())?;
-        conn.execute(
+        tx.execute(
             "UPDATE Questions SET group_score = ?1 WHERE id = ?2",
             params![total, parent_id],
         )
@@ -201,15 +203,15 @@ pub fn batch_recalculate_section_group_scores(
     };
 
     for id in &l2_ids {
-        let score = calc_and_update(&conn, id)?;
+        let score = calc_and_update(&tx, id)?;
         results.push((id.clone(), score));
     }
     for id in &l1_ids {
-        let score = calc_and_update(&conn, id)?;
+        let score = calc_and_update(&tx, id)?;
         results.push((id.clone(), score));
     }
 
-    conn.execute("COMMIT", []).map_err(|e| e.to_string())?;
+    tx.commit().map_err(|e| e.to_string())?;
 
     Ok(results)
 }

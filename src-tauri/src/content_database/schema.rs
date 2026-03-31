@@ -1,10 +1,28 @@
-use rusqlite::{params, Connection, OptionalExtension};
-use crate::logger;
 use super::*;
+use crate::logger;
+use rusqlite::{params, Connection, OptionalExtension};
 
 pub const STANDARD_BRANCH_NAME: &str = "ต้นแบบมาตรฐาน";
 pub const STANDARD_BRANCH_PREFERRED_CODE: &str = "STD";
 const STANDARD_SUB_BRANCH_PREFERRED_CODE: &str = "STD";
+
+fn execute_best_effort(conn: &Connection, sql: &str, context: &str) {
+    if let Err(e) = conn.execute(sql, []) {
+        let message = e.to_string();
+        if message.contains("duplicate column name")
+            || message.contains("already exists")
+            || message.contains("no such index")
+        {
+            return;
+        } else {
+            logger::warn(format!(
+                "Best-effort schema step '{}' failed: {}",
+                context, e
+            ));
+        }
+    }
+}
+
 pub fn next_available_main_branch_code(conn: &Connection) -> Result<String, String> {
     let preferred_exists: bool = conn
         .query_row(
@@ -28,7 +46,10 @@ pub fn next_available_main_branch_code(conn: &Connection) -> Result<String, Stri
 
     Ok(next_numeric.to_string())
 }
-pub fn next_available_sub_branch_code(conn: &Connection, branch_code: &str) -> Result<String, String> {
+pub fn next_available_sub_branch_code(
+    conn: &Connection,
+    branch_code: &str,
+) -> Result<String, String> {
     let preferred_exists: bool = conn
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM OccupationSubBranches WHERE branch_code = ?1 AND code = ?2)",
@@ -215,60 +236,73 @@ pub fn initialize_content_database() -> Result<String, String> {
             status VARCHAR(20) DEFAULT 'draft',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )",
+         )",
         [],
     )
     .map_err(|e| format!("Failed to create Documents table: {}", e))?;
 
     // Migration: add occupation_branch columns if not exist (safe to run multiple times)
-    let _ = conn.execute(
+    execute_best_effort(
+        &conn,
         "ALTER TABLE Documents ADD COLUMN occupation_branch_main VARCHAR(10)",
-        [],
+        "add Documents.occupation_branch_main",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        &conn,
         "ALTER TABLE Documents ADD COLUMN occupation_branch_sub VARCHAR(10)",
-        [],
+        "add Documents.occupation_branch_sub",
     );
     // Phase1: is_template flag — distinguishes seeded template docs from user-created ones
-    let _ = conn.execute(
+    execute_best_effort(
+        &conn,
         "ALTER TABLE Documents ADD COLUMN is_template BOOLEAN DEFAULT 0",
-        [],
+        "add Documents.is_template",
     );
 
     // Create Sections table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS Sections (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            document_id VARCHAR(11) NOT NULL,
-            section_group INTEGER NOT NULL,
-            section_number INTEGER NOT NULL,
-            title_th TEXT NOT NULL,
-            menu_label TEXT NOT NULL,
-            display_order INTEGER,
-            is_system_defined BOOLEAN DEFAULT 0,
-            duration_value INTEGER,
-            duration_unit VARCHAR(20) DEFAULT 'weeks',
-            total_score INTEGER,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(document_id, section_number),
-            FOREIGN KEY (document_id) REFERENCES Documents(id) ON DELETE CASCADE
-        )",
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             document_id VARCHAR(11) NOT NULL,
+             section_group INTEGER NOT NULL,
+             section_number INTEGER NOT NULL,
+             title_th TEXT NOT NULL,
+             menu_label TEXT NOT NULL,
+             display_order INTEGER,
+             is_system_defined BOOLEAN DEFAULT 0,
+             duration_value INTEGER,
+             duration_unit VARCHAR(20) DEFAULT 'weeks',
+             total_score INTEGER,
+             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+             UNIQUE(document_id, section_number),
+             FOREIGN KEY (document_id) REFERENCES Documents(id) ON DELETE CASCADE
+         )",
         [],
     )
     .map_err(|e| format!("Failed to create Sections table: {}", e))?;
 
     // Migration: Add scoring columns to Sections if missing
-    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN duration_value INTEGER", []);
-    let _ = conn.execute(
-        "ALTER TABLE Sections ADD COLUMN duration_unit VARCHAR(20) DEFAULT 'weeks'",
-        [],
+    execute_best_effort(
+        &conn,
+        "ALTER TABLE Sections ADD COLUMN duration_value INTEGER",
+        "add Sections.duration_value",
     );
-    let _ = conn.execute("ALTER TABLE Sections ADD COLUMN total_score INTEGER", []);
+    execute_best_effort(
+        &conn,
+        "ALTER TABLE Sections ADD COLUMN duration_unit VARCHAR(20) DEFAULT 'weeks'",
+        "add Sections.duration_unit",
+    );
+    execute_best_effort(
+        &conn,
+        "ALTER TABLE Sections ADD COLUMN total_score INTEGER",
+        "add Sections.total_score",
+    );
     // Phase1: is_template flag — distinguishes seeded sections from user-created ones
-    let _ = conn.execute(
+    execute_best_effort(
+        &conn,
         "ALTER TABLE Sections ADD COLUMN is_template BOOLEAN DEFAULT 0",
-        [],
+        "add Sections.is_template",
     );
 
     // Create indexes for Sections
@@ -312,29 +346,33 @@ pub fn initialize_content_database() -> Result<String, String> {
     // Phase1: One-time migration — mark all seeded records with is_template=1
     // Safe to run on every startup: WHERE clause limits to records not yet marked
     // Mark all Sections as template (all sections in this app are system-defined)
-    let _ = conn.execute(
+    execute_best_effort(
+        &conn,
         "UPDATE Sections SET is_template = 1 WHERE is_system_defined = 1 AND is_template = 0",
-        [],
+        "mark seeded Sections as template",
     );
     // Mark Section 100/200/300 seeded Questions as template
-    let _ = conn.execute(
+    execute_best_effort(
+        &conn,
         "UPDATE Questions SET is_template = 1
-         WHERE is_template = 0
-           AND section_id IN (
-               SELECT id FROM Sections WHERE is_system_defined = 1
-           )",
-        [],
+          WHERE is_template = 0
+            AND section_id IN (
+                SELECT id FROM Sections WHERE is_system_defined = 1
+            )",
+        "mark seeded Questions as template",
     );
 
     // Hotfix: Correct typo "ไฟฟ้าอาวุะ" to "ไฟฟ้าอาวุธ" in existing occupation branches
-    let _ = conn.execute(
-        "UPDATE OccupationBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
-        [],
-    );
-    let _ = conn.execute(
-        "UPDATE OccupationSubBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
-        [],
-    );
+    execute_best_effort(
+         &conn,
+         "UPDATE OccupationBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
+         "normalize OccupationBranches typo",
+     );
+    execute_best_effort(
+         &conn,
+         "UPDATE OccupationSubBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
+         "normalize OccupationSubBranches typo",
+     );
 
     Ok("Content database initialized successfully".to_string())
 }
@@ -383,36 +421,51 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     .map_err(|e| format!("Failed to create Questions table: {}", e))?;
 
     // Migration: Add new columns if missing (swallow errors if they exist)
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN section_id INTEGER", []);
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
+        "ALTER TABLE Questions ADD COLUMN section_id INTEGER",
+        "add Questions.section_id",
+    );
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN answer_type VARCHAR(20) DEFAULT 'text'",
-        [],
+        "add Questions.answer_type",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN score INTEGER DEFAULT 0",
-        [],
+        "add Questions.score",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN question_type VARCHAR(20) DEFAULT 'normal'",
-        [],
+        "add Questions.question_type",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN group_score INTEGER DEFAULT 0",
-        [],
+        "add Questions.group_score",
     );
-    let _ = conn.execute("ALTER TABLE Questions ADD COLUMN display_text TEXT", []);
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
+        "ALTER TABLE Questions ADD COLUMN display_text TEXT",
+        "add Questions.display_text",
+    );
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN is_group_header BOOLEAN DEFAULT 0",
-        [],
+        "add Questions.is_group_header",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN is_scored BOOLEAN DEFAULT 0",
-        [],
+        "add Questions.is_scored",
     );
     // Phase1: is_template flag — template-seeded questions are read-only
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE Questions ADD COLUMN is_template BOOLEAN DEFAULT 0",
-        [],
+        "add Questions.is_template",
     );
 
     // Data migration: Fix existing Section 300 questions with correct scoring flags
@@ -422,87 +475,96 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // Rule: L1 seq=7 children (seq 1-2) → not scored
 
     // Set is_group_header=1 for L1 questions (seq 2-6) in 300-series sections
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_group_header = 1, is_scored = 0
          WHERE parent_id IS NULL
            AND sequence BETWEEN 2 AND 6
            AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
-        [],
+        "backfill Section 300 L1 group headers 2-6",
     );
 
     // Set is_group_header=1, is_scored=0 for L1 seq=1 and seq=7 (non-scoring group headers)
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_group_header = 1, is_scored = 0
          WHERE parent_id IS NULL
            AND sequence IN (1, 7)
            AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
-        [],
+        "backfill Section 300 L1 group headers 1 and 7",
     );
 
     // Set is_scored=0 for L2 seq 1-3 under L1 seq=1 (prerequisites: 3xx.1.1-3xx.1.3)
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_scored = 0
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 1
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
          )
          AND sequence BETWEEN 1 AND 3",
-        [],
+        "backfill Section 300 prerequisite scoring flags",
     );
 
     // Set is_scored=1 for L2 seq 4-5 under L1 seq=1 (3xx.1.4-3xx.1.5)
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_scored = 1
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 1
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
          )
          AND sequence BETWEEN 4 AND 5",
-        [],
+        "backfill Section 300 scored selector children",
     );
 
     // Set is_scored=0 for L2 children of L1 seq=7 (3xx.7.1-3xx.7.2)
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_scored = 0
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 7
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
          )",
-        [],
+        "backfill Section 300 sequence 7 child scoring flags",
     );
 
     // Set is_scored=1 for L2 children of L1 seq 2-6
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_scored = 1
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence BETWEEN 2 AND 6
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
          )
          AND is_scored = 0 AND question_type = 'normal'",
-        [],
+        "backfill Section 300 normal child scoring flags",
     );
 
     // DEBUG: Ensure 301.6 specifically is set as group header
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_group_header = 1, is_scored = 0
          WHERE parent_id IS NULL
            AND sequence = 6
            AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
-        [],
+        "backfill Section 300 sequence 6 group header",
     );
 
     // DEBUG: Ensure 301.6 children are scored
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET is_scored = 1
          WHERE parent_id IN (
              SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 6
              AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
          )",
-        [],
+        "backfill Section 300 sequence 6 child scoring flags",
     );
 
     // Recalculate group_score for all L1 group headers in section 300
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Questions SET group_score = (
              SELECT COALESCE(SUM(c.score), 0)
              FROM Questions c
@@ -510,13 +572,14 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
          )
          WHERE is_group_header = 1
            AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
-        [],
+        "recalculate Section 300 group_score backfill",
     );
 
     // Calculate and update total_score for all Section 300
     // Only count: individual scored questions (non-headers) + group headers' group_score
     // Avoid double-counting children of group headers
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE Sections SET total_score = (
              SELECT COALESCE(SUM(
                  CASE                     WHEN q.is_group_header = 1 THEN q.group_score
@@ -528,7 +591,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
              WHERE q.section_id = Sections.id
         )
         WHERE section_group = 300",
-        [],
+        "recalculate Section 300 total_score backfill",
     );
 
     // QuestionChoices Table
@@ -613,9 +676,13 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     ).unwrap_or(0) == 0;
 
     if needs_ua_fk_migration {
-        println!("Migrating UserAnswers to add QuestionAnswerKeys foreign key...");
+        logger::info("Migrating UserAnswers to add QuestionAnswerKeys foreign key...");
         // 1. Rename existing
-        let _ = conn.execute("ALTER TABLE UserAnswers RENAME TO UserAnswers_old", []);
+        execute_best_effort(
+            conn,
+            "ALTER TABLE UserAnswers RENAME TO UserAnswers_old",
+            "rename UserAnswers to UserAnswers_old",
+        );
         // 2. Create new (with the new schema)
         conn.execute(
             "CREATE TABLE UserAnswers (
@@ -637,36 +704,56 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             [],
         ).map_err(|e| format!("Failed to create new UserAnswers table: {}", e))?;
         // 3. Copy data
-        let _ = conn.execute(
+        execute_best_effort(
+            conn,
             "INSERT INTO UserAnswers (id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at)
              SELECT id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at
              FROM UserAnswers_old",
-            [],
+            "copy rows from UserAnswers_old",
         );
         // 4. Drop old
-        let _ = conn.execute("DROP TABLE UserAnswers_old", []);
+        execute_best_effort(conn, "DROP TABLE UserAnswers_old", "drop UserAnswers_old");
     }
 
     // Migration: Add new assessment columns if missing
-    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN answer_text TEXT", []);
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
+        "ALTER TABLE UserAnswers ADD COLUMN answer_text TEXT",
+        "add UserAnswers.answer_text",
+    );
+    execute_best_effort(
+        conn,
         "ALTER TABLE UserAnswers ADD COLUMN status VARCHAR(20) DEFAULT 'pending'",
-        [],
+        "add UserAnswers.status",
     );
-    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN feedback TEXT", []);
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
+        "ALTER TABLE UserAnswers ADD COLUMN feedback TEXT",
+        "add UserAnswers.feedback",
+    );
+    execute_best_effort(
+        conn,
         "ALTER TABLE UserAnswers ADD COLUMN assessed_at DATETIME",
-        [],
+        "add UserAnswers.assessed_at",
     );
-    let _ = conn.execute("ALTER TABLE UserAnswers ADD COLUMN assessed_by TEXT", []);
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
+        "ALTER TABLE UserAnswers ADD COLUMN assessed_by TEXT",
+        "add UserAnswers.assessed_by",
+    );
+    execute_best_effort(
+        conn,
         "ALTER TABLE UserAnswers ADD COLUMN sub_question_code VARCHAR(20) DEFAULT ''",
-        [],
+        "add UserAnswers.sub_question_code",
     );
 
     // Ensure we have a unique index including sub_question_code (SQLite doesn't support ALTER TABLE DROP CONSTRAINT)
-    let _ = conn.execute("DROP INDEX IF EXISTS idx_user_answers_composite", []);
-    let _ = conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_user_answers_composite ON UserAnswers(user_id, question_id, document_id, sub_question_code)", []);
+    execute_best_effort(
+        conn,
+        "DROP INDEX IF EXISTS idx_user_answers_composite",
+        "drop idx_user_answers_composite",
+    );
+    execute_best_effort(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_answers_composite ON UserAnswers(user_id, question_id, document_id, sub_question_code)", "create idx_user_answers_composite");
 
     // UserProgress Table - Track trainee scoring progress per section
     conn.execute(
@@ -719,18 +806,21 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     .map_err(|e| format!("Failed to create DocumentReferences table: {}", e))?;
 
     // Migration: Add new columns if missing
-    let _ = conn.execute("ALTER TABLE DocumentReferences ADD COLUMN classification VARCHAR(20) DEFAULT 'Unclassified'", []);
-    let _ = conn.execute(
+    execute_best_effort(conn, "ALTER TABLE DocumentReferences ADD COLUMN classification VARCHAR(20) DEFAULT 'Unclassified'", "add DocumentReferences.classification");
+    execute_best_effort(
+        conn,
         "ALTER TABLE DocumentReferences ADD COLUMN file_path TEXT",
-        [],
+        "add DocumentReferences.file_path",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE DocumentReferences ADD COLUMN category VARCHAR(50)",
-        [],
+        "add DocumentReferences.category",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "ALTER TABLE DocumentReferences ADD COLUMN resource_type VARCHAR(20) DEFAULT 'DOCUMENT'",
-        [],
+        "add DocumentReferences.resource_type",
     );
 
     conn.execute(
@@ -880,23 +970,27 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
 
     // Hotfix cleanup: convert all 'main' sub_question_code to '' (empty string)
     // This merges records inadvertently created with 'main' code during previous debug steps.
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE OR IGNORE QuestionAnswerKeys SET sub_question_code = '' WHERE sub_question_code = 'main'",
-        [],
+        "normalize QuestionAnswerKeys.main to empty code",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "DELETE FROM QuestionAnswerKeys WHERE sub_question_code = 'main'",
-        [],
+        "delete residual QuestionAnswerKeys.main rows",
     );
 
     // Also cleanup UserAnswers to maintain alignment and foreign key integrity
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "UPDATE OR IGNORE UserAnswers SET sub_question_code = '' WHERE sub_question_code = 'main'",
-        [],
+        "normalize UserAnswers.main to empty code",
     );
-    let _ = conn.execute(
+    execute_best_effort(
+        conn,
         "DELETE FROM UserAnswers WHERE sub_question_code = 'main'",
-        [],
+        "delete residual UserAnswers.main rows",
     );
 
     Ok(())
@@ -1008,11 +1102,11 @@ pub fn migrate_section_links_to_ref_children() -> Result<usize, String> {
 
     Ok(migrated)
 }
-    #[cfg(test)]
+#[cfg(test)]
 pub fn init_branch_protection_schema(conn: &Connection) {
-        crate::test_helpers::helpers::init_content_schema(conn).expect("Failed to init schema");
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS OccupationSubBranches (
+    crate::test_helpers::helpers::init_content_schema(conn).expect("Failed to init schema");
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS OccupationSubBranches (
                 code VARCHAR(10) NOT NULL,
                 branch_code VARCHAR(10) NOT NULL,
                 name VARCHAR(255) NOT NULL,
@@ -1020,9 +1114,9 @@ pub fn init_branch_protection_schema(conn: &Connection) {
                 PRIMARY KEY (branch_code, code),
                 FOREIGN KEY (branch_code) REFERENCES OccupationBranches(code) ON DELETE CASCADE
             )",
-            [],
-        )
-        .expect("Failed to create OccupationSubBranches table");
-        install_standard_occupation_branch_guards(conn).expect("Failed to install branch triggers");
-        ensure_standard_occupation_branch_exists(conn).expect("Failed to ensure standard branch");
-    }
+        [],
+    )
+    .expect("Failed to create OccupationSubBranches table");
+    install_standard_occupation_branch_guards(conn).expect("Failed to install branch triggers");
+    ensure_standard_occupation_branch_exists(conn).expect("Failed to ensure standard branch");
+}

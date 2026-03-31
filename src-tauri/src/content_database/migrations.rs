@@ -1,3 +1,4 @@
+use crate::logger;
 use rusqlite::{params, Connection};
 
 // ============================================================
@@ -31,14 +32,24 @@ pub fn migrate_selected_sub_questions_to_table(conn: &Connection) -> Result<(), 
             if let Some(codes) = v.get("selectedSubQuestions").and_then(|c| c.as_array()) {
                 for code_val in codes {
                     if let Some(code) = code_val.as_str() {
-                        let _ = conn.execute(
+                        if let Err(e) = conn.execute(
                             "INSERT OR IGNORE INTO QuestionSubQuestionLinks (question_id, sub_question_code)
                              VALUES (?1, ?2)",
                             params![question_id, code],
-                        );
+                        ) {
+                            logger::warn(format!(
+                                "Failed to migrate selectedSubQuestion '{}' for question {}: {}",
+                                code, question_id, e
+                            ));
+                        }
                     }
                 }
             }
+        } else {
+            logger::warn(format!(
+                "Skipping selectedSubQuestions migration for question {} due to invalid metadata JSON",
+                question_id
+            ));
         }
     }
 
@@ -94,24 +105,39 @@ pub fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
                     }
 
                     if !code.trim().is_empty() {
-                        let _ = conn.execute(
+                        if let Err(e) = conn.execute(
                             "INSERT OR IGNORE INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
                              VALUES (?1, ?2, ?3, ?4, ?5)",
                             params![&question_id, code, text, is_required, order_index],
-                        );
+                        ) {
+                            logger::warn(format!(
+                                "Failed to migrate answer key '{}' for question {}: {}",
+                                code, question_id, e
+                            ));
+                        }
                         order_index += 1;
                     }
                 }
             } else if let Some(single_key) = v.get("answerKey").and_then(|c| c.as_str()) {
                 // Single question without subdivisions -> empty sub_question_code
                 if !single_key.is_empty() {
-                    let _ = conn.execute(
+                    if let Err(e) = conn.execute(
                         "INSERT OR IGNORE INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
                          VALUES (?1, ?2, ?3, 1, ?4)",
                         params![&question_id, "", single_key, order_index],
-                    );
+                    ) {
+                        logger::warn(format!(
+                            "Failed to migrate single answer key for question {}: {}",
+                            question_id, e
+                        ));
+                    }
                 }
             }
+        } else {
+            logger::warn(format!(
+                "Skipping answer-key migration for question {} due to invalid metadata JSON",
+                question_id
+            ));
         }
     }
 
@@ -133,11 +159,16 @@ pub fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
 
     for q_id in placeholder_rows {
         // Insert a "main" placeholder entry so foreign keys work
-        let _ = conn.execute(
+        if let Err(e) = conn.execute(
             "INSERT OR IGNORE INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
              VALUES (?1, ?2, ?3, 1, 0)",
-            params![&q_id, "", "", true, 0],
-        );
+            params![&q_id, "", ""],
+        ) {
+            logger::warn(format!(
+                "Failed to insert placeholder answer key for question {}: {}",
+                q_id, e
+            ));
+        }
     }
 
     Ok(())
@@ -148,7 +179,9 @@ pub fn migrate_answer_keys_to_table(conn: &Connection) -> Result<(), String> {
 pub fn scrub_legacy_answer_keys_from_metadata(conn: &Connection) -> Result<(), String> {
     let mut stmt = conn
         .prepare(
-            "SELECT id, metadata FROM Questions         WHERE metadata IS NOT NULL           AND (metadata LIKE '%\"answerKey\"%' OR metadata LIKE '%\"answerKeys\"%')",
+            "SELECT id, metadata FROM Questions
+         WHERE metadata IS NOT NULL
+           AND (metadata LIKE '%\"answerKey\"%' OR metadata LIKE '%\"answerKeys\"%')",
         )
         .map_err(|e| format!("Failed to prepare scrub query: {}", e))?;
 
@@ -172,13 +205,28 @@ pub fn scrub_legacy_answer_keys_from_metadata(conn: &Connection) -> Result<(), S
                 }
 
                 if changed {
-                    let new_metadata = serde_json::to_string(&v).unwrap_or_default();
-                    let _ = conn.execute(
+                    let new_metadata = serde_json::to_string(&v).map_err(|e| {
+                        format!(
+                            "Failed to serialize scrubbed metadata for {}: {}",
+                            question_id, e
+                        )
+                    })?;
+                    if let Err(e) = conn.execute(
                         "UPDATE Questions SET metadata = ?1 WHERE id = ?2",
                         params![new_metadata, question_id],
-                    );
+                    ) {
+                        logger::warn(format!(
+                            "Failed to scrub legacy answer keys from metadata for question {}: {}",
+                            question_id, e
+                        ));
+                    }
                 }
             }
+        } else {
+            logger::warn(format!(
+                "Skipping metadata scrub for question {} due to invalid metadata JSON",
+                question_id
+            ));
         }
     }
 

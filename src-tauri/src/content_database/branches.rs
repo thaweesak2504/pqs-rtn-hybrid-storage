@@ -263,7 +263,6 @@ pub fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
 /// Returns a map of sub_question_code → count of children (and descendants) that have selected it,
 /// plus the total count of all descendant questions under this parent.
 /// Uses QuestionSubQuestionLinks (relational) instead of JSON metadata for accuracy.
-#[tauri::command]
 pub fn get_sub_question_usage_counts(
     parent_id: String,
 ) -> Result<SubQuestionUsageResponse, String> {

@@ -1,3 +1,4 @@
+use crate::logger;
 use base64::{engine::general_purpose, Engine as _};
 use rusqlite::{params, Connection};
 
@@ -140,7 +141,10 @@ pub fn upload_question_image(
         target_path = target_dir.join(&new_filename);
     }
 
-    println!("DEBUG: Uploading image to {:?}", target_path);
+    logger::debug(format!(
+        "Uploading question image to {}",
+        target_path.display()
+    ));
 
     std::fs::copy(&source_path, &target_path)
         .map_err(|e| format!("Failed to copy image: {}", e))?;

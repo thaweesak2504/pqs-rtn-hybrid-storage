@@ -169,6 +169,202 @@
 
 **สถานะ:** ✅ เสร็จสมบูรณ์
 
+### ไฟล์ที่สร้าง
+
+- `sections.rs` (~780 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `seed_document_template()` — สร้าง Sections เริ่มต้นเมื่อสร้างเอกสารใหม่
+- `create_section()` / `create_section_with_conn()` — สร้าง Section พร้อม validation
+- `seed_section_300_template()` — seed โครงสร้าง 3xx ทั้ง L1/L2/L3
+- `seed_section_200_template()` — seed โครงสร้าง 2xx
+- `update_section()` / `update_section_with_conn()` — อัปเดตชื่อ เมนู ระยะเวลา และคะแนน
+- `get_sections_by_document()` — ดึง Sections ทั้งหมดของเอกสาร
+- `cleanup_orphaned_section_refs()` — cleanup ข้อมูล section_ref legacy
+- `delete_section()` / `delete_section_with_conn()` — ลบ Section พร้อม cleanup คำถาม
+- `update_section_order()` — จัดลำดับการแสดงผล Section
+- `get_section_by_id()` / `get_thai_letter()` — helper สำหรับ Sections และ references
+- ค่าคงที่ `FIXED_SECTION_101_TITLE`
+
+### หมายเหตุ
+
+- `create_section_with_conn` และ `delete_section_with_conn` ต้องเปิดเป็น `pub fn` เพราะมีโมดูลอื่นเรียกใช้ร่วม
+- Section 101 ใช้ title คงที่ และมี guard เพื่อรักษา consistency ของระบบ
+
+---
+
+## ✅ Phase 7: แยก Section Links & Section-Ref Children (section_links.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `section_links.rs` (~680 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `add_question_section_link()` / `batch_add_question_section_links()`
+- `remove_question_section_link()` / `remove_all_question_section_links()`
+- `get_question_section_links()` / `get_question_section_links_inner()` / `get_question_section_link_by_id()`
+- `update_section_link_score()` / `recalculate_section_link_scores()`
+- `get_section_ref_children()` / `get_back_referencing_section_ids()` / `get_section_ref_children_inner()`
+- `add_section_ref_child()` / `batch_add_section_ref_children()`
+- `remove_section_ref_child()` / `remove_all_section_ref_children()`
+- `update_section_ref_score()` / `thai_number()`
+
+### หมายเหตุ
+
+- แยก logic ของ QuestionSectionLinks และ section-ref L3 children ออกจากไฟล์หลักอย่างชัดเจน
+- มี inner helper หลายตัวเพื่อ reuse connection เดิมและหลีกเลี่ยง code ซ้ำ
+
+---
+
+## ✅ Phase 8: แยก Scoring & Progress (scoring.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `scoring.rs` (~920 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `upsert_user_progress()` / `get_user_progress()`
+- `calculate_section_total_score()` / `calculate_group_score()`
+- `batch_recalculate_section_group_scores()` / `update_question_score()`
+- `recalculate_group_score_chain()` — helper หลักสำหรับ cascade คะแนน
+- `extract_ref_section_id()`
+- `compute_section_progress()` / `compute_section_progress_inner()`
+- `recalculate_section_progress()`
+- `get_section_progress()` / `get_section_dev_metrics()`
+
+### หมายเหตุ
+
+- Logic คำนวณคะแนนและ progress ถูกรวมศูนย์ไว้ในโมดูลเดียว ทำให้ trace การ cascade ได้ง่ายขึ้น
+- มี thin wrappers ใน `content_database.rs` สำหรับคำสั่ง Tauri ที่ยังต้องประกาศในไฟล์หลัก
+
+---
+
+## ✅ Phase 9: แยก Answers & Answer Keys (answers.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `answers.rs` (~270 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `get_trainee_answers()`
+- `ensure_answer_key_placeholder()`
+- `save_trainee_answer()` / `save_qualifier_assessment()`
+- `clear_all_trainee_answers_inner()`
+- `get_question_answer_keys_inner()`
+- `update_answer_key_inner()` / `update_answer_key_with_conn()`
+- `replace_question_answer_keys_inner()` / `replace_question_answer_keys_with_conn()`
+
+### หมายเหตุ
+
+- แยก public API สำหรับ Tauri กับ helper ที่ใช้ connection เดิมออกจากกันอย่างชัดเจน
+- Policy ของ Section 300 สำหรับ answer keys ย้ายตามไปอยู่กับโมดูลนี้ครบถ้วน
+
+---
+
+## ✅ Phase 10: แยก Media & File Operations (media.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `media.rs` (~230 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `bundle_reference_file()` — copy ไฟล์อ้างอิงเข้าสู่ portable data directory
+- `get_reference_by_id()` — helper ดึง reference จาก DB
+- `upload_question_image()` — copy รูปคำถามเข้าระบบจัดเก็บกลาง
+- `delete_question_image()` — ลบไฟล์รูปคำถามที่ระบบจัดการ
+- `resolve_image_path()` — แปลง relative path เป็น absolute path
+- `get_question_image_base64()` — โหลดรูปเป็น Base64 ให้ frontend ใช้ได้เสถียร
+
+### หมายเหตุ
+
+- รวม file-system logic ไว้ในโมดูลเดียว ทำให้ path handling และ media lifecycle ชัดเจนขึ้น
+- แยก concerns ระหว่าง database metadata กับ physical file operations ออกจากกัน
+
+---
+
+## ✅ Phase 11: แยก Cross-Module Helpers (helpers.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `helpers.rs` (~85 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `get_question_section_group()`
+- `ensure_section_300_policy_allows_question_action()`
+- `add_question_reference_with_conn()`
+
+### หมายเหตุ
+
+- Helper ที่ถูกใช้ข้ามหลายโมดูลถูกดึงออกมาเพื่อลด circular dependency
+- Business rule กลางของ Section 300 ถูกรวมศูนย์ไว้จุดเดียว
+
+---
+
+## ✅ Phase 12: แยก Data Migrations (migrations.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `migrations.rs` (~190 บรรทัด)
+
+### ฟังก์ชันที่ย้ายแล้ว
+
+- `migrate_selected_sub_questions_to_table()`
+- `migrate_answer_keys_to_table()`
+- `scrub_legacy_answer_keys_from_metadata()`
+
+### หมายเหตุ
+
+- แยก one-time migration logic ออกจาก schema initialization หลัก เพื่อง่ายต่อการดูแลรักษา
+- ช่วยให้ขั้นตอนย้ายจาก metadata แบบ JSON ไปสู่ normalized tables ชัดเจนขึ้น
+
+---
+
+## ✅ Phase Final: ย้าย Tests ไปไฟล์เฉพาะ (tests.rs)
+
+**สถานะ:** ✅ เสร็จสมบูรณ์
+
+### ไฟล์ที่สร้าง
+
+- `tests.rs` (~1,240 บรรทัด)
+
+### สิ่งที่ทำ
+
+- ย้าย test suite ทั้งหมดออกจาก `content_database.rs`
+- เปลี่ยนจาก inline `mod tests { ... }` เป็น `#[cfg(test)] mod tests;`
+- ปรับ imports ของ tests ให้เรียกใช้โมดูลที่เกี่ยวข้องโดยตรงเท่าที่จำเป็น
+- ทำให้ `content_database.rs` เหลือเฉพาะ module declarations, re-exports และ thin wrappers
+
+### หมายเหตุ
+
+- การแยก tests ออกไปทำให้ไฟล์หลักเล็กลงชัดเจน และลดการปะปนระหว่าง production code กับ test code
+- ช่วยให้การ review public API surface และ dependency ระหว่างโมดูลชัดเจนขึ้น
+
+---
+
+## ✅ Refactoring เสร็จสมบูรณ์ 100%
+
+**วันที่เสร็จ:** 30 มีนาคม 2026  
+**Git Branch:** `content-database-splitting`  
+**สถานะ:** พร้อม merge เข้า main branch
+
 ### ผลลัพธ์สุดท้าย
 
 **ไฟล์หลัก `content_database.rs`:**
@@ -181,28 +377,28 @@
 
 ```
 content_database/
-├── types.rs              (~475 บรรทัด)  - Data structures
-├── connection.rs         (~60 บรรทัด)   - Database connection
+├── types.rs              (~475 บรรทัด)   - Data structures
+├── connection.rs         (~60 บรรทัด)    - Database connection
 ├── schema.rs             (~1,023 บรรทัด) - Schema & initialization
-├── references.rs         (~544 บรรทัด)  - Document references
-├── utils.rs              (~65 บรรทัด)   - Utilities
-├── branches.rs           (~341 บรรทัด)  - Occupation branches
-├── documents.rs          (~700 บรรทัด)  - Document CRUD
-├── questions.rs          (~850 บรรทัด)  - Questions CRUD
-├── sections.rs           (~780 บรรทัด)  - Sections CRUD + templates
-├── scoring.rs            (~920 บรรทัด)  - Scoring & progress
-├── section_links.rs      (~680 บรรทัด)  - Section links & ref children
-├── answers.rs            (~270 บรรทัด)  - User answers & answer keys
-├── media.rs              (~230 บรรทัด)  - Images & media files
-├── migrations.rs         (~190 บรรทัด)  - Data migrations
-├── helpers.rs            (~85 บรรทัด)   - Cross-module helpers
+├── references.rs         (~544 บรรทัด)   - Document references
+├── utils.rs              (~65 บรรทัด)    - Utilities
+├── branches.rs           (~341 บรรทัด)   - Occupation branches
+├── documents.rs          (~700 บรรทัด)   - Document CRUD
+├── questions.rs          (~850 บรรทัด)   - Questions CRUD
+├── sections.rs           (~780 บรรทัด)   - Sections CRUD + templates
+├── section_links.rs      (~680 บรรทัด)   - Section links & ref children
+├── scoring.rs            (~920 บรรทัด)   - Scoring & progress
+├── answers.rs            (~270 บรรทัด)   - User answers & answer keys
+├── media.rs              (~230 บรรทัด)   - Images & media files
+├── helpers.rs            (~85 บรรทัด)    - Cross-module helpers
+├── migrations.rs         (~190 บรรทัด)   - Data migrations
 └── tests.rs              (~1,240 บรรทัด) - Integration tests
 ```
 
 ### การทดสอบ
 
 - ✅ **55 test cases** ผ่านทั้งหมด
-- ✅ `cargo check` — compile สำเร็จ (warnings เดิมจาก unused imports)
+- ✅ `cargo check` — compile สำเร็จ
 - ✅ `cargo test` — ทุก test ผ่าน 100%
 - ✅ `npm start` (tauri dev) — แอปพลิเคชันทำงานปกติ
 
@@ -211,7 +407,7 @@ content_database/
 1. สร้างไฟล์โมดูลใหม่ใน `content_database/`
 2. ย้ายฟังก์ชันที่เกี่ยวข้อง (เปลี่ยน `fn` → `pub fn` ถ้าจำเป็น)
 3. เพิ่ม `use super::*;` สำหรับ imports
-4. เพิ่ม `pub mod X;` และ `pub use X::*;` ใน `content_database.rs`
+4. เพิ่ม `pub mod X;` และ `pub use X::*;` หรือ selective re-export ตามความเหมาะสมใน `content_database.rs`
 5. สร้าง thin wrappers สำหรับ `#[tauri::command]` ถ้าจำเป็น
 6. รัน `cargo check` และ `cargo test`
 7. Commit เมื่อ tests ผ่านทั้งหมด
@@ -220,7 +416,7 @@ content_database/
 
 - ฟังก์ชัน `#[tauri::command]` ต้องอยู่ใน `content_database.rs` เท่านั้น → ใช้ thin wrappers
 - `include_str!` paths ต้องปรับ relative path (เพิ่ม `../`)
-- Selective re-export: บางฟังก์ชันไม่ควร re-export ทั้งหมด (ใช้ `pub use module::{specific_fn}`)
+- Selective re-export ช่วยให้ public API ชัดเจนขึ้นและลดการเปิดเผย helper เกินจำเป็น
 - Test module ต้องใช้ `#[cfg(test)] mod tests;` แทน inline `mod tests { ... }`
 
 ### ประโยชน์ที่ได้รับ
@@ -230,11 +426,3 @@ content_database/
 3. **Testability** — Tests แยกออกมาชัดเจน
 4. **Scalability** — เพิ่มฟีเจอร์ใหม่ได้ง่ายโดยไม่กระทบโมดูลอื่น
 5. **Collaboration** — หลายคนทำงานพร้อมกันได้โดยไม่ conflict
-
----
-
-## ✅ Refactoring เสร็จสมบูรณ์ 100%
-
-**วันที่เสร็จ:** 30 มีนาคม 2026  
-**Git Branch:** `content-database-splitting`  
-**สถานะ:** พร้อม merge เข้า main branch

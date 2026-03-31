@@ -469,9 +469,9 @@ pub fn reset_and_update_career_branch(
     new_main: Option<String>,
     new_sub: Option<String>,
 ) -> Result<CareerBranchResetReport, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
-    let tx = conn.unchecked_transaction().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
 
     // Step 1: Find target L1 question IDs and their section_groups
     let target_questions: Vec<(String, i32)> = {
