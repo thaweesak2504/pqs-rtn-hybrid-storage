@@ -28,26 +28,6 @@ pub struct User {
     pub updated_at: Option<String>,
 }
 
-// DEPRECATED: Avatar struct - now using file-based storage
-// This struct is kept for backward compatibility but should not be used
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Avatar {
-    pub id: Option<i32>,
-    pub user_id: i32,
-    pub avatar_data: Vec<u8>,
-    pub mime_type: String,
-    pub file_size: i32,
-    pub created_at: Option<String>,
-    pub updated_at: Option<String>,
-}
-
-// DEPRECATED: Avatar validation functions - now using file-based storage
-// These functions are kept for backward compatibility but should not be used
-// DEPRECATED: MAX_AVATAR_SIZE removed - now using file-based storage
-
-// DEPRECATED: validate_avatar_data function removed - now using file-based storage
-
-// DEPRECATED: string_to_rusqlite_error function removed - now using file-based storage
 
 // SQLite database operations
 pub fn get_database_path() -> Result<PathBuf, String> {
@@ -641,12 +621,7 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
     Ok(rows_affected > 0)
 }
 
-// Clean up orphaned avatars (avatars without corresponding users) - DEPRECATED
-// Now using file-based storage, this function is no longer needed
-pub fn cleanup_orphaned_avatars() -> Result<i32, String> {
-    // No-op since we're using file-based storage now
-    Ok(0)
-}
+
 
 pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Option<User>, String> {
     let conn =
@@ -689,33 +664,7 @@ pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Opti
     }
 }
 
-// DEPRECATED: get_all_avatars - now using file-based storage
-pub fn get_all_avatars() -> Result<Vec<Avatar>, String> {
-    // Return empty vector since we're using file-based storage now
-    Ok(Vec::new())
-}
 
-// DEPRECATED: get_avatar_by_user_id - now using file-based storage
-pub fn get_avatar_by_user_id(_user_id: i32) -> Result<Option<Avatar>, String> {
-    // Return None since we're using file-based storage now
-    Ok(None)
-}
-
-// DEPRECATED: save_avatar - now using file-based storage
-pub fn save_avatar(
-    _user_id: i32,
-    _avatar_data: Vec<u8>,
-    _mime_type: &str,
-) -> Result<Avatar, String> {
-    // Return error since we're using file-based storage now
-    Err("Avatar storage is now file-based. Use Hybrid Avatar System instead.".to_string())
-}
-
-// DEPRECATED: delete_avatar - now using file-based storage
-pub fn delete_avatar(_user_id: i32) -> Result<bool, String> {
-    // Return false since we're using file-based storage now
-    Ok(false)
-}
 
 // High Ranking Officers structs and functions
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -806,11 +755,7 @@ pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String
     Ok(officers)
 }
 
-// DEPRECATED: save_high_ranking_avatar function removed
-// Now using file-based storage with save_hybrid_high_rank_avatar command
 
-// DEPRECATED: get_high_ranking_avatar_by_officer_id function removed
-// Now using file-based storage with get_hybrid_high_rank_avatar_info command
 
 // Update high ranking officer
 pub fn update_high_ranking_officer(

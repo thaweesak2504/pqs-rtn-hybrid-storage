@@ -22,8 +22,7 @@ mod universal_sqlite_backup; // Database migration utilities
 mod test_helpers; // Test helper utilities
 
 // Re-export database structs
-pub use database::{Avatar, HighRankingOfficer, User};
-// DEPRECATED: HighRankingAvatar removed - now using file-based storage
+pub use database::{HighRankingOfficer, User};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -100,25 +99,6 @@ fn authenticate_user(username_or_email: String, password: String) -> Result<Opti
     database::authenticate_user(&username_or_email, &password)
 }
 
-#[tauri::command]
-fn get_avatar_by_user_id(user_id: i32) -> Result<Option<Avatar>, String> {
-    database::get_avatar_by_user_id(user_id)
-}
-
-#[tauri::command]
-fn save_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<Avatar, String> {
-    database::save_avatar(user_id, avatar_data, &mime_type)
-}
-
-#[tauri::command]
-fn delete_avatar(user_id: i32) -> Result<bool, String> {
-    database::delete_avatar(user_id)
-}
-
-#[tauri::command]
-fn cleanup_orphaned_avatars() -> Result<i32, String> {
-    database::cleanup_orphaned_avatars()
-}
 
 // Database initialization is handled by Tauri setup
 // No need for separate command
@@ -131,10 +111,6 @@ fn migrate_passwords() -> Result<String, String> {
     Ok("Password migration completed successfully".to_string())
 }
 
-#[tauri::command]
-fn get_all_avatars() -> Result<Vec<Avatar>, String> {
-    database::get_all_avatars()
-}
 
 // Zoom commands using root font-size (proper approach for desktop app)
 #[tauri::command]
@@ -194,8 +170,6 @@ fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
     database::get_all_high_ranking_officers()
 }
 
-// DEPRECATED: save_high_ranking_avatar, get_high_ranking_avatar_by_officer_id commands removed
-// Now using hybrid high rank avatar commands
 
 #[tauri::command]
 fn update_high_ranking_officer(
@@ -651,14 +625,7 @@ fn delete_test_users() -> Result<String, String> {
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| format!("Failed to collect remaining roles: {}", e))?;
 
-    // Also delete from avatars table for deleted users
-    let _ = conn.execute(
-        "DELETE FROM avatars WHERE user_id NOT IN (SELECT id FROM users WHERE role = 'admin')",
-        [],
-    );
 
-    // Clean up orphaned avatars
-    let _ = database::cleanup_orphaned_avatars();
 
     Ok(format!(
         "Before: {} users, Roles: {:?}, Deleted: {} users, After: {} users, Remaining roles: {:?}",
@@ -1341,22 +1308,16 @@ fn main() {
             update_user,
             delete_user,
             authenticate_user,
-            get_avatar_by_user_id,
-            get_all_avatars,
-            save_avatar,
-            delete_avatar,
-            cleanup_orphaned_avatars,
+
             migrate_passwords,
             zoom_in,
             zoom_out,
             zoom_reset,
             get_all_high_ranking_officers,
-            // DEPRECATED: save_high_ranking_avatar, get_high_ranking_avatar_by_officer_id removed
-            // Now using hybrid high rank avatar commands
+
             update_high_ranking_officer,
             hash_password,
-            // get_database_logs, // DISABLED - logging removed
-            // clear_database_logs, // DISABLED - logging removed
+
             // Database backup/restore commands
             create_database_backup,
             restore_database_backup,
