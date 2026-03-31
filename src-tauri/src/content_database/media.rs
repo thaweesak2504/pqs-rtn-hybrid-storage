@@ -8,8 +8,8 @@ use super::*;
 // Images & Media
 // ============================================================
 
-/// Helper to bundle a file into the portable data directory
-pub fn bundle_reference_file(
+pub(crate) fn bundle_reference_file_in_dir(
+    data_dir: &std::path::Path,
     code: &str,
     category: &str,
     source_path: &str,
@@ -21,11 +21,10 @@ pub fn bundle_reference_file(
 
     let source = std::path::Path::new(source_path);
     if !source.exists() {
-        // If it starts with 'data/', it's already portable
         if source_path.starts_with("data/") {
             return Ok(source_path.to_string());
         }
-        return Ok(source_path.to_string()); // Fallback
+        return Ok(source_path.to_string());
     }
 
     let file_name = source
@@ -34,20 +33,13 @@ pub fn bundle_reference_file(
         .to_str()
         .ok_or_else(|| "Invalid file name encoding".to_string())?;
 
-    let data_dir = get_portable_data_dir()?;
-
-    // Use PQS ID as subfolder if provided, otherwise use 'COMMON' or just root
     let root_folder = pqs_id.unwrap_or("COMMON");
-
-    // Flattened structure: data/{ID}/references/{CATEGORY}/{code}_{filename}
     let dest_dir = data_dir.join(root_folder).join("references").join(category);
     std::fs::create_dir_all(&dest_dir).map_err(|e| format!("Failed to create dest dir: {}", e))?;
 
-    // NEW: Prefix with code for better organization
     let new_file_name = format!("{}_{}", code, file_name);
     let dest_path = dest_dir.join(&new_file_name);
 
-    // Only copy if source and dest are different
     if source != dest_path {
         std::fs::copy(source, &dest_path).map_err(|e| {
             format!(
@@ -59,11 +51,21 @@ pub fn bundle_reference_file(
         })?;
     }
 
-    // Return relative path including the root folder (e.g., "data/100/references/CATEGORY/CODE_filename")
     Ok(format!(
         "data/{}/references/{}/{}",
         root_folder, category, new_file_name
     ))
+}
+
+/// Helper to bundle a file into the portable data directory
+pub fn bundle_reference_file(
+    code: &str,
+    category: &str,
+    source_path: &str,
+    pqs_id: Option<&str>,
+) -> Result<String, String> {
+    let data_dir = get_portable_data_dir()?;
+    bundle_reference_file_in_dir(&data_dir, code, category, source_path, pqs_id)
 }
 
 /// Helper function to get reference by ID
@@ -159,17 +161,15 @@ pub fn upload_question_image(
     ))
 }
 
-pub fn delete_question_image(relative_path: String) -> Result<(), String> {
+pub(crate) fn delete_question_image_in_dir(
+    data_dir: &std::path::Path,
+    relative_path: &str,
+) -> Result<(), String> {
     if !relative_path.starts_with("data/") {
-        return Ok(()); // Not a managed file, ignore
+        return Ok(());
     }
 
-    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-    // relative_path is "data/..."
-    // strip "data/"
-    let suffix = relative_path
-        .strip_prefix("data/")
-        .unwrap_or(&relative_path);
+    let suffix = relative_path.strip_prefix("data/").unwrap_or(relative_path);
     let target_path = data_dir.join(suffix);
 
     if target_path.exists() {
@@ -179,26 +179,28 @@ pub fn delete_question_image(relative_path: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Resolve relative image path (data/images/...) to absolute system path
-pub fn resolve_image_path(relative_path: String) -> Result<String, String> {
+pub fn delete_question_image(relative_path: String) -> Result<(), String> {
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    delete_question_image_in_dir(&data_dir, &relative_path)
+}
+
+pub(crate) fn resolve_image_path_in_dir(
+    data_dir: &std::path::Path,
+    relative_path: &str,
+) -> Result<String, String> {
     if !relative_path.starts_with("data/") {
-        return Ok(relative_path); // Return as is if not our format
+        return Ok(relative_path.to_string());
     }
 
-    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-
-    // relative_path is "data/images/xyz.jpg"
-    // we want to join data_dir (which ends in "data") with "images/xyz.jpg"
-    // OR if data_dir is the parent?
-    // get_portable_data_dir returns ".../data".
-    // So if we strip "data/" from relative path, we get "images/xyz.jpg".
-
-    let suffix = relative_path
-        .strip_prefix("data/")
-        .unwrap_or(&relative_path);
+    let suffix = relative_path.strip_prefix("data/").unwrap_or(relative_path);
     let abs_path = data_dir.join(suffix);
 
     Ok(abs_path.to_string_lossy().to_string())
+}
+
+pub fn resolve_image_path(relative_path: String) -> Result<String, String> {
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    resolve_image_path_in_dir(&data_dir, &relative_path)
 }
 
 /// Get image as Base64 string for reliable frontend display

@@ -3,19 +3,14 @@ use crate::logger;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 
 /// Generate new Document ID
-pub fn generate_document_id(
+pub(crate) fn generate_document_id_with_conn(
+    conn: &Connection,
     unit_code: &str,
     doc_type: &str,
     user_level: &str,
 ) -> SqlResult<String> {
-    let conn = get_content_connection()?;
-
-    // Pattern to match existing sequences for this unit/type/level
-    // ID format: UUUUU (5) + TT (2) + L (1) + SSS (3) = 11 digits
-    // Match prefix: UUUUU + TT + L
     let prefix = format!("{}{}{}", unit_code, doc_type, user_level);
 
-    // Find max sequence for this prefix
     let mut stmt = conn.prepare("SELECT MAX(sequence) FROM Documents WHERE id LIKE ?1")?;
 
     let max_seq: Option<i32> = stmt
@@ -26,6 +21,16 @@ pub fn generate_document_id(
     let new_id = format!("{}{:03}", prefix, next_seq);
 
     Ok(new_id)
+}
+
+pub fn generate_document_id(
+    unit_code: &str,
+    doc_type: &str,
+    user_level: &str,
+) -> SqlResult<String> {
+    let conn = get_content_connection()?;
+
+    generate_document_id_with_conn(&conn, unit_code, doc_type, user_level)
 }
 /// Create a new document
 pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {

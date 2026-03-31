@@ -3,6 +3,10 @@ mod tests {
     use crate::content_database::answers::{
         replace_question_answer_keys_with_conn, update_answer_key_with_conn,
     };
+    use crate::content_database::documents::generate_document_id_with_conn;
+    use crate::content_database::media::{
+        bundle_reference_file_in_dir, delete_question_image_in_dir, resolve_image_path_in_dir,
+    };
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
     use rusqlite::params;
@@ -115,6 +119,84 @@ mod tests {
         assert_eq!(main.1, STANDARD_BRANCH_NAME);
         assert_eq!(sub.1, main.0);
         assert_eq!(sub.2, STANDARD_BRANCH_NAME);
+    }
+
+    #[test]
+    fn test_ensure_standard_branch_is_idempotent_on_rerun() {
+        let conn = create_test_db();
+        init_branch_protection_schema(&conn);
+
+        ensure_standard_occupation_branch_exists(&conn)
+            .expect("Rerunning standard branch bootstrap should succeed");
+
+        let main_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM OccupationBranches WHERE name = ?1",
+                params![STANDARD_BRANCH_NAME],
+                |row| row.get(0),
+            )
+            .expect("Should count standard main branches");
+        let sub_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM OccupationSubBranches WHERE name = ?1",
+                params![STANDARD_BRANCH_NAME],
+                |row| row.get(0),
+            )
+            .expect("Should count standard sub branches");
+
+        assert_eq!(
+            main_count, 1,
+            "Standard main branch should not duplicate on rerun"
+        );
+        assert_eq!(
+            sub_count, 1,
+            "Standard sub branch should not duplicate on rerun"
+        );
+    }
+
+    #[test]
+    fn test_ensure_standard_branch_uses_numeric_fallback_when_std_code_taken() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationSubBranches (
+                code VARCHAR(10) NOT NULL,
+                branch_code VARCHAR(10) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (branch_code, code)
+            )",
+            [],
+        )
+        .expect("Failed to create OccupationSubBranches table");
+
+        conn.execute(
+            "INSERT INTO OccupationBranches (code, name) VALUES ('STD', 'Existing Branch')",
+            [],
+        )
+        .expect("Failed to seed conflicting STD code");
+
+        ensure_standard_occupation_branch_exists(&conn)
+            .expect("Standard branch bootstrap should succeed with fallback code");
+
+        let main_code: String = conn
+            .query_row(
+                "SELECT code FROM OccupationBranches WHERE name = ?1",
+                params![STANDARD_BRANCH_NAME],
+                |row| row.get(0),
+            )
+            .expect("Missing fallback standard main branch");
+        let sub_code: String = conn
+            .query_row(
+                "SELECT code FROM OccupationSubBranches WHERE branch_code = ?1 AND name = ?2",
+                params![main_code.clone(), STANDARD_BRANCH_NAME],
+                |row| row.get(0),
+            )
+            .expect("Missing standard sub branch under fallback main code");
+
+        assert_eq!(main_code, "1");
+        assert_eq!(sub_code, "STD");
     }
 
     #[test]
@@ -556,11 +638,8 @@ mod tests {
 
     #[test]
     fn test_generate_document_id_format() {
-        // This test requires database initialization
-        // We'll use a temporary in-memory database
         let conn = create_test_db();
 
-        // Initialize Documents table
         conn.execute(
             "CREATE TABLE IF NOT EXISTS Documents (
                 id TEXT PRIMARY KEY,
@@ -576,45 +655,20 @@ mod tests {
         )
         .expect("Failed to create Documents table");
 
-        // Set connection for content_database to use our test db
-        // Note: This requires modifying get_content_connection() to support test contexts
-        // For now, we'll test the ID format expectations
-
         let unit_code = "RTN01";
         let doc_type = "PQ";
         let user_level = "A";
 
-        // Expected format: UUUUU (5) + TT (2) + L (1) + SSS (3) = 11 digits
-        // Example: RTN01PQA001
+        let id = generate_document_id_with_conn(&conn, unit_code, doc_type, user_level)
+            .expect("Should generate document id from empty table");
 
-        // Insert a mock document to test sequence generation
-        conn.execute(
-            "INSERT INTO Documents (id, title, unit_code, doc_type, user_level, sequence, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
-            params!["RTN01PQA001", "Test Doc", unit_code, doc_type, user_level, 1],
-        )
-        .expect("Failed to insert test document");
-
-        // Verify the ID format
-        let id: String = conn
-            .query_row(
-                "SELECT id FROM Documents WHERE id = 'RTN01PQA001'",
-                [],
-                |row| row.get(0),
-            )
-            .expect("Failed to query document");
-
-        assert_eq!(id.len(), 11, "Document ID should be 11 characters");
-        assert!(id.starts_with("RTN01"), "ID should start with unit code");
-        assert!(id.contains("PQ"), "ID should contain doc type");
-        assert!(id.contains("A"), "ID should contain user level");
+        assert_eq!(id, "RTN01PQA001");
     }
 
     #[test]
     fn test_generate_document_id_sequence() {
         let conn = create_test_db();
 
-        // Initialize Documents table
         conn.execute(
             "CREATE TABLE IF NOT EXISTS Documents (
                 id TEXT PRIMARY KEY,
@@ -634,7 +688,6 @@ mod tests {
         let doc_type = "AB";
         let user_level = "B";
 
-        // Insert multiple documents to test sequence increment
         for i in 1..=5 {
             let id = format!("{}{}{}{:03}", unit_code, doc_type, user_level, i);
             conn.execute(
@@ -655,6 +708,11 @@ mod tests {
             .expect("Failed to count documents");
 
         assert_eq!(count, 5, "Should have 5 test documents");
+
+        let next_id = generate_document_id_with_conn(&conn, unit_code, doc_type, user_level)
+            .expect("Should generate next sequence id");
+
+        assert_eq!(next_id, "TEST1ABB006");
     }
 
     #[test]
@@ -688,18 +746,13 @@ mod tests {
             .expect("Failed to insert document");
         }
 
-        // Verify both IDs exist
-        for id in &ids {
-            let exists: bool = conn
-                .query_row(
-                    "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
-                    params![id],
-                    |row| row.get(0),
-                )
-                .expect("Failed to check existence");
+        let next_same_prefix = generate_document_id_with_conn(&conn, "UNIT1", "XY", "Z")
+            .expect("Should increment existing prefix");
+        let first_other_prefix = generate_document_id_with_conn(&conn, "UNIT1", "XY", "Q")
+            .expect("Different prefix should start from sequence 001");
 
-            assert!(exists, "Document {} should exist", id);
-        }
+        assert_eq!(next_same_prefix, "UNIT1XYZ003");
+        assert_eq!(first_other_prefix, "UNIT1XYQ001");
     }
 
     // ========================================================================
@@ -1193,6 +1246,155 @@ mod tests {
             .contains("Cannot delete system-defined section"));
     }
 
+    #[test]
+    fn test_migrate_answer_keys_inserts_placeholder_for_require_answer_key_metadata() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES ('DOC-MIG-AK', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (1, 'DOC-MIG-AK', 200, 201, 'S201', '201', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, metadata)
+             VALUES ('Q-MIG-AK', 'DOC-MIG-AK', 1, NULL, 1, 'Q', '{\"requireAnswerKey\":true,\"keep\":\"yes\"}')",
+            [],
+        )
+        .expect("Failed to create question");
+
+        migrate_answer_keys_to_table(&conn).expect("Answer-key migration should succeed");
+
+        let migrated: (String, String, i32, i32) = conn
+            .query_row(
+                "SELECT sub_question_code, COALESCE(answer_key_text, ''), is_required, order_index
+                 FROM QuestionAnswerKeys WHERE question_id = 'Q-MIG-AK'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .expect("Placeholder answer key should be inserted");
+
+        assert_eq!(migrated.0, "");
+        assert_eq!(migrated.1, "");
+        assert_eq!(migrated.2, 1);
+        assert_eq!(migrated.3, 0);
+    }
+
+    #[test]
+    fn test_migrate_selected_sub_questions_is_idempotent() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionSubQuestionLinks (
+                question_id TEXT NOT NULL,
+                sub_question_code TEXT NOT NULL,
+                UNIQUE(question_id, sub_question_code)
+            )",
+            [],
+        )
+        .expect("Failed to create QuestionSubQuestionLinks");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES ('DOC-MIG-SUB', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (2, 'DOC-MIG-SUB', 200, 202, 'S202', '202', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, metadata)
+             VALUES ('Q-MIG-SUB', 'DOC-MIG-SUB', 2, NULL, 1, 'Q', '{\"selectedSubQuestions\":[\"A01\",\"B02\"]}')",
+            [],
+        )
+        .expect("Failed to create question");
+
+        migrate_selected_sub_questions_to_table(&conn)
+            .expect("selectedSubQuestions migration should succeed first time");
+        migrate_selected_sub_questions_to_table(&conn)
+            .expect("selectedSubQuestions migration should remain safe on rerun");
+
+        let link_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM QuestionSubQuestionLinks WHERE question_id = 'Q-MIG-SUB'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count migrated selected sub-questions");
+
+        assert_eq!(
+            link_count, 2,
+            "Migration rerun should not duplicate sub-question links"
+        );
+    }
+
+    #[test]
+    fn test_scrub_legacy_answer_keys_from_metadata_removes_only_legacy_fields() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES ('DOC-MIG-SCRUB', 'Doc', '2272420', '22724', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [],
+        )
+        .expect("Failed to create document");
+
+        conn.execute(
+            "INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (3, 'DOC-MIG-SCRUB', 200, 203, 'S203', '203', 1)",
+            [],
+        )
+        .expect("Failed to create section");
+
+        conn.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, metadata)
+             VALUES ('Q-MIG-SCRUB', 'DOC-MIG-SCRUB', 3, NULL, 1, 'Q', '{\"answerKey\":\"single\",\"answerKeys\":{\"A\":{\"text\":\"alpha\"}},\"selectedSubQuestions\":[\"A01\"],\"keep\":\"yes\"}')",
+            [],
+        )
+        .expect("Failed to create question");
+
+        scrub_legacy_answer_keys_from_metadata(&conn).expect("Metadata scrub should succeed");
+
+        let metadata: String = conn
+            .query_row(
+                "SELECT metadata FROM Questions WHERE id = 'Q-MIG-SCRUB'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to load scrubbed metadata");
+
+        assert!(
+            !metadata.contains("\"answerKey\""),
+            "Legacy single answerKey field should be removed"
+        );
+        assert!(
+            !metadata.contains("\"answerKeys\""),
+            "Legacy answerKeys field should be removed"
+        );
+        assert!(
+            metadata.contains("\"selectedSubQuestions\""),
+            "Unrelated metadata should remain intact"
+        );
+        assert!(metadata.contains("\"keep\":\"yes\""));
+    }
+
     // ========================================================================
     // Helper Function Tests
     // ========================================================================
@@ -1241,5 +1443,74 @@ mod tests {
         assert!(db_path.exists(), "Database file should still exist");
 
         // When _temp_dir is dropped, file will be cleaned up automatically
+    }
+
+    #[test]
+    fn test_bundle_reference_file_in_dir_copies_into_expected_portable_location() {
+        let temp_dir = create_temp_dir();
+        let source_path = temp_dir.path().join("manual.pdf");
+        std::fs::write(&source_path, b"reference-body").expect("Failed to write source file");
+
+        let relative_path = bundle_reference_file_in_dir(
+            temp_dir.path(),
+            "REF001",
+            "MANUAL",
+            source_path
+                .to_str()
+                .expect("Source path should be valid UTF-8"),
+            Some("DOC777"),
+        )
+        .expect("Bundling reference file should succeed");
+
+        let copied_path = temp_dir
+            .path()
+            .join("DOC777")
+            .join("references")
+            .join("MANUAL")
+            .join("REF001_manual.pdf");
+
+        assert_eq!(
+            relative_path,
+            "data/DOC777/references/MANUAL/REF001_manual.pdf"
+        );
+        assert!(
+            copied_path.exists(),
+            "Bundled file should exist in portable location"
+        );
+        assert_eq!(
+            std::fs::read(&copied_path).expect("Failed to read bundled file"),
+            b"reference-body"
+        );
+    }
+
+    #[test]
+    fn test_resolve_and_delete_question_image_in_dir_follow_managed_data_path() {
+        let temp_dir = create_temp_dir();
+        let image_path = temp_dir
+            .path()
+            .join("DOC999")
+            .join("question-images")
+            .join("q1.png");
+        std::fs::create_dir_all(
+            image_path
+                .parent()
+                .expect("Image path should have a parent directory"),
+        )
+        .expect("Failed to create image directory");
+        std::fs::write(&image_path, b"png-bytes").expect("Failed to write image file");
+
+        let resolved =
+            resolve_image_path_in_dir(temp_dir.path(), "data/DOC999/question-images/q1.png")
+                .expect("Resolving managed image path should succeed");
+
+        assert_eq!(std::path::Path::new(&resolved), image_path.as_path());
+
+        delete_question_image_in_dir(temp_dir.path(), "data/DOC999/question-images/q1.png")
+            .expect("Deleting managed image path should succeed");
+
+        assert!(
+            !image_path.exists(),
+            "Managed image file should be removed from injected data dir"
+        );
     }
 }
