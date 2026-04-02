@@ -673,13 +673,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     setActiveSubQCodes((prev) => Array.from(new Set([...prev, ...alwaysCodes])));
   }, [is300, useSubQuestions, filteredItems]);
 
+  // Check if selected branch is protected (ต้นแบบมาตรฐาน) — cannot add sub-questions
+  const isProtectedBranch = useMemo(() => {
+    const branch = dbBranches.find(b => b.code === selMainBranch);
+    return branch?.name === 'ต้นแบบมาตรฐาน';
+  }, [dbBranches, selMainBranch]);
+
   const nextZ = useMemo(() => {
     if (!autoCodePrefix) return "";
     const used = filteredItems.map(sq => sq.code.replace(autoCodePrefix, ""));
     for (const z of ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A"]) { if (!used.includes(z)) return z; }
     return "";
   }, [autoCodePrefix, filteredItems]);
-  const autoCode = autoCodePrefix && nextZ ? `${autoCodePrefix}${nextZ}` : "";
+  // Never show add input for protected branch (ต้นแบบมาตรฐาน)
+  const autoCode = autoCodePrefix && nextZ && !isProtectedBranch ? `${autoCodePrefix}${nextZ}` : "";
 
   const prevPrefixRef = useRef(autoCodePrefix);
   useEffect(() => {
@@ -1535,7 +1542,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     const isExempted = e.target.checked;
                     setFormScoreType(isExempted ? 'exempted' : 'normal');
                     if (isExempted) {
-                      // Clear everything
+                      // Clear everything including image
                       setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
                       setFormScoreIsScored(false);
                       setFormScoreValue('0');
@@ -1544,6 +1551,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       setUseSubQuestions(false);
                       setRequiredCount(0);
                       setRequiredCountChildren([]);
+                      // Clear image (mark for deletion on Save)
+                      if (imagePath) {
+                        setPendingImageDelete(true);
+                        setPendingImageUpload(null);
+                        setImagePath(null);
+                      }
                     } else {
                       setFormScoreDisplayText('');
                     }
@@ -1589,6 +1602,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       setDescription('');
                       setShowDescription(false);
                       setUseSubQuestions(false);
+                      // Clear image (mark for deletion on Save)
+                      if (imagePath) {
+                        setPendingImageDelete(true);
+                        setPendingImageUpload(null);
+                        setImagePath(null);
+                      }
                     } else {
                       setFormScoreDisplayText('');
                       if (isDefaultDescL1_200 && questionSequence !== undefined) {
@@ -1807,26 +1826,33 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     <div className="grid grid-cols-1 gap-0.5">
                       {filteredItems.map((item, localIdx) => {
                         const dbSq = dbSubQuestions.find(sq => sq.code === item.code);
+                        const isLastItem = localIdx === filteredItems.length - 1;
+                        // For protected branch in 300-series: last item shows forced badge, no actions on any item
+                        const showForcedBadge = is300 && item.alwaysChecked && (!isProtectedBranch || isLastItem);
+                        const showActionButtons = !isProtectedBranch;
                         return (
                           <div key={item.code} className={`flex items-center gap-2 px-2 py-1 bg-white dark:bg-slate-900/60 border ${sqClr.itemBd} rounded-md group/sq-item`}>
                             <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
                             <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
-                            {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
-                              {is300 && (
-                                <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
-                                  <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
-                                    className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
-                                    <CheckCircle className="w-3 h-3" />
-                                  </button>
+                            {showForcedBadge && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
+                            {showActionButtons && (
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
+                                {is300 && (
+                                  <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
+                                    <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
+                                        className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
+                                        <CheckCircle className="w-3 h-3" />
+                                    </button>
+                                  </Tooltip>
+                                )}
+                                <Tooltip content="ลบ">
+                                  <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
                                 </Tooltip>
-                              )}
-                              <Tooltip content="ลบ">
-                                <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
-                              </Tooltip>
-                            </div>
+                              </div>
+                            )}
+
                           </div>
                         );
                       })}
