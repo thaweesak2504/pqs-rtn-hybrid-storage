@@ -282,6 +282,15 @@ pub struct CreateSubQuestionRequest {
     pub text: String,
     pub always_checked: Option<bool>,
 }
+#[derive(serde::Deserialize)]
+pub struct BatchSubQuestionItem {
+    pub branch_code: String,
+    pub sub_branch_code: String,
+    pub code: String,
+    pub text: String,
+    pub always_checked: bool,
+    pub sequence: i32,
+}
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct UserProgress {
     pub id: i64,

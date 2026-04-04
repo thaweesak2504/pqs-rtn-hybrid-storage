@@ -1182,6 +1182,32 @@ fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn delete_occupation_sub_questions_by_sub_branch(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<(), String> {
+    content_database::delete_occupation_sub_questions_by_sub_branch(branch_code, sub_branch_code)
+}
+
+#[tauri::command]
+fn reorder_occupation_sub_questions(ids: Vec<i64>) -> Result<(), String> {
+    content_database::reorder_occupation_sub_questions(ids)
+}
+
+#[tauri::command]
+fn batch_create_occupation_sub_questions(
+    items: Vec<content_database::BatchSubQuestionItem>,
+) -> Result<Vec<content_database::OccupationSubQuestion>, String> {
+    content_database::batch_create_occupation_sub_questions(items)
+}
+
+#[tauri::command]
+fn get_standard_branch_sub_questions(
+) -> Result<Vec<content_database::OccupationSubQuestion>, String> {
+    content_database::get_standard_branch_sub_questions()
+}
+
+#[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -1432,6 +1458,10 @@ fn main() {
             create_occupation_sub_question,
             update_occupation_sub_question,
             delete_occupation_sub_question,
+            delete_occupation_sub_questions_by_sub_branch,
+            reorder_occupation_sub_questions,
+            batch_create_occupation_sub_questions,
+            get_standard_branch_sub_questions,
             // Section-Ref L3 Children (3xx.1.4/1.5 → real L3 Questions)
             get_section_ref_children,
             get_back_referencing_section_ids,

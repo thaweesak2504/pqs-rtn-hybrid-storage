@@ -1513,4 +1513,90 @@ mod tests {
             "Managed image file should be removed from injected data dir"
         );
     }
+
+    #[test]
+    fn test_batch_create_sub_questions() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        // Insert parent branches to satisfy FK constraints
+        conn.execute("INSERT INTO OccupationBranches (code, name) VALUES ('B1', 'Branch 1')", []).unwrap();
+        conn.execute("INSERT INTO OccupationSubBranches (code, branch_code, name) VALUES ('S1', 'B1', 'Sub 1')", []).unwrap();
+
+        let items = vec![
+            BatchSubQuestionItem {
+                branch_code: "B1".to_string(),
+                sub_branch_code: "S1".to_string(),
+                code: "C1".to_string(),
+                text: "Text 1".to_string(),
+                always_checked: false,
+                sequence: 1,
+            },
+            BatchSubQuestionItem {
+                branch_code: "B1".to_string(),
+                sub_branch_code: "S1".to_string(),
+                code: "C2".to_string(),
+                text: "Text 2".to_string(),
+                always_checked: true,
+                sequence: 2,
+            },
+        ];
+
+        let results = crate::content_database::branches::batch_create_occupation_sub_questions_with_conn(&conn, items)
+            .expect("Batch create should succeed");
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].code, "C1");
+        assert_eq!(results[1].always_checked, true);
+
+        let count: i64 = conn.query_row("SELECT COUNT(*) FROM OccupationSubQuestions", [], |row| row.get(0)).unwrap();
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_reorder_sub_questions() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        // Insert test data
+        conn.execute("INSERT INTO OccupationBranches (code, name) VALUES ('B', 'Branch')", []).unwrap();
+        conn.execute("INSERT INTO OccupationSubBranches (code, branch_code, name) VALUES ('S', 'B', 'Sub')", []).unwrap();
+        conn.execute("INSERT INTO OccupationSubQuestions (id, branch_code, sub_branch_code, code, text, always_checked, sequence)
+                      VALUES (100, 'B', 'S', 'C1', 'T1', 0, 1), (101, 'B', 'S', 'C2', 'T2', 0, 2)", []).unwrap();
+
+        // Reorder: swap 101 to be first
+        crate::content_database::branches::reorder_occupation_sub_questions_with_conn(&conn, vec![101, 100])
+            .expect("Reorder should succeed");
+
+        let seq_101: i32 = conn.query_row("SELECT sequence FROM OccupationSubQuestions WHERE id = 101", [], |row| row.get(0)).unwrap();
+        let seq_100: i32 = conn.query_row("SELECT sequence FROM OccupationSubQuestions WHERE id = 100", [], |row| row.get(0)).unwrap();
+
+        assert_eq!(seq_101, 1);
+        assert_eq!(seq_100, 2);
+    }
+
+    #[test]
+    fn test_get_standard_branch_sub_questions() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        // Seed standard branch
+        ensure_standard_occupation_branch_exists(&conn).expect("Should seed standard branch");
+
+        // Verify it returns at least the default seeded questions (if any)
+        // or we can manually add one to the standard branch to be sure
+        let std_code: String = conn.query_row("SELECT code FROM OccupationBranches WHERE name = ?1", [STANDARD_BRANCH_NAME], |row| row.get(0)).unwrap();
+        
+        // Ensure sub-branch exists for the standard branch
+        conn.execute("INSERT OR IGNORE INTO OccupationSubBranches (code, branch_code, name) VALUES ('STD_SUB', ?1, 'Standard Sub')", [std_code.clone()]).unwrap();
+        
+        conn.execute("INSERT INTO OccupationSubQuestions (branch_code, sub_branch_code, code, text, always_checked, sequence)
+                      VALUES (?1, 'STD_SUB', 'STD_Q1', 'Standard Question 1', 1, 1)", [std_code.clone()]).unwrap();
+
+        let results = crate::content_database::branches::get_standard_branch_sub_questions_with_conn(&conn)
+            .expect("Should fetch standard sub-questions");
+
+        assert!(!results.is_empty());
+        assert!(results.iter().any(|q| q.code == "STD_Q1"));
+    }
 }

@@ -2,8 +2,9 @@ pub mod types;
 pub use types::{
     AddQuestionReferenceRequest, AddQuestionSectionLinkRequest, AddSectionRefChildArgs, AnswerKey,
     BatchAddQuestionSectionLinksRequest, BatchAddSectionRefChildrenArgs, BranchUsageReport,
-    CareerBranchResetReport, CareerBranchUsageReport, ComputedSectionProgress, CreateDocumentArgs,
-    CreateQuestionArgs, CreateReferenceRequest, CreateSectionRequest, CreateSubQuestionRequest,
+    BatchSubQuestionItem, CareerBranchResetReport, CareerBranchUsageReport,
+    ComputedSectionProgress, CreateDocumentArgs, CreateQuestionArgs, CreateReferenceRequest,
+    CreateSectionRequest, CreateSubQuestionRequest,
     DevSectionMetrics, Document, DocumentBranch, DocumentHierarchy, DocumentReference,
     DocumentStats, OccupationBranch, OccupationSubBranch, OccupationSubQuestion, OwnerUnit,
     Question, QuestionChoice, QuestionDetail, QuestionReferenceDetail, QuestionSectionLink,
@@ -35,11 +36,13 @@ pub use utils::generate_uuid;
 pub use utils::to_thai_digit;
 pub mod branches;
 pub use branches::{
-    create_occupation_branch, create_occupation_sub_branch, create_occupation_sub_question,
-    delete_occupation_branch, delete_occupation_sub_branch, delete_occupation_sub_question,
-    get_all_sub_questions_for_branch, get_occupation_branches, get_occupation_sub_branches,
-    get_occupation_sub_questions, update_occupation_branch, update_occupation_sub_branch,
-    update_occupation_sub_question,
+    batch_create_occupation_sub_questions, create_occupation_branch,
+    create_occupation_sub_branch, create_occupation_sub_question, delete_occupation_branch,
+    delete_occupation_sub_branch, delete_occupation_sub_question,
+    delete_occupation_sub_questions_by_sub_branch, get_all_sub_questions_for_branch,
+    get_occupation_branches, get_occupation_sub_branches, get_occupation_sub_questions,
+    get_standard_branch_sub_questions, reorder_occupation_sub_questions,
+    update_occupation_branch, update_occupation_sub_branch, update_occupation_sub_question,
 };
 pub mod documents;
 #[cfg(test)]

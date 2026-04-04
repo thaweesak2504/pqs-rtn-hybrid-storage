@@ -1,5 +1,5 @@
 use super::*;
-use rusqlite::params;
+use rusqlite::{params, Connection};
 
 /// Get all occupation branches
 pub fn get_occupation_branches() -> Result<Vec<OccupationBranch>, String> {
@@ -249,6 +249,19 @@ pub fn update_occupation_sub_question(
     }
     Ok(())
 }
+/// Delete all sub-questions for a specific branch and sub-branch (slot).
+pub fn delete_occupation_sub_questions_by_sub_branch(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    conn.execute(
+        "DELETE FROM OccupationSubQuestions WHERE branch_code = ?1 AND sub_branch_code = ?2",
+        params![branch_code, sub_branch_code],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
 /// Delete a sub-question
 pub fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
@@ -340,4 +353,124 @@ pub fn get_sub_question_usage_counts(
         usage_map,
         total_children,
     })
+}
+/// Reorder sub-questions by updating their sequence values.
+/// The order of IDs in the input vector determines the new sequence (1-based).
+pub fn reorder_occupation_sub_questions_with_conn(
+    conn: &Connection,
+    ids: Vec<i64>,
+) -> Result<(), String> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
+    for (idx, id) in ids.iter().enumerate() {
+        tx.execute(
+            "UPDATE OccupationSubQuestions SET sequence = ?1 WHERE id = ?2",
+            params![(idx as i32) + 1, id],
+        )
+        .map_err(|e| format!("Failed to reorder sub-question id={}: {}", id, e))?;
+    }
+    tx.commit()
+        .map_err(|e| format!("Failed to commit reorder: {}", e))?;
+    Ok(())
+}
+
+pub fn reorder_occupation_sub_questions(ids: Vec<i64>) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    reorder_occupation_sub_questions_with_conn(&conn, ids)
+}
+
+/// Batch-create multiple sub-questions at once (used by CareerBranchManagerModal).
+pub fn batch_create_occupation_sub_questions_with_conn(
+    conn: &Connection,
+    items: Vec<BatchSubQuestionItem>,
+) -> Result<Vec<OccupationSubQuestion>, String> {
+    let tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("Failed to start transaction: {}", e))?;
+    let mut results = Vec::new();
+    for item in items {
+        tx.execute(
+            "INSERT INTO OccupationSubQuestions (branch_code, sub_branch_code, code, text, always_checked, sequence)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                item.branch_code,
+                item.sub_branch_code,
+                item.code,
+                item.text,
+                item.always_checked,
+                item.sequence
+            ],
+        )
+        .map_err(|e| format!("Failed to batch-create sub-question '{}': {}", item.code, e))?;
+        let id = tx.last_insert_rowid();
+        results.push(OccupationSubQuestion {
+            id,
+            branch_code: item.branch_code,
+            sub_branch_code: item.sub_branch_code,
+            code: item.code,
+            text: item.text,
+            always_checked: item.always_checked,
+            sequence: item.sequence,
+        });
+    }
+    tx.commit()
+        .map_err(|e| format!("Failed to commit batch create: {}", e))?;
+    Ok(results)
+}
+
+pub fn batch_create_occupation_sub_questions(
+    items: Vec<BatchSubQuestionItem>,
+) -> Result<Vec<OccupationSubQuestion>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    batch_create_occupation_sub_questions_with_conn(&conn, items)
+}
+
+/// Get all sub-questions belonging to the "ต้นแบบมาตรฐาน" standard branch.
+/// Used as read-only reference data in the CareerBranchManagerModal.
+pub fn get_standard_branch_sub_questions_with_conn(
+    conn: &Connection,
+) -> Result<Vec<OccupationSubQuestion>, String> {
+    ensure_standard_occupation_branch_exists(&conn)?;
+
+    // Find the standard main branch code
+    let main_code: String = conn
+        .query_row(
+            "SELECT code FROM OccupationBranches WHERE name = ?1 LIMIT 1",
+            params![STANDARD_BRANCH_NAME],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Standard branch not found: {}", e))?;
+
+    // Get all sub-questions for that main branch (across all sub-branches)
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, branch_code, sub_branch_code, code, text, always_checked, sequence
+             FROM OccupationSubQuestions WHERE branch_code = ?1
+             ORDER BY sub_branch_code, sequence, id",
+        )
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+    let rows = stmt
+        .query_map(params![main_code], |row| {
+            Ok(OccupationSubQuestion {
+                id: row.get(0)?,
+                branch_code: row.get(1)?,
+                sub_branch_code: row.get(2)?,
+                code: row.get(3)?,
+                text: row.get(4)?,
+                always_checked: row.get(5)?,
+                sequence: row.get(6)?,
+            })
+        })
+        .map_err(|e| format!("Failed to query standard sub-questions: {}", e))?;
+    let mut result = Vec::new();
+    for r in rows {
+        result.push(r.map_err(|e| e.to_string())?);
+    }
+    Ok(result)
+}
+
+pub fn get_standard_branch_sub_questions() -> Result<Vec<OccupationSubQuestion>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    get_standard_branch_sub_questions_with_conn(&conn)
 }
