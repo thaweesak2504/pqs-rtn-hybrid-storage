@@ -55,6 +55,14 @@ const SECTION_SLOTS = [
 
 const STANDARD_BRANCH_NAME = 'ต้นแบบมาตรฐาน';
 
+// Default mandatory (always_checked) last-item text per 300-series tab
+const MANDATORY_TEXTS: Record<string, string> = {
+  '3xx.2': 'เริ่มปฏิบัติ',
+  '3xx.3': 'เริ่มปฏิบัติจริงหรือสมมติเหตุการณ์พิเศษ',
+  '3xx.4': 'เริ่มปฏิบัติจริงหรือสมมติเหตุขัดข้องแล้วทำการแก้ไข',
+  '3xx.5': 'เริ่มปฏิบัติจริงหรือสมมติเหตุฉุกเฉินแล้วทำการแก้ไข',
+};
+
 /** Build the 2-char slot prefix from active tab, e.g. '22' for tab '2xx.2'. */
 function slotPrefix(tabId: string): string {
   const slot = SECTION_SLOTS.find(s => s.id === tabId);
@@ -305,32 +313,42 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     return `${prefix}${String(seq).padStart(3, '0')}`;
   }, [activeTab, selectedMain, selectedSub]);
 
-  // Help keep 300-series mandatory item present
+  // Help keep 300-series mandatory item present and up-to-date
   useEffect(() => {
-    if (isOpen && currentSlotType === '300' && !isProtectedBranch && selectedSub && selectedMain) {
-      const items = filteredEditorItems;
-      const hasMandatory = items.some(q => q.always_checked);
-      if (!hasMandatory) {
-        const prefix = fullPrefix(activeTab, selectedMain, selectedSub);
-        // Sequential code (same logic as generateNewCode)
-        let seq = items.length + 1;
-        const existingCodes = new Set(items.map(q => q.code));
-        while (existingCodes.has(`${prefix}${String(seq).padStart(3, '0')}`)) { seq++; }
-        const newCode = `${prefix}${String(seq).padStart(3, '0')}`;
-        // Derive text from standard branch reference for this tab
-        const stdMandatory = filteredRefItems.find(q => q.always_checked);
-        const mandatoryText = stdMandatory?.text ?? 'เริ่มปฏิบัติ';
-        const mandatoryItem: OccupationSubQuestion = {
-          id: -Math.random(),
-          branch_code: selectedMain,
-          sub_branch_code: selectedSub,
-          code: newCode,
-          text: mandatoryText,
-          always_checked: true,
-          sequence: seq
-        };
-        setEditorSubQuestions(prev => [...prev, mandatoryItem]);
-      }
+    if (!isOpen || currentSlotType !== '300' || isProtectedBranch || !selectedSub || !selectedMain) return;
+
+    const items = filteredEditorItems;
+    const prefix = fullPrefix(activeTab, selectedMain, selectedSub);
+    const stdMandatory = filteredRefItems.find(q => q.always_checked);
+    const expectedText = stdMandatory?.text ?? MANDATORY_TEXTS[activeTab] ?? 'เริ่มปฏิบัติ';
+
+    const existing = items.find(q => q.always_checked);
+
+    if (!existing) {
+      // No mandatory item — create one at position 1 (or N+1 if items exist)
+      const seq = items.length + 1;
+      const newCode = `${prefix}${String(seq).padStart(3, '0')}`;
+      setEditorSubQuestions(prev => [...prev, {
+        id: -Math.random(),
+        branch_code: selectedMain,
+        sub_branch_code: selectedSub,
+        code: newCode,
+        text: expectedText,
+        always_checked: true,
+        sequence: seq
+      }]);
+      return;
+    }
+
+    // Mandatory exists — ensure text & code are correct
+    const expectedSeq = items.length; // mandatory is always last
+    const expectedCode = `${prefix}${String(expectedSeq).padStart(3, '0')}`;
+    if (existing.text !== expectedText || existing.code !== expectedCode) {
+      setEditorSubQuestions(prev => prev.map(q =>
+        q.id === existing.id
+          ? { ...q, text: expectedText, code: expectedCode, sequence: expectedSeq }
+          : q
+      ));
     }
   }, [activeTab, selectedMain, selectedSub, currentSlotType, isProtectedBranch, filteredEditorItems, filteredRefItems, isOpen]);
 
@@ -357,8 +375,15 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         // Insert before mandatory item
         const updated = [...items];
         updated.splice(mandatoryIdx, 0, { ...newItem, sequence: mandatoryIdx + 1 });
-        const reIndexed = updated.map((q, i) => ({ ...q, sequence: i + 1 }));
         const prefix = fullPrefix(activeTab, selectedMain, selectedSub);
+        // Re-index sequences AND update mandatory item code to N+1
+        const reIndexed = updated.map((q, i) => {
+          const newSeq = i + 1;
+          if (q.always_checked) {
+            return { ...q, sequence: newSeq, code: `${prefix}${String(newSeq).padStart(3, '0')}` };
+          }
+          return { ...q, sequence: newSeq };
+        });
         const otherItems = editorSubQuestions.filter(q => !q.code.startsWith(prefix));
         setEditorSubQuestions([...otherItems, ...reIndexed]);
         return;
@@ -377,7 +402,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     
     const item = editorSubQuestions.find(q => q.id === id);
     if (item?.always_checked && currentSlotType === '300') {
-      alert('ไม่สามารถลบรายการบังคับ "ลงมือปฏิบัติ" ได้');
+      alert('ไม่สามารถลบรายการบังคับข้อสุดท้ายได้');
       return;
     }
 
@@ -385,7 +410,14 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     // Re-index sequences for current tab
     const prefix = fullPrefix(activeTab, selectedMain, selectedSub);
     const currentTabItems = remaining.filter(q => q.code.startsWith(prefix));
-    const reIndexed = currentTabItems.map((q, i) => ({ ...q, sequence: i + 1 }));
+    // Re-index sequences AND update mandatory item code to reflect new position
+    const reIndexed = currentTabItems.map((q, i) => {
+      const newSeq = i + 1;
+      if (q.always_checked) {
+        return { ...q, sequence: newSeq, code: `${prefix}${String(newSeq).padStart(3, '0')}` };
+      }
+      return { ...q, sequence: newSeq };
+    });
     const otherItems = remaining.filter(q => !q.code.startsWith(prefix));
     setEditorSubQuestions([...otherItems, ...reIndexed]);
   };
