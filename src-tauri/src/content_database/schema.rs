@@ -915,6 +915,18 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         [],
     ).map_err(|e| format!("Failed to create index on OccupationSubQuestions: {}", e))?;
 
+    // Migration: update 3xx.3 standard branch mandatory item text to add 'พิเศษ'
+    execute_best_effort(
+        &conn,
+        "UPDATE OccupationSubQuestions \
+         SET text = 'เริ่มปฏิบัติจริงหรือสมมติเหตุการณ์พิเศษ' \
+         WHERE always_checked = 1 \
+           AND SUBSTR(code, 1, 2) = '33' \
+           AND branch_code IN (SELECT code FROM OccupationBranches WHERE name = 'ต้นแบบมาตรฐาน') \
+           AND text NOT LIKE '%พิเศษ'",
+        "migrate_3xx3_mandatory_add_phiset",
+    );
+
     // QuestionSubQuestionLinks Table - Relational storage for selected sub-questions per question
     // Replaces JSON array 'selectedSubQuestions' in Questions.metadata
     conn.execute(

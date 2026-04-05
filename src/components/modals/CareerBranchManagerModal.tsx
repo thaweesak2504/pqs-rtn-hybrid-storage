@@ -312,19 +312,27 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       const hasMandatory = items.some(q => q.always_checked);
       if (!hasMandatory) {
         const prefix = fullPrefix(activeTab, selectedMain, selectedSub);
+        // Sequential code (same logic as generateNewCode)
+        let seq = items.length + 1;
+        const existingCodes = new Set(items.map(q => q.code));
+        while (existingCodes.has(`${prefix}${String(seq).padStart(3, '0')}`)) { seq++; }
+        const newCode = `${prefix}${String(seq).padStart(3, '0')}`;
+        // Derive text from standard branch reference for this tab
+        const stdMandatory = filteredRefItems.find(q => q.always_checked);
+        const mandatoryText = stdMandatory?.text ?? 'เริ่มปฏิบัติ';
         const mandatoryItem: OccupationSubQuestion = {
           id: -Math.random(),
           branch_code: selectedMain,
           sub_branch_code: selectedSub,
-          code: `${prefix}Z99`,
-          text: 'ลงมือปฏิบัติ/ดำเนินการตามขั้นตอนที่กำหนด',
+          code: newCode,
+          text: mandatoryText,
           always_checked: true,
-          sequence: items.length + 1
+          sequence: seq
         };
         setEditorSubQuestions(prev => [...prev, mandatoryItem]);
       }
     }
-  }, [activeTab, selectedMain, selectedSub, currentSlotType, isProtectedBranch, filteredEditorItems, isOpen]);
+  }, [activeTab, selectedMain, selectedSub, currentSlotType, isProtectedBranch, filteredEditorItems, filteredRefItems, isOpen]);
 
   // Operations for Editor
   const handleAddItem = () => {
