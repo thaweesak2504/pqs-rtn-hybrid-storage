@@ -1,14 +1,15 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import {
-    AlertCircle,
-    ArrowDown,
-    ArrowUp,
-    BookOpen,
-    Copy,
-    Pencil,
-    Plus,
-    Trash2,
-    X
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  CheckCircle,
+  Copy,
+  Pencil,
+  Plus,
+  Trash2,
+  X
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
@@ -68,7 +69,8 @@ function fullPrefix(tabId: string, mainCode: string, subCode: string): string {
 const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
   isOpen,
   onClose,
-  onSuccess
+  onSuccess,
+  userRole
 }) => {
   const [branches, setBranches] = useState<OccupationBranch[]>([]);
   const [subBranches, setSubBranches] = useState<OccupationSubBranch[]>([]);
@@ -86,6 +88,26 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
 
   // Loading state
   const [isLoading, setIsLoading] = useState(false);
+
+  // Branch CRUD state
+  const [isAddingMain, setIsAddingMain] = useState(false);
+  const [newMainName, setNewMainName] = useState('');
+  const [editingMainCode, setEditingMainCode] = useState<string | null>(null);
+  const [editingMainName, setEditingMainName] = useState('');
+  const [isAddingSub, setIsAddingSub] = useState(false);
+  const [newSubName, setNewSubName] = useState('');
+  const [editingSubCode, setEditingSubCode] = useState<string | null>(null);
+  const [editingSubName, setEditingSubName] = useState('');
+  const [deleteDialog, setDeleteDialog] = useState<{
+    type: 'main' | 'sub';
+    code: string;
+    name: string;
+    branchCode?: string;
+    isChecking: boolean;
+    report: { is_used: boolean; document_count: number; document_names: string[] } | null;
+  } | null>(null);
+
+  const isAdmin = userRole === 'admin';
 
   // Load ALL sub-questions for a main branch (filter by code prefix client-side)
   const loadEditorSubQuestions = useCallback(async (mainCode: string) => {
@@ -147,12 +169,99 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
 
   const handleMainChange = (code: string) => {
     setSelectedMain(code);
+    setIsAddingSub(false);
+    setEditingSubCode(null);
     loadSubBranches(code);
   };
 
   const handleSubChange = (code: string) => {
     setSelectedSub(code);
     // No need to reload — editor data is per main branch, sub-branch is part of the code prefix
+  };
+
+  // Branch CRUD handlers
+  const handleCreateMain = async () => {
+    if (!newMainName.trim()) return;
+    const nc = (branches.length + 1).toString();
+    try {
+      const created = await invoke<OccupationBranch>('create_occupation_branch', { code: nc, name: newMainName.trim() });
+      setBranches(prev => [...prev, created]);
+      setSelectedMain(nc);
+      setSelectedSub('');
+      loadSubBranches(nc);
+      onSuccess?.();
+    } catch (e) { console.error(e); }
+    setNewMainName(''); setIsAddingMain(false);
+  };
+
+  const handleUpdateMain = async () => {
+    if (!editingMainName.trim() || !editingMainCode) return;
+    try {
+      await invoke('update_occupation_branch', { code: editingMainCode, name: editingMainName.trim() });
+      setBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b));
+      setEditingMainCode(null);
+      onSuccess?.();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleCreateSub = async () => {
+    if (!newSubName.trim() || !selectedMain) return;
+    const nc = (subBranches.length + 1).toString();
+    try {
+      const created = await invoke<OccupationSubBranch>('create_occupation_sub_branch', { code: nc, branchCode: selectedMain, name: newSubName.trim() });
+      setSubBranches(prev => [...prev, created]);
+      setSelectedSub(nc);
+      onSuccess?.();
+    } catch (e) { console.error(e); }
+    setNewSubName(''); setIsAddingSub(false);
+  };
+
+  const handleUpdateSub = async () => {
+    if (!editingSubName.trim() || !editingSubCode) return;
+    try {
+      await invoke('update_occupation_sub_branch', { code: editingSubCode, branchCode: selectedMain, name: editingSubName.trim() });
+      setSubBranches(prev => prev.map(s => s.code === editingSubCode ? { ...s, name: editingSubName.trim() } : s));
+      setEditingSubCode(null);
+      onSuccess?.();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteBranch = async (type: 'main' | 'sub', code: string, name: string, branchCode?: string) => {
+    setDeleteDialog({ type, code, name, branchCode, isChecking: true, report: null });
+    try {
+      const report = type === 'main'
+        ? await invoke<{ is_used: boolean; document_count: number; document_names: string[] }>('check_branch_usage_global', { branchCode: code })
+        : await invoke<{ is_used: boolean; document_count: number; document_names: string[] }>('check_sub_branch_usage_global', { branchCode: branchCode!, subCode: code });
+      setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report } : null);
+    } catch (err) {
+      console.error('Failed to check branch usage:', err);
+      setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report: null } : null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteDialog || deleteDialog.report?.is_used) return;
+    try {
+      if (deleteDialog.type === 'main') {
+        await invoke('delete_occupation_branch', { code: deleteDialog.code });
+        setBranches(prev => prev.filter(b => b.code !== deleteDialog.code));
+        if (selectedMain === deleteDialog.code) {
+          setSelectedMain(''); setSelectedSub('');
+          setSubBranches([]); setEditorSubQuestions([]);
+        }
+      } else {
+        await invoke('delete_occupation_sub_branch', { code: deleteDialog.code, branchCode: deleteDialog.branchCode! });
+        setSubBranches(prev => prev.filter(s => s.code !== deleteDialog.code));
+        if (selectedSub === deleteDialog.code) {
+          setSelectedSub(''); setEditorSubQuestions([]);
+        }
+      }
+      setDeleteDialog(null);
+      onSuccess?.();
+    } catch (err) {
+      console.error('Failed to delete branch:', err);
+      setDeleteDialog(null);
+    }
   };
 
   // Filter reference items by the 2-char slot prefix (e.g. '22' for tab '2xx.2')
@@ -174,6 +283,11 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     const main = branches.find(b => b.code === selectedMain);
     return main?.name === STANDARD_BRANCH_NAME;
   }, [selectedMain, branches]);
+
+  const isProtectedSubBranch = useMemo(() => {
+    const sub = subBranches.find(s => s.code === selectedSub);
+    return isProtectedBranch || sub?.name === STANDARD_BRANCH_NAME;
+  }, [selectedSub, subBranches, isProtectedBranch]);
 
   const currentSlotType = useMemo(() => {
     return SECTION_SLOTS.find(s => s.id === activeTab)?.type || '200';
@@ -375,46 +489,115 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
 
         {/* Selection + Tabs */}
         <div className="p-4 border-b border-gray-200 dark:border-github-border-primary space-y-3">
-          {/* Branch selectors */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-github-text-secondary">สาขาหลัก:</label>
-              <select 
-                value={selectedMain}
-                onChange={(e) => handleMainChange(e.target.value)}
-                className="text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="">— เลือก —</option>
-                {branches.map(b => (
-                  <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-github-text-secondary">สาขาย่อย:</label>
-              <select 
-                value={selectedSub}
-                onChange={(e) => handleSubChange(e.target.value)}
-                disabled={!selectedMain}
-                className="text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
-              >
-                <option value="">— เลือก —</option>
-                {subBranches.map(s => (
-                  <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
-                ))}
-              </select>
+          {/* Branch selectors with CRUD */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+            {/* Main Branch */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-github-text-secondary mb-1">สาขาหลัก</label>
+              {isAddingMain ? (
+                <div className="flex gap-2">
+                  <input type="text" placeholder="ชื่อสาขา" maxLength={50} value={newMainName}
+                    onChange={e => setNewMainName(e.target.value)} autoFocus
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <button onClick={handleCreateMain} className="px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors" title="ยืนยัน"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => { setNewMainName(''); setIsAddingMain(false); }} className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary text-gray-500 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="ยกเลิก"><X className="w-4 h-4" /></button>
+                </div>
+              ) : editingMainCode ? (
+                <div className="flex gap-2">
+                  <input type="text" maxLength={50} value={editingMainName}
+                    onChange={e => setEditingMainName(e.target.value)} autoFocus
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <button onClick={handleUpdateMain} className="px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors" title="ยืนยัน"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingMainCode(null)} className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary text-gray-500 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="ยกเลิก"><X className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <select value={selectedMain} onChange={(e) => handleMainChange(e.target.value)}
+                    className="flex-1 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <option value="">— เลือก —</option>
+                    {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
+                  </select>
+                  {isAdmin && selectedMain && !isProtectedBranch && (
+                    <>
+                      <button onClick={() => { setEditingMainCode(selectedMain); setEditingMainName(branches.find(b => b.code === selectedMain)?.name || ''); }}
+                        className="px-2 py-1.5 border border-gray-300 dark:border-github-border-primary rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="แก้ไขชื่อสาขา">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteBranch('main', selectedMain, branches.find(b => b.code === selectedMain)?.name || '')}
+                        className="px-2 py-1.5 border border-gray-300 dark:border-github-border-primary rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="ลบสาขา">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => setIsAddingMain(true)}
+                      className="px-2 py-1.5 border border-gray-300 dark:border-github-border-primary rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="เพิ่มสาขาใหม่">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
-            {isProtectedBranch && (
-              <span className="text-sm text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                Read-Only (ต้นแบบมาตรฐาน)
-              </span>
-            )}
+            {/* Sub Branch */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-github-text-secondary mb-1">สาขาย่อย</label>
+              {isAddingSub ? (
+                <div className="flex gap-2">
+                  <input type="text" placeholder="ชื่อสาขาย่อย" maxLength={50} value={newSubName}
+                    onChange={e => setNewSubName(e.target.value)} autoFocus
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <button onClick={handleCreateSub} className="px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors" title="ยืนยัน"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => { setNewSubName(''); setIsAddingSub(false); }} className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary text-gray-500 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="ยกเลิก"><X className="w-4 h-4" /></button>
+                </div>
+              ) : editingSubCode ? (
+                <div className="flex gap-2">
+                  <input type="text" maxLength={50} value={editingSubName}
+                    onChange={e => setEditingSubName(e.target.value)} autoFocus
+                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                  <button onClick={handleUpdateSub} className="px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors" title="ยืนยัน"><CheckCircle className="w-4 h-4" /></button>
+                  <button onClick={() => setEditingSubCode(null)} className="px-2 py-1.5 rounded-md border border-gray-300 dark:border-github-border-primary text-gray-500 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="ยกเลิก"><X className="w-4 h-4" /></button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <select value={selectedSub} onChange={(e) => handleSubChange(e.target.value)} disabled={!selectedMain}
+                    className="flex-1 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50">
+                    <option value="">— เลือก —</option>
+                    {subBranches.map(s => <option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
+                  </select>
+                  {isAdmin && selectedMain && selectedSub && !isProtectedSubBranch && (
+                    <>
+                      <button onClick={() => { setEditingSubCode(selectedSub); setEditingSubName(subBranches.find(s => s.code === selectedSub)?.name || ''); }}
+                        className="px-2 py-1.5 border border-gray-300 dark:border-github-border-primary rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="แก้ไขชื่อสาขาย่อย">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteBranch('sub', selectedSub, subBranches.find(s => s.code === selectedSub)?.name || '', selectedMain)}
+                        className="px-2 py-1.5 border border-gray-300 dark:border-github-border-primary rounded-md text-gray-500 hover:text-red-600 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="ลบสาขาย่อย">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                  {isAdmin && selectedMain && !isProtectedBranch && (
+                    <button onClick={() => setIsAddingSub(true)}
+                      className="px-2 py-1.5 border border-gray-300 dark:border-github-border-primary rounded-md text-gray-500 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-github-bg-hover transition-colors" title="เพิ่มสาขาย่อยใหม่">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
 
-            {isLoading && <span className="text-sm text-blue-600 dark:text-blue-400 animate-pulse">กำลังโหลด...</span>}
           </div>
+
+          {isProtectedBranch && (
+            <div className="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+              <AlertCircle className="w-4 h-4" />
+              <span>สาขานี้เป็นต้นแบบมาตรฐาน — ไม่สามารถแก้ไขหรือลบได้</span>
+            </div>
+          )}
+
+          {isLoading && <span className="text-sm text-blue-600 dark:text-blue-400 animate-pulse">กำลังโหลด...</span>}
 
           {errorMsg && (
             <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 px-4 py-2 rounded text-sm">
@@ -608,6 +791,34 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         </div>
 
       </div>
+
+      {/* Delete confirmation dialog */}
+      {deleteDialog && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60">
+          <div className="bg-white dark:bg-github-bg-secondary border border-github-border-primary rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-bold mb-3 text-gray-900 dark:text-github-text-primary">ยืนยันการลบ</h3>
+            {deleteDialog.isChecking ? (
+              <p className="text-sm text-gray-600 dark:text-github-text-secondary mb-4">กำลังตรวจสอบการใช้งาน...</p>
+            ) : deleteDialog.report?.is_used ? (
+              <div className="mb-4">
+                <p className="text-sm text-red-600 dark:text-red-400 font-medium">ไม่สามารถลบได้ — กำลังถูกใช้งานอยู่ใน {deleteDialog.report.document_count} เอกสาร:</p>
+                <ul className="mt-2 text-xs text-gray-600 dark:text-github-text-secondary list-disc list-inside space-y-0.5">
+                  {deleteDialog.report.document_names.slice(0, 5).map((n, i) => <li key={i}>{n}</li>)}
+                </ul>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 dark:text-github-text-secondary mb-4">
+                ต้องการลบ <strong>"{deleteDialog.name}"</strong> ? การกระทำนี้ไม่สามารถย้อนกลับได้
+              </p>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setDeleteDialog(null)}>ยกเลิก</Button>
+              <Button variant="danger" disabled={deleteDialog.isChecking || !!deleteDialog.report?.is_used} onClick={handleConfirmDelete}>ลบ</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
