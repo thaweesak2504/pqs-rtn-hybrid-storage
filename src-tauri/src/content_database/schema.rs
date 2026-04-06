@@ -927,6 +927,9 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         "migrate_3xx3_mandatory_add_phiset",
     );
 
+    // Migration: standardise all sub-question codes to 8-digit format (AABCCDDEE)
+    migrate_sub_question_codes_to_8digit(&conn)?;
+
     // QuestionSubQuestionLinks Table - Relational storage for selected sub-questions per question
     // Replaces JSON array 'selectedSubQuestions' in Questions.metadata
     conn.execute(

@@ -1,30 +1,30 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-  CheckCircle,
-  ChevronDown,
-  ChevronRight,
-  FileDigit,
-  FileText,
-  Globe,
-  GripVertical,
-  ImageIcon,
-  ListChecks,
-  Lock as LockIcon,
-  Mic,
-  Plus,
-  Save,
-  Shield,
-  Trash2,
-  Video,
-  X
+    CheckCircle,
+    ChevronDown,
+    ChevronRight,
+    FileDigit,
+    FileText,
+    Globe,
+    GripVertical,
+    ImageIcon,
+    ListChecks,
+    Lock as LockIcon,
+    Mic,
+    Plus,
+    Save,
+    Shield,
+    Trash2,
+    Video,
+    X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/content";
 import {
-  DEFAULT_L1_DESC_BY_SEQ,
-  convertThaiToArabic,
-  toThaiAlphabet
+    DEFAULT_L1_DESC_BY_SEQ,
+    convertThaiToArabic,
+    toThaiAlphabet
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -631,19 +631,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [showSubQuestionEditor, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
-  // Auto-generate code: S + L + X + Y + Z
-  // For 2xx.4, use '24' prefix instead of '2' + questionSequence
+  // Auto-generate code prefix: AB + CC + DD (6-char, 8-digit format)
+  // Pad branch codes to 2 digits: 'STD' → '00', '1' → '01'
+  const padBC = (c: string) => c === 'STD' ? '00' : c.padStart(2, '0');
   const autoCodePrefix = useMemo(() => {
     if (!selMainBranch || !selSubBranch) return "";
     if (sectionOccupationBranches) {
       // 2xx.4 / 3xx.4: use 'S4' prefix with inherited branches
       const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
-      return `${sCode}4${selMainBranch}${selSubBranch}`;
+      return `${sCode}4${padBC(selMainBranch)}${padBC(selSubBranch)}`;
     }
-    // Normal case: S + L + X + Y
+    // Normal case: S + L + CC + DD
     const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
     const lCode = questionSequence?.toString() || "0";
-    return `${sCode}${lCode}${selMainBranch}${selSubBranch}`;
+    return `${sCode}${lCode}${padBC(selMainBranch)}${padBC(selSubBranch)}`;
   }, [sectionGroup, questionSequence, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
   // Use DB sub-questions as the source of truth for filtered items
@@ -681,8 +682,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   const nextZ = useMemo(() => {
     if (!autoCodePrefix) return "";
-    const used = filteredItems.map(sq => sq.code.replace(autoCodePrefix, ""));
-    for (const z of ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A"]) { if (!used.includes(z)) return z; }
+    const used = new Set(filteredItems.map(sq => sq.code.replace(autoCodePrefix, "")));
+    for (let i = 1; i <= 99; i++) {
+      const z = String(i).padStart(2, '0');
+      if (!used.has(z)) return z;
+    }
     return "";
   }, [autoCodePrefix, filteredItems]);
   // Never show add input for protected branch (ต้นแบบมาตรฐาน)

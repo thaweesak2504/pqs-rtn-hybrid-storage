@@ -188,7 +188,8 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
       const selectedBranch: { main: string; sub: string } | undefined = m.selectedBranch;
       if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
       const lCode = question.sequence?.toString() || '0';
-      const derivedPrefix = `3${lCode}${selectedBranch.main}${selectedBranch.sub}`;
+      const padBC = (c: string) => c === 'STD' ? '00' : c.padStart(2, '0');
+      const derivedPrefix = `3${lCode}${padBC(selectedBranch.main)}${padBC(selectedBranch.sub)}`;
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }

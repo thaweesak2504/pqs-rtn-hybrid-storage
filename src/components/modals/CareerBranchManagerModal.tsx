@@ -1,15 +1,15 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import {
-  AlertCircle,
-  ArrowDown,
-  ArrowUp,
-  BookOpen,
-  CheckCircle,
-  Copy,
-  Pencil,
-  Plus,
-  Trash2,
-  X
+    AlertCircle,
+    ArrowDown,
+    ArrowUp,
+    BookOpen,
+    CheckCircle,
+    Copy,
+    Pencil,
+    Plus,
+    Trash2,
+    X
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
@@ -69,9 +69,14 @@ function slotPrefix(tabId: string): string {
   return slot ? `${slot.sCode}${slot.lCode}` : '';
 }
 
-/** Build the full code prefix for a specific branch+sub+slot, e.g. '2201standard'. */
+/** Pad a branch code to 2 digits: 'STD' → '00', '1' → '01', '12' → '12'. */
+function padBC(code: string): string {
+  return code === 'STD' ? '00' : code.padStart(2, '0');
+}
+
+/** Build the 6-char code prefix for a specific branch+sub+slot, e.g. '220101'. */
 function fullPrefix(tabId: string, mainCode: string, subCode: string): string {
-  return `${slotPrefix(tabId)}${mainCode}${subCode}`;
+  return `${slotPrefix(tabId)}${padBC(mainCode)}${padBC(subCode)}`;
 }
 
 const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
@@ -307,10 +312,10 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     // Find the next sequence number not already used
     let seq = existingItems.length + 1;
     const existingCodes = new Set(existingItems.map(q => q.code));
-    while (existingCodes.has(`${prefix}${String(seq).padStart(3, '0')}`)) {
+    while (existingCodes.has(`${prefix}${String(seq).padStart(2, '0')}`)) {
       seq++;
     }
-    return `${prefix}${String(seq).padStart(3, '0')}`;
+    return `${prefix}${String(seq).padStart(2, '0')}`;
   }, [activeTab, selectedMain, selectedSub]);
 
   // Help keep 300-series mandatory item present and up-to-date
@@ -327,7 +332,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     if (!existing) {
       // No mandatory item — create one at position 1 (or N+1 if items exist)
       const seq = items.length + 1;
-      const newCode = `${prefix}${String(seq).padStart(3, '0')}`;
+      const newCode = `${prefix}${String(seq).padStart(2, '0')}`;
       setEditorSubQuestions(prev => [...prev, {
         id: -Math.random(),
         branch_code: selectedMain,
@@ -342,7 +347,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
 
     // Mandatory exists — ensure text & code are correct
     const expectedSeq = items.length; // mandatory is always last
-    const expectedCode = `${prefix}${String(expectedSeq).padStart(3, '0')}`;
+    const expectedCode = `${prefix}${String(expectedSeq).padStart(2, '0')}`;
     if (existing.text !== expectedText || existing.code !== expectedCode) {
       setEditorSubQuestions(prev => prev.map(q =>
         q.id === existing.id
@@ -380,7 +385,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         const reIndexed = updated.map((q, i) => {
           const newSeq = i + 1;
           if (q.always_checked) {
-            return { ...q, sequence: newSeq, code: `${prefix}${String(newSeq).padStart(3, '0')}` };
+            return { ...q, sequence: newSeq, code: `${prefix}${String(newSeq).padStart(2, '0')}` };
           }
           return { ...q, sequence: newSeq };
         });
@@ -414,7 +419,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     const reIndexed = currentTabItems.map((q, i) => {
       const newSeq = i + 1;
       if (q.always_checked) {
-        return { ...q, sequence: newSeq, code: `${prefix}${String(newSeq).padStart(3, '0')}` };
+        return { ...q, sequence: newSeq, code: `${prefix}${String(newSeq).padStart(2, '0')}` };
       }
       return { ...q, sequence: newSeq };
     });
