@@ -412,12 +412,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     (is300 && questionSequence && questionSequence >= 2 && questionSequence <= 5)
   );
 
-  // Disable for exempted prerequisite questions OR exempted 2xx.2/2xx.4
+  // Disable for exempted prerequisite questions, exempted 2xx.2/2xx.4, or exempted 3xx.2-5
   const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() =>
     baseShowSubQuestionEditor
     && !(isPrerequisiteQuestion && formScoreType === 'exempted')
     && !(isPrerequisiteChild && formScoreType === 'exempted')
     && !(isDefaultDescL1_200 && formScoreType === 'exempted')
+    && !(isDefaultDescL1 && formScoreType === 'exempted')
   );
 
   // Re-evaluate when formScoreType changes
@@ -427,8 +428,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       && !(isPrerequisiteQuestion && formScoreType === 'exempted')
       && !(isPrerequisiteChild && formScoreType === 'exempted')
       && !(isDefaultDescL1_200 && formScoreType === 'exempted')
+      && !(isDefaultDescL1 && formScoreType === 'exempted')
     );
-  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, isDefaultDescL1_200, formScoreType]);
+  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, isDefaultDescL1_200, isDefaultDescL1, formScoreType]);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     return parsedInitialMeta?.useSubQuestions === true;
   });
