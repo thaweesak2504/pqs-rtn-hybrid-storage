@@ -99,7 +99,6 @@ fn authenticate_user(username_or_email: String, password: String) -> Result<Opti
     database::authenticate_user(&username_or_email, &password)
 }
 
-
 // Database initialization is handled by Tauri setup
 // No need for separate command
 
@@ -110,7 +109,6 @@ fn migrate_passwords() -> Result<String, String> {
     database::migrate_plain_text_passwords(&conn)?;
     Ok("Password migration completed successfully".to_string())
 }
-
 
 // Zoom commands using root font-size (proper approach for desktop app)
 #[tauri::command]
@@ -169,7 +167,6 @@ async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
 fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
     database::get_all_high_ranking_officers()
 }
-
 
 #[tauri::command]
 fn update_high_ranking_officer(
@@ -624,8 +621,6 @@ fn delete_test_users() -> Result<String, String> {
         .map_err(|e| format!("Failed to query remaining roles: {}", e))?
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| format!("Failed to collect remaining roles: {}", e))?;
-
-
 
     Ok(format!(
         "Before: {} users, Roles: {:?}, Deleted: {} users, After: {} users, Remaining roles: {:?}",
@@ -1208,6 +1203,28 @@ fn get_standard_branch_sub_questions(
 }
 
 #[tauri::command]
+fn toggle_slot_completion(
+    branch_code: String,
+    sub_branch_code: String,
+    slot_id: String,
+) -> Result<bool, String> {
+    content_database::toggle_slot_completion(branch_code, sub_branch_code, slot_id)
+}
+
+#[tauri::command]
+fn get_slot_completion_map(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<std::collections::HashMap<String, bool>, String> {
+    content_database::get_slot_completion_map(branch_code, sub_branch_code)
+}
+
+#[tauri::command]
+fn get_all_completed_branch_pairs() -> Result<Vec<content_database::CompletedBranchPair>, String> {
+    content_database::get_all_completed_branch_pairs()
+}
+
+#[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -1334,16 +1351,13 @@ fn main() {
             update_user,
             delete_user,
             authenticate_user,
-
             migrate_passwords,
             zoom_in,
             zoom_out,
             zoom_reset,
             get_all_high_ranking_officers,
-
             update_high_ranking_officer,
             hash_password,
-
             // Database backup/restore commands
             create_database_backup,
             restore_database_backup,
@@ -1462,6 +1476,9 @@ fn main() {
             reorder_occupation_sub_questions,
             batch_create_occupation_sub_questions,
             get_standard_branch_sub_questions,
+            toggle_slot_completion,
+            get_slot_completion_map,
+            get_all_completed_branch_pairs,
             // Section-Ref L3 Children (3xx.1.4/1.5 → real L3 Questions)
             get_section_ref_children,
             get_back_referencing_section_ids,

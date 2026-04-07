@@ -190,6 +190,19 @@ pub mod helpers {
                 text TEXT NOT NULL,
                 always_checked BOOLEAN DEFAULT 0,
                 sequence INTEGER DEFAULT 0,
+                is_completed BOOLEAN DEFAULT 0,
+                FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationSlotCompletion (
+                branch_code VARCHAR(10) NOT NULL,
+                sub_branch_code VARCHAR(10) NOT NULL,
+                slot_id VARCHAR(10) NOT NULL,
+                is_completed BOOLEAN DEFAULT 0,
+                PRIMARY KEY (branch_code, sub_branch_code, slot_id),
                 FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
             )",
             [],

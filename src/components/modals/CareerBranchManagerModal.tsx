@@ -1,15 +1,15 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import {
-    AlertCircle,
-    ArrowDown,
-    ArrowUp,
-    BookOpen,
-    CheckCircle,
-    Copy,
-    Pencil,
-    Plus,
-    Trash2,
-    X
+  AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  CheckCircle,
+  Copy,
+  Pencil,
+  Plus,
+  Trash2,
+  X
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
@@ -471,6 +471,37 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     setEditorSubQuestions([...otherItems, ...newItems]);
   };
 
+  // Slot-level completion map loaded from backend (slot_id → bool)
+  const [slotCompletionMap, setSlotCompletionMap] = useState<Record<string, boolean>>({});
+
+  const loadSlotCompletion = useCallback(async (mainCode: string, subCode: string) => {
+    if (!mainCode || !subCode) { setSlotCompletionMap({}); return; }
+    try {
+      const data = await invoke<Record<string, boolean>>('get_slot_completion_map', { branchCode: mainCode, subBranchCode: subCode });
+      setSlotCompletionMap(data);
+    } catch {
+      setSlotCompletionMap({});
+    }
+  }, []);
+
+  // Reload slot completion when sub-branch changes
+  useEffect(() => {
+    if (selectedMain && selectedSub) loadSlotCompletion(selectedMain, selectedSub);
+    else setSlotCompletionMap({});
+  }, [selectedMain, selectedSub, loadSlotCompletion]);
+
+  const handleToggleSlotCompletion = async (slotId: string) => {
+    if (isProtectedBranch || !selectedMain || !selectedSub) return;
+    // Map tab id to slot key: '2xx.2' → '22', '3xx.3' → '33'
+    const slotKey = slotPrefix(slotId);
+    try {
+      const newVal = await invoke<boolean>('toggle_slot_completion', { branchCode: selectedMain, subBranchCode: selectedSub, slotId: slotKey });
+      setSlotCompletionMap(prev => ({ ...prev, [slotKey]: newVal }));
+    } catch (err) {
+      console.error('Failed to toggle slot completion:', err);
+    }
+  };
+
   const handleSave = async () => {
     if (!selectedMain || !selectedSub) return;
     setIsSaving(true);
@@ -487,7 +518,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         code: q.code,
         text: q.text,
         always_checked: q.always_checked,
-        sequence: q.sequence
+        sequence: q.sequence,
       }));
 
       // Delete all existing sub-questions for this main+sub pair
@@ -650,21 +681,28 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
             </div>
           )}
 
-          {/* Tabs — clean pill style with border for inactive state */}
+          {/* Tabs — clean pill style with border for inactive state + completion badge */}
           <div className="flex flex-wrap gap-2">
-            {SECTION_SLOTS.map(slot => (
-              <button
-                key={slot.id}
-                onClick={() => setActiveTab(slot.id)}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
-                  activeTab === slot.id 
-                    ? 'bg-blue-600 text-white border-blue-600' 
-                    : 'bg-gray-100 dark:bg-github-bg-tertiary text-gray-600 dark:text-github-text-secondary border-gray-300 dark:border-github-border-primary hover:bg-gray-200 dark:hover:bg-github-bg-hover'
-                }`}
-              >
-                {slot.label}
-              </button>
-            ))}
+            {SECTION_SLOTS.map(slot => {
+              const slotKey = slotPrefix(slot.id);
+              const isDone = isProtectedBranch || !!slotCompletionMap[slotKey];
+              return (
+                <button
+                  key={slot.id}
+                  onClick={() => setActiveTab(slot.id)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors border flex items-center gap-1.5 ${
+                    activeTab === slot.id 
+                      ? 'bg-blue-600 text-white border-blue-600' 
+                      : isDone
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30'
+                        : 'bg-gray-100 dark:bg-github-bg-tertiary text-gray-600 dark:text-github-text-secondary border-gray-300 dark:border-github-border-primary hover:bg-gray-200 dark:hover:bg-github-bg-hover'
+                  }`}
+                >
+                  {isDone && <CheckCircle className="w-3.5 h-3.5" />}
+                  {slot.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -720,15 +758,41 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
                   <span className="text-xs font-normal text-gray-400 dark:text-github-text-muted">({filteredEditorItems.length} รายการ)</span>
                 )}
               </span>
-              {!isProtectedBranch && selectedMain && selectedSub && (
-                <button 
-                  onClick={handleAddItem}
-                  className="text-sm flex items-center gap-1 px-3 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  เพิ่มข้อใหม่
-                </button>
-              )}
+              {(() => {
+                const currentSlotKey = slotPrefix(activeTab);
+                const isSlotDone = isProtectedBranch || !!slotCompletionMap[currentSlotKey];
+                return (
+                  <div className="flex items-center gap-2">
+                    {!isProtectedBranch && selectedMain && selectedSub && !isSlotDone && (
+                      <button 
+                        onClick={handleAddItem}
+                        className="text-sm flex items-center gap-1 px-3 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        เพิ่มข้อใหม่
+                      </button>
+                    )}
+                    {!isProtectedBranch && selectedMain && selectedSub && filteredEditorItems.length > 0 && (
+                      <button
+                        onClick={() => handleToggleSlotCompletion(activeTab)}
+                        className={`text-sm flex items-center gap-1.5 px-3 py-1 rounded-md border transition-colors ${
+                          isSlotDone
+                            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                            : 'bg-white dark:bg-github-bg-primary text-gray-600 dark:text-github-text-secondary border-gray-300 dark:border-github-border-primary hover:bg-gray-100 dark:hover:bg-github-bg-hover'
+                        }`}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        {isSlotDone ? 'แล้วเสร็จ ✓' : 'ยืนยันแล้วเสร็จ'}
+                      </button>
+                    )}
+                    {isProtectedBranch && (
+                      <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" /> แล้วเสร็จ (ต้นแบบมาตรฐาน)
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -736,7 +800,9 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
                 filteredEditorItems.map((q, idx) => {
                   const isMandatory = q.always_checked && currentSlotType === '300';
                   const isLastItem = idx === filteredEditorItems.length - 1;
-                  const isLocked = isProtectedBranch || isMandatory;
+                  const currentSlotKey = slotPrefix(activeTab);
+                  const isSlotDone = isProtectedBranch || !!slotCompletionMap[currentSlotKey];
+                  const isLocked = isProtectedBranch || isMandatory || isSlotDone;
 
                   return (
                     <div 
@@ -744,7 +810,9 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
                       className={`flex items-start gap-3 px-3 py-3 rounded-md border ${
                         isMandatory 
                           ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-300 dark:border-amber-700/50' 
-                          : 'bg-white dark:bg-github-bg-primary border-gray-200 dark:border-github-border-primary'
+                          : isSlotDone
+                            ? 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-300 dark:border-emerald-700/50'
+                            : 'bg-white dark:bg-github-bg-primary border-gray-200 dark:border-github-border-primary'
                       }`}
                     >
                       {/* Row number + move buttons */}
@@ -788,16 +856,18 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
                         />
                       </div>
 
-                      {/* Delete button — always visible */}
-                      {!isLocked && (
-                        <button 
-                          onClick={() => handleDeleteItem(q.id)}
-                          className="pt-7 px-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                          title="ลบรายการนี้"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      {/* Action buttons */}
+                      <div className="flex flex-col items-center gap-1 pt-5">
+                        {!isLocked && (
+                          <button 
+                            onClick={() => handleDeleteItem(q.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                            title="ลบรายการนี้"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })

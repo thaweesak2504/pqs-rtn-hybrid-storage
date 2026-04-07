@@ -905,6 +905,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             text TEXT NOT NULL,
             always_checked BOOLEAN DEFAULT 0,
             sequence INTEGER DEFAULT 0,
+            is_completed BOOLEAN DEFAULT 0,
             FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
         )",
         [],
@@ -926,6 +927,26 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
            AND text NOT LIKE '%พิเศษ'",
         "migrate_3xx3_mandatory_add_phiset",
     );
+
+    // Migration: add is_completed column to OccupationSubQuestions
+    execute_best_effort(
+        &conn,
+        "ALTER TABLE OccupationSubQuestions ADD COLUMN is_completed BOOLEAN DEFAULT 0",
+        "add_is_completed_to_sub_questions",
+    );
+
+    // OccupationSlotCompletion Table — tracks tab-level completion per branch+sub+slot
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS OccupationSlotCompletion (
+            branch_code VARCHAR(10) NOT NULL,
+            sub_branch_code VARCHAR(10) NOT NULL,
+            slot_id VARCHAR(10) NOT NULL,
+            is_completed BOOLEAN DEFAULT 0,
+            PRIMARY KEY (branch_code, sub_branch_code, slot_id),
+            FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
+        )",
+        [],
+    ).map_err(|e| format!("Failed to create OccupationSlotCompletion table: {}", e))?;
 
     // Migration: standardise all sub-question codes to 8-digit format (AABCCDDEE)
     migrate_sub_question_codes_to_8digit(&conn)?;

@@ -38,10 +38,11 @@ pub use branches::{
     batch_create_occupation_sub_questions, create_occupation_branch, create_occupation_sub_branch,
     create_occupation_sub_question, delete_occupation_branch, delete_occupation_sub_branch,
     delete_occupation_sub_question, delete_occupation_sub_questions_by_sub_branch,
-    get_all_sub_questions_for_branch, get_occupation_branches, get_occupation_sub_branches,
-    get_occupation_sub_questions, get_standard_branch_sub_questions,
-    reorder_occupation_sub_questions, update_occupation_branch, update_occupation_sub_branch,
-    update_occupation_sub_question,
+    get_all_completed_branch_pairs, get_all_sub_questions_for_branch, get_occupation_branches,
+    get_occupation_sub_branches, get_occupation_sub_questions, get_slot_completion_map,
+    get_standard_branch_sub_questions, reorder_occupation_sub_questions, toggle_slot_completion,
+    update_occupation_branch, update_occupation_sub_branch, update_occupation_sub_question,
+    CompletedBranchPair,
 };
 pub mod documents;
 #[cfg(test)]

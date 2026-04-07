@@ -497,8 +497,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       : [];
     return Array.from(new Set([...saved, ...alwaysCodes]));
   });
-  const [newSqText, setNewSqText] = useState("");
-
   // Sync children for required count (L2→L3 for isPerformanceL2, L1→L2 for is306L1)
   const handleSyncRequiredCount = useCallback(async () => {
     if (is306L1) {
@@ -682,18 +680,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     return branch?.name === 'ต้นแบบมาตรฐาน';
   }, [dbBranches, selMainBranch]);
 
-  const nextZ = useMemo(() => {
-    if (!autoCodePrefix) return "";
-    const used = new Set(filteredItems.map(sq => sq.code.replace(autoCodePrefix, "")));
-    for (let i = 1; i <= 99; i++) {
-      const z = String(i).padStart(2, '0');
-      if (!used.has(z)) return z;
-    }
-    return "";
-  }, [autoCodePrefix, filteredItems]);
-  // Never show add input for protected branch (ต้นแบบมาตรฐาน)
-  const autoCode = autoCodePrefix && nextZ && !isProtectedBranch ? `${autoCodePrefix}${nextZ}` : "";
-
   const prevPrefixRef = useRef(autoCodePrefix);
   useEffect(() => {
     if (prevPrefixRef.current !== autoCodePrefix && prevPrefixRef.current !== "") {
@@ -793,25 +779,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [existingId]);
 
   const showExtraButtons = is200or300 ? (level === 0 || level === 1) : isL1; // 200/300: show for L0 & L1, others: L0 only
-
-  // Shared handler: create a new sub-question in DB (used by Enter key + "เพิ่ม" button)
-  const handleAddSubQuestion = useCallback(async () => {
-    if (!newSqText.trim() || !autoCode) return;
-    try {
-      let subBranchCode = selSubBranch;
-      if (sectionOccupationBranches && dbSubQuestions.length > 0) {
-        const firstCode = dbSubQuestions[0].code;
-        if (firstCode.length >= 4) {
-          subBranchCode = firstCode.substring(3, 4);
-        }
-      }
-      const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
-        req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
-      });
-      setDbSubQuestions(prev => [...prev, created]);
-    } catch (err: any) { console.error(err); }
-    setNewSqText("");
-  }, [newSqText, autoCode, selSubBranch, sectionOccupationBranches, dbSubQuestions, selMainBranch]);
 
   // Refs for auto-resizing
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -1862,41 +1829,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                           </div>
                         );
                       })}
-                    </div>
-                  )}
-
-                  {/* Add new item */}
-                  {autoCode && (
-                    <div className="flex gap-1.5 items-end">
-                      <div className="flex-1">
-                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
-                        <input type="text" value={newSqText}
-                          onChange={e => setNewSqText(e.target.value)}
-                          onPaste={e => {
-                            e.preventDefault();
-                            const pastedText = e.clipboardData.getData("text");
-                            const trimmedText = pastedText.trim();
-                            const target = e.target as HTMLInputElement;
-                            const start = target.selectionStart || 0;
-                            const end = target.selectionEnd || 0;
-                            const currentValue = target.value;
-                            const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
-                            setNewSqText(newValue);
-                            requestAnimationFrame(() => {
-                              target.selectionStart = target.selectionEnd = start + trimmedText.length;
-                            });
-                          }}
-                          placeholder="พิมพ์คำถามย่อย..."
-                          className={`w-full px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600`}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter") await handleAddSubQuestion();
-                          }} />
-                      </div>
-                      <button onClick={handleAddSubQuestion}
-                        disabled={!newSqText.trim()}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border ${sqClr.addBtn} disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}>
-                        <Plus className="w-3 h-3" /> เพิ่ม
-                      </button>
                     </div>
                   )}
 

@@ -474,3 +474,118 @@ pub fn get_standard_branch_sub_questions() -> Result<Vec<OccupationSubQuestion>,
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
     get_standard_branch_sub_questions_with_conn(&conn)
 }
+
+/// Toggle the completion flag for a specific slot (tab) of a branch+sub pair.
+/// Returns the new is_completed value.
+pub fn toggle_slot_completion(
+    branch_code: String,
+    sub_branch_code: String,
+    slot_id: String,
+) -> Result<bool, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let current: bool = conn
+        .query_row(
+            "SELECT COALESCE(is_completed, 0) FROM OccupationSlotCompletion WHERE branch_code = ?1 AND sub_branch_code = ?2 AND slot_id = ?3",
+            params![branch_code, sub_branch_code, slot_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    let new_val = !current;
+    conn.execute(
+        "INSERT INTO OccupationSlotCompletion (branch_code, sub_branch_code, slot_id, is_completed) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(branch_code, sub_branch_code, slot_id) DO UPDATE SET is_completed = ?4",
+        params![branch_code, sub_branch_code, slot_id, new_val],
+    )
+    .map_err(|e| format!("Failed to toggle slot completion: {}", e))?;
+    Ok(new_val)
+}
+
+/// Get slot-level completion map for a branch+sub pair.
+/// Returns a map of slot_id (e.g. "22", "24", "32"-"35") → bool.
+pub fn get_slot_completion_map(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<std::collections::HashMap<String, bool>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut stmt = conn
+        .prepare("SELECT slot_id, COALESCE(is_completed, 0) FROM OccupationSlotCompletion WHERE branch_code = ?1 AND sub_branch_code = ?2")
+        .map_err(|e| format!("Failed to prepare: {}", e))?;
+    let rows = stmt
+        .query_map(params![branch_code, sub_branch_code], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?))
+        })
+        .map_err(|e| format!("Failed to query: {}", e))?;
+    let mut map = std::collections::HashMap::new();
+    for row in rows {
+        let (slot_id, done) = row.map_err(|e| format!("Row error: {}", e))?;
+        map.insert(slot_id, done);
+    }
+    Ok(map)
+}
+
+/// A completed branch+sub pair (all 6 slots completed).
+#[derive(serde::Serialize)]
+pub struct CompletedBranchPair {
+    pub branch_code: String,
+    pub sub_branch_code: String,
+}
+
+/// Get all branch+sub pairs where ALL 6 slots are marked as completed.
+/// The standard branch (ต้นแบบมาตรฐาน) is always included as completed.
+pub fn get_all_completed_branch_pairs() -> Result<Vec<CompletedBranchPair>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let slot_count = 6i64; // 22, 24, 32, 33, 34, 35
+
+    // Find branch+sub pairs where all 6 slots are completed
+    let mut stmt = conn
+        .prepare(
+            "SELECT branch_code, sub_branch_code FROM OccupationSlotCompletion
+             WHERE is_completed = 1
+             GROUP BY branch_code, sub_branch_code
+             HAVING COUNT(*) >= ?1",
+        )
+        .map_err(|e| format!("Failed to prepare: {}", e))?;
+    let rows = stmt
+        .query_map(params![slot_count], |row| {
+            Ok(CompletedBranchPair {
+                branch_code: row.get(0)?,
+                sub_branch_code: row.get(1)?,
+            })
+        })
+        .map_err(|e| format!("Failed to query: {}", e))?;
+    let mut result: Vec<CompletedBranchPair> = Vec::new();
+    for row in rows {
+        result.push(row.map_err(|e| format!("Row error: {}", e))?);
+    }
+
+    // Always include the standard branch
+    let std_code: Option<String> = conn
+        .query_row(
+            "SELECT code FROM OccupationBranches WHERE name = ?1",
+            params![super::schema::STANDARD_BRANCH_NAME],
+            |row| row.get(0),
+        )
+        .ok();
+    if let Some(std_main) = std_code {
+        let mut sub_stmt = conn
+            .prepare("SELECT code FROM OccupationSubBranches WHERE branch_code = ?1")
+            .map_err(|e| format!("Failed to prepare: {}", e))?;
+        let sub_rows = sub_stmt
+            .query_map(params![std_main], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("Failed to query: {}", e))?;
+        for sub_row in sub_rows {
+            let sub_code = sub_row.map_err(|e| format!("Row error: {}", e))?;
+            if !result
+                .iter()
+                .any(|p| p.branch_code == std_main && p.sub_branch_code == sub_code)
+            {
+                result.push(CompletedBranchPair {
+                    branch_code: std_main.clone(),
+                    sub_branch_code: sub_code,
+                });
+            }
+        }
+    }
+
+    Ok(result)
+}
