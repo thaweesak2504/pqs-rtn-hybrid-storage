@@ -51,3 +51,19 @@ description: หลักการพัฒนาโปรเจกต์ PQS RT
 ## Workflow
 
 - `/cleanup-terminals` — ล้าง background terminal processes ที่ค้างอยู่
+
+---
+
+## Automated Actions (กฎการทำงานอัตโนมัติ)
+
+### 1. การทดสอบหลังแก้ไข Code (Post-Edit Testing)
+- ทุกครั้งที่มีการแก้ไข Code (แก้ไขไฟล์ .tsx, .ts, .rs) ให้เลือกทำ Tests ที่เกี่ยวข้อง หรือทั้งหมดทันที
+- **คำสั่งสำหรับ Frontend:** `npm run test:run`
+- **คำสั่งสำหรับ Backend (Rust):** `powershell -ExecutionPolicy Bypass -File scripts/run-rust-tests.ps1`
+- **สำคัญ:** หาก Tests ไม่ผ่าน ให้พยายามแก้ไของค์ประกอบที่ทำให้ Test ไม่ผ่านก่อนแจ้ง User
+
+### 2. การ Commit และ Push (Commit and Push)
+- เมื่อ Tests ทั้งหมดผ่านแล้ว ให้สอบถาม User เพื่อขออนุญาต Commit และ Push
+- **รูปแบบการสอบถาม:** "Tests ผ่านทั้งหมดแล้ว ต้องการให้ Commit และ Push การแก้ไขนี้เลยหรือไม่?"
+- **ห้าม** Commit หรือ Push โดยไม่ได้รับอนุญาตจาก User เป็นรายครั้ง
+- **Commit Message:** ให้สรุปสิ่งที่ทำสั้นๆ เป็นภาษาอังกฤษ (Conventional Commits format)
