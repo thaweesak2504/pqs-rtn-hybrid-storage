@@ -391,7 +391,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
 
       <CareerBranchManagerModal
         isOpen={isManagerOpen}
-        onClose={() => setIsManagerOpen(false)}
+        onClose={() => { setIsManagerOpen(false); loadBranches(); loadCompletedPairs(); if (selectedMain) loadSubBranches(selectedMain); }}
         onSuccess={() => { loadBranches(); loadCompletedPairs(); if (selectedMain) loadSubBranches(selectedMain); }}
         userRole={userRole}
       />

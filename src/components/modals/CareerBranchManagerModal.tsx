@@ -95,6 +95,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
   
   // Editor Data — ALL sub-questions for selected main branch (filter client-side by code prefix)
   const [editorSubQuestions, setEditorSubQuestions] = useState<OccupationSubQuestion[]>([]);
+  const [savedSnapshot, setSavedSnapshot] = useState<string>('[]');
   const [activeTab, setActiveTab] = useState<string>('2xx.2');
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -130,6 +131,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         branchCode: mainCode
       });
       setEditorSubQuestions(data);
+      setSavedSnapshot(JSON.stringify(data.map(q => ({ code: q.code, text: q.text, always_checked: q.always_checked, sequence: q.sequence }))));
     } catch (err) {
       console.error('Failed to load sub-questions:', err);
     }
@@ -301,6 +303,11 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     const sub = subBranches.find(s => s.code === selectedSub);
     return isProtectedBranch || sub?.name === STANDARD_BRANCH_NAME;
   }, [selectedSub, subBranches, isProtectedBranch]);
+
+  const isDirty = useMemo(() => {
+    const currentSnapshot = JSON.stringify(editorSubQuestions.map(q => ({ code: q.code, text: q.text, always_checked: q.always_checked, sequence: q.sequence })));
+    return currentSnapshot !== savedSnapshot;
+  }, [editorSubQuestions, savedSnapshot]);
 
   const currentSlotType = useMemo(() => {
     return SECTION_SLOTS.find(s => s.id === activeTab)?.type || '200';
@@ -885,25 +892,52 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
           </div>
         </div>
 
-        {/* Footer — same pattern as EditMetadataModal */}
-        <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 dark:border-github-border-primary">
-          <p className="text-xs text-gray-500 dark:text-github-text-muted">
-            การบันทึกจะบันทึกข้อมูลทุก Tab สำหรับสาขาย่อยที่เลือก
-          </p>
-          <div className="flex gap-3">
-            <Button variant="ghost" onClick={onClose} disabled={isSaving}>ยกเลิก</Button>
-            {!isProtectedBranch && (
-              <Button 
-                variant="primary" 
-                onClick={handleSave} 
-                loading={isSaving}
-                disabled={isSaving || !selectedMain || !selectedSub}
-              >
-                {isSaving ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
-              </Button>
-            )}
-          </div>
-        </div>
+        {/* Footer */}
+        {(() => {
+          const canSave = isDirty && !!selectedMain && !!selectedSub && !isSaving;
+          return (
+            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-200 dark:border-github-border-primary">
+              <div className="flex items-center gap-2">
+                {isDirty && !isProtectedBranch && selectedMain && selectedSub && (
+                  <span className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
+                  </span>
+                )}
+                {!isDirty && !isProtectedBranch && selectedMain && selectedSub && (
+                  <span className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-github-text-muted">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    ข้อมูลเป็นปัจจุบัน
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button variant="ghost" onClick={onClose} disabled={isSaving}>ยกเลิก</Button>
+                {!isProtectedBranch && (
+                  <button
+                    onClick={handleSave}
+                    disabled={!canSave}
+                    className={`text-sm font-medium px-4 py-2 rounded-lg border transition-all flex items-center gap-2 ${
+                      isSaving
+                        ? 'bg-blue-600 text-white border-blue-600 opacity-70 cursor-wait'
+                        : canSave
+                          ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-sm hover:shadow cursor-pointer'
+                          : 'bg-gray-100 dark:bg-github-bg-tertiary text-gray-400 dark:text-github-text-muted border-gray-200 dark:border-github-border-primary cursor-not-allowed'
+                    }`}
+                  >
+                    {isSaving && (
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {isSaving ? 'กำลังบันทึก...' : canSave ? 'บันทึกการตั้งค่า' : 'บันทึกแล้ว'}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
       </div>
 
