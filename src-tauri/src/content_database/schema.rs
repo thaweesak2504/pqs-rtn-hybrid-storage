@@ -475,22 +475,26 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     // Rule: L1 seq=7 children (seq 1-2) → not scored
 
     // Set is_group_header=1 for L1 questions (seq 2-6) in 300-series sections
+    // Skip questions that are exempted AND have no children (already cleaned up)
     execute_best_effort(
         conn,
         "UPDATE Questions SET is_group_header = 1, is_scored = 0
          WHERE parent_id IS NULL
            AND sequence BETWEEN 2 AND 6
-           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
+           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+           AND NOT (question_type = 'exempted' AND NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = Questions.id))",
         "backfill Section 300 L1 group headers 2-6",
     );
 
     // Set is_group_header=1, is_scored=0 for L1 seq=1 and seq=7 (non-scoring group headers)
+    // Skip questions that are exempted AND have no children (already cleaned up)
     execute_best_effort(
         conn,
         "UPDATE Questions SET is_group_header = 1, is_scored = 0
          WHERE parent_id IS NULL
            AND sequence IN (1, 7)
-           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
+           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
+           AND NOT (question_type = 'exempted' AND NOT EXISTS (SELECT 1 FROM Questions c WHERE c.parent_id = Questions.id))",
         "backfill Section 300 L1 group headers 1 and 7",
     );
 
@@ -541,26 +545,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         "backfill Section 300 normal child scoring flags",
     );
 
-    // DEBUG: Ensure 301.6 specifically is set as group header
-    execute_best_effort(
-        conn,
-        "UPDATE Questions SET is_group_header = 1, is_scored = 0
-         WHERE parent_id IS NULL
-           AND sequence = 6
-           AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)",
-        "backfill Section 300 sequence 6 group header",
-    );
-
-    // DEBUG: Ensure 301.6 children are scored
-    execute_best_effort(
-        conn,
-        "UPDATE Questions SET is_scored = 1
-         WHERE parent_id IN (
-             SELECT id FROM Questions WHERE parent_id IS NULL AND sequence = 6
-             AND section_id IN (SELECT id FROM Sections WHERE section_group = 300)
-         )",
-        "backfill Section 300 sequence 6 child scoring flags",
-    );
+    // (DEBUG backfills for 301.6 removed — already covered by seq 2-6 backfills above)
 
     // Recalculate group_score for all L1 group headers in section 300
     execute_best_effort(

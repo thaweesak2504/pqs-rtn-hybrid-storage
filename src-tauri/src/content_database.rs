@@ -66,8 +66,9 @@ pub use sections::{
 };
 #[cfg(test)]
 pub use sections::{
-    create_section_with_conn, delete_section_with_conn, seed_section_200_template,
-    seed_section_300_template, update_section_with_conn, FIXED_SECTION_101_TITLE,
+    cleanup_orphaned_section_refs_with_conn, create_section_with_conn, delete_section_with_conn,
+    seed_section_200_template, seed_section_300_template, update_section_with_conn,
+    FIXED_SECTION_101_TITLE,
 };
 pub mod section_links;
 pub use section_links::{

@@ -233,6 +233,35 @@ pub mod helpers {
             [],
         )?;
 
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionSectionLinks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                section_id INTEGER NOT NULL,
+                score INTEGER DEFAULT 0,
+                display_order INTEGER DEFAULT 0,
+                FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+                FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS UserProgress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                document_id VARCHAR(11) NOT NULL,
+                section_id INTEGER NOT NULL,
+                total_score INTEGER DEFAULT 0,
+                achieved_score INTEGER DEFAULT 0,
+                percentage REAL DEFAULT 0.0,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
+                FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
         Ok(())
     }
 

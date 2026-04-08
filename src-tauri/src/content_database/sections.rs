@@ -478,8 +478,12 @@ pub fn get_sections_by_document(document_id: String) -> Result<Vec<Section>, Str
 /// Returns the number of orphaned refs removed.
 pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    cleanup_orphaned_section_refs_with_conn(&conn)
+}
 
-    // Find all section_ref questions whose refSectionId points to a non-existent section
+/// Testable variant that accepts a connection parameter.
+pub fn cleanup_orphaned_section_refs_with_conn(conn: &Connection) -> Result<usize, String> {
+    // --- Pass 1: Remove section_ref questions pointing to deleted sections ---
     let mut stmt = conn
         .prepare(
             "SELECT q.id, q.parent_id, q.metadata
@@ -505,13 +509,11 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
     let mut affected_parents: Vec<String> = Vec::new();
 
     for (question_id, parent_id, metadata) in &rows {
-        // Extract refSectionId from metadata JSON
         let ref_section_id: Option<i64> = serde_json::from_str::<serde_json::Value>(metadata)
             .ok()
             .and_then(|v| v.get("refSectionId")?.as_i64());
 
         if let Some(ref_sid) = ref_section_id {
-            // Check if the referenced section still exists
             let exists: bool = conn
                 .query_row(
                     "SELECT EXISTS(SELECT 1 FROM Sections WHERE id = ?1)",
@@ -521,7 +523,6 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
                 .unwrap_or(false);
 
             if !exists {
-                // Delete the orphaned section_ref question
                 conn.execute("DELETE FROM Questions WHERE id = ?1", params![question_id])
                     .map_err(|e| e.to_string())?;
 
@@ -540,26 +541,28 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
         }
     }
 
-    // Auto-exempt parent questions that have zero remaining section_ref children
+    // Auto-exempt parent questions that have zero remaining children of ANY type
     for pid in &affected_parents {
-        let remaining_children: i32 = conn.query_row(
-            "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'",
-            params![pid],
-            |row| row.get(0),
-        ).unwrap_or(0);
+        let remaining_children: i32 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE parent_id = ?1",
+                params![pid],
+                |row| row.get(0),
+            )
+            .unwrap_or(0);
 
         if remaining_children == 0 {
             conn.execute(
-                "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0 WHERE id = ?1",
+                "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0, is_group_header = 0 WHERE id = ?1",
                 params![pid],
             ).map_err(|e| e.to_string())?;
             logger::debug(format!(
-                "cleanup_orphaned_section_refs auto-exempted parent question {} (no section_ref children remaining)",
+                "cleanup_orphaned_section_refs auto-exempted parent question {} (no children remaining)",
                 pid
             ));
         }
 
-        if let Err(e) = recalculate_group_score_chain(&conn, pid) {
+        if let Err(e) = recalculate_group_score_chain(conn, pid) {
             logger::warn(format!(
                 "cleanup_orphaned_section_refs updated data for parent {} but failed to recalculate score chain: {}",
                 pid, e
@@ -567,10 +570,8 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
         }
     }
 
-    // --- Catch-up pass: find stranded section selectors in 300-series ---
-    // These are L1 group_header questions (3xx.2-3xx.6, sequence 2-6) that were activated
-    // (changed from exempted to normal) and had section_ref children added, but those children
-    // were deleted in a prior cleanup that didn't auto-exempt the parent.
+    // --- Pass 2: Find stranded section selectors in 300-series ---
+    // L1 group_header questions (seq 2-6) that have no children at all.
     {
         let mut stale_stmt = conn
             .prepare(
@@ -600,7 +601,7 @@ pub fn cleanup_orphaned_section_refs() -> Result<usize, String> {
             ).map_err(|e| e.to_string())?;
 
             if let Some(pid) = parent_id {
-                if let Err(e) = recalculate_group_score_chain(&conn, pid) {
+                if let Err(e) = recalculate_group_score_chain(conn, pid) {
                     logger::warn(format!(
                         "cleanup_orphaned_section_refs auto-exempted stranded selector {} but failed to recalculate parent {}: {}",
                         qid, pid, e
@@ -690,7 +691,7 @@ pub fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String
 
             if remaining_children == 0 {
                 conn.execute(
-                    "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0 WHERE id = ?1",
+                    "UPDATE Questions SET question_type = 'exempted', score = 0, is_scored = 0, is_group_header = 0 WHERE id = ?1",
                     params![pid],
                 ).map_err(|e| e.to_string())?;
             }
