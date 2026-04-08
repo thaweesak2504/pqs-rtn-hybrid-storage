@@ -294,10 +294,10 @@ describe("QuestionDisplayCard integration", () => {
   it("shows L1 sub-question usage badges only in edit mode", async () => {
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === "get_all_sub_questions_for_branch") {
-        return [{ id: 1, code: "32111", text: "SubQ", always_checked: false }];
+        return [{ id: 1, code: "32010101", text: "SubQ", always_checked: false }];
       }
       if (command === "get_sub_question_usage_counts") {
-        return { usage_map: { "32111": 1 }, total_children: 2 };
+        return { usage_map: { "32010101": 1 }, total_children: 2 };
       }
       return null;
     });
@@ -306,7 +306,7 @@ describe("QuestionDisplayCard integration", () => {
       sequence: 2,
       metadata: JSON.stringify({
         useSubQuestions: true,
-        activeSubQuestions: ["32111"],
+        activeSubQuestions: ["32010101"],
         selectedBranch: { main: "1", sub: "1" },
       }),
     });

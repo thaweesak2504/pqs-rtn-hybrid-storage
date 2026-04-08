@@ -90,7 +90,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
   const loadCompletedPairs = async () => {
     try {
       const pairs = await invoke<CompletedBranchPair[]>('get_all_completed_branch_pairs');
-      setCompletedPairs(pairs);
+      setCompletedPairs(pairs ?? []);
     } catch {
       setCompletedPairs([]);
     }
@@ -307,13 +307,13 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
 
             {(() => {
               // Filter: only show main branches that have at least one completed sub-pair
-              const completedMainCodes = new Set(completedPairs.map(p => p.branch_code));
+              const completedMainCodes = new Set((completedPairs || []).map(p => p.branch_code));
               const availableMain = branches.filter(b =>
                 completedMainCodes.has(b.code) || b.code === originalMain
               );
               // Filter: only show sub-branches that are completed for the selected main
               const completedSubCodes = new Set(
-                completedPairs.filter(p => p.branch_code === selectedMain).map(p => p.sub_branch_code)
+                (completedPairs || []).filter(p => p.branch_code === selectedMain).map(p => p.sub_branch_code)
               );
               const availableSub = subBranches.filter(s =>
                 completedSubCodes.has(s.code) || (s.code === originalSub && selectedMain === originalMain)
@@ -356,6 +356,11 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                 🔍 กำลังตรวจสอบข้อมูลที่เกี่ยวข้อง...
               </div>
             )}
+            {conflictReport && !conflictReport.has_conflict && (selectedMain !== originalMain || selectedSub !== originalSub) && (
+              <div className="text-sm text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded px-3 py-2">
+                ✅ ไม่พบข้อมูลที่ขัดแย้ง — สามารถเปลี่ยนสาขาได้
+              </div>
+            )}
             {conflictReport?.has_conflict && (selectedMain !== originalMain || selectedSub !== originalSub) && (
               <div className="text-sm text-yellow-800 dark:text-yellow-300 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700/50 rounded px-3 py-2">
                 ⚠️ <strong>พบข้อมูล Sub-Question ที่ผูกกับสาขาเดิม {conflictReport.affected_question_count} ข้อ</strong>
@@ -377,13 +382,14 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       {showConfirmDialog && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-60">
            <div className="bg-white dark:bg-github-bg-secondary border border-github-border-primary rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl">
-             <h3 className="text-lg font-bold mb-4 text-amber-600">⚠️ ยืนยันการเปลี่ยนสาขา</h3>
-             <p className="text-sm mb-6 text-github-text-primary">
+             <h3 className="text-lg font-bold mb-4 text-amber-600">⚠️ ยืนยันการเปลี่ยนสาขาอาชีพ</h3>
+             <p className="text-sm mb-4 text-github-text-primary">
                การเปลี่ยนสาขาอาชีพจะรีเซ็ตข้อมูลคำถามย่อย (Sub-Questions) ในส่วนที่เกี่ยวข้อง ({conflictReport?.affected_question_count} รายการ) เป็นการยกเว้นทั้งหมด
              </p>
+             <p className="text-xs mb-6 text-red-600 dark:text-red-400 font-medium">ข้อมูลที่ถูกลบจะไม่สามารถกู้คืนได้</p>
              <div className="flex justify-end gap-3">
-               <Button type="button" variant="ghost" onClick={() => { setShowConfirmDialog(false); setSelectedMain(originalMain); setSelectedSub(originalSub); }}>Cancel</Button>
-               <Button type="button" variant="primary" onClick={() => { setShowConfirmDialog(false); handleSubmit(new Event('submit') as any); }}>Confirm & Update</Button>
+               <Button type="button" variant="ghost" onClick={() => { setShowConfirmDialog(false); setSelectedMain(originalMain); setSelectedSub(originalSub); }}>ยกเลิก</Button>
+               <Button type="button" variant="danger" onClick={() => { setShowConfirmDialog(false); handleSubmit(new Event('submit') as any); }}>ยืนยัน เปลี่ยนสาขาและล้างข้อมูล</Button>
              </div>
            </div>
         </div>

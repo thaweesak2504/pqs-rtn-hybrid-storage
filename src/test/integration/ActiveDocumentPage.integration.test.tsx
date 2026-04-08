@@ -3,7 +3,18 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActiveDocumentPage from "../../components/pages/ActiveDocumentPage";
+import { AuthContext } from "../../contexts/authContextObject";
 import { ToastProvider } from "../../contexts/ToastContext";
+
+const mockAuthValue = {
+  user: { id: '1', username: 'test', email: 'test@test.com', name: 'Test', role: 'admin' },
+  isAuthenticated: true,
+  isLoading: false,
+  signIn: vi.fn().mockResolvedValue({ success: true }),
+  signOut: vi.fn(),
+  checkAuthStatus: vi.fn(),
+  updateAvatar: vi.fn(),
+};
 
 describe("ActiveDocumentPage integration", () => {
   type MockSection = {
@@ -91,13 +102,15 @@ describe("ActiveDocumentPage integration", () => {
 
   it("allows deleting section 101 and refreshes sidebar", async () => {
     render(
-      <ToastProvider>
-        <MemoryRouter initialEntries={["/editor/DOC-DEL-101"]}>
-          <Routes>
-            <Route path="/editor/:docId" element={<ActiveDocumentPage />} />
-          </Routes>
-        </MemoryRouter>
-      </ToastProvider>,
+      <AuthContext.Provider value={mockAuthValue}>
+        <ToastProvider>
+          <MemoryRouter initialEntries={["/editor/DOC-DEL-101"]}>
+            <Routes>
+              <Route path="/editor/:docId" element={<ActiveDocumentPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ToastProvider>
+      </AuthContext.Provider>,
     );
 
     const section101Button = await screen.findByRole("button", { name: /101 Precautions/i });

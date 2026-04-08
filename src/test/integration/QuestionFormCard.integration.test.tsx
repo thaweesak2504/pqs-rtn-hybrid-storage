@@ -403,7 +403,7 @@ describe("QuestionFormCard integration", () => {
     const autoLabel = screen.getByText("รหัส (Auto)");
     const autoContainer = autoLabel.parentElement;
     expect(autoContainer).not.toBeNull();
-    expect(within(autoContainer as HTMLElement).getByText("2212")).toBeInTheDocument();
+    expect(within(autoContainer as HTMLElement).getByText("220102")).toBeInTheDocument();
     expect(within(autoContainer as HTMLElement).queryByText("เต็ม")).not.toBeInTheDocument();
   });
 });

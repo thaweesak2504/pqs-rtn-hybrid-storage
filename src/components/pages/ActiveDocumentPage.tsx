@@ -1,11 +1,11 @@
-import { ArrowLeft, ChevronDown, ChevronRight, Menu, Plus, Trash2, X, BookOpen, Edit3, Eye, EyeOff, FileText, Printer, UserCircle, Users } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/tauri';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Edit3, Eye, EyeOff, FileText, Menu, Plus, Printer, Trash2, UserCircle, Users, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../hooks/useAuth';
 import ConfirmModal from '../modals/ConfirmModal';
 import Button from '../ui/Button';
-import { invoke } from '@tauri-apps/api/tauri';
 
 import CoverPageView from '../views/CoverPageView';
 import IntroductionView from '../views/IntroductionView';
@@ -533,7 +533,7 @@ const SectionItem: React.FC<{ title: string; onClick?: () => void; isActive?: bo
       {title}
       {isSystemDefined && sectionNumber !== 101 && <span className="ml-2 text-xs text-gray-400">🔒</span>}
     </button>
-    {onDelete && <button onClick={onDelete} className="ml-1 opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 transition-opacity"><X className="w-3 h-3" /></button>}
+    {onDelete && <button onClick={onDelete} title="Delete section" className="ml-1 opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 transition-opacity"><X className="w-3 h-3" /></button>}
   </div>
 );
 

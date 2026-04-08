@@ -111,6 +111,10 @@ describe("EditMetadataModal integration", () => {
         return true;
       }
 
+      if (command === "get_all_completed_branch_pairs") {
+        return [{ branch_code: "02", sub_branch_code: "01" }, { branch_code: "03", sub_branch_code: "04" }];
+      }
+
       return null;
     });
 
@@ -378,6 +382,9 @@ describe("EditMetadataModal integration", () => {
             affected_section_groups: [],
           };
         }
+        if (command === "get_all_completed_branch_pairs") {
+          return [{ branch_code: "1", sub_branch_code: "1" }, { branch_code: "2", sub_branch_code: "2" }];
+        }
         return null;
       });
 
@@ -460,6 +467,9 @@ describe("EditMetadataModal integration", () => {
             user_answers_deleted: 2,
             questions_reset: 1,
           };
+        }
+        if (command === "get_all_completed_branch_pairs") {
+          return [{ branch_code: "1", sub_branch_code: "1" }, { branch_code: "2", sub_branch_code: "2" }];
         }
         return null;
       });
@@ -547,6 +557,9 @@ describe("EditMetadataModal integration", () => {
             affected_question_count: 1,
             affected_section_groups: [200],
           };
+        }
+        if (command === "get_all_completed_branch_pairs") {
+          return [{ branch_code: "1", sub_branch_code: "1" }, { branch_code: "2", sub_branch_code: "2" }];
         }
         return null;
       });
@@ -644,6 +657,9 @@ describe("EditMetadataModal integration", () => {
             branchSub: "2",
           });
           return true;
+        }
+        if (command === "get_all_completed_branch_pairs") {
+          return [{ branch_code: "1", sub_branch_code: "1" }, { branch_code: "2", sub_branch_code: "2" }];
         }
         return null;
       });
