@@ -1,4 +1,4 @@
-﻿import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
@@ -64,6 +64,19 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [printSubView, setPrintSubView] = useState<PrintSubView>(printSubViewProp);
+  const [docBranchMain, setDocBranchMain] = useState('');
+  const [docBranchSub, setDocBranchSub] = useState('');
+
+  useEffect(() => {
+    if (!docId) return;
+    invoke<any>('get_document_branch', { docId })
+      .then(data => { setDocBranchMain(data.main || ''); setDocBranchSub(data.sub || ''); })
+      .catch(() => {});
+  }, [docId]);
+
+  const docBranch = useMemo(() => {
+    return (docBranchMain && docBranchSub) ? { main: docBranchMain, sub: docBranchSub } : undefined;
+  }, [docBranchMain, docBranchSub]);
 
   useEffect(() => {
     setPrintSubView(printSubViewProp);
@@ -175,6 +188,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               docId={docId}
               mode={mode}
               showAnswerKey={showAnswerKey}
+              docBranch={docBranch}
             />
           ))}
         </div>
@@ -196,6 +210,7 @@ interface PreviewQuestionNode200Props {
   docId: string;
   mode: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
   showAnswerKey?: boolean;
+  docBranch?: { main: string; sub: string };
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -209,6 +224,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   docId,
   mode,
   showAnswerKey = false,
+  docBranch,
 }) => {
   const is200 = sectionGroup === 200;
 
@@ -281,7 +297,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       const m = JSON.parse(question.metadata);
       if (!m.useSubQuestions) { setOwnSubQuestionList([]); return; }
       const activeCodes: string[] = Array.isArray(m.activeSubQuestions) ? m.activeSubQuestions : [];
-      const selectedBranch: { main: string; sub: string } | undefined = m.selectedBranch;
+      const selectedBranch: { main: string; sub: string } | undefined = m.selectedBranch || docBranch;
       if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
       const sCode = sectionGroup === 300 ? '3' : '2';
       const lCode = question.sequence?.toString() || '0';
@@ -549,6 +565,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   docId={docId}
                   mode={mode}
                   showAnswerKey={showAnswerKey}
+                  docBranch={docBranch}
                 />
               </div>
             ))}

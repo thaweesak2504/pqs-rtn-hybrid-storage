@@ -169,13 +169,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     setErrorMsg(null);
-    let effectiveSub = selectedSub;
-    if (!effectiveSub && selectedMain) {
-      const standardSub = subBranches.find(s => s.name === STANDARD_BRANCH_NAME)?.code || '';
-      effectiveSub = standardSub;
-      setSelectedSub(standardSub);
-    }
-    const branchChanged = selectedMain !== originalMain || effectiveSub !== originalSub;
+    const branchChanged = selectedMain !== originalMain || selectedSub !== originalSub;
     if (branchChanged && conflictReport?.has_conflict && !showConfirmDialog) {
       setShowConfirmDialog(true);
       setIsSubmitting(false);
@@ -195,13 +189,13 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         await invoke<CareerBranchResetReport>('reset_and_update_career_branch', {
           docId,
           newMain: selectedMain || null,
-          newSub: effectiveSub || null,
+          newSub: selectedSub || null,
         });
       } else {
         await invoke('update_document_branch', {
           docId,
           branchMain: selectedMain || null,
-          branchSub: effectiveSub || null,
+          branchSub: selectedSub || null,
         });
       }
       onSuccess();
@@ -327,7 +321,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                       onChange={(e) => { setSelectedMain(e.target.value); setSelectedSub(''); loadSubBranches(e.target.value); }}
                       className="w-full text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary p-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      <option value="">— ไม่ระบุ —</option>
+                      <option value="" disabled hidden>— เลือกสาขาอาชีพหลัก —</option>
                       {availableMain.map((b) => (
                         <option key={b.code} value={b.code}>{b.code} — {b.name}</option>
                       ))}
@@ -341,7 +335,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
                       disabled={!selectedMain}
                       className="w-full text-sm border border-github-border-primary rounded-md bg-github-bg-primary text-github-text-primary p-2 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <option value="">— ไม่ระบุ —</option>
+                      <option value="" disabled hidden>— เลือกสาขาอาชีพย่อย —</option>
                       {availableSub.map((s) => (
                         <option key={s.code} value={s.code}>{s.code} — {s.name}</option>
                       ))}
@@ -372,7 +366,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-github-border-primary">
             <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={isSubmitting || !name.trim() || !appliedTo.trim()}>
+            <Button type="submit" variant="primary" disabled={isSubmitting || !name.trim() || !appliedTo.trim() || !selectedMain || !selectedSub}>
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
           </div>

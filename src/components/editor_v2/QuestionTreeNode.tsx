@@ -167,7 +167,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   useEffect(() => {
     if (!parsedQuestionMeta || !parsedQuestionMeta.useSubQuestions) { setOwnSubQuestionList([]); return; }
     const activeCodes: string[] = Array.isArray(parsedQuestionMeta.activeSubQuestions) ? parsedQuestionMeta.activeSubQuestions : [];
-    const selectedBranch: { main: string; sub: string } | undefined = parsedQuestionMeta.selectedBranch;
+    const selectedBranch: { main: string; sub: string } | undefined = parsedQuestionMeta.selectedBranch || sectionSelectedBranch;
     if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
     // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
     // This is the reliable way — activeCodes[0] may be from a different prefix
@@ -382,6 +382,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         documentId={documentId}
         onRefresh={onRefresh}
         usageRefreshKey={usageRefreshKey}
+        sectionSelectedBranch={sectionSelectedBranch}
       />
 
       {/* Insert After Form */}

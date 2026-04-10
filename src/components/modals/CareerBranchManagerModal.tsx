@@ -598,7 +598,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
                 <div className="flex gap-2">
                   <select value={selectedMain} onChange={(e) => handleMainChange(e.target.value)}
                     className="flex-1 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <option value="">— เลือก —</option>
+                    <option value="" disabled hidden>— เลือกสาขาอาชีพหลัก —</option>
                     {branches.map(b => <option key={b.code} value={b.code}>{b.code} — {b.name}</option>)}
                   </select>
                   {isAdmin && selectedMain && !isProtectedBranch && (
@@ -646,7 +646,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
                 <div className="flex gap-2">
                   <select value={selectedSub} onChange={(e) => handleSubChange(e.target.value)} disabled={!selectedMain}
                     className="flex-1 text-sm border border-gray-300 dark:border-github-border-primary rounded-md bg-white dark:bg-github-bg-primary text-gray-900 dark:text-github-text-primary px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50">
-                    <option value="">— เลือก —</option>
+                    <option value="" disabled hidden>— เลือกสาขาอาชีพย่อย —</option>
                     {subBranches.map(s => <option key={s.code} value={s.code}>{s.code} — {s.name}</option>)}
                   </select>
                   {isAdmin && selectedMain && selectedSub && !isProtectedSubBranch && (
