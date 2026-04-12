@@ -103,7 +103,6 @@ pub use scoring::{
     update_question_score, upsert_user_progress,
 };
 
-
 #[tauri::command]
 pub fn get_section_progress(
     user_id: String,
