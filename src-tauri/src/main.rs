@@ -22,8 +22,7 @@ mod universal_sqlite_backup; // Database migration utilities
 mod test_helpers; // Test helper utilities
 
 // Re-export database structs
-pub use database::{Avatar, HighRankingOfficer, User};
-// DEPRECATED: HighRankingAvatar removed - now using file-based storage
+pub use database::{HighRankingOfficer, User};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -100,26 +99,6 @@ fn authenticate_user(username_or_email: String, password: String) -> Result<Opti
     database::authenticate_user(&username_or_email, &password)
 }
 
-#[tauri::command]
-fn get_avatar_by_user_id(user_id: i32) -> Result<Option<Avatar>, String> {
-    database::get_avatar_by_user_id(user_id)
-}
-
-#[tauri::command]
-fn save_avatar(user_id: i32, avatar_data: Vec<u8>, mime_type: String) -> Result<Avatar, String> {
-    database::save_avatar(user_id, avatar_data, &mime_type)
-}
-
-#[tauri::command]
-fn delete_avatar(user_id: i32) -> Result<bool, String> {
-    database::delete_avatar(user_id)
-}
-
-#[tauri::command]
-fn cleanup_orphaned_avatars() -> Result<i32, String> {
-    database::cleanup_orphaned_avatars()
-}
-
 // Database initialization is handled by Tauri setup
 // No need for separate command
 
@@ -129,11 +108,6 @@ fn migrate_passwords() -> Result<String, String> {
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
     database::migrate_plain_text_passwords(&conn)?;
     Ok("Password migration completed successfully".to_string())
-}
-
-#[tauri::command]
-fn get_all_avatars() -> Result<Vec<Avatar>, String> {
-    database::get_all_avatars()
 }
 
 // Zoom commands using root font-size (proper approach for desktop app)
@@ -193,9 +167,6 @@ async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
 fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
     database::get_all_high_ranking_officers()
 }
-
-// DEPRECATED: save_high_ranking_avatar, get_high_ranking_avatar_by_officer_id commands removed
-// Now using hybrid high rank avatar commands
 
 #[tauri::command]
 fn update_high_ranking_officer(
@@ -650,15 +621,6 @@ fn delete_test_users() -> Result<String, String> {
         .map_err(|e| format!("Failed to query remaining roles: {}", e))?
         .collect::<Result<Vec<String>, _>>()
         .map_err(|e| format!("Failed to collect remaining roles: {}", e))?;
-
-    // Also delete from avatars table for deleted users
-    let _ = conn.execute(
-        "DELETE FROM avatars WHERE user_id NOT IN (SELECT id FROM users WHERE role = 'admin')",
-        [],
-    );
-
-    // Clean up orphaned avatars
-    let _ = database::cleanup_orphaned_avatars();
 
     Ok(format!(
         "Before: {} users, Roles: {:?}, Deleted: {} users, After: {} users, Remaining roles: {:?}",
@@ -1215,6 +1177,54 @@ fn delete_occupation_sub_question(id: i64) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn delete_occupation_sub_questions_by_sub_branch(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<(), String> {
+    content_database::delete_occupation_sub_questions_by_sub_branch(branch_code, sub_branch_code)
+}
+
+#[tauri::command]
+fn reorder_occupation_sub_questions(ids: Vec<i64>) -> Result<(), String> {
+    content_database::reorder_occupation_sub_questions(ids)
+}
+
+#[tauri::command]
+fn batch_create_occupation_sub_questions(
+    items: Vec<content_database::BatchSubQuestionItem>,
+) -> Result<Vec<content_database::OccupationSubQuestion>, String> {
+    content_database::batch_create_occupation_sub_questions(items)
+}
+
+#[tauri::command]
+fn get_standard_branch_sub_questions(
+) -> Result<Vec<content_database::OccupationSubQuestion>, String> {
+    content_database::get_standard_branch_sub_questions()
+}
+
+#[tauri::command]
+fn toggle_slot_completion(
+    branch_code: String,
+    sub_branch_code: String,
+    slot_id: String,
+) -> Result<bool, String> {
+    content_database::toggle_slot_completion(branch_code, sub_branch_code, slot_id)
+}
+
+#[tauri::command]
+fn get_slot_completion_map(
+    branch_code: String,
+    sub_branch_code: String,
+) -> Result<std::collections::HashMap<String, bool>, String> {
+    content_database::get_slot_completion_map(branch_code, sub_branch_code)
+}
+
+#[tauri::command]
+fn get_all_completed_branch_pairs() -> Result<Vec<content_database::CompletedBranchPair>, String> {
+    content_database::get_all_completed_branch_pairs()
+}
+
+#[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -1341,22 +1351,13 @@ fn main() {
             update_user,
             delete_user,
             authenticate_user,
-            get_avatar_by_user_id,
-            get_all_avatars,
-            save_avatar,
-            delete_avatar,
-            cleanup_orphaned_avatars,
             migrate_passwords,
             zoom_in,
             zoom_out,
             zoom_reset,
             get_all_high_ranking_officers,
-            // DEPRECATED: save_high_ranking_avatar, get_high_ranking_avatar_by_officer_id removed
-            // Now using hybrid high rank avatar commands
             update_high_ranking_officer,
             hash_password,
-            // get_database_logs, // DISABLED - logging removed
-            // clear_database_logs, // DISABLED - logging removed
             // Database backup/restore commands
             create_database_backup,
             restore_database_backup,
@@ -1471,6 +1472,13 @@ fn main() {
             create_occupation_sub_question,
             update_occupation_sub_question,
             delete_occupation_sub_question,
+            delete_occupation_sub_questions_by_sub_branch,
+            reorder_occupation_sub_questions,
+            batch_create_occupation_sub_questions,
+            get_standard_branch_sub_questions,
+            toggle_slot_completion,
+            get_slot_completion_map,
+            get_all_completed_branch_pairs,
             // Section-Ref L3 Children (3xx.1.4/1.5 → real L3 Questions)
             get_section_ref_children,
             get_back_referencing_section_ids,

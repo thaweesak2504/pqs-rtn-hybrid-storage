@@ -254,14 +254,14 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
       {customHeaderContent}
 
       {/* Main Content - Scrollable area */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden main-with-footer transition-colors duration-200">
+      <main className="flex-1 overflow-y-auto overflow-x-hidden main-with-footer transition-colors duration-200 flex flex-col">
         {/* Slide Bar */}
         <SlideBar />
         
         {/* Content Area */}
         <div 
           id="main-content"
-          className="min-h-full"
+          className="flex-1 min-h-0 flex flex-col"
         >
           <RouteTransition>
             <Outlet />

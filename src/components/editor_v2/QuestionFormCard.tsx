@@ -24,7 +24,7 @@ import { QuestionReferenceDetail, SectionReferenceDetail } from "../../types/con
 import {
     DEFAULT_L1_DESC_BY_SEQ,
     convertThaiToArabic,
-    toThaiAlphabet,
+    toThaiAlphabet
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
@@ -244,6 +244,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
 
+  // Image operation state - defer upload/delete until Save
+  const [pendingImageUpload, setPendingImageUpload] = useState<string | null>(null); // source file path
+  const [pendingImageDelete, setPendingImageDelete] = useState<boolean>(false);
+  const [originalImagePath] = useState<string | null>(initialImage || null); // for rollback on cancel
+
   // ---- Score Editor State (Section 300 only) ----
   const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
   const [formScoreValue, setFormScoreValue] = useState<string>(initialScore.toString());
@@ -407,12 +412,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     (is300 && questionSequence && questionSequence >= 2 && questionSequence <= 5)
   );
 
-  // Disable for exempted prerequisite questions OR exempted 2xx.2/2xx.4
+  // Disable for exempted prerequisite questions, exempted 2xx.2/2xx.4, or exempted 3xx.2-5
   const [showSubQuestionEditor, setShowSubQuestionEditor] = useState(() =>
     baseShowSubQuestionEditor
     && !(isPrerequisiteQuestion && formScoreType === 'exempted')
     && !(isPrerequisiteChild && formScoreType === 'exempted')
     && !(isDefaultDescL1_200 && formScoreType === 'exempted')
+    && !(isDefaultDescL1 && formScoreType === 'exempted')
   );
 
   // Re-evaluate when formScoreType changes
@@ -422,8 +428,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       && !(isPrerequisiteQuestion && formScoreType === 'exempted')
       && !(isPrerequisiteChild && formScoreType === 'exempted')
       && !(isDefaultDescL1_200 && formScoreType === 'exempted')
+      && !(isDefaultDescL1 && formScoreType === 'exempted')
     );
-  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, isDefaultDescL1_200, formScoreType]);
+  }, [baseShowSubQuestionEditor, isPrerequisiteQuestion, isPrerequisiteChild, isDefaultDescL1_200, isDefaultDescL1, formScoreType]);
   const [useSubQuestions, setUseSubQuestions] = useState<boolean>(() => {
     return parsedInitialMeta?.useSubQuestions === true;
   });
@@ -490,8 +497,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       : [];
     return Array.from(new Set([...saved, ...alwaysCodes]));
   });
-  const [newSqText, setNewSqText] = useState("");
-
   // Sync children for required count (L2→L3 for isPerformanceL2, L1→L2 for is306L1)
   const handleSyncRequiredCount = useCallback(async () => {
     if (is306L1) {
@@ -626,19 +631,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [showSubQuestionEditor, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
-  // Auto-generate code: S + L + X + Y + Z
-  // For 2xx.4, use '24' prefix instead of '2' + questionSequence
+  // Auto-generate code prefix: AB + CC + DD (6-char, 8-digit format)
+  // Pad branch codes to 2 digits: 'STD' → '00', '1' → '01'
+  const padBC = (c: string) => c === 'STD' ? '00' : c.padStart(2, '0');
   const autoCodePrefix = useMemo(() => {
     if (!selMainBranch || !selSubBranch) return "";
     if (sectionOccupationBranches) {
       // 2xx.4 / 3xx.4: use 'S4' prefix with inherited branches
       const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
-      return `${sCode}4${selMainBranch}${selSubBranch}`;
+      return `${sCode}4${padBC(selMainBranch)}${padBC(selSubBranch)}`;
     }
-    // Normal case: S + L + X + Y
+    // Normal case: S + L + CC + DD
     const sCode = sectionGroup === 200 ? "2" : sectionGroup === 300 ? "3" : "1";
     const lCode = questionSequence?.toString() || "0";
-    return `${sCode}${lCode}${selMainBranch}${selSubBranch}`;
+    return `${sCode}${lCode}${padBC(selMainBranch)}${padBC(selSubBranch)}`;
   }, [sectionGroup, questionSequence, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
   // Use DB sub-questions as the source of truth for filtered items
@@ -668,13 +674,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     setActiveSubQCodes((prev) => Array.from(new Set([...prev, ...alwaysCodes])));
   }, [is300, useSubQuestions, filteredItems]);
 
-  const nextZ = useMemo(() => {
-    if (!autoCodePrefix) return "";
-    const used = filteredItems.map(sq => sq.code.replace(autoCodePrefix, ""));
-    for (const z of ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A"]) { if (!used.includes(z)) return z; }
-    return "";
-  }, [autoCodePrefix, filteredItems]);
-  const autoCode = autoCodePrefix && nextZ ? `${autoCodePrefix}${nextZ}` : "";
+  // Check if selected branch is protected (ต้นแบบมาตรฐาน) — cannot add sub-questions
+  const isProtectedBranch = useMemo(() => {
+    const branch = dbBranches.find(b => b.code === selMainBranch);
+    return branch?.name === 'ต้นแบบมาตรฐาน';
+  }, [dbBranches, selMainBranch]);
 
   const prevPrefixRef = useRef(autoCodePrefix);
   useEffect(() => {
@@ -775,25 +779,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   }, [existingId]);
 
   const showExtraButtons = is200or300 ? (level === 0 || level === 1) : isL1; // 200/300: show for L0 & L1, others: L0 only
-
-  // Shared handler: create a new sub-question in DB (used by Enter key + "เพิ่ม" button)
-  const handleAddSubQuestion = useCallback(async () => {
-    if (!newSqText.trim() || !autoCode) return;
-    try {
-      let subBranchCode = selSubBranch;
-      if (sectionOccupationBranches && dbSubQuestions.length > 0) {
-        const firstCode = dbSubQuestions[0].code;
-        if (firstCode.length >= 4) {
-          subBranchCode = firstCode.substring(3, 4);
-        }
-      }
-      const created = await invoke<DbSubQuestion>('create_occupation_sub_question', {
-        req: { branch_code: selMainBranch, sub_branch_code: subBranchCode, code: autoCode, text: newSqText.trim() }
-      });
-      setDbSubQuestions(prev => [...prev, created]);
-    } catch (err: any) { console.error(err); }
-    setNewSqText("");
-  }, [newSqText, autoCode, selSubBranch, sectionOccupationBranches, dbSubQuestions, selMainBranch]);
 
   // Refs for auto-resizing
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -1011,37 +996,21 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       });
 
       if (selected && typeof selected === "string") {
-        let targetId = existingId;
-        if (!targetId) {
-          if (generatedId) {
-            targetId = generatedId;
-          } else {
-            targetId = crypto.randomUUID();
-            setGeneratedId(targetId);
-          }
-        }
-        const friendlyPrefix = convertThaiToArabic(prefix);
-        const newPath = await invoke<string>("upload_question_image", {
-          path: selected,
-          documentId: documentId,
-          questionId: targetId,
-          friendlyPrefix: friendlyPrefix,
-        });
-        setImagePath(newPath);
+        // Store pending upload - don't execute until Save
+        setPendingImageUpload(selected);
+        setPendingImageDelete(false);
+        // Show preview using the selected file path
+        setImagePath(selected);
       }
     } catch (err) {
-      console.error("Failed to upload image:", err);
+      console.error("Failed to select image:", err);
     }
   };
 
-  const handleRemoveImage = async () => {
-    if (imagePath) {
-      try {
-        await invoke('delete_question_image', { path: imagePath });
-      } catch (err) {
-        console.error("Failed to delete image file:", err);
-      }
-    }
+  const handleRemoveImage = () => {
+    // Mark for deletion - don't execute until Save
+    setPendingImageDelete(true);
+    setPendingImageUpload(null);
     setImagePath(null);
   };
 
@@ -1080,6 +1049,62 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   const handleSave = async () => {
+    // Execute pending image operations BEFORE saving
+    let finalImagePath = imagePath;
+    
+    // Handle pending image upload
+    if (pendingImageUpload) {
+      try {
+        // Delete old image first if it exists (replacement scenario)
+        if (originalImagePath) {
+          try {
+            await invoke('delete_question_image', { path: originalImagePath });
+          } catch (err) {
+            console.error("Failed to delete old image:", err);
+            // Continue with upload anyway
+          }
+        }
+        
+        let targetId = existingId;
+        if (!targetId) {
+          if (generatedId) {
+            targetId = generatedId;
+          } else {
+            targetId = crypto.randomUUID();
+            setGeneratedId(targetId);
+          }
+        }
+        const friendlyPrefix = convertThaiToArabic(prefix);
+        const newPath = await invoke<string>("upload_question_image", {
+          path: pendingImageUpload,
+          documentId: documentId,
+          questionId: targetId,
+          friendlyPrefix: friendlyPrefix,
+        });
+        finalImagePath = newPath;
+        setImagePath(newPath);
+        setPendingImageUpload(null);
+        setPendingImageDelete(false); // Clear delete flag since we're replacing
+      } catch (err) {
+        console.error("Failed to upload image:", err);
+        if (onAlert) {
+          onAlert("ไม่สามารถอัปโหลดรูปภาพได้", "danger");
+        }
+        return;
+      }
+    }
+    // Handle pending image deletion (only if no new upload)
+    else if (pendingImageDelete && originalImagePath) {
+      try {
+        await invoke('delete_question_image', { path: originalImagePath });
+        finalImagePath = null;
+        setPendingImageDelete(false);
+      } catch (err) {
+        console.error("Failed to delete image file:", err);
+        // Continue anyway - deletion failure shouldn't block save
+      }
+    }
+
     // Reset errors
     setErrors({});
     const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
@@ -1197,7 +1222,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         if (metadataString) {
           try { metaObj = JSON.parse(metadataString); } catch { }
         }
-        if (imagePath) metaObj.image = imagePath;
+        if (finalImagePath) metaObj.image = finalImagePath;
         if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
         const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
 
@@ -1291,7 +1316,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     await onSave({
       content,
       description: showExtraButtons ? description : undefined,
-      image: showExtraButtons ? imagePath || undefined : undefined,
+      image: showExtraButtons ? finalImagePath || undefined : undefined,
       id: !isEdit ? questionId : undefined,
       references: requireRef ? linkedRefs : [],
       metadata: metadataString,
@@ -1347,6 +1372,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Cleanup background-saved L2 if user cancels
   const handleCancel = useCallback(async () => {
+    // Restore original image state (rollback pending operations)
+    setImagePath(originalImagePath);
+    setPendingImageUpload(null);
+    setPendingImageDelete(false);
+    
     if (isBackgroundSaved && generatedId) {
       try {
         await invoke('delete_question', { id: generatedId });
@@ -1355,7 +1385,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
     onCancel();
-  }, [isBackgroundSaved, generatedId, onCancel]);
+  }, [isBackgroundSaved, generatedId, originalImagePath, onCancel]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -1485,7 +1515,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     const isExempted = e.target.checked;
                     setFormScoreType(isExempted ? 'exempted' : 'normal');
                     if (isExempted) {
-                      // Clear everything
+                      // Clear everything including image
                       setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
                       setFormScoreIsScored(false);
                       setFormScoreValue('0');
@@ -1494,6 +1524,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       setUseSubQuestions(false);
                       setRequiredCount(0);
                       setRequiredCountChildren([]);
+                      // Clear image (mark for deletion on Save)
+                      if (imagePath) {
+                        setPendingImageDelete(true);
+                        setPendingImageUpload(null);
+                        setImagePath(null);
+                      }
                     } else {
                       setFormScoreDisplayText('');
                     }
@@ -1539,6 +1575,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       setDescription('');
                       setShowDescription(false);
                       setUseSubQuestions(false);
+                      // Clear image (mark for deletion on Save)
+                      if (imagePath) {
+                        setPendingImageDelete(true);
+                        setPendingImageUpload(null);
+                        setImagePath(null);
+                      }
                     } else {
                       setFormScoreDisplayText('');
                       if (isDefaultDescL1_200 && questionSequence !== undefined) {
@@ -1757,64 +1799,36 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     <div className="grid grid-cols-1 gap-0.5">
                       {filteredItems.map((item, localIdx) => {
                         const dbSq = dbSubQuestions.find(sq => sq.code === item.code);
+                        const isLastItem = localIdx === filteredItems.length - 1;
+                        // For protected branch in 300-series: last item shows forced badge, no actions on any item
+                        const showForcedBadge = is300 && item.alwaysChecked && (!isProtectedBranch || isLastItem);
+                        const showActionButtons = !isProtectedBranch;
                         return (
                           <div key={item.code} className={`flex items-center gap-2 px-2 py-1 bg-white dark:bg-slate-900/60 border ${sqClr.itemBd} rounded-md group/sq-item`}>
                             <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
                             <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
                             <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
                             <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
-                            {is300 && item.alwaysChecked && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
-                              {is300 && (
-                                <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
-                                  <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
-                                    className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
-                                    <CheckCircle className="w-3 h-3" />
-                                  </button>
+                            {showForcedBadge && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
+                            {showActionButtons && (
+                              <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
+                                {is300 && (
+                                  <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
+                                    <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
+                                        className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
+                                        <CheckCircle className="w-3 h-3" />
+                                    </button>
+                                  </Tooltip>
+                                )}
+                                <Tooltip content="ลบ">
+                                  <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
                                 </Tooltip>
-                              )}
-                              <Tooltip content="ลบ">
-                                <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
-                              </Tooltip>
-                            </div>
+                              </div>
+                            )}
+
                           </div>
                         );
                       })}
-                    </div>
-                  )}
-
-                  {/* Add new item */}
-                  {autoCode && (
-                    <div className="flex gap-1.5 items-end">
-                      <div className="flex-1">
-                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>ข้อความ — รหัส: <span className="font-mono font-bold">{autoCode}</span></label>
-                        <input type="text" value={newSqText}
-                          onChange={e => setNewSqText(e.target.value)}
-                          onPaste={e => {
-                            e.preventDefault();
-                            const pastedText = e.clipboardData.getData("text");
-                            const trimmedText = pastedText.trim();
-                            const target = e.target as HTMLInputElement;
-                            const start = target.selectionStart || 0;
-                            const end = target.selectionEnd || 0;
-                            const currentValue = target.value;
-                            const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
-                            setNewSqText(newValue);
-                            requestAnimationFrame(() => {
-                              target.selectionStart = target.selectionEnd = start + trimmedText.length;
-                            });
-                          }}
-                          placeholder="พิมพ์คำถามย่อย..."
-                          className={`w-full px-2 py-1.5 text-xs border ${sqClr.inputBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none placeholder:text-slate-300 dark:placeholder:text-slate-600`}
-                          onKeyDown={async (e) => {
-                            if (e.key === "Enter") await handleAddSubQuestion();
-                          }} />
-                      </div>
-                      <button onClick={handleAddSubQuestion}
-                        disabled={!newSqText.trim()}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded border ${sqClr.addBtn} disabled:opacity-40 disabled:cursor-not-allowed shrink-0`}>
-                        <Plus className="w-3 h-3" /> เพิ่ม
-                      </button>
                     </div>
                   )}
 

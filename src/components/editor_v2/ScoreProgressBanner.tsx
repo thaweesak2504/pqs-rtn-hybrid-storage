@@ -124,7 +124,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
         ? "text-purple-500 dark:text-purple-400"
         : "text-slate-500 dark:text-slate-400";
 
-  const headlineLabel = isCountMode ? 'คะแนน' : 'คะแนนสะสม';
+  const headlineLabel = isCountMode ? 'คะแนน' : 'ทดสอบผ่านสะสม';
   const headlineValue = isCountMode ? `${formatArabicNumerals(completedCount)}/${formatArabicNumerals(totalCount)}` : `${formatArabicNumerals(progress.earned_score)}/${formatArabicNumerals(progress.max_score)}`;
 
   return (

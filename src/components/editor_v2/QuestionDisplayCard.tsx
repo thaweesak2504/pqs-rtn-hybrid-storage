@@ -61,6 +61,7 @@ interface QuestionDisplayCardProps {
   documentId: string;
   onRefresh?: () => void;
   usageRefreshKey?: number;
+  sectionSelectedBranch?: { main: string; sub: string };
 }
 
 // ============ Helpers ============
@@ -109,6 +110,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   documentId,
   onRefresh,
   usageRefreshKey = 0,
+  sectionSelectedBranch,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -152,13 +154,14 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       const meta = JSON.parse(question.metadata);
       if (!meta.useSubQuestions) { setDisplaySubQList([]); setDisplayActiveCodes([]); return; }
       const activeCodes: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
-      const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch;
+      const selectedBranch: { main: string; sub: string } | undefined = meta.selectedBranch || sectionSelectedBranch;
       if (!selectedBranch?.main) { setDisplaySubQList([]); setDisplayActiveCodes(activeCodes); return; }
       // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
       // This is the reliable way — activeCodes[0] may be from a different prefix
       const sCode = is300 ? "3" : "2";
       const lCode = question.sequence?.toString() || "0";
-      const derivedPrefix = `${sCode}${lCode}${selectedBranch.main}${selectedBranch.sub}`;
+      const padBC = (c: string) => c === 'STD' ? '00' : c.padStart(2, '0');
+      const derivedPrefix = `${sCode}${lCode}${padBC(selectedBranch.main)}${padBC(selectedBranch.sub)}`;
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }

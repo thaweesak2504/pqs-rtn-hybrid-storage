@@ -35,8 +35,7 @@
     "incremental": true
   },
   "include": [
-    "src",
-    "example/section_200/201RadarWeapon.tsx"
+    "src"
   ],
   "exclude": [
     "src/example/**/*"

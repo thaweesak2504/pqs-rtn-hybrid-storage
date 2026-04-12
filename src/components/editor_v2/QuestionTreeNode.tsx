@@ -118,7 +118,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     return parsedQuestionMeta.refSectionId ? parsedQuestionMeta : null;
   }, [is300, parsedQuestionMeta]);
   const prefix = refSectionMeta?.refSectionNumber
-    ? `${refSectionMeta.refSectionNumber}.`
+    ? `${refSectionMeta.refSectionNumber}`
     : is200or300
       ? buildPrefix200_300(level, question.sequence as number, sectionNumber, parentSequence)
       : buildPrefix(level, question.sequence as number, sectionNumber);
@@ -167,13 +167,14 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   useEffect(() => {
     if (!parsedQuestionMeta || !parsedQuestionMeta.useSubQuestions) { setOwnSubQuestionList([]); return; }
     const activeCodes: string[] = Array.isArray(parsedQuestionMeta.activeSubQuestions) ? parsedQuestionMeta.activeSubQuestions : [];
-    const selectedBranch: { main: string; sub: string } | undefined = parsedQuestionMeta.selectedBranch;
+    const selectedBranch: { main: string; sub: string } | undefined = parsedQuestionMeta.selectedBranch || sectionSelectedBranch;
     if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
     // Build prefix from question.sequence + selectedBranch (S + L + X + Y)
     // This is the reliable way — activeCodes[0] may be from a different prefix
     const sCode = is300 ? "3" : "2";
     const lCode = question.sequence?.toString() || "0";
-    const derivedPrefix = `${sCode}${lCode}${selectedBranch.main}${selectedBranch.sub}`;
+    const padBC = (c: string) => c === 'STD' ? '00' : c.padStart(2, '0');
+    const derivedPrefix = `${sCode}${lCode}${padBC(selectedBranch.main)}${padBC(selectedBranch.sub)}`;
     invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
       'get_all_sub_questions_for_branch',
       { branchCode: selectedBranch.main }
@@ -381,6 +382,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         documentId={documentId}
         onRefresh={onRefresh}
         usageRefreshKey={usageRefreshKey}
+        sectionSelectedBranch={sectionSelectedBranch}
       />
 
       {/* Insert After Form */}

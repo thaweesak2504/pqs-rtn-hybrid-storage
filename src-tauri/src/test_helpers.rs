@@ -170,6 +170,56 @@ pub mod helpers {
         )?;
 
         conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationSubBranches (
+                code VARCHAR(10) NOT NULL,
+                branch_code VARCHAR(10) NOT NULL,
+                name VARCHAR(255) NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (branch_code, code),
+                FOREIGN KEY (branch_code) REFERENCES OccupationBranches(code) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationSubQuestions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                branch_code VARCHAR(10) NOT NULL,
+                sub_branch_code VARCHAR(10) NOT NULL,
+                code VARCHAR(20) NOT NULL,
+                text TEXT NOT NULL,
+                always_checked BOOLEAN DEFAULT 0,
+                sequence INTEGER DEFAULT 0,
+                is_completed BOOLEAN DEFAULT 0,
+                FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS OccupationSlotCompletion (
+                branch_code VARCHAR(10) NOT NULL,
+                sub_branch_code VARCHAR(10) NOT NULL,
+                slot_id VARCHAR(10) NOT NULL,
+                is_completed BOOLEAN DEFAULT 0,
+                PRIMARY KEY (branch_code, sub_branch_code, slot_id),
+                FOREIGN KEY (branch_code, sub_branch_code) REFERENCES OccupationSubBranches(branch_code, code) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionSubQuestionLinks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                sub_question_code VARCHAR(20) NOT NULL,
+                UNIQUE(question_id, sub_question_code),
+                FOREIGN KEY (question_id) REFERENCES Questions(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS references_tbl (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 document_id TEXT NOT NULL,
@@ -179,6 +229,35 @@ pub mod helpers {
                 updated_at TEXT NOT NULL,
                 UNIQUE(document_id, ref_code),
                 FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS QuestionSectionLinks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                section_id INTEGER NOT NULL,
+                score INTEGER DEFAULT 0,
+                display_order INTEGER DEFAULT 0,
+                FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+                FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE
+            )",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS UserProgress (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                document_id VARCHAR(11) NOT NULL,
+                section_id INTEGER NOT NULL,
+                total_score INTEGER DEFAULT 0,
+                achieved_score INTEGER DEFAULT 0,
+                percentage REAL DEFAULT 0.0,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(document_id) REFERENCES Documents(id) ON DELETE CASCADE,
+                FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE
             )",
             [],
         )?;

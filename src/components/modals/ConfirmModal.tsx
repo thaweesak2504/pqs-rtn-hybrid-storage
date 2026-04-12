@@ -25,11 +25,17 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    
     if (isOpen) {
       setIsVisible(true);
     } else {
-      setTimeout(() => setIsVisible(false), 300); // Animation delay
+      timeoutId = setTimeout(() => setIsVisible(false), 300); // Animation delay
     }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [isOpen]);
 
   if (!isVisible && !isOpen) return null;

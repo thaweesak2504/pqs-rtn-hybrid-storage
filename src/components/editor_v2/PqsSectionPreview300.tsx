@@ -41,6 +41,19 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [docBranchMain, setDocBranchMain] = useState('');
+  const [docBranchSub, setDocBranchSub] = useState('');
+
+  useEffect(() => {
+    if (!docId) return;
+    invoke<any>('get_document_branch', { docId })
+      .then(data => { setDocBranchMain(data.main || ''); setDocBranchSub(data.sub || ''); })
+      .catch(() => {});
+  }, [docId]);
+
+  const docBranch = useMemo(() => {
+    return (docBranchMain && docBranchSub) ? { main: docBranchMain, sub: docBranchSub } : undefined;
+  }, [docBranchMain, docBranchSub]);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -126,6 +139,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
               level={0}
               parentPath={toThaiNumber(sectionNumber)}
               sectionNumber={sectionNumber}
+              docBranch={docBranch}
             />
           ))}
         </div>
@@ -143,6 +157,7 @@ interface PreviewQuestionNode300Props {
   parentPath: string;
   sectionNumber: number;
   parentSubQuestionList?: Array<{ code: string; text: string; alwaysChecked?: boolean }>;
+  docBranch?: { main: string; sub: string };
 }
 
 const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
@@ -152,11 +167,20 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
   parentPath,
   sectionNumber,
   parentSubQuestionList,
+  docBranch,
 }) => {
+  const meta = useMemo(() => {
+    if (!question.metadata) return {};
+    try { return JSON.parse(question.metadata); } catch { return {}; }
+  }, [question.metadata]);
+
   // Numbering: L0 = ๓xx.๑, L1 = ๓xx.๑.๑, L2 = ก.
   let displayNumber = '';
   let fullPath = '';
-  if (level === 0) {
+  if (meta.refSectionNumber) {
+    displayNumber = toThaiNumber(meta.refSectionNumber);
+    fullPath = `${parentPath} ${displayNumber}`;
+  } else if (level === 0) {
     displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
     fullPath = displayNumber;
   } else if (level === 1) {
@@ -166,11 +190,6 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
     displayNumber = toThaiAlphabet(index);
     fullPath = `${parentPath} ${displayNumber}`;
   }
-
-  const meta = useMemo(() => {
-    if (!question.metadata) return {};
-    try { return JSON.parse(question.metadata); } catch { return {}; }
-  }, [question.metadata]);
 
   const hasChildren = question.children && question.children.length > 0;
 
@@ -182,10 +201,11 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
       const m = JSON.parse(question.metadata);
       if (!m.useSubQuestions) { setOwnSubQuestionList([]); return; }
       const activeCodes: string[] = Array.isArray(m.activeSubQuestions) ? m.activeSubQuestions : [];
-      const selectedBranch: { main: string; sub: string } | undefined = m.selectedBranch;
+      const selectedBranch: { main: string; sub: string } | undefined = m.selectedBranch || docBranch;
       if (!selectedBranch?.main) { setOwnSubQuestionList([]); return; }
       const lCode = question.sequence?.toString() || '0';
-      const derivedPrefix = `3${lCode}${selectedBranch.main}${selectedBranch.sub}`;
+      const padBC = (c: string) => c === 'STD' ? '00' : c.padStart(2, '0');
+      const derivedPrefix = `3${lCode}${padBC(selectedBranch.main)}${padBC(selectedBranch.sub)}`;
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
@@ -222,7 +242,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
     <div className="flex flex-col">
       {/* Question Row */}
       <div className="flex items-baseline">
-        <span className={`${level <= 1 ? 'min-w-[9ch]' : 'min-w-[2ch] mr-1'} ${!isExamChildPrintNode && question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
+        <span className={`${level <= 1 ? 'min-w-[9ch]' : meta.refSectionNumber ? 'min-w-[4ch] mr-2' : 'min-w-[2ch] mr-1'} ${!isExamChildPrintNode && question.is_header ? 'font-bold' : 'font-normal'} shrink-0`}>
           {displayNumber}
         </span>
 
@@ -301,6 +321,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
                 parentPath={fullPath}
                 sectionNumber={sectionNumber}
                 parentSubQuestionList={activeSubQuestionList.length > 0 ? activeSubQuestionList : parentSubQuestionList}
+                docBranch={docBranch}
               />
             </div>
           ))}

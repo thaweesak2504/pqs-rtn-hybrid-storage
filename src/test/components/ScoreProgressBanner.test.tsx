@@ -44,7 +44,7 @@ describe("ScoreProgressBanner", () => {
 
     render(<ScoreProgressBanner documentId="DOC-1" sectionId={201} sectionGroup={200} />);
 
-    expect(await screen.findByText("คะแนนสะสม:")).toBeInTheDocument();
+    expect(await screen.findByText("ทดสอบผ่านสะสม:")).toBeInTheDocument();
     expect(screen.getByText("ส่งคำตอบ:")).toBeInTheDocument();
     expect(screen.getByText("ผ่าน:")).toBeInTheDocument();
     expect(screen.getByText("ปรับปรุง:")).toBeInTheDocument();
