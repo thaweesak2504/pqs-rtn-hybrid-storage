@@ -431,7 +431,7 @@ pub fn batch_create_occupation_sub_questions(
 pub fn get_standard_branch_sub_questions_with_conn(
     conn: &Connection,
 ) -> Result<Vec<OccupationSubQuestion>, String> {
-    ensure_standard_occupation_branch_exists(&conn)?;
+    ensure_standard_occupation_branch_exists(conn)?;
 
     // Find the standard main branch code
     let main_code: String = conn

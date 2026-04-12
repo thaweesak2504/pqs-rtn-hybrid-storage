@@ -13,7 +13,6 @@ fn execute_best_effort(conn: &Connection, sql: &str, context: &str) {
             || message.contains("already exists")
             || message.contains("no such index")
         {
-            return;
         } else {
             logger::warn(format!(
                 "Best-effort schema step '{}' failed: {}",
@@ -903,7 +902,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
 
     // Migration: update 3xx.3 standard branch mandatory item text to add 'พิเศษ'
     execute_best_effort(
-        &conn,
+        conn,
         "UPDATE OccupationSubQuestions \
          SET text = 'เริ่มปฏิบัติจริงหรือสมมติเหตุการณ์พิเศษ' \
          WHERE always_checked = 1 \
@@ -915,7 +914,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
 
     // Migration: add is_completed column to OccupationSubQuestions
     execute_best_effort(
-        &conn,
+        conn,
         "ALTER TABLE OccupationSubQuestions ADD COLUMN is_completed BOOLEAN DEFAULT 0",
         "add_is_completed_to_sub_questions",
     );
@@ -934,7 +933,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     ).map_err(|e| format!("Failed to create OccupationSlotCompletion table: {}", e))?;
 
     // Migration: standardise all sub-question codes to 8-digit format (AABCCDDEE)
-    migrate_sub_question_codes_to_8digit(&conn)?;
+    migrate_sub_question_codes_to_8digit(conn)?;
 
     // QuestionSubQuestionLinks Table - Relational storage for selected sub-questions per question
     // Replaces JSON array 'selectedSubQuestions' in Questions.metadata

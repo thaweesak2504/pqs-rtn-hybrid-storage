@@ -6,7 +6,10 @@ use super::*;
 // Internal Helpers — Cross-module utility functions
 // ============================================================
 
-pub fn get_question_section_group(conn: &Connection, question_id: &str) -> Result<Option<i32>, String> {
+pub fn get_question_section_group(
+    conn: &Connection,
+    question_id: &str,
+) -> Result<Option<i32>, String> {
     let mut stmt = conn
         .prepare(
             "SELECT s.section_group

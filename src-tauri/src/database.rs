@@ -28,7 +28,6 @@ pub struct User {
     pub updated_at: Option<String>,
 }
 
-
 // SQLite database operations
 pub fn get_database_path() -> Result<PathBuf, String> {
     let app_data = app_data_dir(&Config::default()).ok_or("Failed to get app data directory")?;
@@ -621,8 +620,6 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
     Ok(rows_affected > 0)
 }
 
-
-
 pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
@@ -663,8 +660,6 @@ pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Opti
         Err(e) => Err(format!("Failed to query user: {}", e)),
     }
 }
-
-
 
 // High Ranking Officers structs and functions
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -754,8 +749,6 @@ pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String
 
     Ok(officers)
 }
-
-
 
 // Update high ranking officer
 pub fn update_high_ranking_officer(

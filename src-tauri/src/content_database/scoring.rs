@@ -160,8 +160,8 @@ pub fn batch_recalculate_section_group_scores(
         let rows = l2_stmt
             .query_map(params![section_id], |row| row.get(0))
             .map_err(|e| e.to_string())?;
-        let ids = rows.filter_map(|r| r.ok()).collect::<Vec<String>>();
-        ids
+        
+        rows.filter_map(|r| r.ok()).collect::<Vec<String>>()
     };
 
     // L1 group headers (top-level)
@@ -172,8 +172,8 @@ pub fn batch_recalculate_section_group_scores(
         let rows = l1_stmt
             .query_map(params![section_id], |row| row.get(0))
             .map_err(|e| e.to_string())?;
-        let ids = rows.filter_map(|r| r.ok()).collect::<Vec<String>>();
-        ids
+        
+        rows.filter_map(|r| r.ok()).collect::<Vec<String>>()
     };
 
     let mut results = Vec::new();

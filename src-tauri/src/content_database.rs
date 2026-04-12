@@ -103,27 +103,6 @@ pub use scoring::{
     update_question_score, upsert_user_progress,
 };
 
-/// IDs of built-in example documents that must never be deleted.
-
-// ============================================================
-// Career Branch Protection — Check Usage & Reset
-// ============================================================
-
-// ==========================================
-// Advanced Question Logic & References
-// ==========================================
-
-/// Initialize tables for Questions and References
-// Called by main initialize_content_database, but we'll modify that function instead of adding a new one
-// Use this to EXTEND existing initialization
-
-// Migrations moved to migrations.rs
-
-// Images & Media moved to media.rs
-
-// Internal Helpers moved to helpers.rs
-
-// Thin wrappers for #[tauri::command] registration:
 
 #[tauri::command]
 pub fn get_section_progress(
