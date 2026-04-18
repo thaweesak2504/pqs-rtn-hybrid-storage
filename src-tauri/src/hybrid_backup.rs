@@ -283,8 +283,12 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         }
     }
 
-    // Validate extracted files
-    let extracted_db = temp_dir.join("database.db");
+    // Validate extracted files — support both new (content.db) and old (database.db) backup formats
+    let extracted_db = if temp_dir.join("content.db").exists() {
+        temp_dir.join("content.db")
+    } else {
+        temp_dir.join("database.db")
+    };
     let extracted_media = temp_dir.join("media");
 
     if !extracted_db.exists() {
@@ -420,7 +424,8 @@ fn get_database_path() -> Result<PathBuf, String> {
     let config = Config::default();
     let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
 
-    Ok(app_data.join("pqs-rtn-hybrid-storage").join("database.db"))
+    // Consolidated: all tables now live in content.db
+    Ok(app_data.join("pqs-rtn-hybrid-storage").join("content.db"))
 }
 
 /// Get media directory path

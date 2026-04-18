@@ -92,7 +92,8 @@ fn get_database_path() -> Result<PathBuf, String> {
     let config = Config::default();
     let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
 
-    Ok(app_data.join("pqs-rtn-hybrid-storage").join("database.db"))
+    // Consolidated: all tables now live in content.db
+    Ok(app_data.join("pqs-rtn-hybrid-storage").join("content.db"))
 }
 
 #[allow(dead_code)]

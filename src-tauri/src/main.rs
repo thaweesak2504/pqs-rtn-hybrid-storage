@@ -1518,10 +1518,13 @@ fn main() {
             content_database::replace_question_answer_keys,
         ])
         .setup(|app| {
-            // Initialize content database (OwnerUnits, Documents, etc.)
+            // Initialize content database (OwnerUnits, Documents, Users, Officers, etc.)
+            // NOTE: Since DB consolidation, users + high_ranking_officers tables are now
+            // created here in content.db instead of a separate database.db
             if let Err(e) = content_database::initialize_content_database() {
                 logger::error(format!("Failed to initialize content database: {}", e));
             }
+
 
             // Clean up orphaned section_ref questions (from sections deleted before cleanup was added)
             if let Err(e) = content_database::cleanup_orphaned_section_refs() {

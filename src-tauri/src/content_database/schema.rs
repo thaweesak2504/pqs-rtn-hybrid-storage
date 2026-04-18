@@ -207,6 +207,105 @@ pub fn initialize_content_database() -> Result<String, String> {
     let conn = get_content_connection()
         .map_err(|e| format!("Failed to connect to content database: {}", e))?;
 
+    // ── Consolidated from database.rs ───────────────────────────────────
+    // Users table (formerly in database.db, now unified in content.db)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            full_name TEXT NOT NULL,
+            rank TEXT,
+            role TEXT NOT NULL DEFAULT 'visitor',
+            is_active BOOLEAN NOT NULL DEFAULT 1,
+            avatar_path TEXT,
+            avatar_updated_at DATETIME,
+            avatar_mime TEXT,
+            avatar_size INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )
+    .map_err(|e| format!("Failed to create users table: {}", e))?;
+
+    // High ranking officers table (formerly in database.db)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS high_ranking_officers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            thai_name TEXT NOT NULL,
+            position_thai TEXT NOT NULL,
+            position_english TEXT NOT NULL,
+            order_index INTEGER NOT NULL DEFAULT 0,
+            avatar_path TEXT,
+            avatar_updated_at DATETIME,
+            avatar_mime TEXT,
+            avatar_size INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        [],
+    )
+    .map_err(|e| format!("Failed to create high_ranking_officers table: {}", e))?;
+
+    // Seed admin user if not exists
+    let admin_exists: i32 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM users WHERE role = 'admin'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if admin_exists == 0 {
+        let admin_password_hash = bcrypt::hash("Admin&21", bcrypt::DEFAULT_COST)
+            .map_err(|e| format!("Failed to hash admin password: {}", e))?;
+
+        conn.execute(
+            "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            rusqlite::params!["admin", "admin@pqs-rtn.com", admin_password_hash, "System Administrator", "ร.ต.", "admin", true],
+        ).map_err(|e| format!("Failed to insert admin user: {}", e))?;
+    }
+
+    // Seed default high ranking officers if not exists
+    let officer_count: i32 = conn
+        .query_row("SELECT COUNT(*) FROM high_ranking_officers", [], |row| {
+            row.get(0)
+        })
+        .unwrap_or(0);
+
+    if officer_count == 0 {
+        let officers = vec![
+            (
+                "พลเรือเอก จิรพล ว่องวิทย์",
+                "ผู้บัญชาการทหารเรือ",
+                "Commander-in-Chief, Royal Thai Navy",
+                1,
+            ),
+            (
+                "พลเรือเอก ชลธิศ นาวานุเคราะห์",
+                "รองผู้บัญชาการทหารเรือ",
+                "Deputy Commander-in-Chief, Royal Thai Navy",
+                2,
+            ),
+            (
+                "พลเรือเอก ณัฏฐพล เดี่ยววานิช",
+                "ผู้บัญชาการกองเรือยุทธการ",
+                "Commander, Royal Thai Fleet",
+                3,
+            ),
+        ];
+
+        for (thai_name, position_thai, position_english, order_index) in officers {
+            conn.execute(
+                "INSERT INTO high_ranking_officers (thai_name, position_thai, position_english, order_index) VALUES (?, ?, ?, ?)",
+                rusqlite::params![thai_name, position_thai, position_english, order_index],
+            ).map_err(|e| format!("Failed to insert officer {}: {}", thai_name, e))?;
+        }
+    }
+    // ── End consolidated tables ─────────────────────────────────────────
+
     // Create OwnerUnits table
     // This schema MUST match sql/OwnerUnits.sql structure
     conn.execute(

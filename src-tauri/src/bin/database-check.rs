@@ -10,7 +10,8 @@ fn get_database_path() -> Result<PathBuf, String> {
     std::fs::create_dir_all(&db_dir)
         .map_err(|e| format!("Failed to create database directory: {}", e))?;
 
-    Ok(db_dir.join("database.db"))
+    // Consolidated: all tables now live in content.db
+    Ok(db_dir.join("content.db"))
 }
 
 fn main() {
@@ -56,10 +57,14 @@ fn main() {
                 );
             }
 
-            // Check avatars table
-            let mut stmt = conn.prepare("SELECT COUNT(*) FROM avatars").unwrap();
-            let avatar_count: i32 = stmt.query_row([], |row| row.get(0)).unwrap();
-            println!("🖼️  Found {} avatars in database", avatar_count);
+            // Check high_ranking_officers table
+            match conn.prepare("SELECT COUNT(*) FROM high_ranking_officers") {
+                Ok(mut stmt) => {
+                    let count: i32 = stmt.query_row([], |row| row.get(0)).unwrap_or(0);
+                    println!("👮 Found {} high ranking officers", count);
+                }
+                Err(_) => println!("⚠️  high_ranking_officers table not found"),
+            }
         }
         Err(e) => {
             println!("❌ Database connection failed: {}", e);
