@@ -285,6 +285,9 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
     }
 
     // Validate extracted files — support both new (content.db) and old (database.db) backup formats
+    // TODO(post-v0.2.x): remove `database.db` fallback once we're confident no users
+    // are restoring backups created before the DB consolidation (Phase 6). Keep for now
+    // to preserve backward compatibility with older backup ZIPs.
     let extracted_db = if temp_dir.join("content.db").exists() {
         temp_dir.join("content.db")
     } else {
