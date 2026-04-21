@@ -1,8 +1,45 @@
-import React, { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import React, { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { tauriUserService } from '../services/tauriService'
-import { AuthContext, type AuthContextType, type User } from './authContextObject'
+import { logger } from '../utils/logger';
 
-// Context is declared in authContextObject.ts
+export interface User {
+  id: string
+  username: string
+  email: string
+  name: string
+  role: string
+  avatar?: string
+  avatar_path?: string | null
+  avatar_updated_at?: string | null
+  avatar_mime?: string
+  avatar_size?: number
+  full_name?: string
+  rank?: string
+  is_active?: boolean
+  /** True when the user must change password before any other action (seeded default admin). */
+  must_change_password?: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface AuthContextType {
+  user: User | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  signIn: (credentials: { username_or_email: string; password: string }) => Promise<{ success: boolean; user?: User; token?: string }>
+  signOut: () => void
+  checkAuthStatus: () => void
+  updateAvatar: (avatar: string | null) => Promise<void> | void
+  handleAvatarLoadError?: () => Promise<void> | void
+  /**
+   * Called by the ForceChangePasswordModal after the backend has successfully
+   * changed the user's password. Clears `must_change_password` on the
+   * in-memory user and persisted localStorage snapshot so the UI unblocks.
+   */
+  markPasswordChanged: () => void
+}
+
+export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 interface AuthProviderProps {
   children: ReactNode
@@ -26,13 +63,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const user = JSON.parse(savedUser)
           setUser(user)
         } catch (error) {
-          console.warn('Failed to restore user session:', error)
+          logger.warn('Failed to restore user session:', error)
           clearAuthData()
         }
       }
 
     } catch (error) {
-      console.error('Error checking auth status:', error)
+      logger.error('Error checking auth status:', error)
       clearAuthData()
     } finally {
       setIsLoading(false)
@@ -95,7 +132,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           }
         } catch (error) {
-          console.warn('Error loading hybrid avatar:', error)
+          logger.warn('Error loading hybrid avatar:', error)
         }
         
         // Save to localStorage
@@ -109,7 +146,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { success: false }
       
     } catch (error) {
-      console.error('🔐 AuthContext: Sign in error:', error)
+      logger.error('🔐 AuthContext: Sign in error:', error)
       return { success: false }
     } finally {
       setIsLoading(false)
@@ -164,7 +201,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } : prev)
       }
     } catch (error) {
-      console.error('Error updating avatar:', error)
+      logger.error('Error updating avatar:', error)
     }
   }
 
@@ -175,7 +212,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         localStorage.setItem('pqs_user', JSON.stringify(next))
       } catch (e) {
-        console.warn('Failed to persist cleared must_change_password flag:', e)
+        logger.warn('Failed to persist cleared must_change_password flag:', e)
       }
       return next
     })
@@ -198,7 +235,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await hybridAvatarService.deleteAvatar(Number(user.id))
       setUser(prev => prev ? { ...prev, avatar: undefined, avatar_path: null } : prev)
     } catch (error) {
-      console.warn('Error clearing hybrid avatar:', error)
+      logger.warn('Error clearing hybrid avatar:', error)
     }
   }
   }
@@ -225,7 +262,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         // Silently ignore errors during initialization
         if (isInitializationComplete === 'true') {
-          console.warn('Error checking avatar integrity:', error)
+          logger.warn('Error checking avatar integrity:', error)
         }
       }
     }

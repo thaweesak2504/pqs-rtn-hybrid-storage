@@ -1,4 +1,5 @@
 import { TauriUser, tauriUserService } from './tauriService';
+import { logger } from '../utils/logger';
 
 // Phase 1 security: frontend never hashes passwords. Backend is the single source
 // of truth. All password operations pass plaintext over the Tauri IPC boundary
@@ -9,7 +10,7 @@ export const getAllUsers = async (): Promise<TauriUser[]> => {
   try {
     return await tauriUserService.getAllUsers();
   } catch (error) {
-    console.error('Failed to get all users:', error);
+    logger.error('Failed to get all users:', error);
     throw error;
   }
 };
@@ -32,7 +33,7 @@ export const createUser = async (userData: {
       userData.role
     );
   } catch (error) {
-    console.error('Failed to create user:', error);
+    logger.error('Failed to create user:', error);
     throw error;
   }
 };
@@ -61,7 +62,7 @@ export const updateUser = async (
       userData.role
     );
   } catch (error) {
-    console.error('Failed to update user:', error);
+    logger.error('Failed to update user:', error);
     throw error;
   }
 };
@@ -70,7 +71,7 @@ export const deleteUser = async (id: number): Promise<boolean> => {
   try {
     return await tauriUserService.deleteUser(id);
   } catch (error) {
-    console.error('Failed to delete user:', error);
+    logger.error('Failed to delete user:', error);
     throw error;
   }
 };
@@ -79,7 +80,7 @@ export const getUserById = async (id: number): Promise<TauriUser | null> => {
   try {
     return await tauriUserService.getUserById(id);
   } catch (error) {
-    console.error('Failed to get user by ID:', error);
+    logger.error('Failed to get user by ID:', error);
     throw error;
   }
 };
@@ -88,7 +89,7 @@ export const getUserByEmail = async (email: string): Promise<TauriUser | null> =
   try {
     return await tauriUserService.getUserByEmail(email);
   } catch (error) {
-    console.error('Failed to get user by email:', error);
+    logger.error('Failed to get user by email:', error);
     throw error;
   }
 };
@@ -105,7 +106,7 @@ export const changePassword = async (
   try {
     await tauriUserService.changePassword(userId, oldPassword, newPassword);
   } catch (error) {
-    console.error('Failed to change password:', error);
+    logger.error('Failed to change password:', error);
     throw error;
   }
 };
@@ -114,7 +115,7 @@ export const migratePasswords = async (): Promise<string> => {
   try {
     return await tauriUserService.migratePasswords();
   } catch (error) {
-    console.error('Failed to migrate passwords:', error);
+    logger.error('Failed to migrate passwords:', error);
     throw error;
   }
 };

@@ -23,6 +23,7 @@ import { useAvatarSync } from '../hooks/useAvatarSync'
 import { useLayoutTypeSync } from '../hooks/useLayoutTypeSync'
 import { useRightPanelControl } from '../hooks/useRightPanelControl'
 import { useWindowVisibilityRefresh } from '../hooks/useWindowVisibilityRefresh'
+import { logger } from '../utils/logger';
 
 interface BaseLayoutProps {
   /** Layout type for context */
@@ -227,7 +228,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                         size="sm"
                         className="hover:border-github-border-active transition-all duration-200"
                         onImageError={() => { try { handleAvatarLoadError?.() } catch (error) {
-                            console.warn('Error:', error);
+                            logger.warn('Error:', error);
                           } }}
                       />
                     </button>

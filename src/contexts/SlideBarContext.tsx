@@ -1,5 +1,14 @@
-import React, { useState } from 'react'
-import { SlideBarContext } from './slideBarContextObject'
+import React, { createContext, useState } from 'react'
+
+export interface SlideBarContextType {
+  isOpen: boolean
+  toggleSlideBar: () => void
+  closeSlideBar: () => void
+  openSlideBar: () => void
+  setReturnFocusEl: (el: HTMLElement | null) => void
+}
+
+export const SlideBarContext = createContext<SlideBarContextType | undefined>(undefined)
 
 interface SlideBarProviderProps {
   children: React.ReactNode

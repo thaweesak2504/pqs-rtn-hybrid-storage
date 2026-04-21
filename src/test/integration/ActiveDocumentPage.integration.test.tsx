@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActiveDocumentPage from "../../components/pages/ActiveDocumentPage";
-import { AuthContext } from "../../contexts/authContextObject";
+import { AuthContext } from "../../contexts/AuthContext";
 import { ToastProvider } from "../../contexts/ToastContext";
 
 const mockAuthValue = {

@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { CheckCircle2, Edit3, FileText, Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ConfirmModal from "../modals/ConfirmModal";
+import { logger } from '../../utils/logger';
 
 type AssessmentStatus = "pending" | "passed" | "needs_improvement";
 
@@ -74,7 +75,7 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
       setIsEditorOpen(false);
       onSaved?.();
     } catch (error) {
-      console.error("Failed to save oral assessment:", error);
+      logger.error("Failed to save oral assessment:", error);
       setAlertModal({
         isOpen: true,
         message: "ไม่สามารถบันทึกรายงานการประเมินได้ (โปรดแจ้งนักพัฒนา)",

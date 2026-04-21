@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
+import { logger } from '../../utils/logger';
 
 interface CareerBranchManagerModalProps {
   isOpen: boolean;
@@ -133,7 +134,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setEditorSubQuestions(data);
       setSavedSnapshot(JSON.stringify(data.map(q => ({ code: q.code, text: q.text, always_checked: q.always_checked, sequence: q.sequence }))));
     } catch (err) {
-      console.error('Failed to load sub-questions:', err);
+      logger.error('Failed to load sub-questions:', err);
     }
   }, []);
 
@@ -149,7 +150,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         setEditorSubQuestions([]);
       }
     } catch (err) {
-      console.error('Failed to load sub-branches:', err);
+      logger.error('Failed to load sub-branches:', err);
     }
   }, [loadEditorSubQuestions]);
 
@@ -169,7 +170,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         await loadSubBranches(firstRegular.code);
       }
     } catch (err) {
-      console.error('Failed to load branches:', err);
+      logger.error('Failed to load branches:', err);
       setErrorMsg('ไม่สามารถโหลดข้อมูลสาขาอาชีพได้');
     } finally {
       setIsLoading(false);
@@ -205,7 +206,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setSelectedSub('');
       loadSubBranches(nc);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
     setNewMainName(''); setIsAddingMain(false);
   };
 
@@ -216,7 +217,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b));
       setEditingMainCode(null);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
   };
 
   const handleCreateSub = async () => {
@@ -227,7 +228,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setSubBranches(prev => [...prev, created]);
       setSelectedSub(nc);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
     setNewSubName(''); setIsAddingSub(false);
   };
 
@@ -238,7 +239,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setSubBranches(prev => prev.map(s => s.code === editingSubCode ? { ...s, name: editingSubName.trim() } : s));
       setEditingSubCode(null);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
   };
 
   const handleDeleteBranch = async (type: 'main' | 'sub', code: string, name: string, branchCode?: string) => {
@@ -249,7 +250,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         : await invoke<{ is_used: boolean; document_count: number; document_names: string[] }>('check_sub_branch_usage_global', { branchCode: branchCode!, subCode: code });
       setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report } : null);
     } catch (err) {
-      console.error('Failed to check branch usage:', err);
+      logger.error('Failed to check branch usage:', err);
       setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report: null } : null);
     }
   };
@@ -274,7 +275,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setDeleteDialog(null);
       onSuccess?.();
     } catch (err) {
-      console.error('Failed to delete branch:', err);
+      logger.error('Failed to delete branch:', err);
       setDeleteDialog(null);
     }
   };
@@ -505,7 +506,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       const newVal = await invoke<boolean>('toggle_slot_completion', { branchCode: selectedMain, subBranchCode: selectedSub, slotId: slotKey });
       setSlotCompletionMap(prev => ({ ...prev, [slotKey]: newVal }));
     } catch (err) {
-      console.error('Failed to toggle slot completion:', err);
+      logger.error('Failed to toggle slot completion:', err);
     }
   };
 
@@ -544,7 +545,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       onSuccess?.();
       setErrorMsg(null);
     } catch (err) {
-      console.error('Save failed:', err);
+      logger.error('Save failed:', err);
       setErrorMsg('บันทึกข้อมูลไม่สำเร็จ: ' + (err as string));
     } finally {
       setIsSaving(false);

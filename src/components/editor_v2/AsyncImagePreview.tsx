@@ -1,6 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import React, { useEffect, useState } from "react";
 import Tooltip from "../ui/Tooltip";
+import { logger } from '../../utils/logger';
 
 interface AsyncImagePreviewProps {
   path: string;
@@ -26,7 +27,7 @@ const AsyncImagePreview: React.FC<AsyncImagePreviewProps> = ({ path, className, 
         setSrc(base64Data);
         setResolvedPath(path); // Keep original path for opening
       } catch (e) {
-        console.error("Failed to load image preview", e);
+        logger.error("Failed to load image preview", e);
         // Fallback
         setSrc(convertFileSrc(path));
       }
@@ -51,7 +52,7 @@ const AsyncImagePreview: React.FC<AsyncImagePreviewProps> = ({ path, className, 
           }
         }}
         onError={() => {
-          console.error("Image load error for src:", src);
+          logger.error("Image load error for src:", src);
         }}
       />
     </Tooltip>

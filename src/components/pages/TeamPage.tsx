@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { Star } from 'lucide-react'
 import { Container, Card, Header, Title } from '../ui'
 import { invoke } from '@tauri-apps/api/tauri'
+import { logger } from '../../utils/logger';
 
 
 interface HighRankingOfficer {
@@ -53,7 +54,7 @@ const TeamPage: React.FC = () => {
               return { officerId: officer.id, url: base64Data };
             }
           } catch (error) {
-            console.error(`Failed to load avatar for officer ${officer.id}:`, error);
+            logger.error(`Failed to load avatar for officer ${officer.id}:`, error);
           }
           return null;
         });
@@ -69,7 +70,7 @@ const TeamPage: React.FC = () => {
 
         setAvatars(avatarMap);
       } catch (error) {
-        console.error('Failed to load officers:', error);
+        logger.error('Failed to load officers:', error);
       } finally {
         setLoading(false);
       }

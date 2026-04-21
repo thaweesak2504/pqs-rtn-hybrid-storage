@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri'
 import { CheckCircle, Database, Image, RefreshCw, Users, X, XCircle } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { Button, Card, Container, Title } from '../ui'
+import { logger } from '../../utils/logger';
 
 interface User {
   id: number
@@ -66,7 +67,7 @@ const DatabaseViewerPage: React.FC = () => {
             }) as string
             images[user.id!] = base64Data
           } catch (error) {
-            console.error(`Failed to load avatar for user ${user.id}:`, error)
+            logger.error(`Failed to load avatar for user ${user.id}:`, error)
           }
         }
       }
@@ -75,7 +76,7 @@ const DatabaseViewerPage: React.FC = () => {
 
       setLastRefresh(new Date())
     } catch (error) {
-      console.error('Error loading database data:', error)
+      logger.error('Error loading database data:', error)
       // Set empty arrays on error
       setUsers([])
       setAvatars([])

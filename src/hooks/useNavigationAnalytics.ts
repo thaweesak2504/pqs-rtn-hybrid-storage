@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { logger } from '../utils/logger';
 
 export interface NavigationEvent {
   id: string
@@ -247,7 +248,7 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
         }
       }
     } catch (error) {
-      console.error('Failed to load analytics from localStorage:', error)
+      logger.error('Failed to load analytics from localStorage:', error)
     }
   }, [])
 
@@ -257,7 +258,7 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
       try {
         localStorage.setItem('navigation_analytics', JSON.stringify(events))
       } catch (error) {
-        console.error('Failed to save analytics to localStorage:', error)
+        logger.error('Failed to save analytics to localStorage:', error)
       }
     }
   }, [events])

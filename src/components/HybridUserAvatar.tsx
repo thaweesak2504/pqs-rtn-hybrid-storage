@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useHybridAvatar } from '../hooks/useHybridAvatar';
 import { Avatar } from './ui/Avatar';
+import { logger } from '../utils/logger';
 
 interface HybridUserAvatarProps {
   user: {
@@ -38,7 +39,7 @@ const HybridUserAvatar: React.FC<HybridUserAvatarProps> = ({
             setAvatarSrc(undefined);
           }
         } catch (error) {
-          console.error('Failed to load avatar base64:', error);
+          logger.error('Failed to load avatar base64:', error);
           setAvatarSrc(undefined);
           onImageError?.();
         }

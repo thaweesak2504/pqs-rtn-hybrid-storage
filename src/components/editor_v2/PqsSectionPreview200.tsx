@@ -7,6 +7,7 @@ import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
 import { ReferenceDoc } from './PqsReferenceSection';
 import TraineeAnswerBox from './TraineeAnswerBox';
+import { logger } from '../../utils/logger';
 
 interface AnswerKeyRow {
   id: number;
@@ -98,7 +99,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
         );
         setQuestions(filtered);
       } catch (error) {
-        console.error('Failed to fetch questions for preview:', error);
+        logger.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }

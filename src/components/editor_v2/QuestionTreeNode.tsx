@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
 import QuestionFormCard from "./QuestionFormCard";
+import { logger } from '../../utils/logger';
 
 // ============ Types ============
 interface SubQuestionItem {
@@ -184,7 +185,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
         .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
       setOwnSubQuestionList(filtered);
-    }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
+    }).catch((err) => { logger.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
   }, [parsedQuestionMeta, is300, question.sequence]);
 
   const effectiveChildSubQuestionList = questionUsesOwnSubQuestions
@@ -228,7 +229,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save required_instance score:', err);
+        logger.error('Failed to save required_instance score:', err);
       }
       onCancel();
       if (onRefresh) onRefresh();

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ForceChangePasswordModal from '../../components/ForceChangePasswordModal'
-import { AuthContext, type AuthContextType, type User } from '../../contexts/authContextObject'
+import { AuthContext, type AuthContextType, type User } from '../../contexts/AuthContext'
 import { changePassword as changePasswordApi } from '../../services/userService'
 
 vi.mock('../../services/userService', () => ({

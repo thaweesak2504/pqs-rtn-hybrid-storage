@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Title, Container, Button, Card, FormInput, FormTextarea, FormGroup, FormRow, CustomSelect } from '../ui'
 import navyLogo from '../../assets/images/navy_logo.webp'
+import { logger } from '../../utils/logger';
 
 const ContactPage: React.FC = () => {
   const navigate = useNavigate()
@@ -75,7 +76,7 @@ const ContactPage: React.FC = () => {
         message: ''
       })
     } catch (error) {
-      console.error('Error submitting form:', error)
+      logger.error('Error submitting form:', error)
       setSubmitStatus('error')
     } finally {
       setIsSubmitting(false)

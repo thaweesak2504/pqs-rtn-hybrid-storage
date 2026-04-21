@@ -1,11 +1,12 @@
 import React from 'react'
 import { User, Settings, LogOut, Mail, Shield, Edit } from 'lucide-react'
 import Avatar from './ui/Avatar'
-import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
+import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/hybridAvatarService'
 import { useAuth } from '../hooks/useAuth'
 import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { Button } from './ui'
 import { useNavigate } from 'react-router-dom'
+import { logger } from '../utils/logger';
 
 const UserProfileContent: React.FC = () => {
   const { signOut, user, updateAvatar } = useAuth()
@@ -79,7 +80,7 @@ const UserProfileContent: React.FC = () => {
         setUploadError('ไม่สามารถบันทึกรูปได้')
       }
     } catch (error) {
-      console.error('Failed to convert data URL to file:', error)
+      logger.error('Failed to convert data URL to file:', error)
       setUploadError('ไม่สามารถแปลงรูปได้')
     }
   }
@@ -106,7 +107,7 @@ const UserProfileContent: React.FC = () => {
       }))
 
     } catch (error) {
-      console.error('Failed to remove avatar:', error)
+      logger.error('Failed to remove avatar:', error)
     }
   }
 
@@ -167,7 +168,7 @@ const UserProfileContent: React.FC = () => {
           await updateAvatar(res.dataUrl)
         }
       } catch (error) {
-          console.warn('Error:', error);
+          logger.warn('Error:', error);
         }
     }
     run()

@@ -320,7 +320,7 @@ pub fn copy_backup_to_location(
             .map_err(|e| format!("Failed to create destination directory: {}", e))?;
     }
 
-    fs::copy(&source_path, &dest_path).map_err(|e| format!("Failed to copy backup file: {}", e))?;
+    fs::copy(&source_path, dest_path).map_err(|e| format!("Failed to copy backup file: {}", e))?;
     Ok(format!("Backup copied to: {}", dest_path.display()))
 }
 

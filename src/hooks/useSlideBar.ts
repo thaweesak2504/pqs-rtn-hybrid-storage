@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { SlideBarContext, type SlideBarContextType } from '../contexts/slideBarContextObject'
+import { SlideBarContext, type SlideBarContextType } from '../contexts/SlideBarContext'
 
 export const useSlideBar = (): SlideBarContextType => {
   const context = useContext(SlideBarContext)

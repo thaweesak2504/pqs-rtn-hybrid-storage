@@ -1,5 +1,6 @@
 import React from 'react'
 import { User as UserIcon } from 'lucide-react'
+import { logger } from '../../utils/logger';
 
 interface AvatarProps {
   src?: string | null
@@ -49,7 +50,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
             return null
           }
         } catch (error) {
-          console.warn('Avatar path validation error:', error);
+          logger.warn('Avatar path validation error:', error);
         }
         const finalSrc = (function(){
           let s = src
@@ -74,7 +75,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
               try { 
                 onImageError?.() 
               } catch (error) {
-                console.warn('Avatar onImageError callback error:', error);
+                logger.warn('Avatar onImageError callback error:', error);
               }
             }}
           />

@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { Award, CheckCircle2, Clock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { formatNumberByMode } from '../../utils/thaiNumbering';
+import { logger } from '../../utils/logger';
 
 interface ScoreProgressBannerProps {
   documentId: string;
@@ -53,7 +54,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
           documentId: documentId,
           sectionId: sectionId,
         }).catch((e) => {
-          console.error("[Banner] get_section_progress failed sectionId:", sectionId, "error:", e);
+          logger.error("[Banner] get_section_progress failed sectionId:", sectionId, "error:", e);
           return null;
         });
 
@@ -72,7 +73,7 @@ const ScoreProgressBanner: React.FC<ScoreProgressBannerProps> = ({
           });
         }
       } catch (error) {
-        console.error("Failed to fetch progress:", error);
+        logger.error("Failed to fetch progress:", error);
       } finally {
         if (isMounted) setInitialLoading(false);
       }

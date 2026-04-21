@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Button, Card, Title, Alert, FormInput, FormGroup, FormRow, CustomSelect } from '../ui'
 import { useToast } from '../../contexts/ToastContext'
 import navyLogo from '../../assets/images/navy_logo.webp'
+import { logger } from '../../utils/logger';
 
 interface RegistrationFormData {
   username: string
@@ -191,7 +192,7 @@ const RegistrationForm: React.FC = () => {
     } catch (err) {
       setError('เกิดข้อผิดพลาดในการลงทะเบียน')
       showError('เกิดข้อผิดพลาดในการลงทะเบียน')
-      console.error('Registration error:', err)
+      logger.error('Registration error:', err)
     } finally {
       setIsLoading(false)
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { FormSelect, FormGroup } from '../ui/Form'
 import { invoke } from '@tauri-apps/api/tauri'
+import { logger } from '../../utils/logger';
 
 export interface OwnerUnit {
   unit_id: string
@@ -58,7 +59,7 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
             setL2Units(units)
           }
         } catch (err) {
-          console.error("Failed to load units:", err)
+          logger.error("Failed to load units:", err)
         }
       }
       loadRootUnits()
@@ -73,7 +74,7 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
       const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
       setter(units)
     } catch (err) {
-      console.error(`Failed to load children for ${parentId}:`, err)
+      logger.error(`Failed to load children for ${parentId}:`, err)
     }
   }
 

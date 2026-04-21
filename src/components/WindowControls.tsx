@@ -1,6 +1,7 @@
 import { Copy, Minus, Square, X } from 'lucide-react'
 import React, { useEffect, useState } from 'react'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
+import { logger } from '../utils/logger';
 
 const WindowControls: React.FC = () => {
   const [windowApi, setWindowApi] = useState<any>(null)
@@ -24,10 +25,10 @@ const WindowControls: React.FC = () => {
             const maximized = await currentWindow.isMaximized()
             setIsMaximized(maximized)
           } catch (error) {
-            console.warn('Failed to check initial maximize state:', error)
+            logger.warn('Failed to check initial maximize state:', error)
           }
       } catch (error) {
-        console.warn('Failed to initialize window API:', error)
+        logger.warn('Failed to initialize window API:', error)
         setWindowApi(null)
       }
     }
@@ -54,11 +55,11 @@ const WindowControls: React.FC = () => {
             const maximized = await windowApi.isMaximized()
             setIsMaximized(maximized)
           } catch (error) {
-            console.warn('Failed to check maximize state after toggle:', error)
+            logger.warn('Failed to check maximize state after toggle:', error)
           }
         }, 10)
       } catch (err) {
-        console.warn('Failed to toggle maximize:', err)
+        logger.warn('Failed to toggle maximize:', err)
         // Don't crash, just log the error
       }
     }

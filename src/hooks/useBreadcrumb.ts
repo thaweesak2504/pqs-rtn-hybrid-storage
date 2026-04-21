@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { BreadcrumbContext, type BreadcrumbContextType } from '../contexts/breadcrumbContextObject'
+import { BreadcrumbContext, type BreadcrumbContextType } from '../contexts/BreadcrumbContext'
 
 export const useBreadcrumb = (): BreadcrumbContextType => {
   const context = useContext(BreadcrumbContext)

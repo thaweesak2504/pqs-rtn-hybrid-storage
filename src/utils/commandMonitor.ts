@@ -14,6 +14,7 @@
  */
 
 import { ExecutionResult } from './commandExecutor';
+import { logger } from './logger';
 
 export interface CommandExecution {
   id: string;
@@ -631,14 +632,14 @@ export class CommandMonitor {
     const category = `[${execution.category}]`;
     const risk = `[${execution.riskLevel.toUpperCase()}]`;
     
-    console.log(`${status} ${category} ${risk} [${time}ms]${timeout} ${execution.sanitizedCommand}`);
+    logger.info(`${status} ${category} ${risk} [${time}ms]${timeout} ${execution.sanitizedCommand}`);
     
     if (!execution.success) {
-      console.error(`   Error: ${execution.error}`);
+      logger.error(`   Error: ${execution.error}`);
     }
     
     if (execution.sanitizationStats && execution.sanitizationStats.charactersRemoved > 0) {
-      console.log(`   Sanitized: ${execution.sanitizationStats.charactersRemoved} characters removed`);
+      logger.info(`   Sanitized: ${execution.sanitizationStats.charactersRemoved} characters removed`);
     }
   }
 }

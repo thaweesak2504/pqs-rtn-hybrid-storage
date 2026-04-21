@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { getStateForRoute } from '../config/navigationConfig'
 import type { NavigationStateActions } from './useNavigationState'
+import { logger } from '../utils/logger';
 
 /**
  * Custom hook for synchronizing navigation state with router
@@ -21,7 +22,7 @@ export const useRouterSync = (actions: NavigationStateActions) => {
         // Don't include expandedMenus - preserve current state
       })
     } catch (error) {
-      console.error('Router sync error:', error)
+      logger.error('Router sync error:', error)
       // Fallback to home state
       actions.updateState({
         activeItem: 'home'

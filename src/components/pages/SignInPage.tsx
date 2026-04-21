@@ -5,6 +5,7 @@ import Container from '../ui/Container'
 import { FormInput, FormGroup, FormActions, Button } from '../ui'
 import { useAuth } from '../../hooks/useAuth'
 import navyLogo from '../../assets/images/navy_logo.webp'
+import { logger } from '../../utils/logger';
 
 const SignInPage: React.FC = () => {
   const { signIn } = useAuth()
@@ -121,7 +122,7 @@ const SignInPage: React.FC = () => {
       }
 
     } catch (error) {
-      console.error('Sign In Error:', error)
+      logger.error('Sign In Error:', error)
       setErrors({
         general: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง'
       })

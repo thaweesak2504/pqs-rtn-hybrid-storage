@@ -1,7 +1,15 @@
-import React, { useState } from 'react'
-import { UserProfileContext } from './userProfileContextObject'
+import React, { createContext, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import UserProfilePanel from '../components/UserProfilePanel'
+
+export interface UserProfileContextType {
+  isProfileOpen: boolean
+  openProfile: () => void
+  closeProfile: () => void
+  toggleProfile: () => void
+}
+
+export const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined)
 
 interface UserProfileProviderProps {
   children: React.ReactNode

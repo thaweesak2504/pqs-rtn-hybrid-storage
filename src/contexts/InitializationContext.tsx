@@ -86,7 +86,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
       const { invoke } = await import('@tauri-apps/api/tauri');
       await invoke<string>('initialize_database_if_needed');
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      logger.error('Failed to initialize database:', error);
       // Continue anyway - the app might still work
     }
   }, []);

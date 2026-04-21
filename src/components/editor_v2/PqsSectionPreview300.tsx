@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
 import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
+import { logger } from '../../utils/logger';
 
 // ============ Helpers ============
 
@@ -68,7 +69,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
         );
         setQuestions(filtered);
       } catch (error) {
-        console.error('Failed to fetch questions for preview:', error);
+        logger.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }

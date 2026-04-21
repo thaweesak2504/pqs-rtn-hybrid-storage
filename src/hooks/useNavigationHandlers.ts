@@ -4,6 +4,7 @@ import { useSlideBar } from './useSlideBar'
 import { useAuth } from './useAuth'
 import { getRouteForItem, isStandaloneItem } from '../config/navigationConfig'
 import type { NavigationState, NavigationStateActions } from './useNavigationState'
+import { logger } from '../utils/logger';
 
 interface NavigationHandlers {
   handleMenuClick: (itemId: string) => void
@@ -57,7 +58,7 @@ export const useNavigationHandlers = (
         }
       }
     } catch (error) {
-      console.error('Navigation error in handleMenuClick:', error)
+      logger.error('Navigation error in handleMenuClick:', error)
       // Fallback to home
       navigate('/home')
       actions.updateState({ 
@@ -84,7 +85,7 @@ export const useNavigationHandlers = (
         }
       }
     } catch (error) {
-      console.error('Navigation error in handleSubItemClick:', error)
+      logger.error('Navigation error in handleSubItemClick:', error)
       // Fallback to home
       navigate('/home')
       actions.updateState({ 
@@ -104,7 +105,7 @@ export const useNavigationHandlers = (
         expandedMenus: [] 
       })
     } catch (error) {
-      console.error('Navigation error in handleSignOut:', error)
+      logger.error('Navigation error in handleSignOut:', error)
       navigate('/home')
     }
   }, [navigate, actions])

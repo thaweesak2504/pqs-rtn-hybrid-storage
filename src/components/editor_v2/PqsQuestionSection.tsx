@@ -17,6 +17,7 @@ import ConfirmModal from "../modals/ConfirmModal";
 import ImagePreviewModal from "../modals/ImagePreviewModal";
 import QuestionFormCard from "./QuestionFormCard";
 import QuestionTreeNode from "./QuestionTreeNode";
+import { logger } from '../../utils/logger';
 
 // ============ Types ============
 
@@ -171,10 +172,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         // Notify parent to refresh the progress banner after new answers are loaded
         onProgressUpdate?.();
       } catch (err) {
-        console.error("Failed to fetch trainee answers:", err);
+        logger.error("Failed to fetch trainee answers:", err);
       }
     } catch (error) {
-      console.error("Failed to fetch questions:", error);
+      logger.error("Failed to fetch questions:", error);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -401,7 +402,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       onReferencesUpdated?.();
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to create question:", err);
+      logger.error("Failed to create question:", err);
     }
   };
 
@@ -510,7 +511,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       onReferencesUpdated?.();
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to update question:", err);
+      logger.error("Failed to update question:", err);
     }
   };
 
@@ -527,7 +528,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           onReferencesUpdated?.();
           setBgSyncTrigger(prev => prev + 1);
         } catch (err) {
-          console.error("Failed to delete:", err);
+          logger.error("Failed to delete:", err);
         }
       },
       variant: "warning",
@@ -549,7 +550,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to reorder:", err);
+      logger.error("Failed to reorder:", err);
     }
   };
 
@@ -567,7 +568,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to reorder:", err);
+      logger.error("Failed to reorder:", err);
     }
   };
 

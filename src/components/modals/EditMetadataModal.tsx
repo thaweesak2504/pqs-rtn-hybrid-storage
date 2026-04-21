@@ -5,6 +5,7 @@ import { normalizePolicyGuardError } from '../../utils/policyGuards';
 import Button from '../ui/Button';
 import { FormInput, FormRow, FormSelect } from '../ui/Form';
 import CareerBranchManagerModal from './CareerBranchManagerModal';
+import { logger } from '../../utils/logger';
 
 interface EditMetadataModalProps {
   isOpen: boolean;
@@ -155,7 +156,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
         setConflictReport(report);
       })
       .catch(err => {
-        console.error('Failed to check career branch usage:', err);
+        logger.error('Failed to check career branch usage:', err);
         setConflictReport(null);
       })
       .finally(() => {
@@ -201,7 +202,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('Failed to update document:', err);
+      logger.error('Failed to update document:', err);
       setErrorMsg(normalizePolicyGuardError(err, 'Failed to update'));
     } finally {
       setIsSubmitting(false);

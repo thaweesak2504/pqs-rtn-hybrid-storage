@@ -4,6 +4,7 @@ import { FormInput, FormTextarea, FormSelect, FormGroup, FormRow, FormActions } 
 import Button from '../ui/Button'
 import UnitSelector from '../common/UnitSelector'
 import { Save, CheckCircle, AlertCircle } from 'lucide-react'
+import { logger } from '../../utils/logger';
 
 interface CreateDocumentArgs {
   name: string
@@ -89,7 +90,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
         })
         setPreviewId(id)
       } catch (err) {
-        console.error("ID Generation Error:", err)
+        logger.error("ID Generation Error:", err)
         setPreviewId(`Error: ${err}`)
       }
     }
@@ -152,7 +153,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
       if (onSuccess) onSuccess(resultId)
 
     } catch (err: any) {
-      console.error("Operation failed:", err)
+      logger.error("Operation failed:", err)
       setErrorMsg(typeof err === 'string' ? err : "Failed to save document")
     } finally {
       setIsLoading(false)

@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Container, Title, Card, Button, Alert } from '../ui';
 import Avatar from '../ui/Avatar';
 import EditOfficerModal from '../ui/EditOfficerModal';
-import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../../services/avatarService';
+import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../../services/hybridAvatarService';
 import { invoke } from '@tauri-apps/api/tauri';
 import navyLogo from '../../assets/images/navy_logo.webp';
+import { logger } from '../../utils/logger';
 
 interface HighRankingOfficer {
   id: number;
@@ -51,7 +52,7 @@ const HighRanksPage: React.FC = () => {
               return { officerId: officer.id, url: base64Data };
             }
           } catch (error) {
-            console.error(`Failed to load avatar for officer ${officer.id}:`, error);
+            logger.error(`Failed to load avatar for officer ${officer.id}:`, error);
           }
           return null;
         });
@@ -67,7 +68,7 @@ const HighRanksPage: React.FC = () => {
         
         setAvatars(avatarMap);
       } catch (error) {
-        console.error('Failed to load officers:', error);
+        logger.error('Failed to load officers:', error);
       }
     };
 
@@ -157,11 +158,11 @@ const HighRanksPage: React.FC = () => {
             }));
           }
         } catch (error) {
-          console.error('Failed to reload avatar:', error);
+          logger.error('Failed to reload avatar:', error);
         }
       
     } catch (error) {
-      console.error('Failed to upload avatar:', error);
+      logger.error('Failed to upload avatar:', error);
       setUploadError('ไม่สามารถอัปโหลดรูปภาพได้');
     } finally {
       setUploading(prev => ({ ...prev, [officerId]: false }));
@@ -201,7 +202,7 @@ const HighRanksPage: React.FC = () => {
       );
 
     } catch (error) {
-      console.error('Failed to update officer:', error);
+      logger.error('Failed to update officer:', error);
       setUploadError('ไม่สามารถบันทึกข้อมูลได้');
     }
   };

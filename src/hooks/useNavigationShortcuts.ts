@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNavigationState } from './useNavigationState'
+import { logger } from '../utils/logger';
 
 export interface ShortcutConfig {
   key: string
@@ -163,7 +164,7 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
       try {
         matchingShortcut.action()
       } catch (error) {
-        console.error('Shortcut action error:', error)
+        logger.error('Shortcut action error:', error)
       }
     }
   }, [])

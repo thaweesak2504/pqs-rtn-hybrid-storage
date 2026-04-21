@@ -7,6 +7,7 @@ import PqsQuestionSection from './PqsQuestionSection';
 import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
 import PqsSectionPreview100 from './PqsSectionPreview100';
 import ScoreProgressBanner from './ScoreProgressBanner';
+import { logger } from '../../utils/logger';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -76,7 +77,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         usage_count: r.usage_count || 0 // Added usage_count
       })));
     } catch (error) {
-      console.error("Failed to fetch references:", error);
+      logger.error("Failed to fetch references:", error);
     }
   };
 
@@ -98,7 +99,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           setSectionId(currentSection.id);
         }
       } catch (error) {
-        console.error("Failed to fetch section data:", error);
+        logger.error("Failed to fetch section data:", error);
       }
     };
     fetchData();
@@ -115,7 +116,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       });
       setCurrentTitle(newTitle);
     } catch (error) {
-      console.error("Failed to update title:", error);
+      logger.error("Failed to update title:", error);
       showAlert("Failed to save title: " + error, 'danger');
     }
   };
@@ -132,7 +133,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setCurrentMenuLabel(newSubTitle);
       onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
-      console.error("Failed to update menu label:", error);
+      logger.error("Failed to update menu label:", error);
       showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
@@ -193,7 +194,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
 
     } catch (error) {
-      console.error("Failed to add reference:", error);
+      logger.error("Failed to add reference:", error);
       showAlert("Failed to add reference: " + error, 'danger');
     }
   };
@@ -224,7 +225,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       ));
 
     } catch (error) {
-      console.error("Failed to update reference:", error);
+      logger.error("Failed to update reference:", error);
       showAlert("Failed to update reference: " + error, 'danger');
     }
   };
@@ -237,7 +238,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setReferences(prev => prev.filter(r => r.id !== id));
       setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
     } catch (error) {
-      console.error("Failed to remove reference:", error);
+      logger.error("Failed to remove reference:", error);
       showAlert("ไม่สามารถลบเอกสารอ้างอิงที่กำลังถูกใช้งานอยู่ได้", 'warning');
     }
   };

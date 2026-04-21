@@ -31,6 +31,7 @@ import Button from "../ui/Button";
 import Tooltip from "../ui/Tooltip";
 import AnswerKeyEditor from "./AnswerKeyEditor";
 import AsyncImagePreview from "./AsyncImagePreview";
+import { logger } from '../../utils/logger';
 
 // ============ Types ============
 interface SubQuestionItem {
@@ -317,7 +318,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setEffectiveIsGroupHeader(true);
           }
         })
-        .catch(err => console.error("Failed to check children count:", err));
+        .catch(err => logger.error("Failed to check children count:", err));
     }
   }, [existingId, initialIsGroupHeader]);
 
@@ -356,7 +357,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }
           });
         } catch (error) {
-          console.error("Failed to update question score:", error);
+          logger.error("Failed to update question score:", error);
         }
       };
       updateScore();
@@ -391,7 +392,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             fetchSectionRefChildren();
           }
         } catch (error) {
-          console.error("Failed to update question score:", error);
+          logger.error("Failed to update question score:", error);
         }
       };
       updateScore();
@@ -516,7 +517,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setRequiredCountChildren(children);
         if (children.length > 0) setEffectiveIsGroupHeader(true);
       } catch (err) {
-        console.error('Failed to sync 306 L2 children:', err);
+        logger.error('Failed to sync 306 L2 children:', err);
       }
       return;
     }
@@ -557,7 +558,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         });
         setIsBackgroundSaved(true);
       } catch (err) {
-        console.error('Failed to background save L2:', err);
+        logger.error('Failed to background save L2:', err);
         return;
       }
     } else {
@@ -567,7 +568,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           args: { id: questionId, content: content.trim() || '(รอบันทึก)', description: null, metadata: syncMetaStr }
         });
       } catch (err) {
-        console.error('Failed to update L2 metadata before sync:', err);
+        logger.error('Failed to update L2 metadata before sync:', err);
       }
     }
 
@@ -584,20 +585,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       });
       setRequiredCountChildren(children);
     } catch (err) {
-      console.error('Failed to sync required count children:', err);
+      logger.error('Failed to sync required count children:', err);
     }
   }, [is306L1, isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, description, requiredCount, scorePerInstance, useSubQuestions, selMainBranch, selSubBranch, activeSubQCodes, selectedSubQCodes]);
 
   // Fetch branches from DB on mount (both normal and 2xx.4)
   useEffect(() => {
     if (!showSubQuestionEditor) return;
-    invoke<DbBranch[]>('get_occupation_branches').then(setDbBranches).catch(console.error);
+    invoke<DbBranch[]>('get_occupation_branches').then(setDbBranches).catch(logger.error);
   }, [showSubQuestionEditor]);
 
   // Fetch sub-branches when main branch changes (both normal and 2xx.4)
   useEffect(() => {
     if (!showSubQuestionEditor || !selMainBranch) { setDbSubBranches([]); return; }
-    invoke<DbSubBranch[]>('get_occupation_sub_branches', { branchCode: selMainBranch }).then(setDbSubBranches).catch(console.error);
+    invoke<DbSubBranch[]>('get_occupation_sub_branches', { branchCode: selMainBranch }).then(setDbSubBranches).catch(logger.error);
   }, [showSubQuestionEditor, selMainBranch]);
 
   // Fetch sub-questions when branch+sub-branch changes
@@ -615,7 +616,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
           }
         })
-        .catch(console.error);
+        .catch(logger.error);
     } else {
       // Normal case: fetch by specific sub-branch
       invoke<DbSubQuestion[]>('get_occupation_sub_questions', { branchCode: selMainBranch, subBranchCode: selSubBranch })
@@ -627,7 +628,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
           }
         })
-        .catch(console.error);
+        .catch(logger.error);
     }
   }, [showSubQuestionEditor, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
@@ -883,7 +884,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (requireRef && sectionId) {
       invoke<SectionReferenceDetail[]>("get_section_references", { sectionId })
         .then((refs) => setAvailableRefs(refs))
-        .catch((err) => console.error("Failed to fetch section references:", err));
+        .catch((err) => logger.error("Failed to fetch section references:", err));
     }
   }, [requireRef, sectionId, usageRefreshKey]);
 
@@ -1003,7 +1004,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setImagePath(selected);
       }
     } catch (err) {
-      console.error("Failed to select image:", err);
+      logger.error("Failed to select image:", err);
     }
   };
 
@@ -1044,7 +1045,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         // If has children, preserve existing answer keys even if requireAnswerKey is temporarily false
       }
     } catch (err) {
-      console.error('Failed to reconcile answer keys:', err);
+      logger.error('Failed to reconcile answer keys:', err);
     }
   };
 
@@ -1060,7 +1061,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           try {
             await invoke('delete_question_image', { path: originalImagePath });
           } catch (err) {
-            console.error("Failed to delete old image:", err);
+            logger.error("Failed to delete old image:", err);
             // Continue with upload anyway
           }
         }
@@ -1086,7 +1087,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setPendingImageUpload(null);
         setPendingImageDelete(false); // Clear delete flag since we're replacing
       } catch (err) {
-        console.error("Failed to upload image:", err);
+        logger.error("Failed to upload image:", err);
         if (onAlert) {
           onAlert("ไม่สามารถอัปโหลดรูปภาพได้", "danger");
         }
@@ -1100,7 +1101,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         finalImagePath = null;
         setPendingImageDelete(false);
       } catch (err) {
-        console.error("Failed to delete image file:", err);
+        logger.error("Failed to delete image file:", err);
         // Continue anyway - deletion failure shouldn't block save
       }
     }
@@ -1260,7 +1261,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
         await persistAnswerKeys(generatedId);
       } catch (err) {
-        console.error('Failed to finalize background-saved L2:', err);
+        logger.error('Failed to finalize background-saved L2:', err);
       }
       // Refresh tree and close form (silent — avoids full reload flicker in 300 editor)
       onRefresh?.();
@@ -1292,7 +1293,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save question score:', err);
+        logger.error('Failed to save question score:', err);
       }
     }
 
@@ -1309,7 +1310,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save 200-series exempted state:', err);
+        logger.error('Failed to save 200-series exempted state:', err);
       }
     }
 
@@ -1342,7 +1343,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to sync required count children:', err);
+        logger.error('Failed to sync required count children:', err);
       }
     }
 
@@ -1359,7 +1360,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save question score for new L2:', err);
+        logger.error('Failed to save question score for new L2:', err);
       }
     }
 
@@ -1381,7 +1382,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       try {
         await invoke('delete_question', { id: generatedId });
       } catch (err) {
-        console.error('Failed to cleanup background-saved L2:', err);
+        logger.error('Failed to cleanup background-saved L2:', err);
       }
     }
     onCancel();
@@ -2447,7 +2448,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                 const newScore = parseInt(e.target.value) || 0;
                                 try {
                                   await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
-                                } catch (err) { console.error('Failed to update section ref score:', err); }
+                                } catch (err) { logger.error('Failed to update section ref score:', err); }
                               }}
                               className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
                             />
@@ -2491,13 +2492,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               }
                             });
                             setSectionRefChildren(children);
-                          } catch (e) { console.error('Failed to select all:', e); }
+                          } catch (e) { logger.error('Failed to select all:', e); }
                         }} className="text-[10px] px-2 py-0.5 rounded bg-purple-600 text-white hover:bg-purple-700">เลือกทั้งหมด</button>
                         <button type="button" onClick={async () => {
                           try {
                             await invoke('remove_all_section_ref_children', { parentId: existingId });
                             setSectionRefChildren([]);
-                          } catch (e) { console.error('Failed to deselect all:', e); }
+                          } catch (e) { logger.error('Failed to deselect all:', e); }
                         }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
                       </div>
                       <div className="divide-y divide-purple-100 dark:divide-purple-800/50">
@@ -2521,14 +2522,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                                     try {
                                       await invoke('remove_section_ref_child', { questionId: existingChild.id });
                                       setSectionRefChildren(prev => prev.filter(c => c.id !== existingChild.id));
-                                    } catch (e) { console.error('Failed to remove section ref child:', e); }
+                                    } catch (e) { logger.error('Failed to remove section ref child:', e); }
                                   } else {
                                     try {
                                       const newChild = await invoke<SectionRefChild>('add_section_ref_child', {
                                         args: { parent_id: existingId, document_id: documentId, section_id: sectionId, linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th }
                                       });
                                       setSectionRefChildren(prev => [...prev, newChild].sort((a, b) => a.ref_section_number - b.ref_section_number));
-                                    } catch (e) { console.error('Failed to add section ref child:', e); }
+                                    } catch (e) { logger.error('Failed to add section ref child:', e); }
                                   }
                                 }}
                                 className="accent-purple-600 w-3.5 h-3.5 shrink-0"

@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, vi } from "vitest";
+import { logger } from '../utils/logger';
 
 afterEach(() => {
   cleanup();
@@ -57,10 +58,10 @@ Object.defineProperty(globalThis, "IntersectionObserver", {
   value: MockIntersectionObserver,
 });
 
-const originalConsoleError = console.error;
+const originalConsoleError = logger.error;
 
 beforeAll(() => {
-  console.error = (...args: unknown[]) => {
+  logger.error = (...args: unknown[]) => {
     if (
       typeof args[0] === "string" &&
       args[0].includes("Not implemented: HTMLFormElement.prototype.submit")
@@ -72,5 +73,5 @@ beforeAll(() => {
 });
 
 afterAll(() => {
-  console.error = originalConsoleError;
+  logger.error = originalConsoleError;
 });

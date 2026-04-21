@@ -1,5 +1,6 @@
 import React from 'react'
 import AboutDialog from './AboutDialog'
+import { logger } from '../utils/logger';
 
 const HeaderMenuBar: React.FC = () => {
   // Tauri-only implementation - no Electron or Web fallbacks needed
@@ -19,13 +20,13 @@ const HeaderMenuBar: React.FC = () => {
         height: 800,
       })
       webview.once('tauri://created', function () {
-        console.log('New window created')
+        logger.info('New window created')
       })
       webview.once('tauri://error', function (e) {
-        console.error('Error creating new window', e)
+        logger.error('Error creating new window', e)
       })
     } catch (error) {
-      console.error('New window failed:', error)
+      logger.error('New window failed:', error)
     }
   }
 
@@ -35,7 +36,7 @@ const HeaderMenuBar: React.FC = () => {
       const currentWindow = getCurrent()
       await currentWindow.close()
     } catch (error) {
-      console.error('Close window failed:', error)
+      logger.error('Close window failed:', error)
     }
   }
 
@@ -44,7 +45,7 @@ const HeaderMenuBar: React.FC = () => {
       const { invoke } = await import('@tauri-apps/api/tauri')
       await invoke('zoom_in')
     } catch (error) {
-      console.error('Zoom in failed:', error)
+      logger.error('Zoom in failed:', error)
     }
   }
 
@@ -53,7 +54,7 @@ const HeaderMenuBar: React.FC = () => {
       const { invoke } = await import('@tauri-apps/api/tauri')
       await invoke('zoom_out')
     } catch (error) {
-      console.error('Zoom out failed:', error)
+      logger.error('Zoom out failed:', error)
     }
   }
 
@@ -62,7 +63,7 @@ const HeaderMenuBar: React.FC = () => {
       const { invoke } = await import('@tauri-apps/api/tauri')
       await invoke('zoom_reset')
     } catch (error) {
-      console.error('Zoom reset failed:', error)
+      logger.error('Zoom reset failed:', error)
     }
   }
 
@@ -70,7 +71,7 @@ const HeaderMenuBar: React.FC = () => {
     try {
       window.location.reload()
     } catch (error) {
-      console.error('Reload failed:', error)
+      logger.error('Reload failed:', error)
     }
   }
 
@@ -80,10 +81,10 @@ const HeaderMenuBar: React.FC = () => {
       try {
         await invoke('toggle_devtools')
       } catch (error) {
-        console.log('Use Ctrl+Shift+I to toggle developer tools')
+        logger.info('Use Ctrl+Shift+I to toggle developer tools')
       }
     } catch (error) {
-      console.error('Toggle dev tools failed:', error)
+      logger.error('Toggle dev tools failed:', error)
     }
   }
 
@@ -153,30 +154,30 @@ const HeaderMenuBar: React.FC = () => {
         const currentWindow = getCurrent()
         await currentWindow.close()
       } catch (error) {
-        console.error('Exit failed:', error)
+        logger.error('Exit failed:', error)
       }
     }, 'Alt+F4'),
   ]
 
   const editItems: Item[] = [
     mk('Undo', () => {
-      console.log('Undo not implemented in Tauri')
+      logger.info('Undo not implemented in Tauri')
     }, 'Ctrl+Z', true),
     mk('Redo', () => {
-      console.log('Redo not implemented in Tauri')
+      logger.info('Redo not implemented in Tauri')
     }, 'Ctrl+Y', true),
     sep,
     mk('Cut', () => {
-      console.log('Cut not implemented in Tauri')
+      logger.info('Cut not implemented in Tauri')
     }, 'Ctrl+X', true),
     mk('Copy', () => {
-      console.log('Copy not implemented in Tauri')
+      logger.info('Copy not implemented in Tauri')
     }, 'Ctrl+C', true),
     mk('Paste', () => {
-      console.log('Paste not implemented in Tauri')
+      logger.info('Paste not implemented in Tauri')
     }, 'Ctrl+V', true),
     mk('Select All', () => {
-      console.log('Select All not implemented in Tauri')
+      logger.info('Select All not implemented in Tauri')
     }, 'Ctrl+A', true),
   ]
   const viewItems: Item[] = [
@@ -189,7 +190,7 @@ const HeaderMenuBar: React.FC = () => {
       try {
         window.location.reload()
       } catch (error) {
-        console.error('Force reload failed:', error)
+        logger.error('Force reload failed:', error)
       }
     }, 'Ctrl+Shift+R'),
     sep,
@@ -204,7 +205,7 @@ const HeaderMenuBar: React.FC = () => {
         const currentWindow = getCurrent()
         await currentWindow.minimize()
       } catch (error) {
-        console.error('Minimize failed:', error)
+        logger.error('Minimize failed:', error)
       }
     }, 'Ctrl+M'),
     mk('Maximize/Restore', async () => {
@@ -213,7 +214,7 @@ const HeaderMenuBar: React.FC = () => {
         const currentWindow = getCurrent()
         await currentWindow.toggleMaximize()
       } catch (error) {
-        console.error('Toggle maximize failed:', error)
+        logger.error('Toggle maximize failed:', error)
       }
     }),
     mk('Close', handleCloseWindow, 'Ctrl+W'),

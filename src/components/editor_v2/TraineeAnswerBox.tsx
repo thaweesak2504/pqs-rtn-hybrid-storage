@@ -6,6 +6,7 @@ import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import ConfirmModal from "../modals/ConfirmModal";
 import { UserAnswer } from "./PqsQuestionSection";
+import { logger } from '../../utils/logger';
 
 // Simulation Constants
 const MOCK_TRAINEE_ID = "T-001";
@@ -119,7 +120,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setIsEditing(false);
       onAnswerSaved?.();
     } catch (error) {
-      console.error("Failed to save answer:", error);
+      logger.error("Failed to save answer:", error);
       setAlertModal({
         isOpen: true,
         message: "ไม่สามารถบันทึกคำตอบได้ (โปรดแจ้งนักพัฒนา)",
@@ -151,7 +152,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       // Immediately close and refresh after save per user request
       onAssessmentSaved?.();
     } catch (error) {
-      console.error("Failed to save assessment:", error);
+      logger.error("Failed to save assessment:", error);
       setAlertModal({
         isOpen: true,
         message: "ไม่สามารถบันทึกการประเมินได้ (โปรดแจ้งนักพัฒนา)",

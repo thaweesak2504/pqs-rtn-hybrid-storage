@@ -737,29 +737,6 @@ fn reorder_questions(question_ids: Vec<String>) -> Result<(), String> {
     content_database::reorder_questions(question_ids)
 }
 
-// DISABLED - Database logging functions removed
-// #[tauri::command]
-// fn get_database_logs() -> Result<String, String> {
-//     use std::fs;
-//
-//     let log_file = "database_operations.log";
-//     match fs::read_to_string(log_file) {
-//         Ok(content) => Ok(content),
-//         Err(_) => Ok("No database logs found yet.".to_string()),
-//     }
-// }
-
-// #[tauri::command]
-// fn clear_database_logs() -> Result<String, String> {
-//     use std::fs;
-//
-//     let log_file = "database_operations.log";
-//     match fs::write(log_file, "") {
-//         Ok(_) => Ok("Database logs cleared successfully.".to_string()),
-//         Err(e) => Err(format!("Failed to clear logs: {}", e)),
-//     }
-// }
-
 // ===== Section Management Commands =====
 
 #[tauri::command]

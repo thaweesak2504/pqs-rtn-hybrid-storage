@@ -65,7 +65,7 @@ pub fn validate_password_strength(password: &str, username: Option<&str>) -> Res
         "password1",
     ];
     let lower = password.to_ascii_lowercase();
-    if weak_passwords.iter().any(|w| *w == lower.as_str()) {
+    if weak_passwords.contains(&lower.as_str()) {
         return Err("Password is too common; please choose something stronger".to_string());
     }
 

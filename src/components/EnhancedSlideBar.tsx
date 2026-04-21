@@ -13,9 +13,11 @@ import { useNavigationHistory } from '../hooks/useNavigationHistory'
 import { useNavigationAnalytics } from '../hooks/useNavigationAnalytics'
 import { useResponsiveNavigation } from '../hooks/useResponsiveNavigation'
 import { 
-  MENU_ITEMS_CONFIG, 
+  MENU_ITEMS_CONFIG,
   AUTH_MENU_ITEMS
-} from '../config/navigationConfig'
+} from '../config/navigationConfig';
+import { logger } from '../utils/logger';
+
 
 /**
  * Enhanced SlideBar component with advanced navigation features
@@ -110,7 +112,7 @@ const EnhancedSlideBar: React.FC = () => {
         closeSlideBar()
       }
     } catch (error) {
-      console.error('Menu click error:', error)
+      logger.error('Menu click error:', error)
     }
   }
 
@@ -138,7 +140,7 @@ const EnhancedSlideBar: React.FC = () => {
         closeSlideBar()
       }
     } catch (error) {
-      console.error('Submenu click error:', error)
+      logger.error('Submenu click error:', error)
     }
   }
 
@@ -171,7 +173,7 @@ const EnhancedSlideBar: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Toggle menu error:', error)
+      logger.error('Toggle menu error:', error)
     }
   }
 

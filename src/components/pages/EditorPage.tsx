@@ -7,6 +7,7 @@ import SearchPqsForm from '../forms/SearchPqsForm'
 import Button from '../ui/Button'
 import { FilePlus, Search, LayoutDashboard, Clock } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/tauri'
+import { logger } from '../../utils/logger';
 
 interface DocumentStats {
   total_count: number;
@@ -28,7 +29,7 @@ const EditorPage: React.FC = () => {
       const data = await invoke<DocumentStats>('get_document_stats')
       setStats(data)
     } catch (err) {
-      console.error("Failed to fetch stats:", err)
+      logger.error("Failed to fetch stats:", err)
     }
   }
 
@@ -43,7 +44,7 @@ const EditorPage: React.FC = () => {
       })
       setRecentDrafts(data.slice(0, 5)) // Ensure we only show top 5
     } catch (err) {
-      console.error("Failed to fetch recent drafts:", err)
+      logger.error("Failed to fetch recent drafts:", err)
     }
   }
 

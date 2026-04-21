@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
+import { logger } from '../../utils/logger';
 
 interface Question {
   id: string;
@@ -73,7 +74,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
       setQuestions(filtered);
       setErrorMsg('');
     } catch (err: any) {
-      console.error("Failed to fetch questions:", err);
+      logger.error("Failed to fetch questions:", err);
       setErrorMsg(err.toString());
     } finally {
       setLoading(false);
@@ -170,7 +171,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
       fetchQuestions(); // Refresh tree
     } catch (err) {
       showError(`ไม่สามารถเพิ่มได้: ${err}`);
-      console.error(err);
+      logger.error(err);
     }
   };
 

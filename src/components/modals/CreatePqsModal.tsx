@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import { invoke } from '@tauri-apps/api/tauri'
 import Button from '../ui/Button' // Assuming default export based on name
 // import Form inputs or use generic HTML/Tailwind for speed/customization?
+import { logger } from '../../utils/logger';
 // Checking Form.tsx might be useful but standard inputs are fine for this specificity.
 
 interface OwnerUnit {
@@ -88,7 +89,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
         setL2Units(units)
       }
     } catch (err) {
-      console.error("Failed to load units:", err)
+      logger.error("Failed to load units:", err)
       setError("Failed to load initial units")
     }
   }
@@ -98,7 +99,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
       setter(units)
     } catch (err) {
-      console.error(`Failed to load children for ${parentId}:`, err)
+      logger.error(`Failed to load children for ${parentId}:`, err)
     }
   }
 
@@ -191,7 +192,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       // You might want to show a toast success here?
 
     } catch (err: any) {
-      console.error("Create failed:", err)
+      logger.error("Create failed:", err)
       setError(typeof err === 'string' ? err : "Failed to create document")
     } finally {
       setIsLoading(false)

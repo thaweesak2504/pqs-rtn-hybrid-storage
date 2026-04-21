@@ -1,5 +1,11 @@
-import React, { useState, useEffect } from 'react'
-import { DarkModeContext } from './darkModeContextObject'
+import React, { createContext, useState, useEffect } from 'react'
+
+export interface DarkModeContextType {
+  isDarkMode: boolean
+  toggleDarkMode: () => void
+}
+
+export const DarkModeContext = createContext<DarkModeContextType | undefined>(undefined)
 
 interface DarkModeProviderProps {
   children: React.ReactNode

@@ -1,5 +1,5 @@
 import { useContext } from 'react'
-import { UserProfileContext, type UserProfileContextType } from '../contexts/userProfileContextObject'
+import { UserProfileContext, type UserProfileContextType } from '../contexts/UserProfileContext'
 
 export const useUserProfile = (): UserProfileContextType => {
   const context = useContext(UserProfileContext)

@@ -13,6 +13,7 @@
  */
 
 import { CommandSanitizer } from './commandSanitizer';
+import { logger } from './logger';
 
 export interface ExecutionResult {
   success: boolean;
@@ -201,14 +202,14 @@ export class CommandExecutor {
     const time = result.executionTime.toFixed(0);
     const timeout = result.timeoutUsed ? ' (TIMEOUT)' : '';
     
-    console.log(`${status} [${time}ms]${timeout} ${result.sanitizedCommand}`);
+    logger.info(`${status} [${time}ms]${timeout} ${result.sanitizedCommand}`);
     
     if (!result.success) {
-      console.error(`   Error: ${result.error}`);
+      logger.error(`   Error: ${result.error}`);
     }
     
     if (result.sanitizationStats && result.sanitizationStats.charactersRemoved > 0) {
-      console.log(`   Sanitized: ${result.sanitizationStats.charactersRemoved} characters removed`);
+      logger.info(`   Sanitized: ${result.sanitizationStats.charactersRemoved} characters removed`);
     }
   }
   

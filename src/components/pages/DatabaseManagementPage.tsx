@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { logger } from '../../utils/logger';
 import { open, save } from '@tauri-apps/api/dialog';
 import { Container, Title, Card, Button, Alert } from '../ui';
 import { Database, Download, Trash2, RefreshCw, FileText, Archive, Package, RotateCcw, FileInput, Shield } from 'lucide-react';
@@ -52,7 +53,7 @@ const DatabaseManagementPage: React.FC = () => {
       const backupList = await invoke<BackupFile[]>('list_database_backups');
       setBackups(backupList);
     } catch (error) {
-      console.error('Error loading backups:', error);
+      logger.error('Error loading backups:', error);
     }
   };
 
@@ -62,7 +63,7 @@ const DatabaseManagementPage: React.FC = () => {
       const hybridBackupList: HybridBackupFile[] = JSON.parse(hybridBackupListJson);
       setHybridBackups(hybridBackupList);
     } catch (error) {
-      console.error('Error loading hybrid backups:', error);
+      logger.error('Error loading hybrid backups:', error);
       setHybridBackups([]); // Set empty array on error
     }
   };
@@ -73,7 +74,7 @@ const DatabaseManagementPage: React.FC = () => {
       const exportList: ExportFile[] = JSON.parse(exportListJson);
       setExports(exportList);
     } catch (error) {
-      console.error('Error loading exports:', error);
+      logger.error('Error loading exports:', error);
       setExports([]); // Set empty array on error
     }
   };
@@ -126,6 +127,7 @@ const DatabaseManagementPage: React.FC = () => {
       loadHybridBackups();
     } catch (error) {
       showMessage('error', `Failed to import hybrid backup: ${error}`);
+
     } finally {
       setIsLoading(false);
     }

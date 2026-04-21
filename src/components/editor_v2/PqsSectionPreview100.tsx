@@ -5,6 +5,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './PqsReferenceSection';
+import { logger } from '../../utils/logger';
 
 interface AnswerKeyRow {
   id: number;
@@ -80,7 +81,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
         );
         setQuestions(filtered);
       } catch (error) {
-        console.error('Failed to fetch questions for preview:', error);
+        logger.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }

@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
+import { logger } from '../utils/logger';
 
 // Desktop App only — invoke() directly, no web fallback
 export const safeInvoke = async (command: string, args?: any) => {
@@ -6,7 +7,7 @@ export const safeInvoke = async (command: string, args?: any) => {
     const result = await invoke(command, args);
     return result;
   } catch (error) {
-    console.error('Tauri invoke error:', error);
+    logger.error('Tauri invoke error:', error);
     throw error;
   }
 };
@@ -52,7 +53,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('get_all_users') as TauriUser[];
     } catch (error) {
-      console.error('Error getting all users:', error);
+      logger.error('Error getting all users:', error);
       throw error;
     }
   },
@@ -62,7 +63,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('get_user_by_id', { id }) as TauriUser | null;
     } catch (error) {
-      console.error('Error getting user by ID:', error);
+      logger.error('Error getting user by ID:', error);
       throw error;
     }
   },
@@ -72,7 +73,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('get_user_by_email', { email }) as TauriUser | null;
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      logger.error('Error getting user by email:', error);
       throw error;
     }
   },
@@ -89,7 +90,7 @@ export const tauriUserService = {
         role 
       }) as TauriUser;
     } catch (error) {
-      console.error('Error creating user:', error);
+      logger.error('Error creating user:', error);
       throw error;
     }
   },
@@ -116,7 +117,7 @@ export const tauriUserService = {
         role,
       }) as TauriUser;
     } catch (error) {
-      console.error('Error updating user:', error);
+      logger.error('Error updating user:', error);
       throw error;
     }
   },
@@ -130,7 +131,7 @@ export const tauriUserService = {
         newPassword,
       });
     } catch (error) {
-      console.error('Error changing password:', error);
+      logger.error('Error changing password:', error);
       throw error;
     }
   },
@@ -140,7 +141,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('delete_user', { id }) as boolean;
     } catch (error) {
-      console.error('Error deleting user:', error);
+      logger.error('Error deleting user:', error);
       throw error;
     }
   },
@@ -150,7 +151,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('cleanup_orphaned_avatars', {}) as number;
     } catch (error) {
-      console.error('Error cleaning up orphaned avatars:', error);
+      logger.error('Error cleaning up orphaned avatars:', error);
       throw error;
     }
   },
@@ -160,7 +161,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('migrate_passwords', {}) as string;
     } catch (error) {
-      console.error('Error migrating passwords:', error);
+      logger.error('Error migrating passwords:', error);
       throw error;
     }
   },
@@ -176,7 +177,7 @@ export const tauriUserService = {
       
       return await safeInvoke('authenticate_user', params) as TauriUser | null;
     } catch (error) {
-      console.error('Error authenticating user:', error);
+      logger.error('Error authenticating user:', error);
       throw error;
     }
   },
@@ -190,7 +191,7 @@ export const tauriAvatarService = {
     try {
       return await safeInvoke('get_avatar_by_user_id', { userId: userId }) as TauriAvatar | null;
     } catch (error) {
-      console.error('Error getting avatar by user ID:', error);
+      logger.error('Error getting avatar by user ID:', error);
       throw error;
     }
   },
@@ -204,7 +205,7 @@ export const tauriAvatarService = {
         mimeType: mimeType 
       }) as TauriAvatar;
     } catch (error) {
-      console.error('Error saving avatar:', error);
+      logger.error('Error saving avatar:', error);
       throw error;
     }
   },
@@ -214,7 +215,7 @@ export const tauriAvatarService = {
     try {
       return await safeInvoke('delete_avatar', { userId: userId }) as boolean;
     } catch (error) {
-      console.error('Error deleting avatar:', error);
+      logger.error('Error deleting avatar:', error);
       throw error;
     }
   }
@@ -227,7 +228,7 @@ export const tauriDatabaseService = {
     try {
       return await safeInvoke('initialize_database') as string;
     } catch (error) {
-      console.error('Error initializing database:', error);
+      logger.error('Error initializing database:', error);
       throw error;
     }
   }

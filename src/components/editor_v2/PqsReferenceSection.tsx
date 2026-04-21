@@ -7,6 +7,7 @@ import ConfirmModal from '../modals/ConfirmModal';
 import ImagePreviewModal from '../modals/ImagePreviewModal';
 import Button from '../ui/Button';
 import Tooltip from '../ui/Tooltip';
+import { logger } from '../../utils/logger';
 
 
 // Types
@@ -296,7 +297,7 @@ const ReferenceSearchCard: React.FC<{
         const refs = await invoke<DocumentReference[]>('get_references', { search: null, category: null });
         setAllRefs(refs);
       } catch (err) {
-        console.error("Failed to load refs:", err);
+        logger.error("Failed to load refs:", err);
       } finally {
         setLoading(false);
       }
@@ -365,7 +366,7 @@ const ReferenceSearchCard: React.FC<{
             return next;
           });
         } catch (err) {
-          console.error("Failed to delete master ref:", err);
+          logger.error("Failed to delete master ref:", err);
           onAlert("ไม่สามารถลบเอกสารหลักได้: " + err, 'warning');
         }
       },
@@ -386,7 +387,7 @@ const ReferenceSearchCard: React.FC<{
       }
       onSuccess();
     } catch (err) {
-      console.error("Failed to batch add references:", err);
+      logger.error("Failed to batch add references:", err);
       onAlert("Error adding references: " + err, 'danger');
     } finally {
       setAdding(false);
@@ -581,7 +582,7 @@ const ReferenceFormCard: React.FC<{
         handleChange('file_path', selected);
       }
     } catch (err) {
-      console.error("Failed to open file dialog:", err);
+      logger.error("Failed to open file dialog:", err);
     }
   };
 
@@ -634,7 +635,7 @@ const ReferenceFormCard: React.FC<{
           handleChange('code', newCode);
         }
       } catch (err) {
-        console.error("Failed to fetch sequence:", err);
+        logger.error("Failed to fetch sequence:", err);
         // Fallback to placeholder if error
         handleChange('code', `${newPrefix}-${newDigit}XXXX`);
       }
@@ -874,7 +875,7 @@ const ReferenceDisplayCard: React.FC<{
 
           fullPath = await join(rootPath, data.file_path || '');
         } catch (err) {
-          console.error("Failed to resolve path:", err);
+          logger.error("Failed to resolve path:", err);
         }
       }
 
@@ -885,7 +886,7 @@ const ReferenceDisplayCard: React.FC<{
       try {
         await invoke('open_path', { path: data.file_path });
       } catch (err) {
-        console.error("Failed to open resource:", err);
+        logger.error("Failed to open resource:", err);
         if (onAlert) {
           onAlert("ไม่สามารถเปิดลิงก์หรือไฟล์ได้: " + err, 'warning');
         }

@@ -10,6 +10,7 @@ import { CommandExecutor, ExecutionOptions, ExecutionResult, ExecutionStats } fr
 import { CommandMonitor, CommandStatistics } from './commandMonitor';
 import { AICommandFilter, FilteredCommands } from './aiCommandFilter';
 import { CommandProtectionTest, TestSuite } from './commandProtectionTest';
+import { logger } from './logger';
 
 // Core components
 export { CommandSanitizer, sanitizeCommand, validateCommand, detectEncodingIssues, hasProblematicCharacters } from './commandSanitizer';
@@ -51,14 +52,14 @@ export class CommandProtectionSystem {
    * Initialize the command protection system
    */
   async initialize(): Promise<void> {
-    console.log('🛡️ Initializing Command Protection System...');
+    logger.info('🛡️ Initializing Command Protection System...');
     
     // Clear any existing data
     CommandMonitor.clearAllData();
     AICommandFilter.clearProcessingHistory();
     CommandExecutor.clearHistory();
     
-    console.log('✅ Command Protection System initialized successfully!');
+    logger.info('✅ Command Protection System initialized successfully!');
   }
   
   /**

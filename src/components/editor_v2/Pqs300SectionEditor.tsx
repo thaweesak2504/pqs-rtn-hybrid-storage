@@ -7,6 +7,7 @@ import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
 import PqsSectionPreview300 from './PqsSectionPreview300';
+import { logger } from '../../utils/logger';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -107,7 +108,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       const freshTotal = await invoke<number>('calculate_section_total_score', { sectionId });
       setTotalScore(freshTotal);
     } catch (error) {
-      console.error('Failed to refresh section total score:', error);
+      logger.error('Failed to refresh section total score:', error);
     }
   }, [sectionId]);
 
@@ -136,7 +137,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         needs_improvement_questions: 0,
       });
     } catch (error) {
-      console.error('Failed to refresh section progress:', error);
+      logger.error('Failed to refresh section progress:', error);
     }
   }, [docId, sectionId]);
 
@@ -159,7 +160,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       });
       setCurrentTitle(newTitle);
     } catch (error) {
-      console.error("Failed to update title:", error);
+      logger.error("Failed to update title:", error);
       showAlert("Failed to save title: " + error, 'danger');
     }
   };
@@ -179,7 +180,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       setCurrentMenuLabel(newSubTitle);
       onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
-      console.error("Failed to update menu label:", error);
+      logger.error("Failed to update menu label:", error);
       showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
@@ -201,7 +202,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       setDurationUnit(tempUnit);
       setIsEditingMeta(false);
     } catch (error) {
-      console.error("Failed to update section meta:", error);
+      logger.error("Failed to update section meta:", error);
       showAlert("Failed to save: " + error, 'danger');
     }
   };
@@ -225,7 +226,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         setSectionId(currentSection.id);
       }
     } catch (error) {
-      console.error("Failed to fetch section data:", error);
+      logger.error("Failed to fetch section data:", error);
     }
   }, [docId, sectionNumber]);
 

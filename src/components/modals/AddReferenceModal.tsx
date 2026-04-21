@@ -3,6 +3,7 @@ import { BookOpen, Edit, FileText, Lock, Plus, Search, Shield, X } from 'lucide-
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import ConfirmModal from './ConfirmModal';
+import { logger } from '../../utils/logger';
 
 interface DocumentReference {
   id: number;
@@ -85,7 +86,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       const refs = await invoke<any[]>('get_section_references', { sectionId });
       setExistingRefs(refs.map(r => r.reference.id));
     } catch (err) {
-      console.error('Failed to load section references:', err);
+      logger.error('Failed to load section references:', err);
     }
   };
 
@@ -97,7 +98,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       });
       setAllRefs(refs);
     } catch (err) {
-      console.error('Failed to load references:', err);
+      logger.error('Failed to load references:', err);
     }
   };
 
@@ -109,7 +110,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       });
       setCommonRefs(refs);
     } catch (err) {
-      console.error('Failed to load common references:', err);
+      logger.error('Failed to load common references:', err);
     }
   };
 
@@ -191,7 +192,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
             displayOrder: null,
           });
         } catch (err) {
-          console.warn(`Failed to add reference ${refId}:`, err);
+          logger.warn(`Failed to add reference ${refId}:`, err);
           // If one fails, we continue with others? Or stop? 
           // Backend checks for existence, so if it's already there it might error.
         }
@@ -200,7 +201,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Failed to add selected references:', err);
+      logger.error('Failed to add selected references:', err);
       setError(err.toString());
     } finally {
       setAddingMany(false);
@@ -245,7 +246,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      console.error('Failed to create reference:', err);
+      logger.error('Failed to create reference:', err);
       setError(err.toString());
     } finally {
       setCreating(false);

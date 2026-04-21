@@ -4,6 +4,7 @@ import teamImage from '../../assets/images/fcs_team.webp'
 import navyLogo from '../../assets/images/navy_logo.webp'
 import { CheckCircle, Headphones, BookOpen, Target, Shield } from 'lucide-react'
 import { Container, Card, Button, Alert, MiniAudioPlayer, Header } from '../ui'
+import { logger } from '../../utils/logger';
 // audioStorage removed - using localStorage for playlist persistence
 
 const HistoryPage: React.FC = () => {
@@ -60,7 +61,7 @@ const HistoryPage: React.FC = () => {
           setPlaylist(validPlaylist)
         }
       } catch (error) {
-        console.error('Error loading playlist:', error)
+        logger.error('Error loading playlist:', error)
         setPlaylist(defaultPlaylist)
       } finally {
         setIsLoading(false)
@@ -142,7 +143,7 @@ const HistoryPage: React.FC = () => {
             setIsPlaying(true)
             setShowMiniPlayer(true)
           }).catch((error) => {
-            console.error('Error playing audio:', error)
+            logger.error('Error playing audio:', error)
           })
         }
         
@@ -172,7 +173,7 @@ const HistoryPage: React.FC = () => {
         audioRef.current.play().then(() => {
           setIsPlaying(true)
         }).catch((error) => {
-          console.error('Error playing audio:', error)
+          logger.error('Error playing audio:', error)
         })
       }
     }
@@ -194,7 +195,7 @@ const HistoryPage: React.FC = () => {
         audioRef.current?.play().then(() => {
           setIsPlaying(true)
         }).catch((error) => {
-          console.error('Error auto-playing track:', error)
+          logger.error('Error auto-playing track:', error)
           setIsPlaying(false)
         })
       }
@@ -243,7 +244,7 @@ const HistoryPage: React.FC = () => {
       try {
         localStorage.setItem('pqs-audio-playlist', JSON.stringify(playlist))
       } catch (error) {
-        console.error('Error saving playlist:', error)
+        logger.error('Error saving playlist:', error)
       }
     }
   }, [playlist, isLoading])
