@@ -16,6 +16,7 @@ mod hybrid_backup; // New hybrid backup system
 mod hybrid_high_rank_avatar;
 mod logger; // Logger system for conditional debug output
 mod migration_helper;
+mod migrations; // Phase 2: versioned schema migration framework
 mod universal_sqlite_backup; // Database migration utilities
 
 #[cfg(test)]

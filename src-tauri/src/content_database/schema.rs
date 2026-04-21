@@ -203,7 +203,7 @@ pub fn is_protected_sub_branch(
     is_protected_main_branch(conn, branch_code)
 }
 pub fn initialize_content_database() -> Result<String, String> {
-    let conn = get_content_connection()
+    let mut conn = get_content_connection()
         .map_err(|e| format!("Failed to connect to content database: {}", e))?;
 
     // Users table
@@ -228,9 +228,6 @@ pub fn initialize_content_database() -> Result<String, String> {
         [],
     )
     .map_err(|e| format!("Failed to create users table: {}", e))?;
-
-    // Run idempotent user-table migrations (adds must_change_password for pre-Phase-1 DBs)
-    crate::auth::ensure_user_schema_migrations(&conn)?;
 
     // High ranking officers table
     conn.execute(
@@ -486,6 +483,19 @@ pub fn initialize_content_database() -> Result<String, String> {
          "UPDATE OccupationSubBranches SET name = REPLACE(name, 'ไฟฟ้าอาวุะ', 'ไฟฟ้าอาวุธ') WHERE name LIKE '%ไฟฟ้าอาวุะ%'",
          "normalize OccupationSubBranches typo",
      );
+
+    // Phase 2: run versioned schema migrations AFTER all CREATE TABLE IF NOT
+    // EXISTS statements so fresh installs have a complete schema to baseline
+    // against, and legacy DBs get pending ALTERs applied in strict version order.
+    // See `src-tauri/src/migrations.rs` for framework details.
+    let report =
+        crate::migrations::run_pending_migrations(&mut conn, &crate::migrations::all_migrations())?;
+    if !report.applied.is_empty() || !report.baselined.is_empty() {
+        logger::info(format!(
+            "Schema migrations: applied={:?}, baselined={:?}, skipped={:?}",
+            report.applied, report.baselined, report.skipped
+        ));
+    }
 
     Ok("Content database initialized successfully".to_string())
 }

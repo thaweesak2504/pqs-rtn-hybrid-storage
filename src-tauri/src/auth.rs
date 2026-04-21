@@ -77,36 +77,10 @@ pub fn validate_password_strength(password: &str, username: Option<&str>) -> Res
     Ok(())
 }
 
-/// Run idempotent migrations on the users table. Safe to call every startup.
-/// Adds columns introduced after the initial schema.
-pub fn ensure_user_schema_migrations(conn: &Connection) -> Result<(), String> {
-    // Add must_change_password column if missing (for DBs created before Phase 1 security).
-    // SQLite does not support "ADD COLUMN IF NOT EXISTS", so we detect via PRAGMA.
-    let has_col: bool = conn
-        .prepare("PRAGMA table_info(users)")
-        .and_then(|mut stmt| {
-            let mut has = false;
-            let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
-            for r in rows.flatten() {
-                if r == "must_change_password" {
-                    has = true;
-                    break;
-                }
-            }
-            Ok(has)
-        })
-        .unwrap_or(false);
-
-    if !has_col {
-        conn.execute(
-            "ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0",
-            [],
-        )
-        .map_err(|e| format!("Failed to add must_change_password column: {}", e))?;
-        logger::info("Migrated users table: added must_change_password column");
-    }
-    Ok(())
-}
+// NOTE: the former `ensure_user_schema_migrations` helper has been replaced by
+// the versioned migration framework in `src-tauri/src/migrations.rs` (Phase 2).
+// Schema evolution now flows through `migrations::run_pending_migrations` and
+// is tracked in the `schema_migrations` table.
 
 /// Get connection to existing database or create new one
 /// WARNING: This will CREATE a new empty database file if it doesn't exist!
@@ -905,56 +879,9 @@ mod tests {
         assert!(validate_password_strength("GoodPass123", Some("")).is_ok());
     }
 
-    // ── ensure_user_schema_migrations ────────────────────────────────────
-
-    #[test]
-    fn migration_adds_must_change_password_column() {
-        // Pre-Phase-1 DB: users table exists without must_change_password column.
-        let conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute(
-            "CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT,
-                password_hash TEXT
-            )",
-            [],
-        )
-        .unwrap();
-
-        ensure_user_schema_migrations(&conn).expect("migration should succeed");
-
-        // Column now exists
-        let mut stmt = conn.prepare("PRAGMA table_info(users)").unwrap();
-        let cols: Vec<String> = stmt
-            .query_map([], |row| row.get::<_, String>(1))
-            .unwrap()
-            .filter_map(Result::ok)
-            .collect();
-        assert!(
-            cols.contains(&"must_change_password".to_string()),
-            "expected must_change_password column, got: {:?}",
-            cols
-        );
-    }
-
-    #[test]
-    fn migration_is_idempotent() {
-        let conn = rusqlite::Connection::open_in_memory().unwrap();
-        conn.execute(
-            "CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT,
-                password_hash TEXT,
-                must_change_password BOOLEAN NOT NULL DEFAULT 0
-            )",
-            [],
-        )
-        .unwrap();
-
-        // Running twice must not error
-        ensure_user_schema_migrations(&conn).unwrap();
-        ensure_user_schema_migrations(&conn).unwrap();
-    }
+    // NOTE: schema-migration tests (previously exercising the inline
+    // ensure_user_schema_migrations helper) have moved to `migrations.rs`
+    // alongside the framework that replaced them.
 
     // ── default admin constants sanity checks ────────────────────────────
 
