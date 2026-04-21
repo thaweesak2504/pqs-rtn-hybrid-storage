@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
-import { AuthContext, type AuthContextType, type User } from './authContextObject'
+import React, { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { tauriUserService } from '../services/tauriService'
+import { AuthContext, type AuthContextType, type User } from './authContextObject'
 
 // Context is declared in authContextObject.ts
 
@@ -71,10 +71,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           email: tauriUser.email,
           name: tauriUser.full_name,
           role: tauriUser.role,
-          password_hash: tauriUser.password_hash,
           full_name: tauriUser.full_name,
           rank: tauriUser.rank,
           is_active: tauriUser.is_active,
+          must_change_password: tauriUser.must_change_password,
           avatar: undefined,
           avatar_path: tauriUser.avatar_path || null,
           avatar_updated_at: tauriUser.avatar_updated_at || null,

@@ -1,4 +1,4 @@
-import { tauriUserService, TauriUser } from './tauriService';
+import { TauriUser, tauriUserService } from './tauriService';
 
 // Authentication service functions
 export const createUserAccount = async (userData: {
@@ -24,10 +24,9 @@ export const authenticateUser = async (
   password: string
 ): Promise<TauriUser | null> => {
   try {
-    // For now, use plain text password (database stores plain text)
-    // TODO: Implement proper bcrypt hashing when database is updated
-    const password_hash = password;
-    return await tauriUserService.authenticateUser(username_or_email, password_hash);
+    // Phase 1 security: plaintext password is sent over the Tauri IPC boundary
+    // (which never leaves the local process). Backend verifies via bcrypt.
+    return await tauriUserService.authenticateUser(username_or_email, password);
   } catch (error) {
     console.error('Failed to authenticate user:', error);
     throw error;

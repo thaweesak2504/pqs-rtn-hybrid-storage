@@ -221,12 +221,16 @@ pub fn initialize_content_database() -> Result<String, String> {
             avatar_updated_at DATETIME,
             avatar_mime TEXT,
             avatar_size INTEGER,
+            must_change_password BOOLEAN NOT NULL DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
         [],
     )
     .map_err(|e| format!("Failed to create users table: {}", e))?;
+
+    // Run idempotent user-table migrations (adds must_change_password for pre-Phase-1 DBs)
+    crate::auth::ensure_user_schema_migrations(&conn)?;
 
     // High ranking officers table
     conn.execute(
@@ -257,12 +261,25 @@ pub fn initialize_content_database() -> Result<String, String> {
         .unwrap_or(0);
 
     if admin_exists == 0 {
-        let admin_password_hash = bcrypt::hash("Admin&21", bcrypt::DEFAULT_COST)
-            .map_err(|e| format!("Failed to hash admin password: {}", e))?;
+        // Seed default admin with documented credentials. The `must_change_password`
+        // flag is set so the UI MUST force a password change on first login.
+        // This pattern guarantees a usable admin exists in distributed desktop apps
+        // without shipping a real secret.
+        let admin_password_hash =
+            bcrypt::hash(crate::auth::DEFAULT_ADMIN_PASSWORD, bcrypt::DEFAULT_COST)
+                .map_err(|e| format!("Failed to hash admin password: {}", e))?;
 
         conn.execute(
-            "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            rusqlite::params!["admin", "admin@pqs-rtn.com", admin_password_hash, "System Administrator", "ร.ต.", "admin", true],
+            "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+            rusqlite::params![
+                crate::auth::DEFAULT_ADMIN_USERNAME,
+                crate::auth::DEFAULT_ADMIN_EMAIL,
+                admin_password_hash,
+                "System Administrator",
+                "ร.ต.",
+                "admin",
+                true
+            ],
         ).map_err(|e| format!("Failed to insert admin user: {}", e))?;
     }
 

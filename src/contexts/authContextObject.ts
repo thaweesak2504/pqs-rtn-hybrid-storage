@@ -11,10 +11,11 @@ export interface User {
   avatar_updated_at?: string | null
   avatar_mime?: string
   avatar_size?: number
-  password_hash?: string
   full_name?: string
   rank?: string
   is_active?: boolean
+  /** True when the user must change password before any other action (seeded default admin). */
+  must_change_password?: boolean
   created_at?: string
   updated_at?: string
 }

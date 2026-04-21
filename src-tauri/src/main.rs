@@ -54,14 +54,12 @@ fn create_user(
     rank: Option<String>,
     role: String,
 ) -> Result<User, String> {
-    // Hash the password before storing
-    let password_hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST)
-        .map_err(|e| format!("Failed to hash password: {}", e))?;
-
+    // Phase 1 security: password is hashed inside auth::create_user. The backend
+    // is the single source of truth for password hashing; the frontend MUST pass plaintext.
     auth::create_user(
         &username,
         &email,
-        &password_hash,
+        &password,
         &full_name,
         rank.as_deref(),
         &role,
@@ -73,20 +71,27 @@ fn update_user(
     id: i32,
     username: String,
     email: String,
-    password_hash: String,
+    password: Option<String>,
     full_name: String,
     rank: Option<String>,
     role: String,
 ) -> Result<User, String> {
+    // Phase 1 security: `password` is optional plaintext. When None (or empty string),
+    // the existing password hash is preserved. Backend hashes and validates strength.
     auth::update_user(
         id,
         &username,
         &email,
-        &password_hash,
+        password.as_deref(),
         &full_name,
         rank.as_deref(),
         &role,
     )
+}
+
+#[tauri::command]
+fn change_password(user_id: i32, old_password: String, new_password: String) -> Result<(), String> {
+    auth::change_password(user_id, &old_password, &new_password)
 }
 
 #[tauri::command]
@@ -183,12 +188,6 @@ fn update_high_ranking_officer(
         &position_english,
         order_index,
     )
-}
-
-#[tauri::command]
-fn hash_password(password: String) -> Result<String, String> {
-    bcrypt::hash(&password, bcrypt::DEFAULT_COST)
-        .map_err(|e| format!("Failed to hash password: {}", e))
 }
 
 // Database backup/restore commands
@@ -1357,7 +1356,7 @@ fn main() {
             zoom_reset,
             get_all_high_ranking_officers,
             update_high_ranking_officer,
-            hash_password,
+            change_password,
             // Database backup/restore commands
             create_database_backup,
             restore_database_backup,

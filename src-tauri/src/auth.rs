@@ -7,6 +7,17 @@ use serde::{Deserialize, Serialize};
 // Global flag to prevent multiple database initialization
 // static INIT_ONCE: Once = Once::new();
 
+/// Default admin credentials seeded on first launch.
+///
+/// These are intentionally trivial and documented — they are NOT a secret.
+/// The seeded admin has `must_change_password = 1`, so the UI MUST force a
+/// password change on first login before any other action is allowed.
+/// This pattern guarantees a working admin exists in distributed desktop apps
+/// while eliminating the risk of shipping a real hardcoded credential.
+pub const DEFAULT_ADMIN_USERNAME: &str = "admin";
+pub const DEFAULT_ADMIN_PASSWORD: &str = "admin";
+pub const DEFAULT_ADMIN_EMAIL: &str = "admin@pqs-rtn.local";
+
 // User and Avatar structs
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
@@ -24,6 +35,77 @@ pub struct User {
     pub avatar_size: Option<i32>,
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
+    /// When true, the user must change their password before the UI allows
+    /// any other operation. Set to 1 for the seeded default admin.
+    #[serde(default)]
+    pub must_change_password: bool,
+}
+
+/// Validate password strength. Returns Ok(()) if acceptable.
+///
+/// Rules:
+/// - Minimum 8 characters
+/// - Must not be a known weak password (e.g. "admin", "password", "12345678")
+/// - Must not equal the username (when provided)
+pub fn validate_password_strength(password: &str, username: Option<&str>) -> Result<(), String> {
+    if password.len() < 8 {
+        return Err("Password must be at least 8 characters long".to_string());
+    }
+
+    let weak_passwords = [
+        "admin",
+        "password",
+        "12345678",
+        "qwerty",
+        "qwerty12",
+        "00000000",
+        "11111111",
+        "admin123",
+        "password1",
+    ];
+    let lower = password.to_ascii_lowercase();
+    if weak_passwords.iter().any(|w| *w == lower.as_str()) {
+        return Err("Password is too common; please choose something stronger".to_string());
+    }
+
+    if let Some(u) = username {
+        if !u.is_empty() && u.eq_ignore_ascii_case(password) {
+            return Err("Password must not be the same as the username".to_string());
+        }
+    }
+
+    Ok(())
+}
+
+/// Run idempotent migrations on the users table. Safe to call every startup.
+/// Adds columns introduced after the initial schema.
+pub fn ensure_user_schema_migrations(conn: &Connection) -> Result<(), String> {
+    // Add must_change_password column if missing (for DBs created before Phase 1 security).
+    // SQLite does not support "ADD COLUMN IF NOT EXISTS", so we detect via PRAGMA.
+    let has_col: bool = conn
+        .prepare("PRAGMA table_info(users)")
+        .and_then(|mut stmt| {
+            let mut has = false;
+            let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+            for r in rows.flatten() {
+                if r == "must_change_password" {
+                    has = true;
+                    break;
+                }
+            }
+            Ok(has)
+        })
+        .unwrap_or(false);
+
+    if !has_col {
+        conn.execute(
+            "ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0",
+            [],
+        )
+        .map_err(|e| format!("Failed to add must_change_password column: {}", e))?;
+        logger::info("Migrated users table: added must_change_password column");
+    }
+    Ok(())
 }
 
 /// Get connection to existing database or create new one
@@ -330,14 +412,23 @@ fn initialize_database_internal() -> Result<String, String> {
         > 0;
 
     if !admin_exists {
-        // Hash the admin password before storing
-        let admin_password_hash = bcrypt::hash("Admin&21", bcrypt::DEFAULT_COST)
+        // Seed default admin with documented credentials.
+        // `must_change_password = 1` forces the UI to prompt a password change
+        // on first login — guarantees a usable admin exists without shipping a real secret.
+        let admin_password_hash = bcrypt::hash(DEFAULT_ADMIN_PASSWORD, bcrypt::DEFAULT_COST)
             .map_err(|e| format!("Failed to hash admin password: {}", e))?;
 
-        // Insert new admin user with hashed password
         conn.execute(
-            "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            params!["admin", "admin@pqs-rtn.com", admin_password_hash, "System Administrator", "ร.ต.", "admin", true],
+            "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+            params![
+                DEFAULT_ADMIN_USERNAME,
+                DEFAULT_ADMIN_EMAIL,
+                admin_password_hash,
+                "System Administrator",
+                "ร.ต.",
+                "admin",
+                true
+            ],
         ).map_err(|e| format!("Failed to insert new admin user: {}", e))?;
     }
 
@@ -410,7 +501,7 @@ pub fn migrate_plain_text_passwords(conn: &rusqlite::Connection) -> Result<(), S
 pub fn get_all_users() -> Result<Vec<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users")
+    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
     let user_iter = stmt
@@ -430,6 +521,7 @@ pub fn get_all_users() -> Result<Vec<User>, String> {
                 avatar_size: row.get(11)?,
                 created_at: row.get(12)?,
                 updated_at: row.get(13)?,
+                must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
             })
         })
         .map_err(|e| format!("Failed to query users: {}", e))?;
@@ -445,7 +537,7 @@ pub fn get_all_users() -> Result<Vec<User>, String> {
 pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users WHERE id = ?")
+    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE id = ?")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
     let user = stmt.query_row(params![id], |row| {
@@ -464,6 +556,7 @@ pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
             avatar_size: row.get(11)?,
             created_at: row.get(12)?,
             updated_at: row.get(13)?,
+            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
         })
     });
 
@@ -477,7 +570,7 @@ pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
 pub fn get_user_by_email(email: &str) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users WHERE email = ?")
+    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE email = ?")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
     let user = stmt.query_row(params![email], |row| {
@@ -496,6 +589,7 @@ pub fn get_user_by_email(email: &str) -> Result<Option<User>, String> {
             avatar_size: row.get(11)?,
             created_at: row.get(12)?,
             updated_at: row.get(13)?,
+            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
         })
     });
 
@@ -506,40 +600,49 @@ pub fn get_user_by_email(email: &str) -> Result<Option<User>, String> {
     }
 }
 
+/// Create a new user. Password is taken as plaintext and hashed server-side.
+///
+/// Phase 1 security: frontend MUST NOT pass a pre-hashed password. The backend
+/// is the single source of truth for password hashing.
 pub fn create_user(
     username: &str,
     email: &str,
-    password_hash: &str,
+    password: &str,
     full_name: &str,
     rank: Option<&str>,
     role: &str,
 ) -> Result<User, String> {
+    // Enforce password strength at the boundary. Admin seeding bypasses this
+    // via `create_user_bypass_strength` — regular API calls must meet the bar.
+    validate_password_strength(password, Some(username))?;
+
+    let password_hash = bcrypt::hash(password, bcrypt::DEFAULT_COST)
+        .map_err(|e| format!("Failed to hash password: {}", e))?;
+
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     conn.execute(
-        "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO users (username, email, password_hash, full_name, rank, role, is_active, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, 0)",
         params![username, email, password_hash, full_name, rank, role, true],
     ).map_err(|e| format!("Failed to create user: {}", e))?;
 
     let user_id = conn.last_insert_rowid() as i32;
 
-    // Log user creation - DISABLED
-    // let _ = DB_LOGGER.log_user_operation(
-    //     DatabaseOperation::InsertUser,
-    //     Some(user_id),
-    //     format!("Created user: {} ({}) with role: {}", username, email, role)
-    // );
-
-    // Get the created user
     get_user_by_id(user_id)?.ok_or_else(|| "Failed to retrieve created user".to_string())
 }
 
+/// Update user fields. If `new_password` is provided (Some & non-empty), it is
+/// validated, hashed, and the `must_change_password` flag is cleared.
+/// If `new_password` is None, the existing password hash is preserved.
+///
+/// Phase 1 security: replaces the old `password_hash: &str` parameter which
+/// allowed frontend to write arbitrary hashes.
 pub fn update_user(
     id: i32,
     username: &str,
     email: &str,
-    password_hash: &str,
+    new_password: Option<&str>,
     full_name: &str,
     rank: Option<&str>,
     role: &str,
@@ -547,20 +650,61 @@ pub fn update_user(
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
 
-    conn.execute(
-        "UPDATE users SET username = ?, email = ?, password_hash = ?, full_name = ?, rank = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        params![username, email, password_hash, full_name, rank, role, id],
-    ).map_err(|e| format!("Failed to update user: {}", e))?;
+    match new_password {
+        Some(pw) if !pw.is_empty() => {
+            validate_password_strength(pw, Some(username))?;
+            let password_hash = bcrypt::hash(pw, bcrypt::DEFAULT_COST)
+                .map_err(|e| format!("Failed to hash password: {}", e))?;
+            conn.execute(
+                "UPDATE users SET username = ?, email = ?, password_hash = ?, full_name = ?, rank = ?, role = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                params![username, email, password_hash, full_name, rank, role, id],
+            ).map_err(|e| format!("Failed to update user: {}", e))?;
+        }
+        _ => {
+            conn.execute(
+                "UPDATE users SET username = ?, email = ?, full_name = ?, rank = ?, role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+                params![username, email, full_name, rank, role, id],
+            ).map_err(|e| format!("Failed to update user: {}", e))?;
+        }
+    }
 
-    // Log user update - DISABLED
-    // let _ = DB_LOGGER.log_user_operation(
-    //     DatabaseOperation::UpdateUser,
-    //     Some(id),
-    //     format!("Updated user: {} ({}) with role: {}", username, email, role)
-    // );
-
-    // Get the updated user
     get_user_by_id(id)?.ok_or_else(|| "User not found after update".to_string())
+}
+
+/// Change a user's password after verifying the old one.
+///
+/// Rules:
+/// - Verifies `old_password` against stored hash via bcrypt
+/// - Validates `new_password` strength (see `validate_password_strength`)
+/// - Rejects new_password equal to old_password
+/// - Clears `must_change_password` flag on success
+pub fn change_password(user_id: i32, old_password: &str, new_password: &str) -> Result<(), String> {
+    if old_password == new_password {
+        return Err("New password must be different from the current password".to_string());
+    }
+
+    let user = get_user_by_id(user_id)?.ok_or_else(|| "User not found".to_string())?;
+
+    let ok = bcrypt::verify(old_password, &user.password_hash)
+        .map_err(|e| format!("Password verification failed: {}", e))?;
+    if !ok {
+        return Err("Current password is incorrect".to_string());
+    }
+
+    validate_password_strength(new_password, Some(&user.username))?;
+
+    let new_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)
+        .map_err(|e| format!("Failed to hash password: {}", e))?;
+
+    let conn =
+        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    conn.execute(
+        "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        params![new_hash, user_id],
+    )
+    .map_err(|e| format!("Failed to update password: {}", e))?;
+
+    Ok(())
 }
 
 pub fn delete_user(id: i32) -> Result<bool, String> {
@@ -610,7 +754,7 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
 pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at FROM users WHERE (email = ? OR username = ?) AND is_active = 1")
+    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE (email = ? OR username = ?) AND is_active = 1")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
     let user = stmt.query_row(params![username_or_email, username_or_email], |row| {
@@ -629,6 +773,7 @@ pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Opti
             avatar_size: row.get(11)?,
             created_at: row.get(12)?,
             updated_at: row.get(13)?,
+            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
         })
     });
 
@@ -705,6 +850,124 @@ pub fn insert_default_high_ranking_officers(conn: &rusqlite::Connection) -> Resu
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── validate_password_strength ──────────────────────────────────────
+
+    #[test]
+    fn password_strength_rejects_short_passwords() {
+        let err = validate_password_strength("short", None).unwrap_err();
+        assert!(err.contains("at least 8"), "got: {}", err);
+    }
+
+    #[test]
+    fn password_strength_rejects_default_admin_password() {
+        // The documented default admin password itself must fail strength
+        // validation — so the must_change_password flow cannot be bypassed
+        // by "changing" to the same password. (The specific reason is
+        // incidental: it happens to trip the length check first.)
+        assert!(
+            validate_password_strength(DEFAULT_ADMIN_PASSWORD, None).is_err(),
+            "default admin password must fail strength validation"
+        );
+    }
+
+    #[test]
+    fn password_strength_rejects_common_weak_passwords() {
+        for weak in &["password", "12345678", "qwerty12", "admin123"] {
+            assert!(
+                validate_password_strength(weak, None).is_err(),
+                "expected weak password '{}' to be rejected",
+                weak
+            );
+        }
+    }
+
+    #[test]
+    fn password_strength_rejects_password_equal_to_username() {
+        let err = validate_password_strength("johndoe1", Some("johndoe1")).unwrap_err();
+        assert!(err.contains("same as the username"), "got: {}", err);
+    }
+
+    #[test]
+    fn password_strength_accepts_strong_password() {
+        assert!(validate_password_strength("R3dFish!Swim", Some("alice")).is_ok());
+        assert!(validate_password_strength("correct-horse-battery-staple", Some("bob")).is_ok());
+    }
+
+    #[test]
+    fn password_strength_ignores_empty_username() {
+        // Regression: username checks must not trip when username is "".
+        assert!(validate_password_strength("GoodPass123", Some("")).is_ok());
+    }
+
+    // ── ensure_user_schema_migrations ────────────────────────────────────
+
+    #[test]
+    fn migration_adds_must_change_password_column() {
+        // Pre-Phase-1 DB: users table exists without must_change_password column.
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                password_hash TEXT
+            )",
+            [],
+        )
+        .unwrap();
+
+        ensure_user_schema_migrations(&conn).expect("migration should succeed");
+
+        // Column now exists
+        let mut stmt = conn.prepare("PRAGMA table_info(users)").unwrap();
+        let cols: Vec<String> = stmt
+            .query_map([], |row| row.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
+        assert!(
+            cols.contains(&"must_change_password".to_string()),
+            "expected must_change_password column, got: {:?}",
+            cols
+        );
+    }
+
+    #[test]
+    fn migration_is_idempotent() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute(
+            "CREATE TABLE users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT,
+                password_hash TEXT,
+                must_change_password BOOLEAN NOT NULL DEFAULT 0
+            )",
+            [],
+        )
+        .unwrap();
+
+        // Running twice must not error
+        ensure_user_schema_migrations(&conn).unwrap();
+        ensure_user_schema_migrations(&conn).unwrap();
+    }
+
+    // ── default admin constants sanity checks ────────────────────────────
+
+    #[test]
+    fn default_admin_constants_are_documented_trivials() {
+        // These values ship in distributed app — the entire security model
+        // depends on them being trivial AND combined with must_change_password=1.
+        // If someone "upgrades" these to a real-looking credential, the seeded
+        // admin will be unreachable. Prevent that via this canary test.
+        assert_eq!(DEFAULT_ADMIN_USERNAME, "admin");
+        assert_eq!(DEFAULT_ADMIN_PASSWORD, "admin");
+        assert!(DEFAULT_ADMIN_EMAIL.ends_with("@pqs-rtn.local"));
+    }
 }
 
 // Get all high ranking officers

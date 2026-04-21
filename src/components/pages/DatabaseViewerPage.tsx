@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
-import { Container, Card, Button, Title } from '../ui'
-import { RefreshCw, Database, Users, Image, Eye, EyeOff, X, CheckCircle, XCircle } from 'lucide-react'
+import { CheckCircle, Database, Image, RefreshCw, Users, X, XCircle } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Button, Card, Container, Title } from '../ui'
 
 interface User {
   id: number
   username: string
   email: string
-  password_hash: string
   full_name: string
   rank: string
   role: string
@@ -35,7 +34,6 @@ const DatabaseViewerPage: React.FC = () => {
   const [avatarImages, setAvatarImages] = useState<Record<number, string>>({})
   const [isLoading, setIsLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
-  const [showPasswords, setShowPasswords] = useState(false)
   const [selectedAvatar, setSelectedAvatar] = useState<Avatar | null>(null)
 
   // Load data from database
@@ -149,16 +147,6 @@ const DatabaseViewerPage: React.FC = () => {
         >
           {isLoading ? 'Loading...' : 'Refresh'}
         </Button>
-
-
-        <Button
-          onClick={() => setShowPasswords(!showPasswords)}
-          variant="outline"
-          icon={showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          iconPosition="left"
-        >
-          {showPasswords ? 'Hide' : 'Show'} Passwords
-        </Button>
       </div>
 
       {/* Last Refresh Info */}
@@ -188,9 +176,6 @@ const DatabaseViewerPage: React.FC = () => {
                   <th className="text-left p-3 font-medium">Rank</th>
                   <th className="text-left p-3 font-medium">Role</th>
                   <th className="text-left p-3 font-medium">Active</th>
-                  {showPasswords && (
-                    <th className="text-left p-3 font-medium">Password Hash</th>
-                  )}
                   <th className="text-left p-3 font-medium">Avatar</th>
                   <th className="text-left p-3 font-medium">Created</th>
                   <th className="text-left p-3 font-medium">Updated</th>
@@ -199,7 +184,7 @@ const DatabaseViewerPage: React.FC = () => {
               <tbody>
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={showPasswords ? 11 : 10} className="p-8 text-center text-github-text-secondary">
+                    <td colSpan={10} className="p-8 text-center text-github-text-secondary">
                       {isLoading ? 'Loading users...' : 'No users found'}
                     </td>
                   </tr>
@@ -231,11 +216,6 @@ const DatabaseViewerPage: React.FC = () => {
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      {showPasswords && (
-                        <td className="p-3 font-mono text-xs text-github-text-tertiary">
-                          {user.password_hash ? user.password_hash.substring(0, 20) + '...' : 'N/A'}
-                        </td>
-                      )}
                       <td className="p-3">
                         {avatar ? (
                           <div className="flex items-center gap-2">

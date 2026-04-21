@@ -15,6 +15,11 @@ export interface TauriUser {
   id?: number;
   username: string;
   email: string;
+  /**
+   * @deprecated The backend still returns this for existing callers but the frontend
+   * must NEVER send it back. Use `createUser` / `updateUser` / `changePassword` which
+   * accept plaintext passwords and hash them server-side.
+   */
   password_hash: string;
   full_name: string;
   rank?: string;
@@ -26,6 +31,8 @@ export interface TauriUser {
   avatar_size?: number;
   created_at?: string;
   updated_at?: string;
+  /** True when the user must change their password before any other action (e.g. seeded default admin). */
+  must_change_password?: boolean;
 }
 
 export interface TauriAvatar {
@@ -87,20 +94,43 @@ export const tauriUserService = {
     }
   },
 
-  // Update user
-  async updateUser(id: number, username: string, email: string, password_hash: string, full_name: string, rank: string | undefined, role: string): Promise<TauriUser> {
+  // Update user. Pass `password` as plaintext to change it (backend hashes + validates).
+  // Omit (or pass empty string) to keep the existing password hash.
+  async updateUser(
+    id: number,
+    username: string,
+    email: string,
+    password: string | null | undefined,
+    full_name: string,
+    rank: string | undefined,
+    role: string
+  ): Promise<TauriUser> {
     try {
-      return await safeInvoke('update_user', { 
-        id, 
-        username, 
-        email, 
-        passwordHash: password_hash, 
-        fullName: full_name, 
-        rank, 
-        role 
+      return await safeInvoke('update_user', {
+        id,
+        username,
+        email,
+        password: password && password.length > 0 ? password : null,
+        fullName: full_name,
+        rank,
+        role,
       }) as TauriUser;
     } catch (error) {
       console.error('Error updating user:', error);
+      throw error;
+    }
+  },
+
+  // Change password after verifying the old one. Backend validates strength.
+  async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<void> {
+    try {
+      await safeInvoke('change_password', {
+        userId,
+        oldPassword,
+        newPassword,
+      });
+    } catch (error) {
+      console.error('Error changing password:', error);
       throw error;
     }
   },
@@ -151,15 +181,6 @@ export const tauriUserService = {
     }
   },
 
-  // Hash password
-  async hashPassword(password: string): Promise<string> {
-    try {
-      return await safeInvoke('hash_password', { password }) as string;
-    } catch (error) {
-      console.error('Error hashing password:', error);
-      throw error;
-    }
-  }
 };
 
 // Avatar Management Service
