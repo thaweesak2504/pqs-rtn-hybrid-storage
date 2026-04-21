@@ -6,9 +6,7 @@ use tauri::Manager;
 
 // Database module
 mod auth;
-mod backup_manager;
 mod content_database; // Separate content database
-mod database_backup;
 mod database_export;
 mod file_manager;
 mod hybrid_avatar;
@@ -194,24 +192,23 @@ fn update_high_ranking_officer(
 // Database backup/restore commands
 #[tauri::command]
 fn create_database_backup() -> Result<String, String> {
-    database_backup::create_backup()
+    universal_sqlite_backup::create_universal_sqlite_backup()
 }
 
 #[tauri::command]
 fn restore_database_backup(backup_filename: String) -> Result<String, String> {
-    database_backup::restore_backup(&backup_filename)
+    universal_sqlite_backup::restore_backup(&backup_filename)
 }
 
 #[tauri::command]
-fn list_database_backups() -> Result<Vec<database_backup::BackupInfo>, String> {
-    database_backup::list_backups()
+fn list_database_backups() -> Result<Vec<universal_sqlite_backup::BackupInfo>, String> {
+    universal_sqlite_backup::list_backups()
 }
 
 #[tauri::command]
 fn delete_database_backup(backup_filename: String) -> Result<String, String> {
-    database_backup::delete_backup(&backup_filename)
+    universal_sqlite_backup::delete_backup(&backup_filename)
 }
-
 // Database export/import commands
 #[tauri::command]
 fn export_database(format: String) -> Result<String, String> {
@@ -248,11 +245,7 @@ fn create_universal_sqlite_backup() -> Result<String, String> {
     universal_sqlite_backup::create_universal_sqlite_backup()
 }
 
-#[tauri::command]
-fn create_standard_sql_dump() -> Result<String, String> {
-    universal_sqlite_backup::create_standard_sql_dump()
-}
-
+// create_standard_sql_dump was removed in favor of export_database("sql")
 // Hybrid backup commands (Database + Media)
 #[tauri::command]
 fn create_hybrid_backup() -> Result<String, String> {
@@ -401,23 +394,23 @@ fn copy_backup_to_location(
     backup_filename: String,
     destination_path: String,
 ) -> Result<String, String> {
-    backup_manager::copy_backup_to_location(&backup_filename, &destination_path)
+    universal_sqlite_backup::copy_backup_to_location(&backup_filename, &destination_path)
 }
 
 #[tauri::command]
 fn get_backup_directory_path() -> Result<String, String> {
-    let backup_dir = backup_manager::get_backup_directory()?;
+    let backup_dir = universal_sqlite_backup::get_backup_directory()?;
     Ok(backup_dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 fn list_backup_files_with_paths() -> Result<Vec<(String, String)>, String> {
-    backup_manager::list_backup_files_with_paths()
+    universal_sqlite_backup::list_backup_files_with_paths()
 }
 
 #[tauri::command]
 fn get_backup_file_info(backup_filename: String) -> Result<(String, u64, String), String> {
-    backup_manager::get_backup_file_info(&backup_filename)
+    universal_sqlite_backup::get_backup_file_info(&backup_filename)
 }
 
 // Hybrid Avatar Commands
@@ -1370,7 +1363,6 @@ fn main() {
             delete_database_export,
             // Universal SQLite backup commands
             create_universal_sqlite_backup,
-            create_standard_sql_dump,
             // Hybrid backup commands (Database + Media)
             create_hybrid_backup,
             import_hybrid_backup,
