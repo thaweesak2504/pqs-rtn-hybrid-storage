@@ -5,9 +5,9 @@
 use tauri::Manager;
 
 // Database module
+mod auth;
 mod backup_manager;
 mod content_database; // Separate content database
-mod auth;
 mod database_backup;
 mod database_export;
 mod file_manager;
@@ -104,8 +104,8 @@ fn authenticate_user(username_or_email: String, password: String) -> Result<Opti
 
 #[tauri::command]
 fn migrate_passwords() -> Result<String, String> {
-    let conn = auth::get_connection_safe()
-        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn =
+        auth::get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     auth::migrate_plain_text_passwords(&conn)?;
     Ok("Password migration completed successfully".to_string())
 }
@@ -587,8 +587,8 @@ fn cleanup_orphaned_high_rank_avatar_files() -> Result<u32, String> {
 // Test cleanup commands
 #[tauri::command]
 fn delete_test_users() -> Result<String, String> {
-    let conn = auth::get_connection_safe()
-        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn =
+        auth::get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     // First, check what users exist
     let user_count: i32 = conn
@@ -630,8 +630,8 @@ fn delete_test_users() -> Result<String, String> {
 
 #[tauri::command]
 fn get_users_count() -> Result<i32, String> {
-    let conn = auth::get_connection_safe()
-        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let conn =
+        auth::get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     let count: i32 = conn
         .query_row("SELECT COUNT(*) FROM users", [], |row| row.get(0))
@@ -1518,13 +1518,18 @@ fn main() {
             content_database::replace_question_answer_keys,
         ])
         .setup(|app| {
+            // Post-consolidation cleanup: archive any leftover legacy database.db
+            // from older app versions before they tried to open it.
+            match migration_helper::cleanup_legacy_database_file() {
+                Ok(true) => logger::info("Legacy database.db archived successfully"),
+                Ok(false) => {} // No legacy file — clean install or already handled
+                Err(e) => logger::warn(format!("Legacy database.db cleanup failed: {}", e)),
+            }
+
             // Initialize content database (OwnerUnits, Documents, Users, Officers, etc.)
-            // NOTE: Since DB consolidation, users + high_ranking_officers tables are now
-            // created here in content.db instead of a separate database.db
             if let Err(e) = content_database::initialize_content_database() {
                 logger::error(format!("Failed to initialize content database: {}", e));
             }
-
 
             // Clean up orphaned section_ref questions (from sections deleted before cleanup was added)
             if let Err(e) = content_database::cleanup_orphaned_section_refs() {
