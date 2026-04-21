@@ -27,10 +27,11 @@ pub fn generate_document_id(
     unit_code: &str,
     doc_type: &str,
     user_level: &str,
-) -> SqlResult<String> {
+) -> Result<String, String> {
     let conn = get_content_connection()?;
 
     generate_document_id_with_conn(&conn, unit_code, doc_type, user_level)
+        .map_err(|e| format!("Failed to generate document id: {}", e))
 }
 /// Create a new document
 pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {

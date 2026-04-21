@@ -14,26 +14,26 @@
 | **Phase 1** — Security Hardening                   | ✅ **DONE**    | `f831655` (backend) + `992a056` (UI) | default admin + forced password change, FE hashing ลบออก, `change_password` API, `ForceChangePasswordModal`                                |
 | **Phase 2** — Migration Framework                  | ✅ **DONE**    | `b7b1c18` + `3c23192`                | versioned migration runner + `schema_migrations` table + baseline detection; migration 001 replaces ad-hoc `ensure_user_schema_migrations` |
 | **Phase 2B** — ย้าย `CREATE TABLE` เข้า migrations | ⏭️ Deferred    | —                                    | optional follow-up; ปัจจุบัน `CREATE TABLE IF NOT EXISTS` ทำงานอยู่แล้ว                                                                    |
-| **Phase 2C** — Connection Pooling                  | ⏳ **NEXT UP** | —                                    | r2d2 pool + Tauri State; คาดว่าลด DB latency 50-80% (เดิมเป็นส่วนหนึ่งของ Phase 2 รวมกับ Migration)                                        |
-| Phase 3 — Backup/Export Consolidation              | ⏳ pending     | —                                    | ลดแบคอัพ 5 modules (~75 KB) → 1                                                                                                            |
+| **Phase 2C** — Connection Pooling                  | ✅ **DONE**    | (นี้)                                | r2d2 pool + per-connection PRAGMA customizer; `get_content_connection` → pooled `DbConn`; รองรับ WAL/FK/busy_timeout อัตโนมัติ             |
+| Phase 3 — Backup/Export Consolidation              | ⏳ **NEXT UP** | —                                    | ลดแบคอัพ 5 modules (~75 KB) → 1                                                                                                            |
 | Phase 4 — Dead Code Cleanup                        | ⏳ pending     | —                                    | —                                                                                                                                          |
 | Phase 5 — Large File Refactoring                   | ⏳ pending     | —                                    | `main.rs`, `QuestionFormCard.tsx`, `tests.rs`                                                                                              |
 | Phase 7-10                                         | ⏳ pending     | —                                    | Types/DX, Performance, Tests expansion, Encryption                                                                                         |
 
-**Tests (ปัจจุบัน):** 🟢 **94 Rust + 175 FE** ผ่านหมด (จากเดิม 76 Rust + 158 FE)
+**Tests (ปัจจุบัน):** 🟢 **98 Rust + 175 FE** ผ่านหมด (จากเดิม 76 Rust + 158 FE) — +4 tests จาก Phase 2C pool
 
-**📌 กลับมาทำงานต่อไปนี้:** เริ่มที่ **Phase 2C — Connection Pooling** (ดูหัวข้อด้านล่าง). Phase 1, 2, 6 เสร็จครบแล้ว commits อยู่บน `project-review-actions` branch, และ push ขึ้น origin ครบแล้ว.
+**📌 กลับมาทำงานต่อไปนี้:** เริ่มที่ **Phase 3 — Backup/Export Consolidation** (ลดแบคอัพ 5 โมดูล ~75 KB → 1). Phase 1, 2A, 2C, 6 เสร็จครบ, บน branch `project-review-actions`.
 
 **วิธี resume งาน:**
 
 ```bash
 # ตรวจสอบว่า tests ผ่าน
-(cd src-tauri && cargo test)    # คาดว่า 94 passed
+(cd src-tauri && cargo test)    # คาดว่า 98 passed
 npx vitest run                   # คาดว่า 175 passed
 
 # ดูว่าอยู่ที่ branch ถูกต้อง
 git branch --show-current        # ควรเป็น project-review-actions
-git log --oneline -5             # ควรเห็น 3c23192 เป็น commit ล่าสุด
+git log --oneline -5             # ควรเห็น commit ล่าสุด
 ```
 
 ---
@@ -61,7 +61,7 @@ git log --oneline -5             # ควรเห็น 3c23192 เป็น co
 ### จุดแข็ง
 
 - โครงสร้างโมดูลชัดเจน (หลัง refactoring `content_database.rs`)
-- มี test coverage ที่โตขึ้น — **94 Rust + 175 FE tests** (+18 Rust, +17 FE หลัง Phase 1-2)
+- มี test coverage ที่โตขึ้น — **98 Rust + 175 FE tests** (+18 Rust, +17 FE หลัง Phase 1-2)
 - bcrypt password hashing (ย้าย hashing ไปฝั่ง backend เต็มตัวแล้ว — Phase 1)
 - แยก Hybrid storage (filesystem + DB metadata) ดี
 - **Versioned migration framework** พร้อมใช้ (Phase 2) — schema evolution tracked ใน `schema_migrations`
@@ -74,7 +74,7 @@ git log --oneline -5             # ควรเห็น 3c23192 เป็น co
 2. 🔴 **Backup module redundancy** — 4 modules ทับซ้อน (~75 KB รวม) → Phase 3 (เดิม) / ตอนนี้ลำดับอาจเลื่อน
 3. ✅ ~~🟠 **Migration framework ขาดหาย**~~ — **Fixed in Phase 2** (commit `b7b1c18`)
 4. 🟠 **Giant files** — `QuestionFormCard.tsx` 138 KB, `tests.rs` 82 KB, `main.rs` 49 KB (150 commands) → Phase 5
-5. 🟠 **Connection pooling ขาดหาย** — เปิด connection ใหม่ทุกครั้ง → **Phase 3 (NEXT UP)**
+5. 🟠 **Connection pooling ขาดหาย** — เปิด connection ใหม่ทุกครั้ง → **Phase 2C (DONE)**
 6. 🟡 **Type safety** — `any` 80 ครั้งใน 36 ไฟล์, `console.log` 308 ครั้งใน 71 ไฟล์ → Phase 4/7
 7. 🟡 **Dead code** — ~400 บรรทัด (identified แล้วแต่ยังไม่ลบ) → Phase 4
 8. ✅ ~~**2 SQLite files**~~ — **เสร็จแล้ว** (consolidated → `content.db` เดียว; Phase 6 cleanup debt ก็เสร็จแล้วเช่นกัน)
@@ -92,7 +92,7 @@ git log --oneline -5             # ควรเห็น 3c23192 เป็น co
 | Error handling      | 🟢    | ใช้ `Result<T, String>` สม่ำเสมอ                       |
 | `format!` + SQL     | 🟡    | 58 จุดใน 16 ไฟล์ — ต้องตรวจว่าไม่มี injection          |
 | Transactions        | 🟡    | ใช้บ้าง แต่ไม่สม่ำเสมอในจุดที่ต้อง atomic              |
-| Connection pooling  | 🔴    | ยังไม่มี (เปิดใหม่ทุก function call)                   |
+| Connection pooling  | �     | **ใช้ r2d2 pool** (Phase 2C)                           |
 | Dead code           | 🟠    | 5 backup modules ทับซ้อน (75 KB)                       |
 
 **Backup module overlap:**
@@ -156,7 +156,7 @@ git log --oneline -5             # ควรเห็น 3c23192 เป็น co
 
 | ประเด็น             | สถานะ | รายละเอียด                                                                        |
 | ------------------- | ----- | --------------------------------------------------------------------------------- |
-| Rust tests          | 🟡    | **94 tests** (+18 หลัง Phase 1-2); ส่วน `tests.rs` 82 KB ยังคงต้องแยก (Phase 5.3) |
+| Rust tests          | 🟡    | **98 tests** (+18 หลัง Phase 1-2); ส่วน `tests.rs` 82 KB ยังคงต้องแยก (Phase 5.3) |
 | Frontend tests      | 🟢    | **175 tests** (+17 หลัง Phase 1 UI), 17 integration tests                         |
 | Tauri commands test | 🔴    | `main.rs` 150 commands แทบไม่มีเทสต์                                              |
 | E2E testing         | 🔴    | ไม่มี Playwright/WebdriverIO                                                      |
@@ -253,15 +253,13 @@ git log --oneline -5             # ควรเห็น 3c23192 เป็น co
 
 ยังไม่ทำเพราะปัจจุบัน `CREATE TABLE IF NOT EXISTS` ใน `schema.rs` ยังทำงานได้ดี. การย้ายเข้า migrations มี churn สูงมาก โดยประโยชน์คือ schema ทั้งหมด traceable ผ่าน migration history. แนะนำ — ทำหลังจาก Phase 2C / Phase 5 เสร็จแล้ว
 
-### ⏳ Phase 2C: Connection Pooling (NEXT UP — 1-2 weeks)
-
-> _เดิมเป็นส่วนหนึ่งของ Phase 2 รวมกับ Migration Framework — แยกออกมาเพื่อให้ ship Migration Framework แยกได้ก่อน_
+### ✅ Phase 2C: Connection Pooling (DONE — 2026-04-21)
 
 **เป้าหมาย:** เปลี่ยนจาก `get_connection_safe()` ที่เปิด connection ใหม่ทุกครั้ง → r2d2 pool + Tauri State
 
 | #    | Task                                                                                                 | ไฟล์                              | Effort |
 | ---- | ---------------------------------------------------------------------------------------------------- | --------------------------------- | ------ |
-| 2C.1 | เพิ่ม `r2d2` + `r2d2_sqlite` เข้า Cargo.toml                                                         | `Cargo.toml`                      | S      |
+| 2C.1 | เพิ่ม `r2d2` + `r2d2_sqlite` เข้า Cargo.toml                                                         | `src-tauri/Cargo.toml`            | S      |
 | 2C.2 | สร้าง pool ใน `content_database::connection` (PRAGMA `journal_mode=WAL`, `foreign_keys=ON`, timeout) | `content_database/connection.rs`  | M      |
 | 2C.3 | แชร์ pool ผ่าน Tauri managed State (`app.manage(DbPool)`)                                            | `main.rs`                         | M      |
 | 2C.4 | ปรับ commands ที่ hot path → รับ `State<DbPool>` แทน `get_content_connection()`                      | `main.rs` + ไฟล์ที่ใช้ connection | L      |
@@ -270,10 +268,10 @@ git log --oneline -5             # ควรเห็น 3c23192 เป็น co
 
 **Deliverables:**
 
-- [ ] Pool configuration ที่ปรับได้ผ่าน env / const
-- [ ] Tauri State pattern ใช้เป็น canonical
-- [ ] Regression tests ผ่าน (94 Rust + 175 FE ไม่ลด)
-- [ ] Benchmark before/after
+- [x] Pool configuration ที่ปรับได้ผ่าน env / const
+- [x] Tauri State pattern ใช้เป็น canonical
+- [x] Regression tests ผ่าน (98 Rust + 175 FE ไม่ลด)
+- [x] Benchmark before/after
 
 **Acceptance criteria:**
 

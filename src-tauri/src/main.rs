@@ -1526,6 +1526,16 @@ fn main() {
                 Err(e) => logger::warn(format!("Legacy database.db cleanup failed: {}", e)),
             }
 
+            // Phase 2C: initialise the r2d2 content-db pool BEFORE touching any
+            // DB. `initialize_content_database()` below acquires its connection
+            // from this pool, so the pool must exist first. Pool construction
+            // is cheap (no physical connection opened yet) — real connections
+            // are lazily built on first `pool.get()`.
+            if let Err(e) = content_database::connection::init_content_pool() {
+                logger::critical(format!("Failed to initialise content DB pool: {}", e));
+                logger::error("Application will not function without the DB pool");
+            }
+
             // Initialize content database (OwnerUnits, Documents, Users, Officers, etc.)
             if let Err(e) = content_database::initialize_content_database() {
                 logger::error(format!("Failed to initialize content database: {}", e));

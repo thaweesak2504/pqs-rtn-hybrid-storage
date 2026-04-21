@@ -1,3 +1,4 @@
+use crate::content_database::connection::{self as db_conn, DbConn};
 use crate::content_database::get_content_database_path;
 use crate::logger;
 use rusqlite::{params, Connection, Result as SqlResult};
@@ -82,85 +83,50 @@ pub fn validate_password_strength(password: &str, username: Option<&str>) -> Res
 // Schema evolution now flows through `migrations::run_pending_migrations` and
 // is tracked in the `schema_migrations` table.
 
-/// Get connection to existing database or create new one
-/// WARNING: This will CREATE a new empty database file if it doesn't exist!
-/// Use get_connection_readonly() if you only want to check without creating.
-/// Use get_connection_safe() to prevent accidental database creation.
-pub fn get_connection() -> SqlResult<Connection> {
-    let db_path = get_content_database_path().map_err(|e| {
-        rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
-            Some(e),
-        )
-    })?;
-
-    let conn = Connection::open(db_path)?;
-
-    // Enhanced SQLite configuration for desktop performance
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
-    // Note: journal_mode can only be set on new databases
-    // conn.execute("PRAGMA journal_mode = WAL", [])?; // Write-Ahead Logging for better concurrency
-    conn.execute("PRAGMA synchronous = NORMAL", [])?; // Balance between safety and performance
-                                                      // Note: cache_size can only be set on new databases
-                                                      // conn.execute("PRAGMA cache_size = 10000", [])?; // Larger cache for better performance
-    conn.execute("PRAGMA temp_store = MEMORY", [])?; // Use memory for temporary tables
-                                                     // Note: mmap_size and page_size can only be set on new databases
-                                                     // conn.execute("PRAGMA mmap_size = 268435456", [])?; // 256MB memory-mapped I/O
-                                                     // conn.execute("PRAGMA page_size = 4096", [])?; // 4KB page size for better performance
-                                                     // Note: auto_vacuum can only be set on new databases
-                                                     // conn.execute("PRAGMA auto_vacuum = INCREMENTAL", [])?; // Incremental vacuum for maintenance
-
-    Ok(conn)
+/// Get a pooled connection to the content database, creating the database
+/// file on first use if necessary.
+///
+/// Phase 2C: this now delegates to the r2d2 pool built in
+/// `content_database::connection`. Callers who kept the old `let conn = ...;`
+/// pattern work unchanged because `DbConn: Deref<Target = Connection>`.
+///
+/// WARNING: This will CREATE a new (empty) database file if it doesn't exist.
+/// Use `get_connection_readonly()` for existence checks without creating.
+/// Use `get_connection_safe()` to refuse to operate on a missing/empty DB.
+pub fn get_connection() -> Result<DbConn, String> {
+    db_conn::get_content_connection()
 }
 
-/// Safe wrapper for get_connection() that checks if database exists first
-/// Returns error if database doesn't exist instead of creating an empty file
-pub fn get_connection_safe() -> SqlResult<Connection> {
-    let db_path = get_content_database_path().map_err(|e| {
-        rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
-            Some(e),
-        )
-    })?;
+/// Safe wrapper for `get_connection()` that checks if the database file
+/// exists and is non-empty before returning a pooled connection.
+///
+/// The existence/size guard is retained from the pre-pool implementation to
+/// keep the "refuse to silently init against an empty file" behaviour that
+/// the rest of the codebase depends on (e.g. startup validation, backup
+/// restore flows).
+pub fn get_connection_safe() -> Result<DbConn, String> {
+    let db_path = get_content_database_path()?;
 
-    // Check if database file exists
     if !db_path.exists() {
         logger::warn("Database file does not exist - rejecting connection request");
-        return Err(rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
-            Some("Database not initialized. Please complete app initialization first.".to_string()),
-        ));
+        return Err(
+            "Database not initialized. Please complete app initialization first.".to_string(),
+        );
     }
 
-    // Check if file is not empty
     let file_size = std::fs::metadata(&db_path)
-        .map_err(|e| {
-            rusqlite::Error::SqliteFailure(
-                rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
-                Some(format!("Cannot check database file: {}", e)),
-            )
-        })?
+        .map_err(|e| format!("Cannot check database file: {}", e))?
         .len();
 
     if file_size == 0 {
         logger::warn("Database file is empty - removing and rejecting connection");
         let _ = std::fs::remove_file(&db_path);
-        return Err(rusqlite::Error::SqliteFailure(
-            rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_CANTOPEN),
-            Some("Database file is empty. Please complete app initialization first.".to_string()),
-        ));
+        return Err(
+            "Database file is empty. Please complete app initialization first.".to_string(),
+        );
     }
 
-    // Database exists and has content - safe to open
-    // Use READWRITE mode (not CREATE) to avoid creating new file if it was deleted
-    let conn = Connection::open_with_flags(&db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)?;
-
-    // Apply same SQLite configuration as get_connection()
-    conn.execute("PRAGMA foreign_keys = ON", [])?;
-    conn.execute("PRAGMA synchronous = NORMAL", [])?;
-    conn.execute("PRAGMA temp_store = MEMORY", [])?;
-
-    Ok(conn)
+    db_conn::get_content_connection()
 }
 
 /// Get read-only connection to database WITHOUT creating it if it doesn't exist
