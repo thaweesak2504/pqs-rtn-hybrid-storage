@@ -1,3 +1,4 @@
+use crate::content_database::get_content_database_path;
 use base64::{engine::general_purpose, Engine as _};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
@@ -43,7 +44,7 @@ pub fn create_backup() -> Result<String, String> {
     let backup_filename = format!("database_backup_{}.json", timestamp);
     let backup_path = get_backup_directory()?.join(&backup_filename);
 
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
     let mut backup = DatabaseBackup {
@@ -115,7 +116,7 @@ pub fn restore_backup(backup_filename: &str) -> Result<String, String> {
         .map_err(|e| format!("Failed to parse backup file: {}", e))?;
 
     // Get database connection
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     let mut conn =
         Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
@@ -260,14 +261,6 @@ fn get_backup_directory() -> Result<PathBuf, String> {
     }
 
     Ok(backup_dir)
-}
-
-fn get_database_path() -> Result<PathBuf, String> {
-    let config = Config::default();
-    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
-
-    // Consolidated: all tables now live in content.db
-    Ok(app_data.join("pqs-rtn-hybrid-storage").join("content.db"))
 }
 
 fn get_table_list(conn: &Connection) -> Result<Vec<String>, String> {
@@ -428,7 +421,7 @@ fn get_table_count(conn: &Connection, table_name: &str) -> Result<usize, String>
 
 fn restore_universal_sqlite_backup(backup_filename: &str) -> Result<String, String> {
     let backup_path = get_backup_directory()?.join(backup_filename);
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
 
     // Create backup of current database (only if it exists and has content)
     let current_backup_path = db_path.with_extension("backup");

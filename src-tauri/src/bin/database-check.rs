@@ -10,7 +10,6 @@ fn get_database_path() -> Result<PathBuf, String> {
     std::fs::create_dir_all(&db_dir)
         .map_err(|e| format!("Failed to create database directory: {}", e))?;
 
-    // Consolidated: all tables now live in content.db
     Ok(db_dir.join("content.db"))
 }
 

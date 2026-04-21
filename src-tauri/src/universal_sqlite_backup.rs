@@ -1,3 +1,4 @@
+use crate::content_database::get_content_database_path;
 use rusqlite::Connection;
 use std::fs;
 use std::path::PathBuf;
@@ -16,7 +17,7 @@ pub fn create_universal_sqlite_backup() -> Result<String, String> {
     let backup_path = get_backup_directory()?.join(&backup_filename);
 
     // Get source database path
-    let source_db_path = get_database_path()?;
+    let source_db_path = get_content_database_path()?;
 
     // Direct file copy to preserve BLOB data
     fs::copy(&source_db_path, &backup_path)
@@ -39,7 +40,7 @@ pub fn create_standard_sql_dump() -> Result<String, String> {
     let dump_path = get_backup_directory()?.join(&dump_filename);
 
     // Get database connection
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
     let mut sql_content = String::new();
@@ -86,14 +87,6 @@ fn get_backup_directory() -> Result<PathBuf, String> {
     }
 
     Ok(backup_dir)
-}
-
-fn get_database_path() -> Result<PathBuf, String> {
-    let config = Config::default();
-    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
-
-    // Consolidated: all tables now live in content.db
-    Ok(app_data.join("pqs-rtn-hybrid-storage").join("content.db"))
 }
 
 #[allow(dead_code)]

@@ -14,7 +14,7 @@ pub use types::{
     UpsertUserProgressArgs, UserAnswer, UserProgress,
 };
 pub mod connection;
-pub use connection::{get_content_connection, get_portable_data_dir};
+pub use connection::{get_content_connection, get_content_database_path, get_portable_data_dir};
 pub mod schema;
 #[cfg(test)]
 pub use schema::init_branch_protection_schema;

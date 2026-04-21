@@ -1,3 +1,4 @@
+use crate::content_database::get_content_database_path;
 use crate::logger;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -52,7 +53,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     let mut database_size = 0u64;
 
     // 1. Add database file
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     if db_path.exists() {
         logger::debug("Adding database file to backup");
         let db_filename = db_path
@@ -296,7 +297,7 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
     }
 
     // Replace current files
-    let current_db = get_database_path()?;
+    let current_db = get_content_database_path()?;
     let current_media = get_media_directory()?;
 
     // Backup current files (if they exist) - simple approach
@@ -419,15 +420,6 @@ fn get_backup_directory() -> Result<PathBuf, String> {
     Ok(backup_dir)
 }
 
-/// Get database path
-fn get_database_path() -> Result<PathBuf, String> {
-    let config = Config::default();
-    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
-
-    // Consolidated: all tables now live in content.db
-    Ok(app_data.join("pqs-rtn-hybrid-storage").join("content.db"))
-}
-
 /// Get media directory path
 fn get_media_directory() -> Result<PathBuf, String> {
     let config = Config::default();
@@ -462,7 +454,7 @@ pub struct SystemStateInfo {
 /// Check system state and backups for initialization decision
 pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String> {
     let database_exists_and_valid =
-        crate::database::check_database_exists_and_valid().unwrap_or(false);
+        crate::auth::check_database_exists_and_valid().unwrap_or(false);
     // Check media state (without creating directories)
     let media_exists_and_valid =
         crate::file_manager::FileManager::check_media_exists_and_valid_no_create().unwrap_or(false);

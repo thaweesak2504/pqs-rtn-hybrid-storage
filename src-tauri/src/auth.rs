@@ -1,9 +1,7 @@
+use crate::content_database::get_content_database_path;
 use crate::logger;
 use rusqlite::{params, Connection, Result as SqlResult};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use tauri::api::path::app_data_dir;
-use tauri::Config;
 // use crate::database_logger::{DB_LOGGER, DatabaseOperation}; // DISABLED - logging removed
 
 // Global flag to prevent multiple database initialization
@@ -28,26 +26,12 @@ pub struct User {
     pub updated_at: Option<String>,
 }
 
-// SQLite database operations
-pub fn get_database_path() -> Result<PathBuf, String> {
-    let app_data = app_data_dir(&Config::default()).ok_or("Failed to get app data directory")?;
-
-    let db_dir = app_data.join("pqs-rtn-hybrid-storage");
-    std::fs::create_dir_all(&db_dir)
-        .map_err(|e| format!("Failed to create database directory: {}", e))?;
-
-    // Consolidated: all tables now live in content.db
-    Ok(db_dir.join("content.db"))
-}
-
-
-
 /// Get connection to existing database or create new one
 /// WARNING: This will CREATE a new empty database file if it doesn't exist!
 /// Use get_connection_readonly() if you only want to check without creating.
 /// Use get_connection_safe() to prevent accidental database creation.
 pub fn get_connection() -> SqlResult<Connection> {
-    let db_path = get_database_path().map_err(|e| {
+    let db_path = get_content_database_path().map_err(|e| {
         rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
             Some(e),
@@ -76,7 +60,7 @@ pub fn get_connection() -> SqlResult<Connection> {
 /// Safe wrapper for get_connection() that checks if database exists first
 /// Returns error if database doesn't exist instead of creating an empty file
 pub fn get_connection_safe() -> SqlResult<Connection> {
-    let db_path = get_database_path().map_err(|e| {
+    let db_path = get_content_database_path().map_err(|e| {
         rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
             Some(e),
@@ -126,7 +110,7 @@ pub fn get_connection_safe() -> SqlResult<Connection> {
 /// Get read-only connection to database WITHOUT creating it if it doesn't exist
 /// Returns error if database doesn't exist
 pub fn get_connection_readonly() -> SqlResult<Connection> {
-    let db_path = get_database_path().map_err(|e| {
+    let db_path = get_content_database_path().map_err(|e| {
         rusqlite::Error::SqliteFailure(
             rusqlite::ffi::Error::new(rusqlite::ffi::SQLITE_ERROR),
             Some(e),
@@ -159,7 +143,7 @@ pub fn initialize_database() -> Result<String, String> {
 
 /// Check if database exists and is valid (has required tables and data)
 pub fn check_database_exists_and_valid() -> Result<bool, String> {
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
 
     // Check if database file exists FIRST before trying to open it
     // Important: Connection::open() will CREATE an empty file if it doesn't exist!

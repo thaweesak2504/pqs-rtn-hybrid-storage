@@ -1,3 +1,4 @@
+use crate::content_database::get_content_database_path;
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -44,7 +45,7 @@ pub struct ExportMetadata {
 // Export functions
 pub fn export_sql_directly(destination_path: &str) -> Result<String, String> {
     // Get database connection
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
     // Create export structure
@@ -105,7 +106,7 @@ pub fn export_database(format: ExportFormat) -> Result<String, String> {
     let export_path = get_export_directory()?.join(&export_filename);
 
     // Get database connection
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     let conn = Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
     // Create export structure
@@ -183,7 +184,7 @@ pub fn import_database(import_filename: &str) -> Result<String, String> {
         .map_err(|e| format!("Failed to read import file: {}", e))?;
 
     // Get database connection
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     let mut conn =
         Connection::open(&db_path).map_err(|e| format!("Failed to open database: {}", e))?;
 
@@ -291,18 +292,6 @@ fn get_export_directory() -> Result<PathBuf, String> {
     }
 
     Ok(export_dir)
-}
-
-fn get_database_path() -> Result<PathBuf, String> {
-    let config = Config::default();
-    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
-
-    let db_dir = app_data.join("pqs-rtn-hybrid-storage");
-    std::fs::create_dir_all(&db_dir)
-        .map_err(|e| format!("Failed to create database directory: {}", e))?;
-
-    // Consolidated: all tables now live in content.db
-    Ok(db_dir.join("content.db"))
 }
 
 fn export_table(conn: &Connection, table_name: &str) -> Result<TableExport, String> {

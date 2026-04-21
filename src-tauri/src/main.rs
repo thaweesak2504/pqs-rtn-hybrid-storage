@@ -7,7 +7,7 @@ use tauri::Manager;
 // Database module
 mod backup_manager;
 mod content_database; // Separate content database
-mod database;
+mod auth;
 mod database_backup;
 mod database_export;
 mod file_manager;
@@ -22,7 +22,7 @@ mod universal_sqlite_backup; // Database migration utilities
 mod test_helpers; // Test helper utilities
 
 // Re-export database structs
-pub use database::{HighRankingOfficer, User};
+pub use auth::{HighRankingOfficer, User};
 
 // Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
 #[tauri::command]
@@ -32,17 +32,17 @@ fn greet(name: &str) -> String {
 
 #[tauri::command]
 fn get_all_users() -> Result<Vec<User>, String> {
-    database::get_all_users()
+    auth::get_all_users()
 }
 
 #[tauri::command]
 fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
-    database::get_user_by_id(id)
+    auth::get_user_by_id(id)
 }
 
 #[tauri::command]
 fn get_user_by_email(email: String) -> Result<Option<User>, String> {
-    database::get_user_by_email(&email)
+    auth::get_user_by_email(&email)
 }
 
 #[tauri::command]
@@ -58,7 +58,7 @@ fn create_user(
     let password_hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST)
         .map_err(|e| format!("Failed to hash password: {}", e))?;
 
-    database::create_user(
+    auth::create_user(
         &username,
         &email,
         &password_hash,
@@ -78,7 +78,7 @@ fn update_user(
     rank: Option<String>,
     role: String,
 ) -> Result<User, String> {
-    database::update_user(
+    auth::update_user(
         id,
         &username,
         &email,
@@ -91,12 +91,12 @@ fn update_user(
 
 #[tauri::command]
 fn delete_user(id: i32) -> Result<bool, String> {
-    database::delete_user(id)
+    auth::delete_user(id)
 }
 
 #[tauri::command]
 fn authenticate_user(username_or_email: String, password: String) -> Result<Option<User>, String> {
-    database::authenticate_user(&username_or_email, &password)
+    auth::authenticate_user(&username_or_email, &password)
 }
 
 // Database initialization is handled by Tauri setup
@@ -104,9 +104,9 @@ fn authenticate_user(username_or_email: String, password: String) -> Result<Opti
 
 #[tauri::command]
 fn migrate_passwords() -> Result<String, String> {
-    let conn = database::get_connection_safe()
+    let conn = auth::get_connection_safe()
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
-    database::migrate_plain_text_passwords(&conn)?;
+    auth::migrate_plain_text_passwords(&conn)?;
     Ok("Password migration completed successfully".to_string())
 }
 
@@ -165,7 +165,7 @@ async fn zoom_reset(window: tauri::Window) -> Result<(), String> {
 // High Ranking Officers Commands
 #[tauri::command]
 fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
-    database::get_all_high_ranking_officers()
+    auth::get_all_high_ranking_officers()
 }
 
 #[tauri::command]
@@ -176,7 +176,7 @@ fn update_high_ranking_officer(
     position_english: String,
     order_index: i32,
 ) -> Result<HighRankingOfficer, String> {
-    database::update_high_ranking_officer(
+    auth::update_high_ranking_officer(
         id,
         &thai_name,
         &position_thai,
@@ -587,7 +587,7 @@ fn cleanup_orphaned_high_rank_avatar_files() -> Result<u32, String> {
 // Test cleanup commands
 #[tauri::command]
 fn delete_test_users() -> Result<String, String> {
-    let conn = database::get_connection_safe()
+    let conn = auth::get_connection_safe()
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     // First, check what users exist
@@ -630,7 +630,7 @@ fn delete_test_users() -> Result<String, String> {
 
 #[tauri::command]
 fn get_users_count() -> Result<i32, String> {
-    let conn = database::get_connection_safe()
+    let conn = auth::get_connection_safe()
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
     let count: i32 = conn
@@ -651,7 +651,7 @@ fn initialize_database_if_needed() -> Result<String, String> {
         !(system_state.database_exists_and_valid && system_state.media_exists_and_valid);
 
     if should_initialize {
-        database::initialize_database()
+        auth::initialize_database()
     } else {
         Ok("Database and media already initialized".to_string())
     }

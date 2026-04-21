@@ -202,13 +202,11 @@ pub fn is_protected_sub_branch(
 
     is_protected_main_branch(conn, branch_code)
 }
-/// Initialize the content database (create tables if not exist)
 pub fn initialize_content_database() -> Result<String, String> {
     let conn = get_content_connection()
         .map_err(|e| format!("Failed to connect to content database: {}", e))?;
 
-    // ── Consolidated from database.rs ───────────────────────────────────
-    // Users table (formerly in database.db, now unified in content.db)
+    // Users table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,7 +228,7 @@ pub fn initialize_content_database() -> Result<String, String> {
     )
     .map_err(|e| format!("Failed to create users table: {}", e))?;
 
-    // High ranking officers table (formerly in database.db)
+    // High ranking officers table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS high_ranking_officers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
