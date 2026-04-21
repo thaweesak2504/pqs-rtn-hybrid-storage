@@ -1,7 +1,40 @@
 # 📋 PQS RTN Hybrid Storage — Project Review & Improvement Plan
 
-> **สร้างเมื่อ:** 2026-04-20 | **Branch ปัจจุบัน:** `career-branches-management`
+> **สร้างเมื่อ:** 2026-04-20 | **อัปเดตล่าสุด:** 2026-04-21
+> **Branch ทำงาน:** `project-review-actions` (แตกจาก `career-branches-management`)
 > **ผู้ตรวจสอบ:** Cascade AI | **ขอบเขต:** Full comprehensive review (Backend + Frontend + DB + Tests + Security)
+
+---
+
+## 🏁 ความคืบหน้าล่าสุด (Progress Tracker)
+
+| Phase                                              | สถานะ          | Commits                              | หมายเหตุ                                                                                                                                   |
+| -------------------------------------------------- | -------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Phase 6** — DB Consolidation Cleanup             | ✅ **DONE**    | (รอบก่อน)                            | path helper รวมเป็นตัวเดียว, rename `database.rs` → `auth.rs`, legacy `database.db` auto-archive on startup                                |
+| **Phase 1** — Security Hardening                   | ✅ **DONE**    | `f831655` (backend) + `992a056` (UI) | default admin + forced password change, FE hashing ลบออก, `change_password` API, `ForceChangePasswordModal`                                |
+| **Phase 2** — Migration Framework                  | ✅ **DONE**    | `b7b1c18` + `3c23192`                | versioned migration runner + `schema_migrations` table + baseline detection; migration 001 replaces ad-hoc `ensure_user_schema_migrations` |
+| **Phase 2B** — ย้าย `CREATE TABLE` เข้า migrations | ⏭️ Deferred    | —                                    | optional follow-up; ปัจจุบัน `CREATE TABLE IF NOT EXISTS` ทำงานอยู่แล้ว                                                                    |
+| **Phase 2C** — Connection Pooling                  | ⏳ **NEXT UP** | —                                    | r2d2 pool + Tauri State; คาดว่าลด DB latency 50-80% (เดิมเป็นส่วนหนึ่งของ Phase 2 รวมกับ Migration)                                        |
+| Phase 3 — Backup/Export Consolidation              | ⏳ pending     | —                                    | ลดแบคอัพ 5 modules (~75 KB) → 1                                                                                                            |
+| Phase 4 — Dead Code Cleanup                        | ⏳ pending     | —                                    | —                                                                                                                                          |
+| Phase 5 — Large File Refactoring                   | ⏳ pending     | —                                    | `main.rs`, `QuestionFormCard.tsx`, `tests.rs`                                                                                              |
+| Phase 7-10                                         | ⏳ pending     | —                                    | Types/DX, Performance, Tests expansion, Encryption                                                                                         |
+
+**Tests (ปัจจุบัน):** 🟢 **94 Rust + 175 FE** ผ่านหมด (จากเดิม 76 Rust + 158 FE)
+
+**📌 กลับมาทำงานต่อไปนี้:** เริ่มที่ **Phase 2C — Connection Pooling** (ดูหัวข้อด้านล่าง). Phase 1, 2, 6 เสร็จครบแล้ว commits อยู่บน `project-review-actions` branch, และ push ขึ้น origin ครบแล้ว.
+
+**วิธี resume งาน:**
+
+```bash
+# ตรวจสอบว่า tests ผ่าน
+(cd src-tauri && cargo test)    # คาดว่า 94 passed
+npx vitest run                   # คาดว่า 175 passed
+
+# ดูว่าอยู่ที่ branch ถูกต้อง
+git branch --show-current        # ควรเป็น project-review-actions
+git log --oneline -5             # ควรเห็น 3c23192 เป็น commit ล่าสุด
+```
 
 ---
 
@@ -28,21 +61,23 @@
 ### จุดแข็ง
 
 - โครงสร้างโมดูลชัดเจน (หลัง refactoring `content_database.rs`)
-- มี test coverage พื้นฐานดี (76 Rust + 158 FE tests)
-- bcrypt password hashing
+- มี test coverage ที่โตขึ้น — **94 Rust + 175 FE tests** (+18 Rust, +17 FE หลัง Phase 1-2)
+- bcrypt password hashing (ย้าย hashing ไปฝั่ง backend เต็มตัวแล้ว — Phase 1)
 - แยก Hybrid storage (filesystem + DB metadata) ดี
+- **Versioned migration framework** พร้อมใช้ (Phase 2) — schema evolution tracked ใน `schema_migrations`
+- **Default admin + forced password change** — กระจาย desktop app ได้ปลอดภัย (Phase 1)
 - มีเอกสาร planning เยอะ (backend-improvement-plan, refactoring-plan, etc.)
 
 ### จุดที่ต้องปรับปรุงเร่งด่วน
 
-1. 🔴 **Security gap** — `update_user` tauri command รับ `password_hash` จาก frontend โดยตรง
-2. 🔴 **Backup module redundancy** — 4 modules ทับซ้อน (~75 KB รวม)
-3. 🟠 **Migration framework ขาดหาย** — ใช้ `execute_best_effort` 50+ จุดใน `schema.rs` (ad-hoc DDL/backfill)
-4. 🟠 **Giant files** — `QuestionFormCard.tsx` 138 KB, `tests.rs` 82 KB, `main.rs` 49 KB (150 commands)
-5. 🟠 **Connection pooling ขาดหาย** — เปิด connection ใหม่ทุกครั้ง
-6. 🟡 **Type safety** — `any` 80 ครั้งใน 36 ไฟล์, `console.log` 308 ครั้งใน 71 ไฟล์
-7. 🟡 **Dead code** — ~400 บรรทัด (identified แล้วแต่ยังไม่ลบ)
-8. ✅ ~~**2 SQLite files**~~ — **เสร็จแล้ว** (consolidated → `content.db` เดียว) แต่เหลือ cleanup debt (ดู Phase 6)
+1. ✅ ~~🔴 **Security gap** — `update_user` tauri command รับ `password_hash` จาก frontend~~ — **Fixed in Phase 1** (commit `f831655`)
+2. 🔴 **Backup module redundancy** — 4 modules ทับซ้อน (~75 KB รวม) → Phase 3 (เดิม) / ตอนนี้ลำดับอาจเลื่อน
+3. ✅ ~~🟠 **Migration framework ขาดหาย**~~ — **Fixed in Phase 2** (commit `b7b1c18`)
+4. 🟠 **Giant files** — `QuestionFormCard.tsx` 138 KB, `tests.rs` 82 KB, `main.rs` 49 KB (150 commands) → Phase 5
+5. 🟠 **Connection pooling ขาดหาย** — เปิด connection ใหม่ทุกครั้ง → **Phase 3 (NEXT UP)**
+6. 🟡 **Type safety** — `any` 80 ครั้งใน 36 ไฟล์, `console.log` 308 ครั้งใน 71 ไฟล์ → Phase 4/7
+7. 🟡 **Dead code** — ~400 บรรทัด (identified แล้วแต่ยังไม่ลบ) → Phase 4
+8. ✅ ~~**2 SQLite files**~~ — **เสร็จแล้ว** (consolidated → `content.db` เดียว; Phase 6 cleanup debt ก็เสร็จแล้วเช่นกัน)
 
 ---
 
@@ -73,17 +108,17 @@
 
 ### 2. Database (`content_database/`, `database.rs`)
 
-| ประเด็น                 | สถานะ | รายละเอียด                                                                              |
-| ----------------------- | ----- | --------------------------------------------------------------------------------------- |
-| DB consolidation        | ✅    | **เสร็จแล้ว** — รวมเป็น `content.db` เดียว (users, officers, documents, questions, ...) |
-| Path helper duplication | 🟠    | `get_database_path()` ซ้ำกัน **6 ไฟล์** — ควรรวมเป็นตัวเดียว                            |
-| `database.rs` rename    | 🟡    | ชื่อ `database.rs` กำกวม (จริงๆ คือ user/auth repo) — ควร rename                        |
-| Schema migration        | 🔴    | ~50 `execute_best_effort` + ad-hoc DDL ใน `schema.rs` (47 KB)                           |
-| Migration tracking      | 🔴    | ไม่มีตาราง `schema_version`                                                             |
-| Backfills               | 🟠    | รันทุก startup (เคยทำให้เกิด loop แล้ว)                                                 |
-| Indexes                 | 🟡    | มีบ้าง แต่ยังไม่ครบ (`parent_id`, `section_id` บาง query)                               |
-| FK constraints          | 🟢    | ใช้ `ON DELETE CASCADE` สม่ำเสมอ                                                        |
-| Encryption              | 🔴    | ไฟล์ `.db` เป็น plain text                                                              |
+| ประเด็น                 | สถานะ | รายละเอียด                                                                                                                                                              |
+| ----------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| DB consolidation        | ✅    | **เสร็จแล้ว** — รวมเป็น `content.db` เดียว (users, officers, documents, questions, ...)                                                                                 |
+| Path helper duplication | ✅    | **เสร็จแล้ว** (Phase 6) — `get_content_database_path()` ตัวเดียวใน `content_database::connection`                                                                       |
+| `database.rs` rename    | ✅    | **เสร็จแล้ว** (Phase 6) — rename เป็น `auth.rs`                                                                                                                         |
+| Schema migration        | ✅    | **เสร็จแล้ว** (Phase 2) — versioned framework ใน `migrations.rs` (`b7b1c18`). ส่วน `execute_best_effort` ที่เหลือ ค่อยๆ ย้ายเป็น migrations ได้ตามความจำเป็น (Phase 2b) |
+| Migration tracking      | ✅    | **เสร็จแล้ว** (Phase 2) — ตาราง `schema_migrations(version, name, applied_at, duration_ms, baselined)`                                                                  |
+| Backfills               | 🟠    | ยังคงรันทุก startup (ควรย้ายไปเป็น migrations ที่ tracked — ตอน Phase 2b)                                                                                               |
+| Indexes                 | 🟡    | มีบ้าง แต่ยังไม่ครบ (`parent_id`, `section_id` บาง query) → Phase 8                                                                                                     |
+| FK constraints          | 🟢    | ใช้ `ON DELETE CASCADE` สม่ำเสมอ                                                                                                                                        |
+| Encryption              | 🔴    | ไฟล์ `.db` เป็น plain text → Phase 10                                                                                                                                   |
 
 ---
 
@@ -104,27 +139,28 @@
 
 ### 4. Security
 
-| ประเด็น                 | สถานะ | รายละเอียด                                               |
-| ----------------------- | ----- | -------------------------------------------------------- |
-| Password hashing        | 🟢    | bcrypt (DEFAULT_COST)                                    |
-| `update_user` API       | 🔴    | **รับ `password_hash: String` จาก frontend** — เสี่ยงสูง |
-| `hash_password` exposed | 🟠    | เปิดให้ frontend hash ได้ — ผิดหลัก security             |
-| Hardcoded admin pw      | 🔴    | `"Admin&21"` ใน `database.rs:350`                        |
-| DB encryption           | 🔴    | ยังไม่มี (plan SQLCipher)                                |
-| Input validation        | 🟡    | ระดับ Tauri command บางจุดไม่ validate                   |
-| SQL injection           | 🟢    | ส่วนใหญ่ใช้ `params![]` ถูกต้อง                          |
+| ประเด็น                 | สถานะ | รายละเอียด                                                                                                                    |
+| ----------------------- | ----- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Password hashing        | 🟢    | bcrypt (DEFAULT_COST) — hashing ทำอยู่ backend เท่านั้น                                                                       |
+| `update_user` API       | ✅    | **แก้แล้ว** (Phase 1) — รับ `password: Option<String>` (plaintext) แล้ว hash backend                                          |
+| `hash_password` exposed | ✅    | **ลบแล้ว** (Phase 1) — frontend ใช้ `change_password` API แทน                                                                 |
+| Hardcoded admin pw      | ✅    | **แก้แล้ว** (Phase 1) — default admin ใช้ trivial credentials + `must_change_password=1` (บังคับเปลี่ยนรหัสทุกครั้งที่ login) |
+| Forced password change  | ✅    | **ใหม่** (Phase 1) — `ForceChangePasswordModal` block UI จนกว่าเปลี่ยนรหัสใหม่                                                |
+| DB encryption           | 🔴    | ยังไม่มี (plan SQLCipher) → Phase 10                                                                                          |
+| Input validation        | 🟡    | ระดับ Tauri command บางจุดไม่ validate (password strength ทำแล้ว Phase 1)                                                     |
+| SQL injection           | 🟢    | ส่วนใหญ่ใช้ `params![]` ถูกต้อง                                                                                               |
 
 ---
 
 ### 5. Testing
 
-| ประเด็น             | สถานะ | รายละเอียด                                               |
-| ------------------- | ----- | -------------------------------------------------------- |
-| Rust tests          | 🟡    | 76 tests ใน `tests.rs` ไฟล์เดียว (82 KB)                 |
-| Frontend tests      | 🟢    | 158 tests, 16 integration tests                          |
-| Tauri commands test | 🔴    | `main.rs` 150 commands แทบไม่มีเทสต์                     |
-| E2E testing         | 🔴    | ไม่มี Playwright/WebdriverIO                             |
-| Test helpers        | 🟡    | `test_helpers.rs` 27 KB — schema สร้างซ้ำกับ `schema.rs` |
+| ประเด็น             | สถานะ | รายละเอียด                                                                        |
+| ------------------- | ----- | --------------------------------------------------------------------------------- |
+| Rust tests          | 🟡    | **94 tests** (+18 หลัง Phase 1-2); ส่วน `tests.rs` 82 KB ยังคงต้องแยก (Phase 5.3) |
+| Frontend tests      | 🟢    | **175 tests** (+17 หลัง Phase 1 UI), 17 integration tests                         |
+| Tauri commands test | 🔴    | `main.rs` 150 commands แทบไม่มีเทสต์                                              |
+| E2E testing         | 🔴    | ไม่มี Playwright/WebdriverIO                                                      |
+| Test helpers        | 🟡    | `test_helpers.rs` 27 KB — schema สร้างซ้ำกับ `schema.rs`                          |
 
 ---
 
@@ -151,46 +187,99 @@
 
 ---
 
-### 🔴 Phase 1: Security Hardening (Critical — 1-2 weeks)
+### ✅ Phase 1: Security Hardening (DONE — 2026-04-21)
 
-**เป้าหมาย:** ปิดช่องโหว่ระดับวิกฤตก่อน release ถัดไป
+**Commits:** `f831655` (backend) + `992a056` (UI)
 
-| #   | Task                                                                          | ไฟล์                                  | Effort |
-| --- | ----------------------------------------------------------------------------- | ------------------------------------- | ------ |
-| 1.1 | ลบ `hash_password` tauri command + ไม่ส่ง `password_hash` จาก FE              | `main.rs:74-86`, `main.rs:189-192`    | S      |
-| 1.2 | `update_user` รับ `password: Option<String>` (plaintext) แล้ว hash ใน backend | `main.rs`, `database.rs::update_user` | M      |
-| 1.3 | ลบ hardcoded admin password — ใช้ random generated + แสดงครั้งเดียวตอน init   | `database.rs:350`                     | M      |
-| 1.4 | เพิ่ม password strength validation ที่ backend                                | `database.rs`, `main.rs`              | S      |
-| 1.5 | Audit `format!` + SQL 58 จุด — convert เป็น `params![]` ที่เหลือ              | หลายไฟล์                              | M      |
-| 1.6 | Add rate limiting สำหรับ `authenticate_user`                                  | `database.rs`, `main.rs`              | M      |
+**เป้าหมายที่ทำได้:** กระจาย desktop app ได้โดยมี default admin ที่ใช้งานได้ทันที + บังคับเปลี่ยนรหัสก่อนเข้าใช้จริง — ปิดช่องโหว่ hardcoded credential โดยสมบูรณ์
 
-**Deliverables:**
+| #   | Task                                                                                    | สถานะ | ไฟล์หลัก                                      |
+| --- | --------------------------------------------------------------------------------------- | ----- | --------------------------------------------- |
+| 1.1 | ลบ `hash_password` tauri command + ไม่ส่ง `password_hash` จาก FE                        | ✅    | `src/services/tauriService.ts`, `main.rs`     |
+| 1.2 | `update_user` รับ `password: Option<String>` (plaintext) แล้ว hash ใน backend           | ✅    | `auth.rs::update_user`, `main.rs`             |
+| 1.3 | เปลี่ยน hardcoded admin — ใช้ documented trivial credentials + `must_change_password=1` | ✅    | `auth.rs` (DEFAULT*ADMIN*\*), `schema.rs`     |
+| 1.4 | `validate_password_strength` (>=8 chars, weak list, ห้าม = username, ห้าม = current)    | ✅    | `auth.rs`                                     |
+| 1.5 | `change_password` API ใหม่ + Tauri command                                              | ✅    | `auth.rs`, `main.rs`                          |
+| 1.6 | `must_change_password` flag ใน User struct + schema + AuthContext                       | ✅    | หลายไฟล์                                      |
+| 1.7 | `ForceChangePasswordModal` โมดัล non-dismissible block UI จนกว่าเปลี่ยนรหัส             | ✅    | `src/components/ForceChangePasswordModal.tsx` |
+| 1.8 | ลบ password hash ออกจาก frontend state + DatabaseViewerPage UI                          | ✅    | `AuthContext.tsx`, `DatabaseViewerPage.tsx`   |
 
-- [ ] Security audit report (ระบุสิ่งที่ถูก fix + ที่เหลือ)
-- [ ] Tests: `test_update_user_rejects_password_hash_param`, `test_admin_password_not_hardcoded`
-- [ ] CHANGELOG: breaking change (FE ต้องอัพเดต API)
+**Deliverables (done):**
+
+- [x] 9 Rust tests (password strength, default admin canary, schema field)
+- [x] 15 FE integration tests (`ForceChangePasswordModal.integration.test.tsx`) — gating/validation/success/error mapping
+- [x] Non-dismissible modal (no close btn, no Escape, no backdrop-close)
+- [x] ทดสอบทั้ง fresh install และ upgrade flow
+
+**Task ยังไม่ทำ (ยกโยกไป phase อื่น):**
+
+- ⏭️ Audit `format!` + SQL 58 จุด → **Phase 4/7** (SQL injection review เป็น cleanup task)
+- ⏭️ Rate limiting สำหรับ `authenticate_user` → **Phase 10** (production hardening)
 
 ---
 
-### 🟠 Phase 2: Migration Framework + Connection Pooling (2-3 weeks)
+### ✅ Phase 2: Migration Framework (DONE — 2026-04-21)
 
-**เป้าหมาย:** แก้ root cause ของปัญหา startup loop และ DB lock
+**Commits:** `b7b1c18` (framework + migration 001) + `3c23192` (lint cleanup)
 
-| #   | Task                                                           | ไฟล์                              | Effort |
-| --- | -------------------------------------------------------------- | --------------------------------- | ------ |
-| 2.1 | นำ `refinery` หรือ `sqlx-migrate` เข้ามา                       | `Cargo.toml`, ใหม่: `migrations/` | L      |
-| 2.2 | เพิ่มตาราง `schema_version` + API `current_version()`          | schema.rs                         | S      |
-| 2.3 | ย้าย 50 `execute_best_effort` → เป็นไฟล์ migration `.sql` แยก  | `schema.rs`                       | L      |
-| 2.4 | ย้าย data backfills → ทำครั้งเดียว (tracked) ไม่ใช่ทุก startup | `schema.rs`                       | M      |
-| 2.5 | ใช้ `r2d2_sqlite` + Tauri State สำหรับ connection pool         | `connection.rs`, `main.rs`        | L      |
-| 2.6 | Refactor functions ที่ยังไม่มี `_with_conn` variant            | หลายไฟล์                          | M      |
+**เป้าหมายที่ทำได้:** แทน ad-hoc `ensure_user_schema_migrations` ด้วยระบบ versioned migration ที่ tracked ใน `schema_migrations` table, พร้อม transactional safety + baseline detection สำหรับ legacy DB
+
+| #   | Task                                                                                              | สถานะ | ไฟล์หลัก                                          |
+| --- | ------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------- |
+| 2.1 | Migration framework (Migration struct, runner, transactional)                                     | ✅    | `src-tauri/src/migrations.rs` (ใหม่, ~470 บรรทัด) |
+| 2.2 | `schema_migrations(version, name, applied_at, duration_ms, baselined)`                            | ✅    | `migrations.rs::ensure_migrations_table`          |
+| 2.3 | Migration 001: `add_must_change_password_to_users` + `baseline_check`                             | ✅    | `migrations.rs::all_migrations`                   |
+| 2.4 | เรียก runner หลัง CREATE TABLE IF NOT EXISTS ใน `initialize_content_database`                     | ✅    | `content_database/schema.rs`                      |
+| 2.5 | ลบ `ensure_user_schema_migrations` และ tests เดิม (ถูกแทนโดย framework tests)                     | ✅    | `auth.rs`                                         |
+| 2.6 | 9 เทสต์ใหม่สำหรับ framework (idempotent / ordering / rollback / duplicate guard / baseline 3 แบบ) | ✅    | `migrations.rs::tests`                            |
+
+**Deliverables (done):**
+
+- [x] Runner API: `run_pending_migrations(&mut Connection, &[Migration]) -> RunReport { applied, skipped, baselined }`
+- [x] Public introspection API: `list_applied` + `AppliedMigration` struct (เตรียมไว้ให้ admin UI ในอนาคตดึงไปใช้)
+- [x] Rollback safety: failing migration → ไม่บันทึก + ไม่ทิ้งอะไรฝัง
+- [x] Strict version ordering + duplicate-version guard
+- [x] Baseline detection: legacy DB (ที่ได้ patch จาก ad-hoc helper เก่า) ถูก mark applied โดยไม่ re-run
+- [x] อัพเดต doc comments อธิบายวิธีเขียน migration ใหม่
+
+**วิธีเขียน migration ใหม่ (อุธิบายไว้ใน `migrations.rs` เอง):**
+
+1. เลือก version ถัดไป (2, 3, ...) — **ห้ามแก้ migration ที่ ship ไปแล้ว**
+2. เขียน `up` function
+3. ส่งเข้า `all_migrations()`
+4. Ship — runner ทำงานเองตอน startup ถัดไป
+
+### ⏭️ Phase 2B: ย้าย `CREATE TABLE` ที่เหลือเข้า migrations (Deferred)
+
+ยังไม่ทำเพราะปัจจุบัน `CREATE TABLE IF NOT EXISTS` ใน `schema.rs` ยังทำงานได้ดี. การย้ายเข้า migrations มี churn สูงมาก โดยประโยชน์คือ schema ทั้งหมด traceable ผ่าน migration history. แนะนำ — ทำหลังจาก Phase 2C / Phase 5 เสร็จแล้ว
+
+### ⏳ Phase 2C: Connection Pooling (NEXT UP — 1-2 weeks)
+
+> _เดิมเป็นส่วนหนึ่งของ Phase 2 รวมกับ Migration Framework — แยกออกมาเพื่อให้ ship Migration Framework แยกได้ก่อน_
+
+**เป้าหมาย:** เปลี่ยนจาก `get_connection_safe()` ที่เปิด connection ใหม่ทุกครั้ง → r2d2 pool + Tauri State
+
+| #    | Task                                                                                                 | ไฟล์                              | Effort |
+| ---- | ---------------------------------------------------------------------------------------------------- | --------------------------------- | ------ |
+| 2C.1 | เพิ่ม `r2d2` + `r2d2_sqlite` เข้า Cargo.toml                                                         | `Cargo.toml`                      | S      |
+| 2C.2 | สร้าง pool ใน `content_database::connection` (PRAGMA `journal_mode=WAL`, `foreign_keys=ON`, timeout) | `content_database/connection.rs`  | M      |
+| 2C.3 | แชร์ pool ผ่าน Tauri managed State (`app.manage(DbPool)`)                                            | `main.rs`                         | M      |
+| 2C.4 | ปรับ commands ที่ hot path → รับ `State<DbPool>` แทน `get_content_connection()`                      | `main.rs` + ไฟล์ที่ใช้ connection | L      |
+| 2C.5 | เทสต์: pool คืน connection, ไม่รั่วไหล, concurrent access ไม่ติดล็อค                                 | ใหม่                              | M      |
+| 2C.6 | Benchmark: วัด latency ก่อน/หลัง (คาดว่าลด 50-80% สำหรับ ops ติดกัน)                                 | -                                 | S      |
 
 **Deliverables:**
 
-- [ ] โฟลเดอร์ `src-tauri/migrations/V1__init.sql`, `V2__*.sql`, ...
-- [ ] ระบบตรวจสอบ migration หายจากเครื่อง user
-- [ ] Tests: migration up/down, rollback safety
-- [ ] Benchmark: DB operations เร็วขึ้น X%
+- [ ] Pool configuration ที่ปรับได้ผ่าน env / const
+- [ ] Tauri State pattern ใช้เป็น canonical
+- [ ] Regression tests ผ่าน (94 Rust + 175 FE ไม่ลด)
+- [ ] Benchmark before/after
+
+**Acceptance criteria:**
+
+- Hot-path commands (authenticate, load document tree, list questions) ใช้ `State<DbPool>`
+- ไม่มี connection leak (เทสต์โดย assert จำนวน `state.idle_connections()`)
+- PRAGMA `journal_mode=WAL` + `foreign_keys=ON` ตั้งใน `on_acquire` hook (ทุก connection ในพูลได้รับ PRAGMA เหมือนกัน)
 
 ---
 
@@ -367,34 +456,38 @@
 
 ## 📅 Timeline สรุป
 
-| Phase                                   | ระยะเวลา  | Priority       | Dependencies         |
-| --------------------------------------- | --------- | -------------- | -------------------- |
-| 1. Security Hardening                   | 1-2 weeks | 🔴 Critical    | -                    |
-| 2. Migration + Pooling                  | 2-3 weeks | 🟠 High        | -                    |
-| 3. Backup Consolidation                 | 1-2 weeks | 🟠 High        | -                    |
-| 4. Dead Code Cleanup                    | 1 week    | 🟡 Medium      | Phase 3 (บาง module) |
-| 5. Large File Refactoring               | 2-3 weeks | 🟡 Medium      | Phase 2 (schema.rs)  |
-| 6. DB Consolidation Cleanup (debt only) | 2-3 days  | ✅ Mostly done | Phase 2              |
-| 7. Type Safety & DX                     | 1-2 weeks | 🟢 Low         | -                    |
-| 8. Performance                          | 1-2 weeks | 🟢 Low         | Phase 2              |
-| 9. Testing Expansion                    | 2-3 weeks | 🟢 Low         | Phase 5.3            |
-| 10. Encryption & Prod                   | 1-2 weeks | 🟢 Low         | Phase 2              |
+| Phase                                 | ระยะเวลา  | Priority    | สถานะ          | Dependencies         |
+| ------------------------------------- | --------- | ----------- | -------------- | -------------------- |
+| 1. Security Hardening                 | 1-2 weeks | 🔴 Critical | ✅ **DONE**    | -                    |
+| 2A. Migration Framework               | 2-3 weeks | 🟠 High     | ✅ **DONE**    | -                    |
+| 2B. ย้าย CREATE TABLE เข้า migrations | 1 week    | 🟡 Medium   | ⏭️ Deferred    | Phase 2A             |
+| 2C. Connection Pooling                | 1-2 weeks | 🟠 High     | ⏳ **NEXT UP** | Phase 2A             |
+| 3. Backup/Export Consolidation        | 1-2 weeks | 🟠 High     | ⏳ pending     | -                    |
+| 4. Dead Code Cleanup                  | 1 week    | 🟡 Medium   | ⏳ pending     | Phase 3 (บาง module) |
+| 5. Large File Refactoring             | 2-3 weeks | 🟡 Medium   | ⏳ pending     | Phase 2A (schema)    |
+| 6. DB Consolidation Cleanup (debt)    | 2-3 days  | ✅ **DONE** | —              | —                    |
+| 7. Type Safety & DX                   | 1-2 weeks | 🟢 Low      | ⏳ pending     | -                    |
+| 8. Performance                        | 1-2 weeks | 🟢 Low      | ⏳ pending     | Phase 2C             |
+| 9. Testing Expansion                  | 2-3 weeks | 🟢 Low      | ⏳ pending     | Phase 5.3            |
+| 10. Encryption & Prod                 | 1-2 weeks | 🟢 Low      | ⏳ pending     | Phase 2A             |
 
-**Total estimate:** 14-22 weeks (3-5 months) หากทำ sequential, **8-12 weeks** หากทำ parallel บางส่วน
+**คืบหน้า:** 3 phases เสร็จแล้ว (1, 2A, 6) + 1 phase deferred (2B). **Remaining estimate:** ประมาณ 10-16 weeks sequential / **6-9 weeks** ถ้าทำ parallel บางส่วน
 
-### แนะนำลำดับทำงาน (realistic)
+### แนะนำลำดับทำงานต่อไป (realistic, จาก now)
 
 ```
-Week 1-2:   Phase 1 (Security)         🔴 ต้องทำก่อน release ถัดไป
-Week 3-5:   Phase 2 (Migration+Pool)   🟠 root cause ของหลายปัญหา
-Week 6-7:   Phase 3 (Backup merge)     🟠 parallel กับ Phase 4 ได้
-Week 7-8:   Phase 4 (Dead code)        🟡
-Week 9-11:  Phase 5 (Large files)     🟡
-Week 12:    Phase 6 (DB cleanup debt) ✅ consolidation done, แค่ cleanup 2-3 วัน
-Week 14-15: Phase 7 (Types/DX)         🟢
-Week 16-17: Phase 8 (Performance)     🟢
-Week 18-20: Phase 9 (Tests)            🟢
-Week 21-22: Phase 10 (Encryption)     🟢
+✅ Week 1-2:   Phase 1 (Security)         DONE (commit f831655 + 992a056)
+✅ Week 3:     Phase 2A (Migration FW)    DONE (commit b7b1c18 + 3c23192)
+✅ Week 3:     Phase 6 (DB cleanup debt)  DONE (รอบก่อน Phase 1)
+⏳ Week 4-5:   Phase 2C (Conn Pooling)   🟠 ต่อไปทันที
+   Week 6-7:   Phase 3 (Backup merge)     🟠 parallel กับ Phase 4 ได้
+   Week 7-8:   Phase 4 (Dead code)        🟡
+   Week 9-11:  Phase 5 (Large files)     🟡
+   Week 12-13: Phase 2B (CREATE TABLE)    🟡 optional, มีค่าเมื่อ schema นิ่งแล้ว
+   Week 14-15: Phase 7 (Types/DX)         🟢
+   Week 16-17: Phase 8 (Performance)     🟢
+   Week 18-20: Phase 9 (Tests)            🟢
+   Week 21-22: Phase 10 (Encryption)     🟢
 ```
 
 ---
@@ -405,7 +498,7 @@ Week 21-22: Phase 10 (Encryption)     🟢
 
 1. **ลบ `database_logger.rs`** (223 lines, disabled) — 30 นาที
 2. **Replace `console.log` → `logger.ts`** ใน services/ (ประมาณ 10 ไฟล์) — 2 ชั่วโมง
-3. **ลบ `hash_password` tauri command** — 15 นาที + test
+3. ~~**ลบ `hash_password` tauri command**~~ — ✅ **เสร็จแล้ว** (Phase 1)
 4. **`cargo clippy --fix`** เพื่อแก้ auto-fixable warnings — 30 นาที
 5. **Consolidate README + HOW_TO files** ที่ top-level (5 ไฟล์) → 1-2 ไฟล์ — 1 ชั่วโมง
 6. **เพิ่ม `.github/workflows/test.yml`** รันเทสต์อัตโนมัติบน PR — 1 ชั่วโมง
@@ -415,7 +508,7 @@ Week 21-22: Phase 10 (Encryption)     🟢
 
 ## 📌 ภาคผนวก: ตัวชี้วัด (Metrics)
 
-### Before (baseline)
+### Before (baseline, 2026-04-20)
 
 - Rust code: ~15 modules, ~350 KB source
 - Frontend code: ~350 TS/TSX files
@@ -425,6 +518,20 @@ Week 21-22: Phase 10 (Encryption)     🟢
 - `any` types: 80
 - `console.log`: 308
 - Backup modules: 5 (ทับซ้อน)
+- Migration system: ❌ (ad-hoc `execute_best_effort` + `ensure_user_schema_migrations`)
+- Default admin: ❌ hardcoded `"Admin&21"` ใน source
+- Password hashing: 🟡 ทำใน frontend ได้ (`hash_password` command)
+
+### Current (2026-04-21, หลัง Phase 1 + 2A + 6)
+
+- Rust tests: **94** (+18)
+- FE tests: **175** (+17)
+- Migration system: ✅ versioned (`migrations.rs` + `schema_migrations` table)
+- Default admin: ✅ documented trivial + forced password change
+- Password hashing: ✅ backend only (`change_password` API; FE hashing removed)
+- Path helper: ✅ ตัวเดียว (`get_content_database_path`)
+- `database.rs` rename: ✅ → `auth.rs`
+- Legacy `database.db`: ✅ auto-archived on startup
 
 ### Target (หลัง Phase 1-5)
 
