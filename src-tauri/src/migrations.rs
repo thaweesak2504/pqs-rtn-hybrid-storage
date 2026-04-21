@@ -59,6 +59,10 @@ pub struct Migration {
 }
 
 /// A record from `schema_migrations`.
+///
+/// Public introspection API. Currently read only from tests; kept public for
+/// a future admin/ops view (e.g. a Tauri command exposing migration history).
+#[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AppliedMigration {
     pub version: i64,
@@ -100,6 +104,9 @@ pub fn ensure_migrations_table(conn: &Connection) -> Result<(), String> {
 }
 
 /// Return all applied migrations in version order.
+///
+/// Public introspection API. See `AppliedMigration` for rationale.
+#[allow(dead_code)]
 pub fn list_applied(conn: &Connection) -> Result<Vec<AppliedMigration>, String> {
     ensure_migrations_table(conn)?;
     let mut stmt = conn
