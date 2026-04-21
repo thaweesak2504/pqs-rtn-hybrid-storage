@@ -168,6 +168,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const markPasswordChanged = useCallback(() => {
+    setUser(prev => {
+      if (!prev) return prev
+      const next: User = { ...prev, must_change_password: false }
+      try {
+        localStorage.setItem('pqs_user', JSON.stringify(next))
+      } catch (e) {
+        console.warn('Failed to persist cleared must_change_password flag:', e)
+      }
+      return next
+    })
+  }, [])
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
@@ -176,6 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signOut,
   checkAuthStatus,
   updateAvatar,
+  markPasswordChanged,
   handleAvatarLoadError: async () => {
     if (!user?.id) return
     // Clear hybrid avatar

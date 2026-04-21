@@ -34,6 +34,7 @@ import UnifiedLayout from './components/UnifiedLayout';
 
 // Import components
 import DebugRoute from './components/DebugRoute';
+import ForceChangePasswordModal from './components/ForceChangePasswordModal';
 import GlobalRedirect from './components/GlobalRedirect';
 import HeroSection from './components/HeroSection';
 
@@ -77,6 +78,11 @@ function App() {
                   <SlideBarProvider>
                     <LayoutProvider>
                       <GlobalRedirect />
+                      {/* Globally-mounted gate: renders null unless the currently
+                          authenticated user has must_change_password=true, in which
+                          case it displays a non-dismissible modal that blocks the UI
+                          until a strong password is set (see Phase 1 security). */}
+                      <ForceChangePasswordModal />
                       <div className="min-h-screen bg-github-bg-primary transition-colors duration-200 overflow-y-auto">
                         <Routes>
                           {/* All routes with UnifiedLayout */}

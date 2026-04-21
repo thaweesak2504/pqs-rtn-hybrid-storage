@@ -14,6 +14,7 @@ const mockAuthValue = {
   signOut: vi.fn(),
   checkAuthStatus: vi.fn(),
   updateAvatar: vi.fn(),
+  markPasswordChanged: vi.fn(),
 };
 
 describe("ActiveDocumentPage integration", () => {

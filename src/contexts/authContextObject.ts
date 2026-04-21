@@ -29,6 +29,12 @@ export interface AuthContextType {
   checkAuthStatus: () => void
   updateAvatar: (avatar: string | null) => Promise<void> | void
   handleAvatarLoadError?: () => Promise<void> | void
+  /**
+   * Called by the ForceChangePasswordModal after the backend has successfully
+   * changed the user's password. Clears `must_change_password` on the
+   * in-memory user and persisted localStorage snapshot so the UI unblocks.
+   */
+  markPasswordChanged: () => void
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
