@@ -156,6 +156,7 @@ pub fn get_content_connection() -> Result<DbConn, String> {
 /// Number of currently-idle connections in the pool. Intended for tests and
 /// diagnostics — helps verify connections return to the pool on drop.
 #[cfg(test)]
+#[allow(unused)]
 pub(crate) fn idle_connections() -> Option<u32> {
     CONTENT_POOL.get().map(|p| p.state().idle_connections)
 }
