@@ -188,6 +188,7 @@ const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
         document.removeEventListener('mouseup', handleProgressMouseUp)
       }
     }
+    return undefined;
   }, [isDragging, handleProgressMouseMove, handleProgressMouseUp])
 
   
@@ -236,6 +237,7 @@ const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
         document.removeEventListener('mouseup', handleVolumeMouseUp)
       }
     }
+    return undefined;
   }, [isVolumeDragging, handleVolumeMouseMove, handleVolumeMouseUp])
 
   // Handle mute toggle

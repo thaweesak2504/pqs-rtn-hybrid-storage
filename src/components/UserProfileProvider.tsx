@@ -10,7 +10,7 @@ const UserProfileProvider: React.FC = () => {
   // Expose toggleProfile to global scope for Avatar to use
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).openUserProfile = toggleProfile
+      window.openUserProfile = toggleProfile
     }
   }, [toggleProfile])
 

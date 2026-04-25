@@ -113,6 +113,7 @@ const Tooltip: React.FC<TooltipProps> = ({
         window.removeEventListener('resize', updatePosition);
       };
     }
+    return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVisible]);
 

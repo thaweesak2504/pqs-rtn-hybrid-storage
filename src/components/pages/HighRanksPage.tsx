@@ -121,10 +121,10 @@ const HighRanksPage: React.FC = () => {
 
       // Extract base64 data and MIME type from data URL
       const [header, base64Data] = dataUrl.split(',');
-      const mimeType = header.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
+      const mimeType = header?.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
       
       // Convert base64 to Uint8Array
-      const binaryString = atob(base64Data);
+      const binaryString = atob(base64Data || '');
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
         bytes[i] = binaryString.charCodeAt(i);

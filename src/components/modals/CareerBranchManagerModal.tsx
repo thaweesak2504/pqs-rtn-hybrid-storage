@@ -142,7 +142,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     try {
       const list = await invoke<OccupationSubBranch[]>('get_occupation_sub_branches', { branchCode: mainCode });
       setSubBranches(list);
-      if (list.length > 0) {
+      if (list.length > 0 && list[0]) {
         setSelectedSub(list[0].code);
         loadEditorSubQuestions(mainCode);
       } else {
@@ -447,13 +447,18 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
 
     // Protection for 300-series mandatory item (must stay last)
     if (currentSlotType === '300') {
-      if (items[index].always_checked || items[newIndex].always_checked) {
+      if (items[index]?.always_checked || items[newIndex]?.always_checked) {
         return;
       }
     }
 
     const swapped = [...items];
-    [swapped[index], swapped[newIndex]] = [swapped[newIndex], swapped[index]];
+    const item1 = swapped[index];
+    const item2 = swapped[newIndex];
+    if (item1 && item2) {
+      swapped[index] = item2;
+      swapped[newIndex] = item1;
+    }
 
     const updatedItems = swapped.map((q, i) => ({ ...q, sequence: i + 1 }));
     const prefix = fullPrefix(activeTab, selectedMain, selectedSub);

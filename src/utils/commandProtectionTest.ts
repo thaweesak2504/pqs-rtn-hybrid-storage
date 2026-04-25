@@ -158,7 +158,7 @@ export class CommandProtectionTest {
       if (validations.length !== 3) {
         throw new Error('Expected 3 validation results');
       }
-      if (validations[0].isValid) {
+      if (validations[0]?.isValid) {
         throw new Error('Expected first command validation to fail');
       }
       return { validations };

@@ -528,7 +528,7 @@ export class CommandMonitor {
     const dailyStats: Map<string, DailyStats> = new Map();
     
     executions.forEach(execution => {
-      const date = execution.timestamp.toISOString().split('T')[0];
+      const date = execution.timestamp.toISOString().split('T')[0] || '';
       const stats = dailyStats.get(date) || {
         date, totalCommands: 0, successfulCommands: 0, failedCommands: 0, 
         averageExecutionTime: 0, uniqueCommands: 0
@@ -543,7 +543,7 @@ export class CommandMonitor {
     
     // Calculate averages and unique commands
     dailyStats.forEach(stats => {
-      const dayExecutions = executions.filter(e => e.timestamp.toISOString().split('T')[0] === stats.date);
+      const dayExecutions = executions.filter(e => (e.timestamp.toISOString().split('T')[0] || '') === stats.date);
       stats.averageExecutionTime = dayExecutions.reduce((sum, e) => sum + e.executionTime, 0) / dayExecutions.length;
       stats.uniqueCommands = new Set(dayExecutions.map(e => e.sanitizedCommand)).size;
     });

@@ -348,7 +348,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiAlphaRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-alpha">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -361,7 +361,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiDigitRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-num">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -499,7 +499,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
           return (
             <div className={`mt-1 ${contentStartOffsetClass} space-y-1`}>
               {ordered.map(code => {
-                const text = answerKeys[code];
+                const text = answerKeys[code] || '';
                 const sqIdx = effectiveSqList.findIndex(s => s.code === code);
                 const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
                 return (

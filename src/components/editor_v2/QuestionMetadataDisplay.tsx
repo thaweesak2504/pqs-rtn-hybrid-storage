@@ -80,7 +80,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiAlphaRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-alpha">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -93,7 +93,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiDigitRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-num">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -192,7 +192,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                           <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: {label && <span className="text-amber-600 dark:text-amber-400">{label}.</span>}</span>
                           <div className="answer-key-markdown min-w-0 flex-1">
                             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                              {formatAnswerKeyForDisplay(keys[code]).replace(/\n/g, "  \n")}
+                              {formatAnswerKeyForDisplay(keys[code] || '').replace(/\n/g, "  \n")}
                             </ReactMarkdown>
                           </div>
                         </div>

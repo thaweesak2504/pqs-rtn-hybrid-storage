@@ -412,24 +412,24 @@ const HistoryPage: React.FC = () => {
             {/* Three Cards using Reusable Card Component */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <Card 
-                title={content[language].cards[0].title}
-                subtitle={content[language].cards[0].description}
+                title={content[language].cards[0]?.title || ''}
+                subtitle={content[language].cards[0]?.description || ''}
                 icon={<BookOpen className="w-8 h-8 text-github-accent-info" />}
                 hover={true}
                 size="medium"
               />
 
               <Card 
-                title={content[language].cards[1].title}
-                subtitle={content[language].cards[1].description}
+                title={content[language].cards[1]?.title || ''}
+                subtitle={content[language].cards[1]?.description || ''}
                 icon={<Target className="w-8 h-8 text-github-accent-orange" />}
                 hover={true}
                 size="medium"
               />
 
               <Card 
-                title={content[language].cards[2].title}
-                subtitle={content[language].cards[2].description}
+                title={content[language].cards[2]?.title || ''}
+                subtitle={content[language].cards[2]?.description || ''}
                 icon={<Shield className="w-8 h-8 text-github-accent-success" />}
                 hover={true}
                 size="medium"

@@ -119,7 +119,7 @@ export const useNavigationHistory = (): NavigationHistory => {
       isNavigatingRef.current = true
       setCurrentIndex(index)
       const historyItem = history[index]
-      navigate(historyItem.path, { state: historyItem.state })
+      if (historyItem) navigate(historyItem.path, { state: historyItem.state })
     }
   }, [history, navigate])
 

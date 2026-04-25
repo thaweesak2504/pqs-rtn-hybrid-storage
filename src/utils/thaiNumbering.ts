@@ -11,7 +11,7 @@ export type DigitNumberingMode = 'arabic' | 'thai';
 export const toThaiNumber = (num?: number | string | null): string => {
   if (num === null || num === undefined) return '';
   const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().replace(/\d/g, (match) => thaiDigits[match as any]);
+  return num.toString().replace(/\d/g, (match) => thaiDigits[Number(match)] ?? match);
 };
 
 export const formatNumberByMode = (
@@ -28,7 +28,7 @@ export const toThaiAlphabet = (n: number) => {
     'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร',
     'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ',
   ];
-  return n > 0 && n <= alpha.length ? alpha[n - 1] : n.toString();
+  return n > 0 && n <= alpha.length ? (alpha[n - 1] ?? n.toString()) : n.toString();
 };
 
 export const convertThaiToArabic = (thaiStr: string) => {

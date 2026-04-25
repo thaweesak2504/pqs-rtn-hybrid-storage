@@ -81,9 +81,9 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       // Check if units length > 1 or is Navy?
       // For now, let's assume 'units' here are the top level selectable items (e.g. Fleets, Departments)
       // Or if Navy is the ONLY root, we load its children.
-      if (units.length === 1 && units[0].unit_level === 1) { // L1 logic
+      if (units.length === 1 && units[0]?.unit_level === 1) { // L1 logic
         // This is Navy. Load its children as L2.
-        loadChildren(units[0].unit_id, setL2Units)
+        loadChildren(units[0]?.unit_id || '', setL2Units)
       } else {
         // These are likely L2s already?
         setL2Units(units)

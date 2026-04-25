@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import { logger } from '../utils/logger';
 
 // Desktop App only — invoke() directly, no web fallback
-export const safeInvoke = async (command: string, args?: any) => {
+export const safeInvoke = async (command: string, args?: Record<string, unknown>) => {
   try {
     const result = await invoke(command, args);
     return result;

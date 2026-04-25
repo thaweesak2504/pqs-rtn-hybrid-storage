@@ -540,7 +540,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     const idx = siblings.findIndex((q) => q.id === questionId);
     if (idx <= 0) return; // Already first
     const reordered = [...siblings];
-    [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
+    const item1 = reordered[idx - 1];
+    const item2 = reordered[idx];
+    if (item1 && item2) {
+      reordered[idx - 1] = item2;
+      reordered[idx] = item1;
+    }
     try {
       // Optimistic: update sequence in local state
       setQuestions(prev => prev.map(q => {
@@ -558,7 +563,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     const idx = siblings.findIndex((q) => q.id === questionId);
     if (idx < 0 || idx >= siblings.length - 1) return; // Already last
     const reordered = [...siblings];
-    [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
+    const item1 = reordered[idx];
+    const item2 = reordered[idx + 1];
+    if (item1 && item2) {
+      reordered[idx] = item2;
+      reordered[idx + 1] = item1;
+    }
     try {
       // Optimistic: update sequence in local state
       setQuestions(prev => prev.map(q => {

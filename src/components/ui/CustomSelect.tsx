@@ -64,8 +64,8 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
       case 'Enter':
       case ' ':
         e.preventDefault()
-        if (isOpen && highlightedIndex >= 0) {
-          handleOptionSelect(options[highlightedIndex])
+        if (isOpen && highlightedIndex >= 0 && options[highlightedIndex]) {
+          handleOptionSelect(options[highlightedIndex] as { value: string; label: string; disabled?: boolean })
         } else {
           setIsOpen(!isOpen)
         }

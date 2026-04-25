@@ -3,8 +3,15 @@ import React, { useEffect, useState } from 'react'
 import { useWindowVisibility } from '../hooks/useWindowVisibility'
 import { logger } from '../utils/logger';
 
+interface TauriWindow {
+  minimize: () => Promise<void>;
+  isMaximized: () => Promise<boolean>;
+  toggleMaximize: () => Promise<void>;
+  close: () => Promise<void>;
+}
+
 const WindowControls: React.FC = () => {
-  const [windowApi, setWindowApi] = useState<any>(null)
+  const [windowApi, setWindowApi] = useState<TauriWindow | null>(null)
   const [isMaximized, setIsMaximized] = useState(false)
   
   // Use the window visibility hook (maximize tracking disabled to prevent crashes)

@@ -2,6 +2,12 @@ import React, { createContext, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import UserProfilePanel from '../components/UserProfilePanel'
 
+declare global {
+  interface Window {
+    openUserProfile?: () => void
+  }
+}
+
 export interface UserProfileContextType {
   isProfileOpen: boolean
   openProfile: () => void
@@ -34,7 +40,7 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
   // Expose toggleProfile to global scope for Avatar to use
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).openUserProfile = toggleProfile
+      window.openUserProfile = toggleProfile
     }
   }, [toggleProfile])
 
@@ -56,3 +62,4 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
     </UserProfileContext.Provider>
   )
 }
+

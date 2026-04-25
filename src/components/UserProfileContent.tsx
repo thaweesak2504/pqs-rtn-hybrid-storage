@@ -66,7 +66,7 @@ const UserProfileContent: React.FC = () => {
       const fileData = new Uint8Array(arrayBuffer)
       
       // Get MIME type from data URL
-      const mimeType = preview.split(';')[0].split(':')[1] || 'image/jpeg'
+      const mimeType = preview.split(';')[0]?.split(':')[1] || 'image/jpeg'
       
       // Save using hybrid avatar system
       const success = await saveAvatar(fileData, mimeType)
@@ -156,9 +156,9 @@ const UserProfileContent: React.FC = () => {
       if (!user?.id) return
       if (preview) return
       if (user?.avatar) return
-      const pathOnly = (user as any)?.avatar_path
+      const pathOnly = user?.avatar_path
       if (!pathOnly) return
-      const api = (window as any)?.api
+      const api = (window as unknown as { api?: { avatar?: { read: (id: string) => Promise<{ ok: boolean, dataUrl: string }> } } })?.api
       if (!api?.avatar?.read) return
       const origin = window.location.origin
       if (origin.startsWith('file://')) return
@@ -173,7 +173,7 @@ const UserProfileContent: React.FC = () => {
     }
     run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, (user as any)?.avatar_path])
+  }, [user?.id, user?.avatar_path])
 
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -197,6 +197,7 @@ const UserProfileContent: React.FC = () => {
     setIsDragging(false); dragDepth.current = 0
     if (e.dataTransfer.files?.length) {
       const f = e.dataTransfer.files[0]
+      if (!f) return
       const validation = validateAvatarFile(f)
       if (!validation.ok) { setUploadError(validation.error || 'ไฟล์ไม่ถูกต้อง'); return }
       setIsUploading(true); setUploadError(null)
@@ -231,7 +232,7 @@ const UserProfileContent: React.FC = () => {
         <div className="relative">
           <Avatar
             src={preview || hybridAvatar || undefined}
-            version={preview ? null : (user as any)?.avatar_updated_at || null}
+            version={preview ? null : user?.avatar_updated_at || null}
             name={user?.name}
             size="lg"
             className={`border-2 ${preview ? 'ring-2 ring-github-accent-primary' : ''}`}

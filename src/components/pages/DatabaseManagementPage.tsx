@@ -286,7 +286,7 @@ const DatabaseManagementPage: React.FC = () => {
         
         // Copy to selected location
         const copyResult = await invoke<string>('export_hybrid_backup_to_location', {
-          sourceFilename: latestBackup.filename,
+          sourceFilename: latestBackup?.filename || '',
           destinationPath: savePath
         });
         

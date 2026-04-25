@@ -56,12 +56,12 @@ const SlideBar: React.FC = () => {
 
   // Focus management: focus close button when sidebar opens; remove focus when closed
   React.useEffect(() => {
+    let id: number | undefined;
     if (isOpen) {
       // Defer to next tick to ensure the element is rendered
-      const id = window.setTimeout(() => {
+      id = window.setTimeout(() => {
         closeBtnRef.current?.focus()
       }, 0)
-      return () => window.clearTimeout(id)
     } else {
       // Remove focus from sidebar when it's closed to prevent aria-hidden warning
       const activeElement = document.activeElement as HTMLElement
@@ -70,6 +70,9 @@ const SlideBar: React.FC = () => {
         // Move focus to body to prevent focus trap
         document.body.focus()
       }
+    }
+    return () => {
+      if (id !== undefined) window.clearTimeout(id)
     }
   }, [isOpen])
 
@@ -97,6 +100,9 @@ const SlideBar: React.FC = () => {
       if (focusables.length === 0) return
       const first = focusables[0]
       const last = focusables[focusables.length - 1]
+      
+      if (!first || !last) return
+
       const active = document.activeElement as HTMLElement | null
 
       if (e.shiftKey) {
@@ -316,11 +322,11 @@ const SlideBar: React.FC = () => {
                     if (key === 'ArrowDown') {
                       e.preventDefault()
                       const next = ids[(idx + 1) % ids.length]
-                      topItemRefs.current[next]?.focus()
+                      if (next) topItemRefs.current[next]?.focus()
                     } else if (key === 'ArrowUp') {
                       e.preventDefault()
                       const prev = ids[(idx - 1 + ids.length) % ids.length]
-                      topItemRefs.current[prev]?.focus()
+                      if (prev) topItemRefs.current[prev]?.focus()
                     } else if (key === 'Enter' || key === ' ') {
                       e.preventDefault()
                       navigationHandlers.handleMenuClick(item.id)
@@ -344,11 +350,11 @@ const SlideBar: React.FC = () => {
                       if (key === 'ArrowDown') {
                         e.preventDefault()
                         const next = ids[(idx + 1) % ids.length]
-                        topItemRefs.current[next]?.focus()
+                        if (next) topItemRefs.current[next]?.focus()
                       } else if (key === 'ArrowUp') {
                         e.preventDefault()
                         const prev = ids[(idx - 1 + ids.length) % ids.length]
-                        topItemRefs.current[prev]?.focus()
+                        if (prev) topItemRefs.current[prev]?.focus()
                       }
                     }
                   }
@@ -428,11 +434,11 @@ const SlideBar: React.FC = () => {
                           if (key === 'ArrowDown') {
                             e.preventDefault()
                             const next = ids[(idx + 1) % ids.length]
-                            subItemRefs.current[next]?.focus()
+                            if (next) subItemRefs.current[next]?.focus()
                           } else if (key === 'ArrowUp') {
                             e.preventDefault()
                             const prev = ids[(idx - 1 + ids.length) % ids.length]
-                            subItemRefs.current[prev]?.focus()
+                            if (prev) subItemRefs.current[prev]?.focus()
                           } else if (key === 'ArrowLeft') {
                             e.preventDefault()
                             // Move focus back to parent item

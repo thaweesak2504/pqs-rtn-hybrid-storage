@@ -51,7 +51,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   
   const [isLoading, setIsLoading] = useState(true)
 
-  const { isAuthenticated, user, handleAvatarLoadError } = useAuth() as any
+  const { isAuthenticated, user, handleAvatarLoadError } = useAuth()
   const navigate = useNavigate()
   const { 
     setLayoutType,
@@ -84,7 +84,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
 
   useEffect(() => {
     handleRefreshAvatar()
-  }, [user?.id, (user as any)?.avatar_updated_at, handleRefreshAvatar])
+  }, [user?.id, user?.avatar_updated_at, handleRefreshAvatar])
 
   // ✅ Phase 1.2: Avatar sync with custom hook (replaces complex useEffect)
   useAvatarSync(user?.id, handleRefreshAvatar)
@@ -223,7 +223,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                       <span className="sr-only">User menu</span>
                       <Avatar
                         src={hybridAvatar || undefined}
-                        version={(user as any)?.avatar_updated_at || null}
+                        version={user?.avatar_updated_at || null}
                         name={user?.name}
                         size="sm"
                         className="hover:border-github-border-active transition-all duration-200"

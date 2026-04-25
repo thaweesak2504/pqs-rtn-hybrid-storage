@@ -623,7 +623,7 @@ const ReferenceFormCard: React.FC<{
           // Match digits after the prefix-digit part (supports 3 or 4 digits for transition)
           const m = ref.code.match(/-(\d)(\d+)$/);
           if (m && m[1] === newDigit) {
-            const seq = parseInt(m[2], 10);
+            const seq = parseInt(m[2] || '0', 10);
             if (seq > maxSeq) maxSeq = seq;
           }
         });

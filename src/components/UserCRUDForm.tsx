@@ -55,27 +55,7 @@ const UserCRUDForm: React.FC = () => {
         created_at: u.created_at || new Date().toISOString(),
         updated_at: u.updated_at || new Date().toISOString()
       })))
-      // In dev (http origin) file:// cannot be loaded; hydrate previews by reading avatars via IPC if available
-      try {
-        const origin = window.location.origin
-        const canRead = (window as any).api?.avatar?.read
-        if (!origin.startsWith('file://') && canRead) {
-          for (const u of userList) {
-            if (u.id && u.avatar_path) {
-              try {
-                const res = await (window as any).api.avatar.read(u.id)
-                if (res?.ok && res.dataUrl) {
-                  setAvatarPreviews(prev => ({ ...prev, [u.id as number]: res.dataUrl }))
-                }
-              } catch (error) {
-                logger.warn('Error:', error);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        logger.warn('Error:', error);
-      }
+      // Legacy Electron IPC check for avatars was here. In Tauri we use the asset protocol, so this is no longer needed.
 
       // Password loading removed for security
     } catch (error) {
@@ -108,7 +88,7 @@ const UserCRUDForm: React.FC = () => {
         const fileData = new Uint8Array(arrayBuffer)
 
         // Get MIME type from data URL
-        const mimeType = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg'
+        const mimeType = dataUrl.split(';')[0]?.split(':')[1] || 'image/jpeg'
 
         // Save avatar using Hybrid Avatar System
         const { invoke } = await import('@tauri-apps/api/tauri')
@@ -186,17 +166,17 @@ const UserCRUDForm: React.FC = () => {
 
         logger.debug('Avatar deleted successfully for user:', user.id)
 
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         logger.error('Hybrid avatar delete failed:', {
           error: dbError,
           userId: user.id,
-          message: dbError?.message || String(dbError)
+          message: dbError instanceof Error ? dbError.message : String(dbError)
         })
 
         // Show user-friendly error message
         const errorMessage = typeof dbError === 'string'
           ? dbError
-          : dbError?.message || 'ลบรูปไม่สำเร็จ - กรุณาลองอีกครั้ง'
+          : (dbError instanceof Error ? dbError.message : 'ลบรูปไม่สำเร็จ - กรุณาลองอีกครั้ง')
 
         showError(errorMessage)
         return
@@ -227,13 +207,13 @@ const UserCRUDForm: React.FC = () => {
 
       showSuccess('ลบ Avatar สำเร็จ')
 
-    } catch (e: any) {
+    } catch (e: unknown) {
       logger.error('Remove avatar failed - outer catch:', {
         error: e,
-        stack: e?.stack,
+        stack: e instanceof Error ? e.stack : undefined,
         userId: user.id
       })
-      showError(`ลบล้มเหลว: ${e?.message || String(e)}`)
+      showError(`ลบล้มเหลว: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       // Always clear busy state
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: false }))

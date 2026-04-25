@@ -54,14 +54,16 @@ export const useKeyboardNavigation = (
     
     if (index >= 0 && index < focusableItems.length) {
       const element = focusableItems[index]
-      element.focus()
-      activeElementRef.current = element
-      
-      // Scroll into view if needed
-      element.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'nearest' 
-      })
+      if (element) {
+        element.focus()
+        activeElementRef.current = element
+        
+        // Scroll into view if needed
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'nearest' 
+        })
+      }
     }
   }, [getFocusableItems])
 
@@ -212,7 +214,7 @@ export const useKeyboardNavigation = (
           
           // Find first item starting with the letter
           for (let i = 0; i < focusableItems.length; i++) {
-            const text = focusableItems[i].textContent?.toLowerCase() || ''
+            const text = focusableItems[i]?.textContent?.toLowerCase() || ''
             if (text.startsWith(targetLetter)) {
               focusElement(i)
               break

@@ -18,7 +18,11 @@ interface InitializationProviderProps {
 export const InitializationProvider: React.FC<InitializationProviderProps> = ({ children }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [systemState, setSystemState] = useState<any>(null);
+  const [systemState, setSystemState] = useState<{
+    database_exists_and_valid: boolean;
+    media_exists_and_valid: boolean;
+    backup_info: any;
+  } | null>(null);
   const [hasChecked, setHasChecked] = useState(false);
 
   // Check if initialization is needed on app start
@@ -104,7 +108,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
         <InitializationWizard
           onComplete={handleWizardComplete}
           onSkip={handleWizardSkip}
-          systemState={systemState}
+          systemState={systemState || undefined}
         />
       ) : (
         children

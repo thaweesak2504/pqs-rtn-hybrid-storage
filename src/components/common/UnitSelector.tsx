@@ -53,8 +53,8 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
         try {
           const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId: null })
           // If single root (Navy), load its children
-          if (units.length === 1 && units[0].unit_level === 1) {
-            loadChildren(units[0].unit_id, setL2Units)
+          if (units.length === 1 && units[0]?.unit_level === 1) {
+            loadChildren(units[0]?.unit_id || '', setL2Units)
           } else {
             setL2Units(units)
           }

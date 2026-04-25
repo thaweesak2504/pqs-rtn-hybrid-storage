@@ -329,7 +329,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       setRequiredCountChildren(children);
       setRequiredCount(children.length);
       if (children.length > 0) {
-        setScorePerInstance(children[0].score);
+        setScorePerInstance(children[0]?.score || 0);
         setEffectiveIsGroupHeader(true);
       } else {
         // No children but was group_header → stale state, revert
@@ -1815,7 +1815,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                               <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
                                 {is300 && (
                                   <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
-                                    <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
+                                    <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; const ugi = u[gi]; if (ugi) { u[gi] = { ...ugi, alwaysChecked: !ugi.alwaysChecked }; setSubQuestionList(u); } if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
                                         className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
                                         <CheckCircle className="w-3 h-3" />
                                     </button>
