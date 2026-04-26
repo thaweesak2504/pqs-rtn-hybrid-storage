@@ -83,8 +83,8 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
   const loadSectionReferences = async () => {
     try {
-      const refs = await invoke<any[]>('get_section_references', { sectionId });
-      setExistingRefs(refs.map(r => r.reference.id));
+      const refs = await invoke<{id: number, reference_id: number}[]>('get_section_references', { sectionId });
+      setExistingRefs(refs.map(r => r.reference_id));
     } catch (err) {
       logger.error('Failed to load section references:', err);
     }
@@ -200,9 +200,9 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Failed to add selected references:', err);
-      setError(err.toString());
+      setError(String(err));
     } finally {
       setAddingMany(false);
     }
@@ -245,9 +245,9 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Failed to create reference:', err);
-      setError(err.toString());
+      setError(String(err));
     } finally {
       setCreating(false);
     }
@@ -264,7 +264,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       loadAllReferences();
       loadCommonReferences();
       setRefToDelete(null);
-    } catch (err: any) {
+    } catch (err) {
       showError('ไม่สามารถลบได้: ' + err);
     }
   };

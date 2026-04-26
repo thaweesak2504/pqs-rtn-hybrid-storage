@@ -83,7 +83,7 @@ export class CommandExecutor {
     
     const startTime = Date.now();
     let sanitizedCommand = command;
-    let sanitizationStats: any = undefined;
+    let sanitizationStats: { charactersRemoved: number; issues: string[]; } | undefined = undefined;
     
     try {
       // Step 1: Sanitize command if requested

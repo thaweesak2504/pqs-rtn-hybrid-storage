@@ -63,7 +63,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 
   const fetchReferences = async (sId: number) => {
     try {
-      const refs = await invoke<any[]>('get_section_references', { sectionId: sId });
+      const refs = await invoke<{id: number, reference: {id: number, code: string, title: string, category: string, classification: string, resource_type: string, file_path: string}, usage_count: number}[]>('get_section_references', { sectionId: sId });
       setReferences(refs.map(r => ({
         id: r.id.toString(),
         reference_id: r.reference.id,
@@ -85,7 +85,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+        const sections = await invoke<{id: number, section_number: number, title_th: string, menu_label: string}[]>('get_sections_by_document', { documentId: docId });
         const currentSection = sections.find(s => s.section_number === sectionNumber);
 
         if (currentSection) {
@@ -144,7 +144,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       // 1. Create Reference (or retrieve if code exists - logic needs to be robust)
       // For now, naive create. If fails (duplicate), we might need to search.
       // Let's try to search first to be safe.
-      const existingRefs = await invoke<any[]>('get_references', { search: ref.code, commonOnly: false });
+      const existingRefs = await invoke<{id: number, code: string}[]>('get_references', { search: ref.code, commonOnly: false });
       let refId = 0;
       const match = existingRefs.find(r => r.code === ref.code);
 
@@ -152,7 +152,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         refId = match.id;
       } else {
         // Create new
-        const newRef = await invoke<any>('create_reference', {
+        const newRef = await invoke<{id: number}>('create_reference', {
           request: {
             code: ref.code,
             title: ref.title,
@@ -179,9 +179,9 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           referenceId: refId,
           displayOrder: null // Auto append
         });
-      } catch (linkErr: any) {
+      } catch (linkErr) {
         // If it's already linked in DB (even if UI was out of sync)
-        const errMsg = linkErr.toString().toLowerCase();
+        const errMsg = String(linkErr).toLowerCase();
         if (errMsg.includes('unique') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
           showAlert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ", 'warning');
         } else {

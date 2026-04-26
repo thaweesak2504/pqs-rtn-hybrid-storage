@@ -151,7 +151,7 @@ export const usePageSearch = () => {
           element: span,
           index: results.length,
           query: query,
-          textNode: undefined as any as Text
+          textNode: undefined as unknown as Text
         })
 
         lastIndex = match.index + match[0].length

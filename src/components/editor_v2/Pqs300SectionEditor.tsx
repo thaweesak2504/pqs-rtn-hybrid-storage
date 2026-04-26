@@ -211,7 +211,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   // Fetch Section ID on mount or when sectionNumber changes
   const fetchSectionData = useCallback(async () => {
     try {
-      const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+      const sections = await invoke<{id: number, section_number: number, title_th: string, menu_label: string, duration_value?: number, duration_unit?: string, total_score?: number}[]>('get_sections_by_document', { documentId: docId });
       const currentSection = sections.find(s => s.section_number === sectionNumber);
       if (currentSection) {
         setCurrentTitle(currentSection.title_th);
@@ -219,9 +219,9 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         const rawLabel = currentSection.menu_label || '';
         const prefix = `${sectionNumber} `;
         setCurrentMenuLabel(rawLabel.startsWith(prefix) ? rawLabel.slice(prefix.length) : rawLabel);
-        setDurationValue(currentSection.duration_value);
-        setDurationUnit(currentSection.duration_unit || 'weeks');
-        setTotalScore(currentSection.total_score);
+        setDurationValue(currentSection.duration_value ?? null);
+        setDurationUnit((currentSection.duration_unit as 'days' | 'weeks' | 'months') || 'weeks');
+        setTotalScore(currentSection.total_score ?? null);
         // Set sectionId LAST so all metadata is ready when the guard passes
         setSectionId(currentSection.id);
       }

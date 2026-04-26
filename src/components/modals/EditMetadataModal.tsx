@@ -384,7 +384,7 @@ const EditMetadataModal: React.FC<EditMetadataModalProps> = ({
              <p className="text-xs mb-6 text-red-600 dark:text-red-400 font-medium">ข้อมูลที่ถูกลบจะไม่สามารถกู้คืนได้</p>
              <div className="flex justify-end gap-3">
                <Button type="button" variant="ghost" onClick={() => { setShowConfirmDialog(false); setSelectedMain(originalMain); setSelectedSub(originalSub); }}>ยกเลิก</Button>
-               <Button type="button" variant="danger" onClick={() => { setShowConfirmDialog(false); handleSubmit(new Event('submit') as any); }}>ยืนยัน เปลี่ยนสาขาและล้างข้อมูล</Button>
+               <Button type="button" variant="danger" onClick={() => { setShowConfirmDialog(false); handleSubmit(new Event('submit') as unknown as React.FormEvent); }}>ยืนยัน เปลี่ยนสาขาและล้างข้อมูล</Button>
              </div>
            </div>
         </div>

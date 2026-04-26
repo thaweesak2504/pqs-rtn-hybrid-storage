@@ -16,7 +16,7 @@ export interface TestResult {
   passed: boolean;
   error?: string;
   executionTime: number;
-  details?: any;
+  details?: unknown;
 }
 
 export interface TestSuite {
@@ -296,7 +296,7 @@ export class CommandProtectionTest {
         riskLevel: 'low'
       };
       
-      CommandMonitor.logExecution(mockExecution as any);
+      CommandMonitor.logExecution(mockExecution as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       return { logged: true };
     });
     
@@ -455,7 +455,7 @@ export class CommandProtectionTest {
       
       // Log executions
       for (const result of results) {
-        CommandMonitor.logExecution(result as any);
+        CommandMonitor.logExecution(result as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       }
       
       if (results.length === 0) {
@@ -483,7 +483,7 @@ export class CommandProtectionTest {
       
       // Step 4: Monitor
       if (result) {
-        CommandMonitor.logExecution(result as any);
+        CommandMonitor.logExecution(result as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       }
       
       if (sanitized !== 'git add .') {
@@ -532,7 +532,7 @@ export class CommandProtectionTest {
    * @param testName - Name of the test
    * @param testFunction - Test function to run
    */
-  private static async runTest(testName: string, testFunction: () => Promise<any>): Promise<void> {
+  private static async runTest(testName: string, testFunction: () => Promise<unknown>): Promise<void> {
     const startTime = Date.now();
     
     try {

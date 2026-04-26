@@ -21,7 +21,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
   const [systemState, setSystemState] = useState<{
     database_exists_and_valid: boolean;
     media_exists_and_valid: boolean;
-    backup_info: any;
+    backup_info: { has_backups: boolean; total_backups: number; [key: string]: unknown };
   } | null>(null);
   const [hasChecked, setHasChecked] = useState(false);
 

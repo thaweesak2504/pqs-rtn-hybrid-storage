@@ -191,7 +191,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       onClose()
       // You might want to show a toast success here?
 
-    } catch (err: any) {
+    } catch (err) {
       logger.error("Create failed:", err)
       setError(typeof err === 'string' ? err : "Failed to create document")
     } finally {

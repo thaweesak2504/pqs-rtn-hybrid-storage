@@ -526,7 +526,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!isPerformanceL2 || !sectionId || (!existingId && !generatedId && !parentId)) return;
 
     // Build current metadata from form state (sub-questions will be copied to L3)
-    const syncMeta: Record<string, any> = {};
+    const syncMeta: Record<string, unknown> = {};
     if (useSubQuestions) {
       syncMeta.useSubQuestions = true;
       if (selMainBranch) syncMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
@@ -1154,7 +1154,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
-    let newMeta: any = {};
+    let newMeta: Record<string, unknown> = {};
     if (initialMetadata) {
       try {
         newMeta = JSON.parse(initialMetadata);
@@ -1219,7 +1219,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (isBackgroundSaved && !isEdit && generatedId) {
       try {
         // Update L2 content/metadata
-        let metaObj: any = {};
+        let metaObj: Record<string, unknown> = {};
         if (metadataString) {
           try { metaObj = JSON.parse(metadataString); } catch { }
         }

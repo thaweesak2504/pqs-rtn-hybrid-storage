@@ -71,7 +71,7 @@ export class CommandProtectionSystem {
   async processAIResponse(aiResponse: string): Promise<{
     filtered: FilteredCommands;
     executions: ExecutionResult[];
-    statistics: any;
+    statistics: Record<string, unknown>;
   }> {
     // Step 1: Filter AI response
     const filtered = AICommandFilter.filterAIOutput(aiResponse);
@@ -83,6 +83,7 @@ export class CommandProtectionSystem {
       executions.push(result);
       
       // Log execution
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       CommandMonitor.logExecution(result as any);
     }
     
@@ -113,7 +114,8 @@ export class CommandProtectionSystem {
     });
     
     // Log execution
-    CommandMonitor.logExecution(result as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      CommandMonitor.logExecution(result as any);
     
     return result;
   }
@@ -124,10 +126,10 @@ export class CommandProtectionSystem {
    * @returns System statistics
    */
   getSystemStatistics(): {
-    sanitizer: any;
+    sanitizer: Record<string, unknown>;
     executor: ExecutionStats;
     monitor: CommandStatistics;
-    ai: any;
+    ai: Record<string, unknown>;
   } {
     return {
       sanitizer: {

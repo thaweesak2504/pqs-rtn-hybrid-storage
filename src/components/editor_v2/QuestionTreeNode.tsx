@@ -300,7 +300,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialImage={initialImage}
           initialMetadata={question.metadata}
           onSave={async (data) => {
-            let metaObj: any = {};
+            let metaObj: Record<string, unknown> = {};
             if (data.metadata) {
               try {
                 metaObj = JSON.parse(data.metadata);

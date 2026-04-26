@@ -38,6 +38,15 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
   const [selectedL3, setSelectedL3] = useState<string>('')
   const [selectedL4, setSelectedL4] = useState<string>('')
 
+  const loadChildren = async (parentId: string, setter: React.Dispatch<React.SetStateAction<OwnerUnit[]>>) => {
+    try {
+      const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
+      setter(units)
+    } catch (err) {
+      logger.error(`Failed to load children for ${parentId}:`, err)
+    }
+  }
+
   // Load L2 based on L1
   useEffect(() => {
     // Reset lower levels when L1 changes
@@ -68,15 +77,6 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
       // l2Units is already []
     }
   }, [selectedL1])
-
-  const loadChildren = async (parentId: string, setter: React.Dispatch<React.SetStateAction<OwnerUnit[]>>) => {
-    try {
-      const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
-      setter(units)
-    } catch (err) {
-      logger.error(`Failed to load children for ${parentId}:`, err)
-    }
-  }
 
   // Effect: When L2 changes
   useEffect(() => {

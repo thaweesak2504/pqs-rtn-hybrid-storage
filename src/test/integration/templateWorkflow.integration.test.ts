@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { invoke } from "@tauri-apps/api/tauri";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,7 +39,7 @@ class FakeTemplateBackend {
   private readonly sections = new Map<number, WorkflowSection>();
   private readonly questionsById = new Map<string, WorkflowQuestion>();
 
-  async handle(command: string, payload?: any): Promise<any> {
+  async handle(command: string, payload?: any): Promise<unknown> {
     switch (command) {
       case "create_new_document":
         return this.createDocument();

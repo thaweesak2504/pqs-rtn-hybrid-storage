@@ -9,7 +9,7 @@ export interface NavigationEvent {
   label: string
   timestamp: number
   duration?: number
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface NavigationStats {
@@ -48,8 +48,17 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
   const location = useLocation()
   const [events, setEvents] = useState<NavigationEvent[]>([])
   const [isTrackingEnabled, setIsTrackingEnabled] = useState(true)
-  const sessionStartTime = useRef<number>(Date.now())
-  const lastPageViewTime = useRef<number>(Date.now())
+  const sessionStartTime = useRef<number | null>(null)
+  const lastPageViewTime = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (sessionStartTime.current === null) {
+      sessionStartTime.current = Date.now()
+    }
+    if (lastPageViewTime.current === null) {
+      lastPageViewTime.current = Date.now()
+    }
+  }, [])
 
   // Generate unique event ID
   const generateEventId = useCallback(() => {
@@ -81,7 +90,7 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
   // Track page view
   const trackPageView = useCallback((path: string, label: string) => {
     const currentTime = Date.now()
-    const duration = currentTime - lastPageViewTime.current
+    const duration = currentTime - (lastPageViewTime.current ?? currentTime)
     
     trackEvent({
       type: 'page_view',
@@ -176,7 +185,7 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
 
     // Calculate most used menus
     const menuCounts = menuClicks.reduce((acc, event) => {
-      const menuId = event.metadata?.menuId || 'unknown'
+      const menuId = (event.metadata?.menuId as string) || 'unknown'
       acc[menuId] = (acc[menuId] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -215,7 +224,7 @@ export const useNavigationAnalytics = (): NavigationAnalytics => {
     const stats = getStats()
     const exportData = {
       timestamp: new Date().toISOString(),
-      sessionDuration: Date.now() - sessionStartTime.current,
+      sessionDuration: sessionStartTime.current !== null ? Date.now() - sessionStartTime.current : 0,
       stats,
       events: events.slice(-100) // Last 100 events
     }

@@ -41,6 +41,7 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
   // Memoized analytics data
   const analyticsData = useMemo(() => {
     const totalEvents = events.length
+    // eslint-disable-next-line react-hooks/purity
     const sessionDuration = Date.now() - (events[0]?.timestamp || Date.now())
     const eventsPerMinute = totalEvents > 0 ? (totalEvents / (sessionDuration / 60000)).toFixed(2) : '0'
     
@@ -79,7 +80,7 @@ const NavigationDashboard: React.FC<NavigationDashboardProps> = ({ isOpen, onClo
           ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as "analytics" | "shortcuts" | "settings")}
               className={`flex items-center space-x-2 px-6 py-3 border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-github-accent-primary text-github-text-primary'

@@ -21,7 +21,7 @@ const Tooltip: React.FC<TooltipProps> = ({
   const [actualPosition, setActualPosition] = useState(preferredPosition);
   const triggerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const timeoutRef = useRef<any>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const updatePosition = () => {
     if (!triggerRef.current || !tooltipRef.current) return;

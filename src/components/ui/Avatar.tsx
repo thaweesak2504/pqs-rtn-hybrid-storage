@@ -64,7 +64,6 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
         })()
         if (!finalSrc) return null
         return (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           <img
             src={finalSrc}
             alt={name || 'Avatar'}

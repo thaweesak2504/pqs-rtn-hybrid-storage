@@ -6,7 +6,7 @@ export interface NavigationHistoryItem {
   path: string
   label: string
   timestamp: number
-  state?: any
+  state?: unknown
 }
 
 interface NavigationHistory {

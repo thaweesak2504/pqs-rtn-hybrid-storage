@@ -306,7 +306,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     try {
       // 1. Create Question
       // Construct metadata from image AND answerKey (passed in data.metadata)
-      let metaObj: any = {};
+      let metaObj: Record<string, unknown> = {};
       if (data.metadata) {
         try {
           metaObj = JSON.parse(data.metadata);

@@ -15,6 +15,10 @@ interface Question {
   metadata: string | null;
 }
 
+interface TreeNode extends Question {
+  children: TreeNode[];
+}
+
 interface ContentEditorProps {
   docId: string;
   sectionId?: number | null;
@@ -73,9 +77,9 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
 
       setQuestions(filtered);
       setErrorMsg('');
-    } catch (err: any) {
+    } catch (err) {
       logger.error("Failed to fetch questions:", err);
-      setErrorMsg(err.toString());
+      setErrorMsg(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
@@ -88,8 +92,8 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
   }, [docId, sectionId]);
 
   const buildTree = (items: Question[]) => {
-    const map = new Map<string, Question & { children: any[] }>();
-    const roots: any[] = [];
+    const map = new Map<string, TreeNode>();
+    const roots: TreeNode[] = [];
 
     // Initialize map
     items.forEach(item => {
@@ -100,14 +104,14 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
     items.forEach(item => {
       const node = map.get(item.id);
       if (item.parent_id && map.has(item.parent_id)) {
-        map.get(item.parent_id)!.children.push(node);
+        if (node) map.get(item.parent_id)!.children.push(node);
       } else {
-        roots.push(node);
+        if (node) roots.push(node);
       }
     });
 
     // Sort by sequence
-    const sortNodes = (nodes: any[]) => {
+    const sortNodes = (nodes: TreeNode[]) => {
       nodes.sort((a, b) => a.sequence - b.sequence);
       nodes.forEach(n => sortNodes(n.children));
     };
@@ -175,7 +179,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
     }
   };
 
-  const renderNode = (node: any, level: number = 0) => (
+  const renderNode = (node: TreeNode, level: number = 0) => (
     <div key={node.id} className={`mb-2 pl-${Math.min(level * 4, 12)} ${level > 0 ? 'border-l-2 border-gray-100 dark:border-gray-800' : ''}`}>
       <div className={`p-2 rounded flex justify-between items-center group ${node.is_header ? 'bg-gray-100 dark:bg-gray-700 font-bold' : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750'
         }`}>
@@ -236,7 +240,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
 
       {node.children.length > 0 && (
         <div className="ml-2 mt-1">
-          {node.children.map((child: any) => renderNode(child, level + 1))}
+          {node.children.map((child: TreeNode) => renderNode(child, level + 1))}
         </div>
       )}
     </div>
@@ -305,7 +309,7 @@ export const ContentEditor: React.FC<ContentEditorProps> = ({ docId, sectionId, 
         </div>
       ) : (
         <div className="space-y-1">
-          {treeData.map((node: any) => renderNode(node))}
+          {treeData.map((node: TreeNode) => renderNode(node))}
         </div>
       )}
 

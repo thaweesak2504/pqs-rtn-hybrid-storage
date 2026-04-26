@@ -129,8 +129,8 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
 
       onSuccess(parseInt(sectionNumber));
       onClose();
-    } catch (err: any) {
-      setError(err.toString());
+    } catch (err) {
+      setError(String(err));
     } finally {
       setIsSubmitting(false);
     }

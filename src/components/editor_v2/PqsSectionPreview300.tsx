@@ -47,7 +47,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
 
   useEffect(() => {
     if (!docId) return;
-    invoke<any>('get_document_branch', { docId })
+    invoke<{main?: string, sub?: string}>('get_document_branch', { docId })
       .then(data => { setDocBranchMain(data.main || ''); setDocBranchSub(data.sub || ''); })
       .catch(() => {});
   }, [docId]);

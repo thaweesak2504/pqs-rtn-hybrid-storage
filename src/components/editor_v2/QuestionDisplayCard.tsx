@@ -165,7 +165,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
-      ).then((dbSqs: any[]) => {
+      ).then((dbSqs: {code: string; text: string; always_checked?: boolean}[]) => {
         const filtered = derivedPrefix
           ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix))
           : dbSqs;

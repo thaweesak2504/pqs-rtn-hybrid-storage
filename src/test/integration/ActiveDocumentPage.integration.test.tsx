@@ -65,7 +65,7 @@ describe("ActiveDocumentPage integration", () => {
     ];
 
     vi.mocked(invoke).mockReset();
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "get_document_with_hierarchy") {
         return {
           document: {
