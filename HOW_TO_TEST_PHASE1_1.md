@@ -1,4 +1,4 @@
-# Quick Start Guide for Phase 1.1 
+# Quick Start Guide for Phase 1.1 testing
 
 ## 🎯 Easy Method (Recommended)
 
