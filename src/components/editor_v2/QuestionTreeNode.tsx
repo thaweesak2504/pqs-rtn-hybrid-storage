@@ -299,7 +299,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialDescription={question.description || undefined}
           initialImage={initialImage}
           initialMetadata={question.metadata}
-          onSave={async (data: any) => {
+          onSave={async (data) => {
             let metaObj: Record<string, unknown> = {};
             if (data.metadata) {
               try {
@@ -393,7 +393,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             prefix={is200or300 ? buildPrefix200_300(level, qSeqNum + 1, sectionNumber, parentSequence) : buildPrefix(level, qSeqNum + 1, sectionNumber)}
             level={level}
             sectionGroup={sectionGroup}
-            onSave={(data: any) => onCreate(data, question.parent_id || null, question.id)}
+            onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
             onCancel={onCancel}
             documentId={documentId}
             parentId={question.parent_id || null}
@@ -472,7 +472,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             prefix={is200or300 ? buildPrefix200_300(level + 1, (question.children?.length || 0) + 1, sectionNumber, qSeqNum) : buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
             level={level + 1}
             sectionGroup={sectionGroup}
-            onSave={(data: any) => onCreate(data, question.id, null)}
+            onSave={(data) => onCreate(data, question.id, null)}
             onCancel={onCancel}
             documentId={documentId}
             parentId={question.id}
