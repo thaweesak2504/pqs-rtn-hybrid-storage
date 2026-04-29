@@ -246,10 +246,20 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
 
         {/* Empty State */}
         {activeMode === 'idle' && references.length === 0 && (
-          <div className="col-span-full py-8 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={!readOnly ? handleStartSearch : undefined}>
-            <Book className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-500 font-medium">No references added yet.</p>
-            {!readOnly && <p className="text-xs text-blue-500 mt-1">Click to search or add</p>}
+          <div 
+            className="col-span-full py-12 text-center border border-github-border-primary rounded-xl bg-github-bg-active hover:bg-github-bg-hover hover:border-github-border-active transition-all duration-200 cursor-pointer transform hover:scale-[1.01] active:scale-[0.99] group shadow-github-small hover:shadow-github-medium" 
+            onClick={!readOnly ? handleStartSearch : undefined}
+          >
+            <div className="w-16 h-16 rounded-2xl bg-github-bg-secondary border border-github-border-primary flex items-center justify-center mx-auto mb-4 group-hover:scale-110 group-hover:border-github-accent-primary transition-all duration-300">
+              <Book className="w-8 h-8 text-github-text-tertiary group-hover:text-github-accent-primary transition-colors" />
+            </div>
+            <p className="text-base font-semibold text-github-text-primary tracking-tight">ยังไม่มีเอกสารอ้างอิงในหัวข้อนี้</p>
+            {!readOnly && (
+              <div className="mt-2 flex items-center justify-center gap-2 text-github-accent-primary text-sm font-medium">
+                <Search className="w-3.5 h-3.5" />
+                <span>คลิกเพื่อค้นหาหรือเพิ่มเอกสาร</span>
+              </div>
+            )}
           </div>
         )}
       </div>

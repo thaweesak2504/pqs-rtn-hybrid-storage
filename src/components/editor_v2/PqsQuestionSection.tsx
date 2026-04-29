@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/tauri";
 import {
     ChevronDown,
     FileQuestion,
-    Layers
+    Layers,
+    Plus
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -722,20 +723,23 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         {!isCreating && questionTree.length === 0 && (
           <div
             onClick={readOnly ? undefined : () => handleStartCreate(null)}
-            className={`group relative overflow-hidden rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-800/30 py-14 transition-all ${readOnly ? 'cursor-default' : 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/5'}`}
+            className={`group relative overflow-hidden rounded-xl border border-github-border-primary bg-github-bg-active py-16 transition-all duration-200 shadow-github-small hover:shadow-github-medium transform hover:scale-[1.01] active:scale-[0.99] ${readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-github-bg-hover hover:border-github-border-active'}`}
           >
-            <div className="flex flex-col items-center gap-3 relative z-10">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <Layers className="w-7 h-7 text-blue-400 dark:text-blue-500" />
+            <div className="flex flex-col items-center gap-4 relative z-10">
+              <div className="w-16 h-16 rounded-2xl bg-github-bg-secondary border border-github-border-primary flex items-center justify-center group-hover:scale-110 group-hover:border-github-accent-primary transition-all duration-300">
+                <Layers className="w-8 h-8 text-github-text-tertiary group-hover:text-github-accent-primary transition-colors" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                <p className="text-base font-semibold text-github-text-primary tracking-tight">
                   ยังไม่มีคำถามในหัวข้อนี้
                 </p>
+                {!readOnly && (
+                  <p className="mt-2 text-github-accent-primary text-sm font-medium flex items-center justify-center gap-2">
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>คลิกเพื่อเพิ่มคำถามแรก</span>
+                  </p>
+                )}
               </div>
-            </div>
-            <div className="absolute top-4 right-6 opacity-[0.04] dark:opacity-[0.06]">
-              <FileQuestion className="w-32 h-32 text-slate-900 dark:text-slate-100" />
             </div>
           </div>
         )}
