@@ -4,3 +4,4 @@ pub mod scoring;
 pub mod pure_functions;
 pub mod database_functions;
 pub mod policies;
+pub mod helpers_tests;
