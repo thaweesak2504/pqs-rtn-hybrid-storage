@@ -27,28 +27,7 @@ pub use auth::{HighRankingOfficer, User};
 // User/auth commands moved to commands/users.rs
 // Zoom commands moved to commands/zoom.rs
 
-// High Ranking Officers Commands
-#[tauri::command]
-fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
-    auth::get_all_high_ranking_officers()
-}
-
-#[tauri::command]
-fn update_high_ranking_officer(
-    id: i32,
-    thai_name: String,
-    position_thai: String,
-    position_english: String,
-    order_index: i32,
-) -> Result<HighRankingOfficer, String> {
-    auth::update_high_ranking_officer(
-        id,
-        &thai_name,
-        &position_thai,
-        &position_english,
-        order_index,
-    )
-}
+// Officers commands moved to commands/officers.rs
 
 // Database backup/restore commands
 #[tauri::command]
@@ -1186,8 +1165,8 @@ fn main() {
             commands::zoom::zoom_in,
             commands::zoom::zoom_out,
             commands::zoom::zoom_reset,
-            get_all_high_ranking_officers,
-            update_high_ranking_officer,
+            commands::officers::get_all_high_ranking_officers,
+            commands::officers::update_high_ranking_officer,
             commands::users::change_password,
             // Database backup/restore commands
             create_database_backup,
