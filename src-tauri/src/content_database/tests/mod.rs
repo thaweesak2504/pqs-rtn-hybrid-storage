@@ -1,4 +1,4 @@
-pub mod legacy;
+pub mod migrations;
 pub mod template_seeding;
 pub mod scoring;
 pub mod pure_functions;
