@@ -865,10 +865,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   const persistAnswerKeys = async (questionId: string) => {
     try {
-      // Prevent clearing answer keys for parent questions that have children
-      // This preserves parent answer boxes when child questions are added
-      const hasChildren = effectiveIsGroupHeader || hasActualChildren;
-      
       if (requireAnswerKey) {
         if (hasParentSubQ && selectedSubQCodes.length > 0) {
           await invoke('replace_question_answer_keys', {
@@ -886,11 +882,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           });
         }
       } else {
-        // Only clear answer keys if the question truly doesn't need them AND doesn't have children
-        if (!hasChildren) {
-          await invoke('replace_question_answer_keys', { questionId, items: [] });
-        }
-        // If has children, preserve existing answer keys even if requireAnswerKey is temporarily false
+        // Authoritative clearing: if toggle is OFF, ALWAYS clear answer keys.
+        await invoke('replace_question_answer_keys', { questionId, items: [] });
       }
     } catch (err) {
       logger.error('Failed to reconcile answer keys:', err);
