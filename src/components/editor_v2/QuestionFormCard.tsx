@@ -29,7 +29,7 @@ import {
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
 import Tooltip from "../ui/Tooltip";
-import AnswerKeyEditor from "./AnswerKeyEditor";
+import AnswerKeyEditor from "./questionFormCard/AnswerKeyEditor";
 import AsyncImagePreview from "./AsyncImagePreview";
 import { logger } from '../../utils/logger';
 
