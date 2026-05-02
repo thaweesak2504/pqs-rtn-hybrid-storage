@@ -129,6 +129,18 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && question.question_type !== 'exempted'
     && !!question.is_scored
     && (question.score ?? 0) > 0;
+  const requireAnswerKey = useMemo(() => {
+    if (!question.metadata) return !question.is_group_header; // Legacy default
+    try {
+      const meta = JSON.parse(question.metadata);
+      if (meta.requireAnswerKey !== undefined) return meta.requireAnswerKey;
+      // Default fallback for legacy data: true unless it's a group header
+      return !question.is_group_header;
+    } catch {
+      return !question.is_group_header;
+    }
+  }, [question.metadata, question.is_group_header]);
+
   // 300Template has no answer keys at all - no answer boxes anywhere
   // Section 200: L1 questions (2xx.1-2xx.6) are always section headers — never have answer boxes
   // regardless of exempted/normal status. Only L2+ questions can have answer boxes.
@@ -136,7 +148,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && viewMode !== 'visitor'
     && !is300
     && !(is200 && isL1)
-    && (is200 || !question.is_group_header);
+    && (is200 || requireAnswerKey);
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.
