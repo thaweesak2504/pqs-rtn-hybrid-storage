@@ -66,6 +66,8 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
     message: string;
     onConfirm: () => void;
     variant: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+    cancelText?: string;
   }>({
     isOpen: false,
     title: '',
@@ -102,12 +104,28 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   };
 
   const handleDelete = (id: string) => {
+    const doc = references.find(r => r.id === id);
+    if (doc && (doc.usage_count || 0) > 0) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'แจ้งเตือน (ไม่อนุญาตให้ลบ)',
+        message: `ไม่สามารถนำเอกสาร "${doc.title}" ออกได้\n\nเนื่องจากกำลังถูกใช้งานอยู่ในคำถามจำนวน ${doc.usage_count} ข้อ\nกรุณาไปปลดการเรียกใช้ออกจากข้อคำถามให้ครบก่อนทำการนำออก`,
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+        variant: 'danger',
+        confirmText: 'รับทราบ',
+        cancelText: '' // ซ่อนปุ่มยกเลิก
+      });
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
       title: 'ยืนยันการนำออก',
       message: 'คุณต้องการนำเอกสารอ้างอิงนี้ออกจากการเชื่อมโยงใช่หรือไม่?\n\n(เอกสารจะถูกนำออกจากรายการของหัวข้อนี้เท่านั้น แต่ยังคงอยู่ในระบบหลัก)',
       onConfirm: () => onDelete(id),
-      variant: 'warning'
+      variant: 'warning',
+      confirmText: 'ยืนยัน',
+      cancelText: 'ยกเลิก'
     });
   };
 
@@ -271,6 +289,8 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
         title={confirmModal.title}
         message={confirmModal.message}
         variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
       />
 
       <ImagePreviewModal
