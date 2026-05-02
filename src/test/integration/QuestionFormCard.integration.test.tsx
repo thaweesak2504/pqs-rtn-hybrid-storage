@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import QuestionFormCard from "../../components/editor_v2/QuestionFormCard";
 import { SectionReferenceDetail } from "../../types/content";
 
-vi.mock("../../components/editor_v2/AnswerKeyEditor", () => ({
+vi.mock("../../components/editor_v2/questionFormCard/AnswerKeyEditor", () => ({
   default: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
     <textarea
       aria-label="answer-key-editor"
