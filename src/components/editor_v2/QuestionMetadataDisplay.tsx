@@ -140,7 +140,9 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
 
   const hasAnswerKeyData = !!singleAnswerKey || Object.keys(multiAnswerKeys).length > 0;
 
-  if (!data.image && !showAnswerBox && !(showAnswerKey && hasAnswerKeyData)) return null;
+  // Render if: has image, OR should show answer box, OR has answer key data in DB
+  // (hasAnswerKeyData is checked independently so Trainee mode still renders the answer box)
+  if (!data.image && !showAnswerBox && !hasAnswerKeyData) return null;
 
   return (
     <div className="mt-2 space-y-2">
