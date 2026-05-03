@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus, MoreVertical, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus, MoreVertical, Plus, Trash2 } from "lucide-react";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { QuestionDetail } from "../../types/content";
 import { logger } from "../../utils/logger";
@@ -599,13 +599,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                     <Tooltip content={(subQUsedData.usage_map[sq.code] || 0) > 0 ? 'ถูกใช้งานอยู่ — ต้องปลดก่อน' : 'นำออกจากรายการ'} position="top">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRemoveSubQ(sq.code, sq.text, subQUsedData.usage_map[sq.code] || 0); }}
-                        className={`p-0.5 rounded transition-colors shrink-0 ${
-                          (subQUsedData.usage_map[sq.code] || 0) > 0
-                            ? 'text-slate-300 dark:text-slate-600 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                            : 'text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30'
-                        }`}
+                        className="p-0.5 rounded transition-colors shrink-0 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </Tooltip>
                   )}
