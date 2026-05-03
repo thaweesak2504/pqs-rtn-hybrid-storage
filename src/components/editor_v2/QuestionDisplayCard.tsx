@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus, MoreVertical, Plus, Trash2 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus, MoreVertical, Plus, Trash2, X } from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { QuestionDetail } from "../../types/content";
+import { logger } from "../../utils/logger";
+import ConfirmModal from "../modals/ConfirmModal";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import Tooltip from "../ui/Tooltip";
 import OralAssessmentBox from "./OralAssessmentBox";
@@ -116,6 +118,64 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
+
+  // ConfirmModal state for SubQuestion delete
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    isOpen: false, title: '', message: '', onConfirm: () => {}, variant: 'warning'
+  });
+
+  // Handler: remove a sub-question code from activeSubQuestions in metadata
+  const handleRemoveSubQ = useCallback((code: string, text: string, usageCount: number) => {
+    if (usageCount > 0) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'แจ้งเตือน (ไม่อนุญาตให้ลบ)',
+        message: `ไม่สามารถนำคำถามย่อย "${text}" ออกได้\n\nเนื่องจากกำลังถูกใช้งานอยู่ในคำถามจำนวน ${usageCount} ข้อ\nกรุณาไปปลดการเรียกใช้ออกจากข้อคำถามให้ครบก่อนทำการนำออก`,
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+        variant: 'danger',
+        confirmText: 'รับทราบ',
+        cancelText: ''
+      });
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการนำออก',
+      message: `คุณต้องการนำคำถามย่อย "${text}" ออกจากรายการใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          if (!question.metadata) return;
+          const meta = JSON.parse(question.metadata);
+          const activeSubs: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+          meta.activeSubQuestions = activeSubs.filter(c => c !== code);
+          await invoke('update_question', {
+            args: {
+              id: question.id,
+              content: question.content,
+              description: question.description,
+              metadata: JSON.stringify(meta),
+            }
+          });
+          onRefresh?.();
+        } catch (err) {
+          logger.error('Failed to remove sub-question:', err);
+        } finally {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      },
+      variant: 'warning',
+      confirmText: 'ยืนยัน',
+      cancelText: 'ยกเลิก'
+    });
+  }, [question.id, question.metadata, question.content, question.description, onRefresh]);
   // Regression guard: 200Template parents can become group headers after Add Sub-Question,
   // but their inline SubQ badges must remain visible. Only hide for the intended 300Template case.
   const shouldHideInlineSubQBadges = is300 && question.is_group_header;
@@ -534,6 +594,21 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                     }
                     return <span className="text-[10px] px-2 py-[1px] rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
                   })()}
+                  {/* Delete SubQ button (edit mode, non-alwaysChecked only) */}
+                  {viewMode === 'edit' && !sq.alwaysChecked && (
+                    <Tooltip content={(subQUsedData.usage_map[sq.code] || 0) > 0 ? 'ถูกใช้งานอยู่ — ต้องปลดก่อน' : 'นำออกจากรายการ'} position="top">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveSubQ(sq.code, sq.text, subQUsedData.usage_map[sq.code] || 0); }}
+                        className={`p-0.5 rounded transition-colors shrink-0 ${
+                          (subQUsedData.usage_map[sq.code] || 0) > 0
+                            ? 'text-slate-300 dark:text-slate-600 hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                            : 'text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30'
+                        }`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </Tooltip>
+                  )}
                 </div>
               ))}
             </div>
@@ -668,6 +743,18 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           />
         </div>
       )}
+
+      {/* SubQuestion delete confirmation modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+      />
     </div>
   );
 };
