@@ -233,3 +233,110 @@ pub fn get_question_image_base64(relative_path: String) -> Result<String, String
 
     Ok(format!("data:{};base64,{}", mime_type, base64_data))
 }
+
+// ============================================================
+// Phase 5G: Trainee Attachments
+// ============================================================
+
+/// Allowed file extensions for trainee attachments
+const ALLOWED_ATTACHMENT_EXTENSIONS: &[&str] = &[
+    // Images
+    "jpg", "jpeg", "png", "webp",
+    // Documents
+    "pdf",
+    // Videos
+    "mp4", "webm",
+    // Audio
+    "mp3", "wav", "m4a", "ogg",
+];
+
+/// Maximum file size: 10 MB
+const MAX_ATTACHMENT_SIZE_BYTES: u64 = 10 * 1024 * 1024;
+
+/// Upload a trainee attachment file to data/{document_id}/trainee-attachments/
+/// Returns the relative path string: "data/{doc_id}/trainee-attachments/{filename}"
+pub fn upload_trainee_attachment(
+    source_path: String,
+    document_id: String,
+    question_id: String,
+    user_id: String,
+) -> Result<String, String> {
+    let source = std::path::Path::new(&source_path);
+    if !source.exists() {
+        return Err(format!("Source file does not exist: {}", source_path));
+    }
+
+    // Validate extension
+    let extension = source
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if !ALLOWED_ATTACHMENT_EXTENSIONS.contains(&extension.as_str()) {
+        return Err(format!(
+            "ไม่รองรับไฟล์ประเภท .{} (รองรับ: {})",
+            extension,
+            ALLOWED_ATTACHMENT_EXTENSIONS.join(", ")
+        ));
+    }
+
+    // Validate file size
+    let file_size = std::fs::metadata(source)
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?
+        .len();
+
+    if file_size > MAX_ATTACHMENT_SIZE_BYTES {
+        let max_mb = MAX_ATTACHMENT_SIZE_BYTES / (1024 * 1024);
+        let file_mb = file_size as f64 / (1024.0 * 1024.0);
+        return Err(format!(
+            "ไฟล์มีขนาด {:.1} MB เกินขีดจำกัด {} MB",
+            file_mb, max_mb
+        ));
+    }
+
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    let target_dir = data_dir.join(&document_id).join("trainee-attachments");
+
+    if !target_dir.exists() {
+        std::fs::create_dir_all(&target_dir)
+            .map_err(|e| format!("Failed to create trainee-attachments directory: {}", e))?;
+    }
+
+    // Construct unique filename: {question_id}_{user_id}_{short_uuid}.{ext}
+    let short_uuid = generate_uuid().chars().take(8).collect::<String>();
+    let filename = format!("{}_{}_{}.{}", question_id, user_id, short_uuid, extension);
+    let target_path = target_dir.join(&filename);
+
+    logger::debug(format!(
+        "Uploading trainee attachment to {}",
+        target_path.display()
+    ));
+
+    std::fs::copy(&source_path, &target_path)
+        .map_err(|e| format!("Failed to copy attachment file: {}", e))?;
+
+    Ok(format!(
+        "data/{}/trainee-attachments/{}",
+        document_id, filename
+    ))
+}
+
+/// Delete a trainee attachment file from disk
+pub fn delete_trainee_attachment(relative_path: String) -> Result<(), String> {
+    if !relative_path.starts_with("data/") || !relative_path.contains("/trainee-attachments/") {
+        return Err("Invalid trainee attachment path".to_string());
+    }
+
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+    let target_path = data_dir.join(suffix);
+
+    if target_path.exists() {
+        std::fs::remove_file(&target_path)
+            .map_err(|e| format!("Failed to delete attachment file: {}", e))?;
+        logger::debug(format!("Deleted trainee attachment: {}", relative_path));
+    }
+
+    Ok(())
+}

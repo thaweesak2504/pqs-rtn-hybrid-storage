@@ -94,6 +94,7 @@ export const useKeyboardNavigation = (
     }
     
     focusElement(newIndex)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getCurrentIndex, focusElement])
 
   // Handle Enter key

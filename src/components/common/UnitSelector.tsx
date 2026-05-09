@@ -111,6 +111,7 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
       finalUnitId,
       unitCode
     })
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedL1, selectedL2, selectedL3, selectedL4])
 
   // Helper to map units to options

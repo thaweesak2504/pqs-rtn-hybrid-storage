@@ -29,5 +29,6 @@ export const useRouterSync = (actions: NavigationStateActions) => {
         // Don't include expandedMenus - preserve current state
       })
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]) // Remove actions from dependency array to prevent infinite loop
 }

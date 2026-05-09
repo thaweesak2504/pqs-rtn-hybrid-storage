@@ -13,7 +13,8 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
 
     let mut stmt = conn.prepare(
         "SELECT ua.user_id, ua.question_id, ua.document_id, ua.sub_question_code, ua.answer_text,
-                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text
+                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text,
+                ua.attachments
          FROM UserAnswers ua
          LEFT JOIN QuestionAnswerKeys ak ON ak.question_id = ua.question_id AND ak.sub_question_code = ua.sub_question_code
          WHERE ua.user_id = ?1 AND ua.document_id = ?2"
@@ -33,6 +34,7 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
                 assessed_by: row.get(8)?,
                 updated_at: row.get(9)?,
                 answer_key: row.get(10)?,
+                attachments: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -74,13 +76,14 @@ pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String
     ensure_answer_key_placeholder(&conn, &args.question_id, &args.sub_question_code)?;
 
     conn.execute(
-        "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'pending', CURRENT_TIMESTAMP)
+        "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, attachments, status, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', CURRENT_TIMESTAMP)
          ON CONFLICT(user_id, question_id, document_id, sub_question_code) DO UPDATE SET
             answer_text = excluded.answer_text,
+            attachments = excluded.attachments,
             status = 'pending',
             updated_at = CURRENT_TIMESTAMP",
-        params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text]
+        params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text, args.attachments]
     ).map_err(|e| {
         let err_msg = format!("Failed to save answer: {}", e);
         logger::error(format!("save_trainee_answer failed: {}", err_msg));

@@ -4,8 +4,8 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { UserAnswer } from "./PqsQuestionSection";
-import { AsyncImagePreview } from "./QuestionTreeNode";
 import TraineeAnswerBox from "./TraineeAnswerBox";
+import AttachmentPanel from "./AttachmentPanel";
 
 // ============ Types ============
 interface SubQuestionItem {
@@ -18,7 +18,6 @@ interface QuestionMetadataDisplayProps {
   metadata: string;
   questionId: string;
   documentId: string;
-  onImageClick?: (src: string) => void;
   parentSubQuestionList?: SubQuestionItem[];
   readOnly?: boolean;
   showAnswerBox?: boolean;
@@ -27,6 +26,7 @@ interface QuestionMetadataDisplayProps {
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
   onRefresh?: () => void;
+  isPrerequisiteDoc?: boolean;
 }
 
 interface AnswerKeyRow {
@@ -53,7 +53,6 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
   metadata,
   questionId,
   documentId,
-  onImageClick,
   parentSubQuestionList,
   readOnly = false,
   showAnswerBox = false,
@@ -62,6 +61,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
   traineeAnswer,
   answerMap,
   onRefresh,
+  isPrerequisiteDoc = false,
 }) => {
   const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
@@ -138,20 +138,30 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
       });
   }, [questionId]);
 
+  const attachments = useMemo(() => {
+    if (data.attachments && Array.isArray(data.attachments)) return data.attachments;
+    if (data.image) return [data.image];
+    return [];
+  }, [data]);
+
   const hasAnswerKeyData = !!singleAnswerKey || Object.keys(multiAnswerKeys).length > 0;
 
-  // Render if: has image, OR should show answer box, OR has answer key data in DB
+  // Render if: has attachments, OR should show answer box, OR has answer key data in DB
   // (hasAnswerKeyData is checked independently so Trainee mode still renders the answer box)
-  if (!data.image && !showAnswerBox && !hasAnswerKeyData) return null;
+  if (attachments.length === 0 && !showAnswerBox && !hasAnswerKeyData) return null;
 
   return (
     <div className="mt-2 space-y-2">
-      {/* Image Display (First) */}
-      {data.image && (
-        <AsyncImagePreview
-          path={data.image}
-          className="h-32 w-auto object-cover rounded border border-gray-200 dark:border-slate-700 shadow-sm transition-transform hover:scale-105"
-          onImageClick={onImageClick}
+      {/* Attachments Display (First) */}
+      {attachments.length > 0 && (
+        <AttachmentPanel
+          attachments={attachments}
+          onAttachmentsChange={() => {}}
+          documentId={documentId}
+          questionId={questionId}
+          userId="" // readOnly doesn't need userId
+          readOnly={true}
+          excludeAudio={true}
         />
       )}
 
@@ -186,6 +196,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         traineeAnswer={answerMap?.get(`${questionId}:${code}`)}
                         onAnswerSaved={onRefresh}
                         onAssessmentSaved={onRefresh}
+                        isPrerequisiteDoc={isPrerequisiteDoc}
                       />
                     )}
                     {showAnswerKey && (
@@ -218,6 +229,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                   traineeAnswer={traineeAnswer}
                   onAnswerSaved={onRefresh}
                   onAssessmentSaved={onRefresh}
+                  isPrerequisiteDoc={isPrerequisiteDoc}
                 />
               )}
               {showAnswerKey && singleAnswerKey && (

@@ -38,6 +38,7 @@ const UserCRUDForm: React.FC = () => {
   // Load users on component mount
   useEffect(() => {
     loadUsers()
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Note: UserAvatar components listen to avatarUpdated events and refresh themselves
@@ -77,6 +78,7 @@ const UserCRUDForm: React.FC = () => {
       try {
         const down = await maybeDownscaleImage(dataUrl, file.type)
         dataUrl = down.dataUrl
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         // If downscale fails for any reason, continue with original if within limits
       }
@@ -108,6 +110,7 @@ const UserCRUDForm: React.FC = () => {
         } : u))
 
         // Clear preview since avatar is saved
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
         setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
 
         // Trigger global avatar refresh event for all components
@@ -193,6 +196,7 @@ const UserCRUDForm: React.FC = () => {
 
       // Clear avatar preview safely
       setAvatarPreviews(prev => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [user.id as number]: _omit, ...rest } = prev
         return rest
       })

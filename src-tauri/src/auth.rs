@@ -792,6 +792,74 @@ pub fn insert_default_high_ranking_officers(conn: &rusqlite::Connection) -> Resu
     Ok(())
 }
 
+// Get all high ranking officers
+pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
+    let conn =
+        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+    let mut stmt = conn.prepare("SELECT id, thai_name, position_thai, position_english, order_index, created_at, updated_at FROM high_ranking_officers ORDER BY order_index")
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+
+    let officer_iter = stmt
+        .query_map([], |row| {
+            Ok(HighRankingOfficer {
+                id: Some(row.get(0)?),
+                thai_name: row.get(1)?,
+                position_thai: row.get(2)?,
+                position_english: row.get(3)?,
+                order_index: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })
+        .map_err(|e| format!("Failed to query officers: {}", e))?;
+
+    let mut officers = Vec::new();
+    for officer in officer_iter {
+        officers.push(officer.map_err(|e| format!("Failed to read officer: {}", e))?);
+    }
+
+    Ok(officers)
+}
+
+// Update high ranking officer
+pub fn update_high_ranking_officer(
+    id: i32,
+    thai_name: &str,
+    position_thai: &str,
+    position_english: &str,
+    order_index: i32,
+) -> Result<HighRankingOfficer, String> {
+    let conn =
+        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+
+    // Update the officer
+    conn.execute(
+        "UPDATE high_ranking_officers SET thai_name = ?, position_thai = ?, position_english = ?, order_index = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        params![thai_name, position_thai, position_english, order_index, id],
+    ).map_err(|e| format!("Failed to update officer: {}", e))?;
+
+    // Get the updated officer
+    let mut stmt = conn.prepare("SELECT id, thai_name, position_thai, position_english, order_index, created_at, updated_at FROM high_ranking_officers WHERE id = ?")
+        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
+
+    let officer = stmt
+        .query_row(params![id], |row| {
+            Ok(HighRankingOfficer {
+                id: Some(row.get(0)?),
+                thai_name: row.get(1)?,
+                position_thai: row.get(2)?,
+                position_english: row.get(3)?,
+                order_index: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
+            })
+        })
+        .map_err(|e| format!("Failed to retrieve updated officer: {}", e))?;
+
+    Ok(officer)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -861,72 +929,4 @@ mod tests {
         assert_eq!(DEFAULT_ADMIN_PASSWORD, "admin");
         assert!(DEFAULT_ADMIN_EMAIL.ends_with("@pqs-rtn.local"));
     }
-}
-
-// Get all high ranking officers
-pub fn get_all_high_ranking_officers() -> Result<Vec<HighRankingOfficer>, String> {
-    let conn =
-        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-
-    let mut stmt = conn.prepare("SELECT id, thai_name, position_thai, position_english, order_index, created_at, updated_at FROM high_ranking_officers ORDER BY order_index")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-
-    let officer_iter = stmt
-        .query_map([], |row| {
-            Ok(HighRankingOfficer {
-                id: Some(row.get(0)?),
-                thai_name: row.get(1)?,
-                position_thai: row.get(2)?,
-                position_english: row.get(3)?,
-                order_index: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })
-        .map_err(|e| format!("Failed to query officers: {}", e))?;
-
-    let mut officers = Vec::new();
-    for officer in officer_iter {
-        officers.push(officer.map_err(|e| format!("Failed to read officer: {}", e))?);
-    }
-
-    Ok(officers)
-}
-
-// Update high ranking officer
-pub fn update_high_ranking_officer(
-    id: i32,
-    thai_name: &str,
-    position_thai: &str,
-    position_english: &str,
-    order_index: i32,
-) -> Result<HighRankingOfficer, String> {
-    let conn =
-        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-
-    // Update the officer
-    conn.execute(
-        "UPDATE high_ranking_officers SET thai_name = ?, position_thai = ?, position_english = ?, order_index = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        params![thai_name, position_thai, position_english, order_index, id],
-    ).map_err(|e| format!("Failed to update officer: {}", e))?;
-
-    // Get the updated officer
-    let mut stmt = conn.prepare("SELECT id, thai_name, position_thai, position_english, order_index, created_at, updated_at FROM high_ranking_officers WHERE id = ?")
-        .map_err(|e| format!("Failed to prepare statement: {}", e))?;
-
-    let officer = stmt
-        .query_row(params![id], |row| {
-            Ok(HighRankingOfficer {
-                id: Some(row.get(0)?),
-                thai_name: row.get(1)?,
-                position_thai: row.get(2)?,
-                position_english: row.get(3)?,
-                order_index: row.get(4)?,
-                created_at: row.get(5)?,
-                updated_at: row.get(6)?,
-            })
-        })
-        .map_err(|e| format!("Failed to retrieve updated officer: {}", e))?;
-
-    Ok(officer)
 }

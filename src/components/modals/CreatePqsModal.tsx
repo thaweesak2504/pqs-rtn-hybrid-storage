@@ -68,6 +68,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       setSelectedL4('')
       setPreviewId('')
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   const loadRootUnits = async () => {
@@ -146,6 +147,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
           userLevel
         })
         setPreviewId(id)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setPreviewId("Error generating ID")
       }

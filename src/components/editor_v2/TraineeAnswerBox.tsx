@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import ConfirmModal from "../modals/ConfirmModal";
 import { UserAnswer } from "./PqsQuestionSection";
 import { logger } from '../../utils/logger';
+import AttachmentPanel from "./AttachmentPanel";
 
 // Simulation Constants
 const MOCK_TRAINEE_ID = "T-001";
@@ -37,6 +38,7 @@ interface TraineeAnswerBoxProps {
   onAnswerSaved?: () => void;
   onAssessmentSaved?: () => void;
   traineeAnswer?: UserAnswer;
+  isPrerequisiteDoc?: boolean;
 }
 
 const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
@@ -52,6 +54,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   onAnswerSaved,
   onAssessmentSaved,
   traineeAnswer,
+  isPrerequisiteDoc = false,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
@@ -60,6 +63,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
+  // Phase 5G: Attachments
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string }>({
     isOpen: false,
     message: "",
@@ -73,13 +78,18 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setValue(traineeAnswer.answer_text || "");
       setLocalStatus(traineeAnswer.status || "pending");
       setLocalFeedback(traineeAnswer.feedback || "");
-      // Open panel if pending, close if already assessed
       setIsQualifierPanelOpen(traineeAnswer.status === "pending");
+      // Phase 5G: Parse attachments JSON
+      try {
+        const parsed = traineeAnswer.attachments ? JSON.parse(traineeAnswer.attachments) : [];
+        setAttachments(Array.isArray(parsed) ? parsed : []);
+      } catch { setAttachments([]); }
     } else {
       setValue(initialValue);
       setLocalStatus(status);
       setLocalFeedback(feedback);
       setIsQualifierPanelOpen(status === "pending");
+      setAttachments([]);
     }
   }, [traineeAnswer, initialValue, status, feedback]);
 
@@ -115,6 +125,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           document_id: documentId,
           sub_question_code: subQuestionCode || "",
           answer_text: value,
+          attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
         }
       });
       setIsEditing(false);
@@ -337,23 +348,37 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
               <div className="flex items-start justify-between gap-4">
                 {/* Left Side: Prefix + Content */}
                 <div className="flex items-start gap-2 flex-1 min-w-0">
-                  <span className="text-slate-900 dark:text-slate-100 shrink-0">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
+                  {!isPrerequisiteDoc && (
+                    <>
+                      <span className="text-slate-900 dark:text-slate-100 shrink-0">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
 
-                  {cleanValue ? (
-                    <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                        {cleanValue.replace(/\n/g, "  \n")}
-                      </ReactMarkdown>
-                    </div>
-                  ) : (
-                    <div className="flex items-center flex-wrap gap-2 min-w-0">
-                      <span className="text-slate-400 dark:text-slate-500 italic mt-[2px]">
-                        {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
-                      </span>
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1`}>
-                        {config.icon} {config.label}
-                      </span>
-                    </div>
+                      {cleanValue ? (
+                        <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                            {cleanValue.replace(/\n/g, "  \n")}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <div className="flex items-center flex-wrap gap-2 min-w-0">
+                          <span className="text-slate-400 dark:text-slate-500 italic mt-[2px]">
+                            {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1`}>
+                            {config.icon} {config.label}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  {isPrerequisiteDoc && (
+                    <span className="text-slate-900 dark:text-slate-100 shrink-0">
+                      เอกสารหลักฐาน: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span>
+                      {attachments.length === 0 && !readOnly && (
+                        <span className="text-slate-400 dark:text-slate-500 italic ml-2 text-xs">
+                          [คลิกเพื่อแนบเอกสาร...]
+                        </span>
+                      )}
+                    </span>
                   )}
                 </div>
 
@@ -395,8 +420,37 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             </div>
           </div>
 
-          {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists and NOT passed and panel is open */}
-          {mode === "qualifier" && cleanValue && localStatus !== "passed" && isQualifierPanelOpen && (
+          {/* Phase 5G: Attachments Panel (View mode) */}
+          {(attachments.length > 0 || isPrerequisiteDoc) && (
+            <div className={`mt-2 ${attachments.length > 0 ? "pt-2 border-t border-slate-100 dark:border-slate-800" : ""}`}>
+              <AttachmentPanel
+                attachments={attachments}
+                onAttachmentsChange={(newAttachments) => {
+                  setAttachments(newAttachments);
+                  // Auto-save when attachments change if it's a prerequisite doc (no text area to save)
+                  if (isPrerequisiteDoc && mode === "trainee") {
+                     invoke("save_trainee_answer", {
+                        args: {
+                          user_id: MOCK_TRAINEE_ID,
+                          question_id: questionId,
+                          document_id: documentId,
+                          sub_question_code: subQuestionCode || "",
+                          answer_text: "", // No text for prerequisite docs
+                          attachments: newAttachments.length > 0 ? JSON.stringify(newAttachments) : null,
+                        }
+                      }).then(() => onAnswerSaved?.()).catch(err => logger.error("Auto-save attachments failed:", err));
+                  }
+                }}
+                documentId={documentId}
+                questionId={questionId}
+                userId={MOCK_TRAINEE_ID}
+                readOnly={readOnly || localStatus === "passed" || (mode !== "trainee" && mode !== "edit")}
+              />
+            </div>
+          )}
+
+          {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists (or it's a prerequisite doc with attachments) and NOT passed and panel is open */}
+          {mode === "qualifier" && (cleanValue || (isPrerequisiteDoc && attachments.length > 0)) && localStatus !== "passed" && isQualifierPanelOpen && (
             <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
@@ -526,14 +580,33 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           </button>
         </div>
       </div>
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onPaste={handlePaste}
-        placeholder="ระบุคำตอบของคุณที่นี่..."
-        className="w-full p-3 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif] bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none min-h-[120px]"
-      />
+      {!isPrerequisiteDoc && (
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onPaste={handlePaste}
+          placeholder="ระบุคำตอบของคุณที่นี่..."
+          className="w-full p-3 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif] bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none min-h-[120px]"
+        />
+      )}
+      {isPrerequisiteDoc && (
+        <div className="p-4 text-center">
+           <p className="text-xs text-slate-500 dark:text-slate-400 mb-2 font-medium italic">
+             กรุณาแนบไฟล์เอกสารหลักฐาน (PDF หรือรูปภาพ) เพื่อรับการประเมิน
+           </p>
+        </div>
+      )}
+      {/* Phase 5G: Attachments Panel (Edit mode) */}
+      <div className="px-3 pb-2">
+        <AttachmentPanel
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
+          documentId={documentId}
+          questionId={questionId}
+          userId={MOCK_TRAINEE_ID}
+        />
+      </div>
     </div>
 
     <ConfirmModal

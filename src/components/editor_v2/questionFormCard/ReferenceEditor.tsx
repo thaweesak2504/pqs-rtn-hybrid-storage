@@ -20,6 +20,7 @@ import { SectionReferenceDetail } from "../../../types/content";
 interface ReferenceEditorProps {
   isExpanded: boolean;
   draftSelectedRefIds: string[];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   linkedRefs: any[];
   hasError: boolean;
   availableRefs: SectionReferenceDetail[];

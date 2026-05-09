@@ -769,6 +769,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
             assessed_at DATETIME,
             assessed_by TEXT,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            attachments TEXT,
             UNIQUE(user_id, question_id, document_id, sub_question_code),
             FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
             FOREIGN KEY(question_id, sub_question_code) REFERENCES QuestionAnswerKeys(question_id, sub_question_code) ON DELETE CASCADE
@@ -805,6 +806,7 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
                 assessed_at DATETIME,
                 assessed_by TEXT,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                attachments TEXT,
                 UNIQUE(user_id, question_id, document_id, sub_question_code),
                 FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
                 FOREIGN KEY(question_id, sub_question_code) REFERENCES QuestionAnswerKeys(question_id, sub_question_code) ON DELETE CASCADE
@@ -814,8 +816,8 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         // 3. Copy data
         execute_best_effort(
             conn,
-            "INSERT INTO UserAnswers (id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at)
-             SELECT id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at
+            "INSERT INTO UserAnswers (id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at, attachments)
+             SELECT id, user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, updated_at, attachments
              FROM UserAnswers_old",
             "copy rows from UserAnswers_old",
         );
@@ -853,6 +855,13 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         conn,
         "ALTER TABLE UserAnswers ADD COLUMN sub_question_code VARCHAR(20) DEFAULT ''",
         "add UserAnswers.sub_question_code",
+    );
+
+    // Phase 5G: Trainee Attachments — store JSON array of file paths
+    execute_best_effort(
+        conn,
+        "ALTER TABLE UserAnswers ADD COLUMN attachments TEXT",
+        "add UserAnswers.attachments",
     );
 
     // Ensure we have a unique index including sub_question_code (SQLite doesn't support ALTER TABLE DROP CONSTRAINT)

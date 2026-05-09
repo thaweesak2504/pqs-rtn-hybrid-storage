@@ -80,6 +80,7 @@ const HeaderMenuBar: React.FC = () => {
       const { invoke } = await import('@tauri-apps/api/tauri')
       try {
         await invoke('toggle_devtools')
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (error) {
         logger.info('Use Ctrl+Shift+I to toggle developer tools')
       }

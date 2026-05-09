@@ -44,7 +44,6 @@ interface QuestionTreeNodeProps {
   isLast: boolean;
   documentId: string;
   sectionId?: number;
-  onImageClick?: (src: string) => void;
   onAlert?: (msg: string, type?: "warning" | "danger") => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
@@ -91,7 +90,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   isLast,
   documentId,
   sectionId,
-  onImageClick,
   onAlert,
   parentLayout = "list",
   isParentDefault300L1 = false,
@@ -186,6 +184,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
       setOwnSubQuestionList(filtered);
     }).catch((err) => { logger.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedQuestionMeta, is300, question.sequence]);
 
   const effectiveChildSubQuestionList = questionUsesOwnSubQuestions
@@ -309,11 +308,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             // Save childLayout for L0 (100/300) or L0+L1 (200)
             const shouldSaveChildLayout = is200 ? (level === 0 || level === 1) : (level === 0);
             if (shouldSaveChildLayout) metaObj.childLayout = data.childLayout || childLayout;
-            if (data.image) {
-              metaObj.image = data.image;
-            } else {
-              delete metaObj.image;
-            }
+            // Phase 5G: attachments are stored inside metadata by QuestionFormCard
+            // Remove legacy single-image field
+            delete metaObj.image;
             // Always send metadata string so backend can clear SubQ fields;
             // use '{}' instead of null to prevent optimistic-update fallback
             const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
@@ -375,7 +372,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onInsertAfter={() => onStartInsertAfter(question.id)}
         onMoveUp={() => onMoveUp(question.id, siblings)}
         onMoveDown={() => onMoveDown(question.id, siblings)}
-        onImageClick={onImageClick}
         parentLayout={parentLayout}
         parentSubQuestionList={parentSubQuestionList}
         traineeAnswer={traineeAnswer}
@@ -448,7 +444,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 isLast={idx === question.children!.length - 1}
                 documentId={documentId}
                 sectionId={sectionId}
-                onImageClick={onImageClick}
                 onAlert={onAlert}
                 parentLayout={childLayout}
                 sectionOccupationBranches={sectionOccupationBranches}

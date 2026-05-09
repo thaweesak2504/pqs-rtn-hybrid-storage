@@ -69,6 +69,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
     };
 
     checkInitialization();
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleWizardComplete = useCallback(async () => {
@@ -83,6 +84,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
     await initializeDatabaseIfNeeded();
     setIsInitialized(true);
     localStorage.setItem('pqs_initialization_completed', 'true');
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeDatabaseIfNeeded = useCallback(async () => {

@@ -6,6 +6,7 @@ import Button from "../../ui/Button";
 import { toThaiAlphabet } from "../../../utils/thaiNumbering";
 
 interface SubQuestionListEditorProps {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   sqClr: any;
   useSubQuestions: boolean;
   setUseSubQuestions: (val: boolean) => void;
@@ -14,21 +15,30 @@ interface SubQuestionListEditorProps {
   setFormScoreType: (val: string) => void;
   setFormScoreIsScored: (val: boolean) => void;
   setEffectiveIsGroupHeader: (val: boolean) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   sectionOccupationBranches: Record<string, any> | undefined;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   sectionSelectedBranch: any;
   selMainBranch: string;
   setSelMainBranch: (val: string) => void;
   selSubBranch: string;
   setSelSubBranch: (val: string) => void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   dbBranches: any[];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   dbSubBranches: any[];
   autoCodePrefix: string;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   filteredItems: any[];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   dbSubQuestions: any[];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   setDbSubQuestions: React.Dispatch<React.SetStateAction<any[]>>;
   is300: boolean;
   isProtectedBranch: boolean;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   subQuestionList: any[];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   setSubQuestionList: React.Dispatch<React.SetStateAction<any[]>>;
   activeSubQCodes: string[];
 }
@@ -383,9 +393,11 @@ export const SubQuestionListEditor: React.FC<SubQuestionListEditorProps> = ({
 };
 
 interface SubQuestionBindingEditorProps {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   sqClr: any;
   selectedSubQCodes: string[];
   setSelectedSubQCodes: React.Dispatch<React.SetStateAction<string[]>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
   parentSubQuestionList: any[];
   is300: boolean;
   subQUsageData: { usage_map: Record<string, number>; total_children: number };

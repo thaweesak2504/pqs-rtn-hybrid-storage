@@ -15,7 +15,7 @@ import {
 } from "../../types/content";
 import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
-import ImagePreviewModal from "../modals/ImagePreviewModal";
+
 import QuestionFormCard from "./QuestionFormCard";
 import QuestionTreeNode from "./QuestionTreeNode";
 import { logger } from '../../utils/logger';
@@ -33,6 +33,7 @@ export interface UserAnswer {
   assessed_at: string | null;
   assessed_by: string | null;
   updated_at?: string | null;
+  attachments?: string | null; // Phase 5G: JSON array of file paths
 }
 
 interface PqsQuestionSectionProps {
@@ -82,8 +83,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const handleToggleCollapse = (id: string) => {
     setCollapsedIds(prev => {
@@ -677,10 +677,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 isLast={idx === questionTree.length - 1}
                 documentId={docId}
                 sectionId={sectionId || 0} // Pass sectionId
-                onImageClick={(src) => {
-                  setSelectedImage(src);
-                  setIsImageModalOpen(true);
-                }}
+
                 onAlert={(msg, type) =>
                   setConfirmModal({
                     isOpen: true,
@@ -754,11 +751,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         variant={confirmModal.variant}
       />
 
-      <ImagePreviewModal // Added ImagePreviewModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        imageSrc={selectedImage || ""}
-      />
     </div>
   );
 };

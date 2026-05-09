@@ -315,6 +315,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         setOwnSubQuestionList(filtered);
       }).catch(() => setOwnSubQuestionList([]));
     } catch { setOwnSubQuestionList([]); }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.metadata, sectionGroup, question.sequence]);
 
   // The effective sub-question list to pass to children

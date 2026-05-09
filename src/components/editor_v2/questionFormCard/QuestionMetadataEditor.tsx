@@ -10,8 +10,9 @@ export const ExemptedCheckbox = ({
   isFixedPracticeL1, isPerformanceL2, formScoreType, setFormScoreType,
   setFormScoreDisplayText, setFormScoreIsScored, setFormScoreValue,
   setDescription, setShowDescription, setUseSubQuestions, setRequiredCount,
-  setRequiredCountChildren, imagePath, setPendingImageDelete,
-  setPendingImageUpload, setImagePath, isL1, hasActualChildren
+  setRequiredCountChildren, questionAttachments, setQuestionAttachments,
+  handleQuestionAttachmentDelete, isL1, hasActualChildren
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 }: any) => {
   if (!(is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !isPerformanceL2)) {
     return null;
@@ -36,10 +37,12 @@ export const ExemptedCheckbox = ({
                 setUseSubQuestions(false);
                 setRequiredCount(0);
                 setRequiredCountChildren([]);
-                if (imagePath) {
-                  setPendingImageDelete(true);
-                  setPendingImageUpload(null);
-                  setImagePath(null);
+                // Phase 5G: delete all question attachments when exempted
+                if (questionAttachments && questionAttachments.length > 0) {
+                  for (const p of questionAttachments) {
+                    try { handleQuestionAttachmentDelete(p); } catch { /* ignore */ }
+                  }
+                  setQuestionAttachments([]);
                 }
               } else {
                 setFormScoreDisplayText('');
@@ -73,9 +76,10 @@ export const ExemptedCheckbox = ({
 // 2. 200-series "ไม่ต้องอธิบาย" checkbox
 export const ExemptedExplainCheckbox = ({
   isExemptableL1_200, formScoreType, setFormScoreType, setFormScoreDisplayText,
-  setDescription, setShowDescription, setUseSubQuestions, imagePath,
-  setPendingImageDelete, setPendingImageUpload, setImagePath,
+  setDescription, setShowDescription, setUseSubQuestions, questionAttachments,
+  setQuestionAttachments, handleQuestionAttachmentDelete,
   isDefaultDescL1_200, questionSequence, isL1, hasActualChildren
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 }: any) => {
   if (!isExemptableL1_200) return null;
   return (
@@ -94,10 +98,12 @@ export const ExemptedExplainCheckbox = ({
                 setDescription('');
                 setShowDescription(false);
                 setUseSubQuestions(false);
-                if (imagePath) {
-                  setPendingImageDelete(true);
-                  setPendingImageUpload(null);
-                  setImagePath(null);
+                // Phase 5G: delete all question attachments when exempted
+                if (questionAttachments && questionAttachments.length > 0) {
+                  for (const p of questionAttachments) {
+                    try { handleQuestionAttachmentDelete(p); } catch { /* ignore */ }
+                  }
+                  setQuestionAttachments([]);
                 }
               } else {
                 setFormScoreDisplayText('');
@@ -143,6 +149,7 @@ export const ScoreInput = ({
   isPrerequisiteChild, isSection300Selector, isSection100Selector,
   isSection200Selector, isExamChild, isRequiredInstance,
   formScoreValue, setFormScoreValue, formScoreIsScored, setFormScoreIsScored
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 }: any) => {
   if (!(is300 && formScoreType !== 'exempted' && !isFixedPracticeL1 && !((isPerformanceL2 || is306L1) ? (effectiveIsGroupHeader || requiredCount > 0) : effectiveIsGroupHeader) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild)) {
     return null;
@@ -205,6 +212,7 @@ export const RequiredCountInput = ({
   requiredCount, setRequiredCount, scorePerInstance, setScorePerInstance,
   requiredCountChildren, existingId, generatedId, parentId,
   handleSyncRequiredCount, prefix
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 }: any) => {
   if (!((isPerformanceL2 || is306L1) && !isRequiredInstance && formScoreType !== 'exempted')) {
     return null;
@@ -261,6 +269,7 @@ export const RequiredCountInput = ({
       </div>
       {requiredCountChildren.length > 0 && (
         <div className="mt-2 space-y-2">
+          {/* eslint-disable @typescript-eslint/no-explicit-any */}
           {requiredCountChildren.map((child: any, idx: number) => (
             <div key={child.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 pl-2">
               <span className="text-indigo-500 font-medium">{is306L1 ? `${prefix}.${child.sequence}` : `${toThaiAlphabet(idx + 1)}.`}</span>
@@ -277,6 +286,7 @@ export const RequiredCountInput = ({
 // 5. Prerequisite Exempted
 export const PrerequisiteExemptedCheckbox = ({
   is300, isPrerequisiteChild, formScoreType, setFormScoreType, setFormScoreDisplayText
+ 
 }: any) => {
   if (!(is300 && isPrerequisiteChild)) return null;
   return (
@@ -314,6 +324,7 @@ export const SectionPickerEditor = ({
   formScoreType, setFormScoreType, setFormScoreDisplayText,
   sectionRefChildren, setSectionRefChildren, isEdit, existingId, sectionId,
   availableSections, currentSectionNumber, backRefSectionIds, documentId
+ 
 }: any) => {
   if (!(is300 && (isSection300Selector || isSection100Selector || isSection200Selector))) {
     return null;
@@ -354,6 +365,7 @@ export const SectionPickerEditor = ({
 
           {sectionRefChildren.length > 0 && (
             <div className="space-y-0.5">
+              {/* eslint-disable @typescript-eslint/no-explicit-any */}
               {sectionRefChildren.map((child: any) => (
                 <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
                   <span className="font-medium">{child.ref_section_number}</span>
@@ -366,6 +378,7 @@ export const SectionPickerEditor = ({
                         value={child.score}
                         onChange={(e) => {
                           const newScore = parseInt(e.target.value) || 0;
+ 
                           setSectionRefChildren((prev: any[]) => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
                         }}
                         onBlur={async (e) => {
@@ -387,7 +400,7 @@ export const SectionPickerEditor = ({
               ))}
               <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
                 <span>รวม</span>
-                <span className="ml-auto">{sectionRefChildren.reduce((sum: number, c: any) => sum + c.score, 0)} คะแนน</span>
+                <span className="ml-auto">{sectionRefChildren.reduce((sum: number, c: unknown) => sum + (c as {score: number}).score, 0)} คะแนน</span>
               </div>
             </div>
           )}
@@ -400,14 +413,19 @@ export const SectionPickerEditor = ({
                 <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-800/50">
                   <button type="button" onClick={async () => {
                     const unchecked = availableSections
+ 
                       .filter((s: any) => !sectionRefChildren.find((c: any) => c.ref_section_id === s.id))
+ 
                       .filter((s: any) => !(currentSectionNumber !== undefined && s.section_number === currentSectionNumber))
+ 
                       .filter((s: any) => !backRefSectionIds.has(s.id));
                     if (unchecked.length === 0) return;
                     try {
+ 
                       const children = await invoke<any[]>('batch_add_section_ref_children', {
                         args: {
                           parent_id: existingId, document_id: documentId, section_id: sectionId,
+ 
                           sections: unchecked.map((s: any) => ({ linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th })),
                         }
                       });
@@ -422,7 +440,9 @@ export const SectionPickerEditor = ({
                   }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
                 </div>
                 <div className="divide-y divide-purple-100 dark:divide-purple-800/50">
+                  {/* eslint-disable @typescript-eslint/no-explicit-any */}
                   {availableSections.map((s: any) => {
+ 
                     const existingChild = sectionRefChildren.find((c: any) => c.ref_section_id === s.id);
                     const checked = !!existingChild;
                     const isSelf = currentSectionNumber !== undefined && s.section_number === currentSectionNumber;
@@ -439,13 +459,16 @@ export const SectionPickerEditor = ({
                             if (checked && existingChild) {
                               try {
                                 await invoke('remove_section_ref_child', { questionId: existingChild.id });
+ 
                                 setSectionRefChildren((prev: any[]) => prev.filter(c => c.id !== existingChild.id));
                               } catch (e) { logger.error('Failed to remove section ref child:', e); }
                             } else {
                               try {
+ 
                                 const newChild = await invoke<any>('add_section_ref_child', {
                                   args: { parent_id: existingId, document_id: documentId, section_id: sectionId, linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th }
                                 });
+ 
                                 setSectionRefChildren((prev: any[]) => [...prev, newChild].sort((a, b) => a.ref_section_number - b.ref_section_number));
                               } catch (e) { logger.error('Failed to add section ref child:', e); }
                             }

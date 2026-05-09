@@ -407,6 +407,7 @@ pub struct SaveTraineeAnswerArgs {
     pub document_id: String,
     pub sub_question_code: String,
     pub answer_text: String,
+    pub attachments: Option<String>, // Phase 5G: JSON array of file paths
 }
 #[derive(serde::Deserialize)]
 pub struct SaveQualifierAssessmentArgs {
@@ -431,6 +432,7 @@ pub struct UserAnswer {
     pub assessed_by: Option<String>,
     pub updated_at: String,
     pub answer_key: Option<String>,
+    pub attachments: Option<String>, // Phase 5G: JSON array of file paths
 }
 #[derive(Debug, Clone)]
 pub struct ComputedSectionProgress {

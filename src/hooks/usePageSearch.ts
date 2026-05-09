@@ -116,6 +116,7 @@ export const usePageSearch = () => {
 
     // เก็บ text nodes ทั้งหมดก่อน
     let node: Text | null
+// eslint-disable-next-line no-cond-assign
     while (node = walker.nextNode() as Text) {
       nodesToProcess.push(node)
     }

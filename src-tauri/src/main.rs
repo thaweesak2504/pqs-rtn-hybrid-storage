@@ -121,6 +121,9 @@ fn main() {
             commands::content::delete_question_image,
             commands::content::resolve_image_path,
             commands::content::get_question_image_base64,
+            // ===== Content: Trainee Attachments (Phase 5G) =====
+            commands::content::upload_trainee_attachment,
+            commands::content::delete_trainee_attachment,
             // ===== Content: Sections =====
             commands::content::create_section,
             commands::content::get_sections_by_document,

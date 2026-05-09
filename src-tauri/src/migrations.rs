@@ -587,20 +587,20 @@ mod tests {
     #[test]
     fn mig_001_baseline_check_returns_false_when_users_table_absent() {
         let conn = in_memory();
-        assert_eq!(mig_001_baseline_check(&conn).unwrap(), false);
+        assert!(!mig_001_baseline_check(&conn).unwrap());
     }
 
     #[test]
     fn mig_001_baseline_check_returns_false_when_column_missing() {
         let conn = in_memory();
         create_users_table_pre_phase1(&conn);
-        assert_eq!(mig_001_baseline_check(&conn).unwrap(), false);
+        assert!(!mig_001_baseline_check(&conn).unwrap());
     }
 
     #[test]
     fn mig_001_baseline_check_returns_true_when_column_present() {
         let conn = in_memory();
         create_users_table_with_flag(&conn);
-        assert_eq!(mig_001_baseline_check(&conn).unwrap(), true);
+        assert!(mig_001_baseline_check(&conn).unwrap());
     }
 }

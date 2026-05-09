@@ -55,7 +55,6 @@ interface QuestionDisplayCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   viewMode?: ViewMode;
-  onImageClick?: (src: string) => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
   traineeAnswer?: UserAnswer;
@@ -103,7 +102,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   onInsertAfter,
   onMoveUp,
   onMoveDown,
-  onImageClick,
   parentLayout = "list",
   parentSubQuestionList,
   viewMode = 'edit',
@@ -189,6 +187,9 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && question.question_type !== 'exempted'
     && !!question.is_scored
     && (question.score ?? 0) > 0;
+  
+  const isPrerequisiteDoc = is300 && !isL1 && (questionSequence === 1 || questionSequence === 2) && (prefix.startsWith('1.') || prefix.startsWith('๑.'));
+  
   const requireAnswerKey = useMemo(() => {
     if (!question.metadata) return !question.is_group_header; // Legacy default
     try {
@@ -252,6 +253,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         }
       }).catch(() => { setDisplaySubQList([]); setDisplayActiveCodes(activeCodes); });
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [is200or300, is300, isL1, question.metadata, question.sequence]);
 
   // SubQ usage count per code for L1 header — fetched from backend relational table
@@ -618,7 +620,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               metadata={question.metadata}
               questionId={question.id}
               documentId={documentId}
-              onImageClick={onImageClick}
               parentSubQuestionList={parentSubQuestionList}
               readOnly={readOnly}
               showAnswerBox={shouldShowAnswerBox}
@@ -627,6 +628,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               traineeAnswer={traineeAnswer}
               answerMap={answerMap}
               onRefresh={onRefresh}
+              isPrerequisiteDoc={isPrerequisiteDoc}
             />
           </div>
         )}

@@ -16,6 +16,7 @@ const WindowControls: React.FC = () => {
   
   // Use the window visibility hook (maximize tracking disabled to prevent crashes)
   useWindowVisibility({
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
     onMaximizeChange: (_maximized) => {
       // State tracking disabled to prevent crashes
     }

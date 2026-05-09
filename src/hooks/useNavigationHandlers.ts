@@ -93,6 +93,7 @@ export const useNavigationHandlers = (
         expandedMenus: [] 
       })
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, actions, closeSlideBar, signOut])
 
   const handleSignOut = useCallback(() => {

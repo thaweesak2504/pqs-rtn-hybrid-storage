@@ -1,8 +1,6 @@
-import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
     FileText,
-    ImageIcon,
     Plus,
     Save,
     Trash2,
@@ -29,8 +27,8 @@ import {
   PrerequisiteExemptedCheckbox,
   SectionPickerEditor
 } from "./questionFormCard/QuestionMetadataEditor";
-import AsyncImagePreview from "./AsyncImagePreview";
 import { logger } from '../../utils/logger';
+import AttachmentPanel from "./AttachmentPanel";
 
 import { AnswerKeyRow, QuestionFormCardProps, SubQuestionItem } from "./questionFormCard/types";
 import {
@@ -153,15 +151,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   }, [isPrerequisiteQuestion, isSection300Selector, isSection100Selector, isSection200Selector, isDefaultDescL1, isDefaultDescL1_200, questionSequence]);
 
-  const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
+  // Phase 5G: Multi-attachment state (replaces single-image system)
+  // Backward compat: migrate metadata.image → attachments array on init
+  const [questionAttachments, setQuestionAttachments] = useState<string[]>(() => {
+    if (parsedInitialMeta?.attachments && Array.isArray(parsedInitialMeta.attachments)) {
+      return parsedInitialMeta.attachments;
+    }
+    // Backward compat: existing single image → first attachment
+    if (initialImage) return [initialImage];
+    return [];
+  });
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
-
-  // Image operation state - defer upload/delete until Save
-  const [pendingImageUpload, setPendingImageUpload] = useState<string | null>(null); // source file path
-  const [pendingImageDelete, setPendingImageDelete] = useState<boolean>(false);
-  const [originalImagePath] = useState<string | null>(initialImage || null); // for rollback on cancel
 
   // ---- Score Editor State (Section 300 only) ----
   const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
@@ -700,7 +702,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const answerKeyRef = useRef<HTMLTextAreaElement>(null);
   const formCardRef = useScrollVisibility([
     showDescription,
-    imagePath,
+    questionAttachments.length,
     requireRef,
     requireAnswerKey,
     isRefExpanded,
@@ -837,31 +839,30 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (errors.refs) setErrors((prev) => ({ ...prev, refs: false }));
   };
 
-  const handleImageUpload = async () => {
-    try {
-      const selected = await openDialog({
-        multiple: false,
-        filters: [{ name: "Image", extensions: ["jpg", "jpeg", "png", "webp"] }],
-      });
-
-      if (selected && typeof selected === "string") {
-        // Store pending upload - don't execute until Save
-        setPendingImageUpload(selected);
-        setPendingImageDelete(false);
-        // Show preview using the selected file path
-        setImagePath(selected);
+  // Phase 5G: Question attachment upload/delete handlers for AttachmentPanel
+  const handleQuestionAttachmentUpload = useCallback(async (sourcePath: string): Promise<string> => {
+    let targetId = existingId;
+    if (!targetId) {
+      if (generatedId) {
+        targetId = generatedId;
+      } else {
+        targetId = crypto.randomUUID();
+        setGeneratedId(targetId);
       }
-    } catch (err) {
-      logger.error("Failed to select image:", err);
     }
-  };
+    const friendlyPrefix = convertThaiToArabic(prefix);
+    const relPath = await invoke<string>("upload_question_image", {
+      path: sourcePath,
+      documentId: documentId,
+      questionId: targetId,
+      friendlyPrefix: friendlyPrefix,
+    });
+    return relPath;
+  }, [existingId, generatedId, prefix, documentId]);
 
-  const handleRemoveImage = () => {
-    // Mark for deletion - don't execute until Save
-    setPendingImageDelete(true);
-    setPendingImageUpload(null);
-    setImagePath(null);
-  };
+  const handleQuestionAttachmentDelete = useCallback(async (relPath: string): Promise<void> => {
+    await invoke("delete_question_image", { path: relPath });
+  }, []);
 
   const persistAnswerKeys = async (questionId: string) => {
     try {
@@ -891,61 +892,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   };
 
   const handleSave = async () => {
-    // Execute pending image operations BEFORE saving
-    let finalImagePath = imagePath;
-    
-    // Handle pending image upload
-    if (pendingImageUpload) {
-      try {
-        // Delete old image first if it exists (replacement scenario)
-        if (originalImagePath) {
-          try {
-            await invoke('delete_question_image', { path: originalImagePath });
-          } catch (err) {
-            logger.error("Failed to delete old image:", err);
-            // Continue with upload anyway
-          }
-        }
-        
-        let targetId = existingId;
-        if (!targetId) {
-          if (generatedId) {
-            targetId = generatedId;
-          } else {
-            targetId = crypto.randomUUID();
-            setGeneratedId(targetId);
-          }
-        }
-        const friendlyPrefix = convertThaiToArabic(prefix);
-        const newPath = await invoke<string>("upload_question_image", {
-          path: pendingImageUpload,
-          documentId: documentId,
-          questionId: targetId,
-          friendlyPrefix: friendlyPrefix,
-        });
-        finalImagePath = newPath;
-        setImagePath(newPath);
-        setPendingImageUpload(null);
-        setPendingImageDelete(false); // Clear delete flag since we're replacing
-      } catch (err) {
-        logger.error("Failed to upload image:", err);
-        if (onAlert) {
-          onAlert("ไม่สามารถอัปโหลดรูปภาพได้", "danger");
-        }
-        return;
-      }
-    }
-    // Handle pending image deletion (only if no new upload)
-    else if (pendingImageDelete && originalImagePath) {
-      try {
-        await invoke('delete_question_image', { path: originalImagePath });
-        finalImagePath = null;
-        setPendingImageDelete(false);
-      } catch (err) {
-        logger.error("Failed to delete image file:", err);
-        // Continue anyway - deletion failure shouldn't block save
-      }
-    }
 
     // Reset errors
     setErrors({});
@@ -1064,7 +1010,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         if (metadataString) {
           try { metaObj = JSON.parse(metadataString); } catch { }
         }
-        if (finalImagePath) metaObj.image = finalImagePath;
+        // Phase 5G: store attachments array, remove legacy image
+        delete metaObj.image;
+        if (questionAttachments.length > 0) metaObj.attachments = questionAttachments;
+        else delete metaObj.attachments;
         if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
         const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
 
@@ -1155,13 +1104,23 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
 
+    // Phase 5G: Inject attachments into metadata before saving
+    let finalMeta = metadataString;
+    try {
+      const metaForSave: Record<string, unknown> = metadataString ? JSON.parse(metadataString) : {};
+      delete metaForSave.image; // Remove legacy single-image field
+      if (questionAttachments.length > 0) metaForSave.attachments = questionAttachments;
+      else delete metaForSave.attachments;
+      finalMeta = Object.keys(metaForSave).length > 0 ? JSON.stringify(metaForSave) : '{}';
+    } catch { /* keep metadataString as-is */ }
+
     await onSave({
       content,
       description: showExtraButtons ? description : undefined,
-      image: showExtraButtons ? finalImagePath || undefined : undefined,
+      image: undefined, // Legacy field — no longer used
       id: !isEdit ? questionId : undefined,
       references: requireRef ? linkedRefs : [],
-      metadata: metadataString,
+      metadata: finalMeta,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
 
@@ -1214,11 +1173,6 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Cleanup background-saved L2 if user cancels
   const handleCancel = useCallback(async () => {
-    // Restore original image state (rollback pending operations)
-    setImagePath(originalImagePath);
-    setPendingImageUpload(null);
-    setPendingImageDelete(false);
-    
     if (isBackgroundSaved && generatedId) {
       try {
         await invoke('delete_question', { id: generatedId });
@@ -1227,7 +1181,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
     onCancel();
-  }, [isBackgroundSaved, generatedId, originalImagePath, onCancel]);
+  }, [isBackgroundSaved, generatedId, onCancel]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -1266,17 +1220,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <FileText className="w-3.5 h-3.5" />
                 </button>
               </Tooltip>
-              {!imagePath && (
-                <Tooltip content="เพิ่มรูปภาพ" position="top-end">
-                  <button
-                    type="button"
-                    onClick={handleImageUpload}
-                    className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                  </button>
-                </Tooltip>
-              )}
+
               {!isDefaultL1 && !is300 && (
                 <Tooltip content="สลับโหมดการแสดงผลคำถามย่อย" position="top-end">
                   <button
@@ -1355,8 +1299,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           setFormScoreValue={setFormScoreValue} setDescription={setDescription}
           setShowDescription={setShowDescription} setUseSubQuestions={setUseSubQuestions}
           setRequiredCount={setRequiredCount} setRequiredCountChildren={setRequiredCountChildren}
-          imagePath={imagePath} setPendingImageDelete={setPendingImageDelete}
-          setPendingImageUpload={setPendingImageUpload} setImagePath={setImagePath}
+          questionAttachments={questionAttachments} setQuestionAttachments={setQuestionAttachments}
+          handleQuestionAttachmentDelete={handleQuestionAttachmentDelete}
           isL1={isL1} hasActualChildren={hasActualChildren}
         />
 
@@ -1365,8 +1309,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           isExemptableL1_200={isExemptableL1_200} formScoreType={formScoreType} setFormScoreType={setFormScoreType}
           setFormScoreDisplayText={setFormScoreDisplayText} setDescription={setDescription}
           setShowDescription={setShowDescription} setUseSubQuestions={setUseSubQuestions}
-          imagePath={imagePath} setPendingImageDelete={setPendingImageDelete}
-          setPendingImageUpload={setPendingImageUpload} setImagePath={setImagePath}
+          questionAttachments={questionAttachments} setQuestionAttachments={setQuestionAttachments}
+          handleQuestionAttachmentDelete={handleQuestionAttachmentDelete}
           isDefaultDescL1_200={isDefaultDescL1_200} questionSequence={questionSequence}
           isL1={isL1} hasActualChildren={hasActualChildren}
         />
@@ -1544,20 +1488,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             </>
           )}
 
-          {/* Image Preview (L1 Only for 100/300, L0+L1 for 200) */}
-          {showExtraButtons && imagePath && (
-            <div className="flex items-center gap-2 pt-1">
-              <div className="relative group inline-block">
-                <div className="w-16 h-12 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden">
-                  <AsyncImagePreview path={imagePath} className="w-full h-full object-cover" />
-                </div>
-                <button
-                  onClick={handleRemoveImage}
-                  className="absolute -top-1.5 -right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded bg-white dark:bg-slate-800 shadow-sm transition-colors opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
+          {/* Phase 5G: Question Attachments Panel (Image/PDF/Video) */}
+          {showExtraButtons && (
+            <div className="pt-1">
+              <AttachmentPanel
+                attachments={questionAttachments}
+                onAttachmentsChange={setQuestionAttachments}
+                documentId={documentId}
+                questionId={existingId || generatedId || ''}
+                userId=""
+                excludeAudio
+                onUploadFile={handleQuestionAttachmentUpload}
+                onDeleteFile={handleQuestionAttachmentDelete}
+              />
             </div>
           )}
         </div>

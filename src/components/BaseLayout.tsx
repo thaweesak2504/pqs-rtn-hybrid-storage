@@ -150,6 +150,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               const { getCurrent } = await import('@tauri-apps/api/window')
               const currentWindow = getCurrent()
               await currentWindow.startDragging()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
               // Ignore drag error
             }

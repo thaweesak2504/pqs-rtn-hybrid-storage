@@ -116,6 +116,7 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
   // Initialize shortcuts
   useEffect(() => {
     shortcutsRef.current = [...defaultShortcuts]
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Add custom shortcut

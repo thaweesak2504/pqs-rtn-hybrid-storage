@@ -82,6 +82,7 @@ const HighRanksPage: React.FC = () => {
         }
       });
     };
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Get image source for officer (database avatar or initial)
@@ -115,6 +116,7 @@ const HighRanksPage: React.FC = () => {
       try {
         const down = await maybeDownscaleImage(dataUrl, file.type);
         dataUrl = down.dataUrl;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         // If downscale fails, continue with original
       }

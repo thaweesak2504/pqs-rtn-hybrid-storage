@@ -563,6 +563,23 @@ pub fn get_question_image_base64(path: String) -> Result<String, String> {
     content_database::get_question_image_base64(path)
 }
 
+// ===== Phase 5G: Trainee Attachment Commands =====
+
+#[tauri::command]
+pub fn upload_trainee_attachment(
+    source_path: String,
+    document_id: String,
+    question_id: String,
+    user_id: String,
+) -> Result<String, String> {
+    content_database::upload_trainee_attachment(source_path, document_id, question_id, user_id)
+}
+
+#[tauri::command]
+pub fn delete_trainee_attachment(path: String) -> Result<(), String> {
+    content_database::delete_trainee_attachment(path)
+}
+
 // ===== Trainee Answer Commands =====
 
 #[tauri::command]

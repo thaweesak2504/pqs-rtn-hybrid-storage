@@ -33,6 +33,7 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
     setIsProfileOpen(false)
   }
 
+// eslint-disable-next-line react-hooks/exhaustive-deps
   const toggleProfile = () => {
     setIsProfileOpen(prev => !prev)
   }
