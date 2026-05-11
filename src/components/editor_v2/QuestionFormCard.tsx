@@ -73,6 +73,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   currentSectionNumber,
   usageRefreshKey = 0,
   subQUsageParentId,
+  isInsidePrerequisiteDoc,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -91,7 +92,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // We need to know if its parent is 3xx.1. Check prefix for both Thai (๑) and Arabic (1) numerals.
   const isChildOf1 = prefix.includes('.๑.') || prefix.includes('.1.');
   const isChildOf7 = prefix.includes('.๗.') || prefix.includes('.7.');
-  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && isChildOf1; // 3xx.1.1-3xx.1.2
+  // isPrerequisiteChild targets exactly the L2 children (3xx.1.1 and 3xx.1.2) for Exempted checkbox logic
+  const isPrerequisiteChild = is300 && level === 1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && isChildOf1;
   const isSection300Selector = is300 && !isL1 && questionSequence === 3 && isChildOf1; // 3xx.1.3 → select 300Sections (no score)
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && isChildOf1; // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && isChildOf1; // 3xx.1.5 → select 200Sections
@@ -1294,6 +1296,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           isPrerequisiteChild={isPrerequisiteChild} isSection300Selector={isSection300Selector}
           isSection100Selector={isSection100Selector} isSection200Selector={isSection200Selector}
           isExamChild={isExamChild} isFixedPracticeL1={isFixedPracticeL1} isPerformanceL2={isPerformanceL2}
+          isInsidePrerequisiteDoc={isInsidePrerequisiteDoc}
           formScoreType={formScoreType} setFormScoreType={setFormScoreType}
           setFormScoreDisplayText={setFormScoreDisplayText} setFormScoreIsScored={setFormScoreIsScored}
           setFormScoreValue={setFormScoreValue} setDescription={setDescription}
@@ -1489,7 +1492,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
           {/* Phase 5G: Question Attachments Panel (Image/PDF/Video) */}
-          {showExtraButtons && (
+          {showExtraButtons && !isInsidePrerequisiteDoc && (
             <div className="pt-1">
               <AttachmentPanel
                 attachments={questionAttachments}
@@ -1506,7 +1509,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>
 
         {/* Answer Key (conditional on toggle — hidden for default 200 L1, hidden when useSubQuestions=true but none selected, hidden when hasParentSubQ but none selected) */}
-        {!is300 && !isDefaultL1 && requireAnswerKey
+        {!is300 && !isDefaultL1 && requireAnswerKey && !isInsidePrerequisiteDoc
           && !(showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0)
           && !(hasParentSubQ && selectedSubQCodes.length === 0)
           && (
@@ -1554,16 +1557,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
         {/* ── Scoring section (hidden when exempted or fixedPracticeL1) ── */}
-        <ScoreInput
-          is300={is300} formScoreType={formScoreType} isFixedPracticeL1={isFixedPracticeL1}
-          isPerformanceL2={isPerformanceL2} is306L1={is306L1} effectiveIsGroupHeader={effectiveIsGroupHeader}
-          requiredCount={requiredCount} isPrerequisiteQuestion={isPrerequisiteQuestion}
-          isPrerequisiteChild={isPrerequisiteChild} isSection300Selector={isSection300Selector}
-          isSection100Selector={isSection100Selector} isSection200Selector={isSection200Selector}
-          isExamChild={isExamChild} isRequiredInstance={isRequiredInstance}
-          formScoreValue={formScoreValue} setFormScoreValue={setFormScoreValue}
-          formScoreIsScored={formScoreIsScored} setFormScoreIsScored={setFormScoreIsScored}
-        />
+        {!isInsidePrerequisiteDoc && (
+          <ScoreInput
+            is300={is300} formScoreType={formScoreType} isFixedPracticeL1={isFixedPracticeL1}
+            isPerformanceL2={isPerformanceL2} is306L1={is306L1} effectiveIsGroupHeader={effectiveIsGroupHeader}
+            requiredCount={requiredCount} isPrerequisiteQuestion={isPrerequisiteQuestion}
+            isPrerequisiteChild={isPrerequisiteChild} isSection300Selector={isSection300Selector}
+            isSection100Selector={isSection100Selector} isSection200Selector={isSection200Selector}
+            isExamChild={isExamChild} isRequiredInstance={isRequiredInstance}
+            formScoreValue={formScoreValue} setFormScoreValue={setFormScoreValue}
+            formScoreIsScored={formScoreIsScored} setFormScoreIsScored={setFormScoreIsScored}
+          />
+        )}
 
         <RequiredCountInput
           isPerformanceL2={isPerformanceL2} is306L1={is306L1} isRequiredInstance={isRequiredInstance}
@@ -1592,7 +1597,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         />
 
         {/* Group Header Info (Section 300 only) - auto-calc info */}
-        {is300 && effectiveIsGroupHeader && !isSection300Selector && (
+        {is300 && effectiveIsGroupHeader && !isSection300Selector && formScoreType !== 'exempted' && !isPrerequisiteChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
             <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
               <span className="font-bold uppercase tracking-wider">Group Header</span>

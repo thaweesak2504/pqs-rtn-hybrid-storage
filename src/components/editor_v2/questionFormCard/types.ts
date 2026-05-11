@@ -58,4 +58,5 @@ export interface QuestionFormCardProps {
   currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
   usageRefreshKey?: number;
   subQUsageParentId?: string; // L1 ancestor ID for consistent SubQ usage counting across L2/L3
+  isInsidePrerequisiteDoc?: boolean; // True for 3xx.1.1/3xx.1.2 and their children
 }

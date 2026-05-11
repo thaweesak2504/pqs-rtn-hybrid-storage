@@ -63,6 +63,7 @@ interface QuestionDisplayCardProps {
   onRefresh?: () => void;
   usageRefreshKey?: number;
   sectionSelectedBranch?: { main: string; sub: string };
+  isInsidePrerequisiteDoc?: boolean;
 }
 
 // ============ Helpers ============
@@ -111,6 +112,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   onRefresh,
   usageRefreshKey = 0,
   sectionSelectedBranch,
+  isInsidePrerequisiteDoc,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -188,7 +190,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && !!question.is_scored
     && (question.score ?? 0) > 0;
   
-  const isPrerequisiteDoc = is300 && !isL1 && (questionSequence === 1 || questionSequence === 2) && (prefix.startsWith('1.') || prefix.startsWith('๑.'));
+  const isPrerequisiteDoc = isInsidePrerequisiteDoc || (is300 && !isL1 && (questionSequence === 1 || questionSequence === 2) && (prefix.startsWith('1.') || prefix.startsWith('๑.')));
   
   const requireAnswerKey = useMemo(() => {
     if (!question.metadata) return !question.is_group_header; // Legacy default
@@ -207,9 +209,10 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   // regardless of exempted/normal status. Only L2+ questions can have answer boxes.
   const shouldShowAnswerBox = question.question_type !== 'exempted'
     && viewMode !== 'visitor'
-    && !is300
+    && (!is300 || isPrerequisiteDoc)
     && !(is200 && isL1)
-    && (is200 || requireAnswerKey);
+    && (is200 || requireAnswerKey || isPrerequisiteDoc)
+    && (!hasChildren || !isPrerequisiteDoc);
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.

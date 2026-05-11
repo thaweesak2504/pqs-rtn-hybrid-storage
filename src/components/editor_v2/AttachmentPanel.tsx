@@ -40,6 +40,8 @@ interface AttachmentPanelProps {
   onUploadFile?: (sourcePath: string) => Promise<string>;
   /** Custom delete handler — if provided, overrides the default trainee delete command. */
   onDeleteFile?: (relPath: string) => Promise<void>;
+  /** When true, restricts file selection to only Images and PDFs */
+  onlyImageAndPdf?: boolean;
 }
 
 const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
@@ -52,6 +54,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   excludeAudio = false,
   onUploadFile,
   onDeleteFile,
+  onlyImageAndPdf = false,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,9 +96,11 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
         multiple: false,
         filters: [{
           name: "ไฟล์ที่รองรับ",
-          extensions: excludeAudio
-            ? [...IMAGE_EXTS, ...PDF_EXTS, ...VIDEO_EXTS]
-            : [...IMAGE_EXTS, ...PDF_EXTS, ...VIDEO_EXTS, ...AUDIO_EXTS],
+          extensions: onlyImageAndPdf 
+            ? [...IMAGE_EXTS, ...PDF_EXTS]
+            : excludeAudio
+              ? [...IMAGE_EXTS, ...PDF_EXTS, ...VIDEO_EXTS]
+              : [...IMAGE_EXTS, ...PDF_EXTS, ...VIDEO_EXTS, ...AUDIO_EXTS],
         }],
       });
       if (!selected || Array.isArray(selected)) return;
@@ -120,7 +125,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
     } finally {
       setIsUploading(false);
     }
-  }, [attachments, documentId, questionId, userId, onAttachmentsChange, excludeAudio, onUploadFile]);
+  }, [attachments, documentId, questionId, userId, onAttachmentsChange, excludeAudio, onUploadFile, onlyImageAndPdf]);
 
   const handleDelete = useCallback(async (relPath: string) => {
     try {

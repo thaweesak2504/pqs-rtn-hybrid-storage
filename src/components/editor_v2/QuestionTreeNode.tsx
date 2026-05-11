@@ -59,6 +59,7 @@ interface QuestionTreeNodeProps {
   viewMode?: ViewMode;
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
+  isInsidePrerequisiteDoc?: boolean;
 }
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question,
@@ -100,6 +101,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   viewMode = 'edit',
   traineeAnswer,
   answerMap,
+  isInsidePrerequisiteDoc = false,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -148,6 +150,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const isDefault300L1 = is300 && level === 0;
   const isDefaultL1 = isDefault200L1 || isDefault300L1;
   const isDefault300L2 = is300 && level === 1 && isParentDefault300L1;
+
+  const isPrerequisiteDocSelf = is300 && level === 1 && (qSeqNum === 1 || qSeqNum === 2) && isParentDefault300L1;
+  const effectiveIsInsidePrerequisiteDoc = isInsidePrerequisiteDoc || isPrerequisiteDocSelf;
 
   const [childLayout, setChildLayout] = useState<"list" | "grid">("list");
 
@@ -343,6 +348,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           currentSectionNumber={sectionNumber}
           usageRefreshKey={usageRefreshKey}
           subQUsageParentId={effectiveSubQUsageParentId}
+          isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
         />
       </div>
     );
@@ -380,6 +386,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onRefresh={onRefresh}
         usageRefreshKey={usageRefreshKey}
         sectionSelectedBranch={sectionSelectedBranch}
+        isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
       />
 
       {/* Insert After Form */}
@@ -402,6 +409,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             currentSectionNumber={sectionNumber}
             usageRefreshKey={usageRefreshKey}
             subQUsageParentId={effectiveSubQUsageParentId}
+            isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
           />
         </div>
       )}
@@ -454,6 +462,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 subQUsageParentId={effectiveSubQUsageParentId}
                 traineeAnswer={answerMap?.get(`${child.id}:`)}
                 answerMap={answerMap}
+                isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
               />
             ))}
           </div>
@@ -480,6 +489,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             currentSectionNumber={sectionNumber}
             usageRefreshKey={usageRefreshKey}
             subQUsageParentId={effectiveSubQUsageParentId}
+            isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
           />
         </div>
       )}

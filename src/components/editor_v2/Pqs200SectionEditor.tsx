@@ -38,7 +38,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   docBranchMain,
   docBranchSub,
 }) => {
-  const readOnly = viewMode !== 'edit';
+  const readOnly = viewMode !== 'edit' && viewMode !== 'trainee' && viewMode !== 'qualifier';
   const isCompact = viewMode !== 'edit' && viewMode !== 'print';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);

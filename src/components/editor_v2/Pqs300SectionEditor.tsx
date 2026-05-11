@@ -64,7 +64,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   docBranchMain,
   docBranchSub,
 }) => {
-  const readOnly = viewMode !== 'edit';
+  const readOnly = viewMode !== 'edit' && viewMode !== 'trainee' && viewMode !== 'qualifier';
   const [sectionId, setSectionId] = useState<number>(0);
 
   // Default prefix for 300Template

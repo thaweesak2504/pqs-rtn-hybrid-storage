@@ -32,7 +32,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   printSubView = 'question-only',
   onMenuLabelChange,
 }) => {
-  const readOnly = viewMode !== 'edit';
+  const readOnly = viewMode !== 'edit' && viewMode !== 'trainee' && viewMode !== 'qualifier';
   const isCompact = viewMode !== 'edit' && viewMode !== 'print';
 
   const [references, setReferences] = useState<ReferenceDoc[]>([]);

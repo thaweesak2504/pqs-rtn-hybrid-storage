@@ -125,6 +125,25 @@ pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<St
 pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
 
+    // Wipe all trainee-attachments directories directly from the file system to clean up orphaned files
+    if let Ok(data_dir) = get_portable_data_dir() {
+        if let Ok(entries) = std::fs::read_dir(&data_dir) {
+            for entry in entries.flatten() {
+                let doc_path = entry.path();
+                if doc_path.is_dir() {
+                    let attachments_dir = doc_path.join("trainee-attachments");
+                    if attachments_dir.exists() {
+                        if let Err(e) = std::fs::remove_dir_all(&attachments_dir) {
+                            logger::warn(format!("Failed to delete trainee-attachments dir {:?}: {}", attachments_dir, e));
+                        } else {
+                            logger::info(format!("Cleared trainee-attachments dir: {:?}", attachments_dir));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     conn.execute("DELETE FROM UserAnswers", rusqlite::params![])
         .map_err(|e| {
             logger::error(format!("Failed to clear UserAnswers: {}", e));
@@ -137,7 +156,9 @@ pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
             e.to_string()
         })?;
 
-    logger::info("Successfully cleared all records from UserAnswers and UserProgress tables.");
+
+
+    logger::info("Successfully cleared all records from UserAnswers and UserProgress tables, and cleaned up trainee attachments.");
     Ok(())
 }
 

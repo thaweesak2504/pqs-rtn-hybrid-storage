@@ -8,6 +8,7 @@ import ConfirmModal from "../modals/ConfirmModal";
 import { UserAnswer } from "./PqsQuestionSection";
 import { logger } from '../../utils/logger';
 import AttachmentPanel from "./AttachmentPanel";
+import Tooltip from "../ui/Tooltip";
 
 // Simulation Constants
 const MOCK_TRAINEE_ID = "T-001";
@@ -65,6 +66,10 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
   // Phase 5G: Attachments
   const [attachments, setAttachments] = useState<string[]>([]);
+  // Track original values for change detection (anti-fake-save)
+  const [originalValue, setOriginalValue] = useState(initialValue);
+  const [originalAttachments, setOriginalAttachments] = useState<string[]>([]);
+  const [originalFeedback, setOriginalFeedback] = useState(feedback);
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string }>({
     isOpen: false,
     message: "",
@@ -75,21 +80,30 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   // Sync with props
   useEffect(() => {
     if (traineeAnswer) {
-      setValue(traineeAnswer.answer_text || "");
+      const answerText = traineeAnswer.answer_text || "";
+      const feedbackText = traineeAnswer.feedback || "";
+      setValue(answerText);
+      setOriginalValue(answerText);
       setLocalStatus(traineeAnswer.status || "pending");
-      setLocalFeedback(traineeAnswer.feedback || "");
+      setLocalFeedback(feedbackText);
+      setOriginalFeedback(feedbackText);
       setIsQualifierPanelOpen(traineeAnswer.status === "pending");
       // Phase 5G: Parse attachments JSON
       try {
         const parsed = traineeAnswer.attachments ? JSON.parse(traineeAnswer.attachments) : [];
-        setAttachments(Array.isArray(parsed) ? parsed : []);
-      } catch { setAttachments([]); }
+        const attachArr = Array.isArray(parsed) ? parsed : [];
+        setAttachments(attachArr);
+        setOriginalAttachments(attachArr);
+      } catch { setAttachments([]); setOriginalAttachments([]); }
     } else {
       setValue(initialValue);
+      setOriginalValue(initialValue);
       setLocalStatus(status);
       setLocalFeedback(feedback);
+      setOriginalFeedback(feedback);
       setIsQualifierPanelOpen(status === "pending");
       setAttachments([]);
+      setOriginalAttachments([]);
     }
   }, [traineeAnswer, initialValue, status, feedback]);
 
@@ -115,6 +129,23 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
   const handleSaveAnswer = async () => {
     if (isSaving) return;
+
+    // Validation: Prevent fake save — Trainee must actually provide content
+    const trimmedValue = value.trim();
+    const attachmentsJson = attachments.length > 0 ? JSON.stringify(attachments) : null;
+
+    // For prerequisite docs: must have at least 1 attachment
+    if (isPrerequisiteDoc && attachments.length === 0) {
+      setAlertModal({ isOpen: true, message: "กรุณาแนบเอกสารหลักฐานอย่างน้อย 1 ไฟล์" });
+      return;
+    }
+
+    // For regular questions: must have non-empty answer text
+    if (!isPrerequisiteDoc && !trimmedValue) {
+      setAlertModal({ isOpen: true, message: "กรุณาระบุคำตอบก่อนบันทึก" });
+      return;
+    }
+
     setIsSaving(true);
     setIsSaved(false);
     try {
@@ -125,9 +156,12 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           document_id: documentId,
           sub_question_code: subQuestionCode || "",
           answer_text: value,
-          attachments: attachments.length > 0 ? JSON.stringify(attachments) : null,
+          attachments: attachmentsJson,
         }
       });
+      // Update originals after successful save
+      setOriginalValue(value);
+      setOriginalAttachments([...attachments]);
       setIsEditing(false);
       onAnswerSaved?.();
     } catch (error) {
@@ -143,6 +177,21 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
   const handleSaveAssessment = async (targetStatus: AssessmentStatus) => {
     if (isSaving) return;
+
+    // Validation: "needs_improvement" requires non-empty feedback
+    if (targetStatus === "needs_improvement") {
+      const trimmedFeedback = localFeedback.trim();
+      if (!trimmedFeedback) {
+        setAlertModal({ isOpen: true, message: "กรุณาระบุข้อเสนอแนะสำหรับการปรับปรุงก่อนบันทึก" });
+        return;
+      }
+      // Prevent re-saving identical feedback (no actual change)
+      if (localStatus === "needs_improvement" && trimmedFeedback === originalFeedback.trim()) {
+        setAlertModal({ isOpen: true, message: "ยังไม่มีการเปลี่ยนแปลงข้อเสนอแนะ — กรุณาแก้ไขก่อนบันทึก" });
+        return;
+      }
+    }
+
     setIsSaving(true);
     setIsSaved(false);
     try {
@@ -153,11 +202,13 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           document_id: documentId,
           sub_question_code: subQuestionCode || "",
           status: targetStatus,
-          feedback: targetStatus === "needs_improvement" ? localFeedback : null,
+          feedback: targetStatus === "needs_improvement" ? localFeedback.trim() : null,
           qualifier_id: MOCK_QUALIFIER_ID,
         }
       });
       setLocalStatus(targetStatus);
+      // Update original feedback after successful save
+      setOriginalFeedback(targetStatus === "needs_improvement" ? localFeedback.trim() : "");
       // Close panel after successful save
       setIsQualifierPanelOpen(false);
       // Immediately close and refresh after save per user request
@@ -267,16 +318,38 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }, 10);
   };
 
+  const handleAttachmentsChange = async (newAttachments: string[]) => {
+    setAttachments(newAttachments);
+    if (mode === "trainee") {
+      try {
+        await invoke("save_trainee_answer", {
+          args: {
+            user_id: MOCK_TRAINEE_ID,
+            question_id: questionId,
+            document_id: documentId,
+            sub_question_code: subQuestionCode || "",
+            answer_text: value.trim(),
+            attachments: newAttachments.length > 0 ? JSON.stringify(newAttachments) : null,
+          }
+        });
+        if (onAnswerSaved) onAnswerSaved();
+      } catch (err) {
+        logger.error("Failed to auto-save attachments:", err);
+      }
+    }
+  };
+
   const cleanValue = value.trim();
+  const hasAnswer = cleanValue.length > 0 || attachments.length > 0;
 
   // Status Styles
   const statusConfig = {
     pending: {
-      borderColor: cleanValue ? "border-amber-400 dark:border-amber-500/50" : "border-slate-200 dark:border-slate-800",
-      bgColor: cleanValue ? "bg-amber-50/50 dark:bg-amber-900/10" : "bg-slate-50/30 dark:bg-slate-900/10",
-      textColor: cleanValue ? "text-amber-800 dark:text-amber-300" : "text-slate-500",
-      icon: cleanValue ? <span className="text-sm">💡</span> : null,
-      label: cleanValue ? "รอประเมิน" : "ยังไม่ได้ส่งคำตอบ"
+      borderColor: hasAnswer ? "border-amber-400 dark:border-amber-500/50" : "border-slate-200 dark:border-slate-800",
+      bgColor: hasAnswer ? "bg-amber-50/50 dark:bg-amber-900/10" : "bg-slate-50/30 dark:bg-slate-900/10",
+      textColor: hasAnswer ? "text-amber-800 dark:text-amber-300" : "text-slate-500",
+      icon: hasAnswer ? <span className="text-sm">💡</span> : null,
+      label: hasAnswer ? "รอประเมิน" : "ยังไม่ได้ส่งคำตอบ"
     },
     passed: {
       borderColor: "border-emerald-200 dark:border-emerald-800/50",
@@ -383,7 +456,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                 </div>
 
                 {/* Right Side: Status Badges (Only shown if answer exists) */}
-                {(cleanValue || !!timestampText) && (
+                {(hasAnswer || !!timestampText) && (
                   <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar shrink-0 mt-[2px]">
                     {/* Timestamp display */}
                     {timestampText && (
@@ -421,36 +494,22 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           </div>
 
           {/* Phase 5G: Attachments Panel (View mode) */}
-          {(attachments.length > 0 || isPrerequisiteDoc) && (
-            <div className={`mt-2 ${attachments.length > 0 ? "pt-2 border-t border-slate-100 dark:border-slate-800" : ""}`}>
+          {attachments.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <AttachmentPanel
                 attachments={attachments}
-                onAttachmentsChange={(newAttachments) => {
-                  setAttachments(newAttachments);
-                  // Auto-save when attachments change if it's a prerequisite doc (no text area to save)
-                  if (isPrerequisiteDoc && mode === "trainee") {
-                     invoke("save_trainee_answer", {
-                        args: {
-                          user_id: MOCK_TRAINEE_ID,
-                          question_id: questionId,
-                          document_id: documentId,
-                          sub_question_code: subQuestionCode || "",
-                          answer_text: "", // No text for prerequisite docs
-                          attachments: newAttachments.length > 0 ? JSON.stringify(newAttachments) : null,
-                        }
-                      }).then(() => onAnswerSaved?.()).catch(err => logger.error("Auto-save attachments failed:", err));
-                  }
-                }}
+                onAttachmentsChange={setAttachments}
                 documentId={documentId}
                 questionId={questionId}
                 userId={MOCK_TRAINEE_ID}
-                readOnly={readOnly || localStatus === "passed" || (mode !== "trainee" && mode !== "edit")}
+                readOnly={true}
+                onlyImageAndPdf={isPrerequisiteDoc}
               />
             </div>
           )}
 
           {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists (or it's a prerequisite doc with attachments) and NOT passed and panel is open */}
-          {mode === "qualifier" && (cleanValue || (isPrerequisiteDoc && attachments.length > 0)) && localStatus !== "passed" && isQualifierPanelOpen && (
+          {mode === "qualifier" && hasAnswer && localStatus !== "passed" && isQualifierPanelOpen && (
             <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
@@ -483,19 +542,32 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                     placeholder="พิมพ์คำแนะนำที่นี่เพื่อให้ Trainee นำไปแก้ไข..."
                     className="w-full p-2 text-sm bg-rose-50/30 dark:bg-rose-900/10 border border-rose-200/50 dark:border-rose-800/30 rounded focus:outline-none focus:ring-1 focus:ring-rose-500/50 min-h-[60px]"
                   />
-                  <div className="flex justify-end">
-                    <button
-                      onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
-                      disabled={isSaving}
-                      className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${isSaved
-                        ? "bg-emerald-600 text-white"
-                        : "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900"
-                        }`}
-                    >
-                      {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
-                      {isSaved ? "บันทึกคำแนะนำเรียบร้อย!" : "บันทึกคำแนะนำ"}
-                    </button>
-                  </div>
+                  {(() => {
+                    const feedbackReady = localFeedback.trim().length > 0 && localFeedback.trim() !== originalFeedback.trim();
+                    return (
+                      <div className="flex justify-end">
+                        <Tooltip
+                          content={!feedbackReady ? "กรุณาพิมพ์ข้อเสนอแนะก่อนบันทึก" : null}
+                          position="top-end"
+                        >
+                          <button
+                            onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
+                            disabled={isSaving || !feedbackReady}
+                            className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${
+                              isSaved
+                                ? "bg-emerald-600 text-white"
+                                : feedbackReady
+                                  ? "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 cursor-pointer"
+                                  : "bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60"
+                            }`}
+                          >
+                            {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+                            {isSaved ? "บันทึกคำแนะนำเรียบร้อย!" : "บันทึกคำแนะนำ"}
+                          </button>
+                        </Tooltip>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -518,50 +590,56 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-1 px-2 py-1.5 border-b border-blue-100 dark:border-blue-900/30 bg-blue-50/50 dark:bg-slate-800 font-normal">
         <div className="flex flex-wrap items-center gap-1">
           <div className="flex items-center gap-2 mr-2">
-            <span className="text-slate-900 dark:text-slate-100 shrink-0 text-sm">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
+            <span className="text-slate-900 dark:text-slate-100 shrink-0 text-sm">
+              {isPrerequisiteDoc ? 'เอกสารหลักฐาน:' : 'คำตอบ:'} <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span>
+            </span>
           </div>
-          <button
-            type="button"
-            title="ตัวหนา (Bold)"
-            onClick={(e) => { e.stopPropagation(); applyAction("bold"); }}
-            className="h-6 px-2 text-xs font-bold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            B
-          </button>
-          <button
-            type="button"
-            title="ตัวเอียง (Italic)"
-            onClick={(e) => { e.stopPropagation(); applyAction("italic"); }}
-            className="h-6 px-2 text-xs italic rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            I
-          </button>
-          <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-          <button
-            type="button"
-            title="ลำดับอักษรไทย (ก. ข. ค. ง. ...)"
-            onClick={(e) => { e.stopPropagation(); applyAction("thai_alpha"); }}
-            className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            ก.ข.ค.
-          </button>
-          <button
-            type="button"
-            title="ลำดับเลขไทย (๑. ๒. ๓. ...)"
-            onClick={(e) => { e.stopPropagation(); applyAction("thai_num"); }}
-            className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            ๑.๒.๓.
-          </button>
-          <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-          <button
-            type="button"
-            title="แทรกตาราง (Table)"
-            onClick={(e) => { e.stopPropagation(); applyAction("table"); }}
-            className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            Table
-          </button>
+          {!isPrerequisiteDoc && (
+            <>
+              <button
+                type="button"
+                title="ตัวหนา (Bold)"
+                onClick={(e) => { e.stopPropagation(); applyAction("bold"); }}
+                className="h-6 px-2 text-xs font-bold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                B
+              </button>
+              <button
+                type="button"
+                title="ตัวเอียง (Italic)"
+                onClick={(e) => { e.stopPropagation(); applyAction("italic"); }}
+                className="h-6 px-2 text-xs italic rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                I
+              </button>
+              <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+              <button
+                type="button"
+                title="ลำดับอักษรไทย (ก. ข. ค. ง. ...)"
+                onClick={(e) => { e.stopPropagation(); applyAction("thai_alpha"); }}
+                className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                ก.ข.ค.
+              </button>
+              <button
+                type="button"
+                title="ลำดับเลขไทย (๑. ๒. ๓. ...)"
+                onClick={(e) => { e.stopPropagation(); applyAction("thai_num"); }}
+                className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                ๑.๒.๓.
+              </button>
+              <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+              <button
+                type="button"
+                title="แทรกตาราง (Table)"
+                onClick={(e) => { e.stopPropagation(); applyAction("table"); }}
+                className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                Table
+              </button>
+            </>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <button
@@ -570,14 +648,33 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           >
             ยกเลิก
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleSaveAnswer(); }}
-            disabled={isSaving}
-            className="h-6 px-3 text-xs font-bold rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center gap-1 shadow-sm disabled:opacity-50"
-          >
-            <Save className="w-3 h-3" />
-            บันทึก
-          </button>
+          {(() => {
+            const trimmed = value.trim();
+            const attachJson = attachments.length > 0 ? JSON.stringify(attachments) : null;
+            const origAttachJson = originalAttachments.length > 0 ? JSON.stringify(originalAttachments) : null;
+            const hasContent = isPrerequisiteDoc ? attachments.length > 0 : trimmed.length > 0;
+            const hasChange = trimmed !== originalValue.trim() || attachJson !== origAttachJson;
+            const canSave = hasContent && (localStatus !== "needs_improvement" || hasChange);
+            return (
+              <Tooltip
+                content={!canSave ? (localStatus === "needs_improvement" ? "กรุณาแก้ไขคำตอบก่อนบันทึก" : "กรุณาระบุคำตอบ") : null}
+                position="top-end"
+              >
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleSaveAnswer(); }}
+                  disabled={isSaving || !canSave}
+                  className={`h-6 px-3 text-xs font-bold rounded transition-colors flex items-center gap-1 shadow-sm ${
+                    canSave
+                      ? "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                      : "bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <Save className="w-3 h-3" />
+                  บันทึก
+                </button>
+              </Tooltip>
+            );
+          })()}
         </div>
       </div>
       {!isPrerequisiteDoc && (
@@ -601,10 +698,11 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       <div className="px-3 pb-2">
         <AttachmentPanel
           attachments={attachments}
-          onAttachmentsChange={setAttachments}
+          onAttachmentsChange={handleAttachmentsChange}
           documentId={documentId}
           questionId={questionId}
           userId={MOCK_TRAINEE_ID}
+          onlyImageAndPdf={isPrerequisiteDoc}
         />
       </div>
     </div>
