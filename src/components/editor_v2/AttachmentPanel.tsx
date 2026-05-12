@@ -123,7 +123,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
               setIsUploading(false);
               return;
             }
-          } catch (e) { /* ignore individual hash errors */ }
+          } catch { /* ignore individual hash errors */ }
         }
         
         // Check against question attachments
@@ -135,7 +135,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
               setIsUploading(false);
               return;
             }
-          } catch (e) { /* ignore individual hash errors */ }
+          } catch { /* ignore individual hash errors */ }
         }
       } catch (e) {
         logger.warn("Could not check file hash", e);
