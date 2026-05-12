@@ -632,6 +632,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               answerMap={answerMap}
               onRefresh={onRefresh}
               isPrerequisiteDoc={isPrerequisiteDoc}
+              questionPrefix={prefix}
             />
           </div>
         )}

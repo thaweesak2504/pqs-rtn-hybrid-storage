@@ -571,13 +571,19 @@ pub fn upload_trainee_attachment(
     document_id: String,
     question_id: String,
     user_id: String,
+    friendly_prefix: Option<String>,
 ) -> Result<String, String> {
-    content_database::upload_trainee_attachment(source_path, document_id, question_id, user_id)
+    content_database::upload_trainee_attachment(source_path, document_id, question_id, user_id, friendly_prefix)
 }
 
 #[tauri::command]
 pub fn delete_trainee_attachment(path: String) -> Result<(), String> {
     content_database::delete_trainee_attachment(path)
+}
+
+#[tauri::command]
+pub fn get_file_sha256(path_str: String) -> Result<String, String> {
+    content_database::get_file_sha256(path_str)
 }
 
 // ===== Trainee Answer Commands =====

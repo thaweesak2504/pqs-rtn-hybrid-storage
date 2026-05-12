@@ -82,7 +82,7 @@ pub mod media;
 pub use media::{
     bundle_reference_file, delete_question_image, delete_trainee_attachment,
     get_question_image_base64, get_reference_by_id, resolve_image_path, upload_question_image,
-    upload_trainee_attachment,
+    upload_trainee_attachment, get_file_sha256,
 };
 pub mod answers;
 pub use answers::{get_trainee_answers, save_qualifier_assessment, save_trainee_answer};

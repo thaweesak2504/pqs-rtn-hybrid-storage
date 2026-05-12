@@ -40,8 +40,9 @@ interface AttachmentPanelProps {
   onUploadFile?: (sourcePath: string) => Promise<string>;
   /** Custom delete handler — if provided, overrides the default trainee delete command. */
   onDeleteFile?: (relPath: string) => Promise<void>;
-  /** When true, restricts file selection to only Images and PDFs */
   onlyImageAndPdf?: boolean;
+  filePrefix?: string;
+  questionAttachments?: string[];
 }
 
 const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
@@ -55,6 +56,8 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   onUploadFile,
   onDeleteFile,
   onlyImageAndPdf = false,
+  filePrefix,
+  questionAttachments = [],
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +109,38 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
       if (!selected || Array.isArray(selected)) return;
 
       setIsUploading(true);
+      
+      // Calculate hash of the selected file
+      try {
+        const sourceHash = await invoke<string>("get_file_sha256", { pathStr: selected });
+        
+        // Check against existing trainee attachments
+        for (const relPath of attachments) {
+          try {
+            const existingHash = await invoke<string>("get_file_sha256", { pathStr: relPath });
+            if (sourceHash === existingHash) {
+              setError("ไฟล์นี้ถูกแนบไว้แล้ว (ไม่อนุญาตให้แนบไฟล์ซ้ำ)");
+              setIsUploading(false);
+              return;
+            }
+          } catch (e) { /* ignore individual hash errors */ }
+        }
+        
+        // Check against question attachments
+        for (const relPath of questionAttachments) {
+          try {
+            const existingHash = await invoke<string>("get_file_sha256", { pathStr: relPath });
+            if (sourceHash === existingHash) {
+              setError("ไฟล์นี้ตรงกับไฟล์ที่โจทย์ให้มาแล้ว (ไม่อนุญาตให้แนบไฟล์ซ้ำ)");
+              setIsUploading(false);
+              return;
+            }
+          } catch (e) { /* ignore individual hash errors */ }
+        }
+      } catch (e) {
+        logger.warn("Could not check file hash", e);
+      }
+
       let relPath: string;
       if (onUploadFile) {
         relPath = await onUploadFile(selected);
@@ -115,6 +150,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
           documentId,
           questionId,
           userId,
+          friendlyPrefix: filePrefix || null,
         });
       }
       onAttachmentsChange([...attachments, relPath]);
@@ -125,7 +161,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
     } finally {
       setIsUploading(false);
     }
-  }, [attachments, documentId, questionId, userId, onAttachmentsChange, excludeAudio, onUploadFile, onlyImageAndPdf]);
+  }, [attachments, documentId, questionId, userId, onAttachmentsChange, excludeAudio, onUploadFile, onlyImageAndPdf, filePrefix, questionAttachments]);
 
   const handleDelete = useCallback(async (relPath: string) => {
     try {

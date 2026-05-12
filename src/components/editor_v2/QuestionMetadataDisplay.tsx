@@ -27,6 +27,7 @@ interface QuestionMetadataDisplayProps {
   answerMap?: Map<string, UserAnswer>;
   onRefresh?: () => void;
   isPrerequisiteDoc?: boolean;
+  questionPrefix?: string;
 }
 
 interface AnswerKeyRow {
@@ -62,6 +63,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
   answerMap,
   onRefresh,
   isPrerequisiteDoc = false,
+  questionPrefix,
 }) => {
   const formatAnswerKeyForDisplay = useCallback((raw: string): string => {
     const lines = raw.replace(/\r\n/g, "\n").split("\n");
@@ -197,6 +199,8 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         onAnswerSaved={onRefresh}
                         onAssessmentSaved={onRefresh}
                         isPrerequisiteDoc={isPrerequisiteDoc}
+                        questionPrefix={questionPrefix ? `${questionPrefix}.${label}` : label}
+                        questionAttachments={attachments}
                       />
                     )}
                     {showAnswerKey && (
@@ -230,6 +234,8 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                   onAnswerSaved={onRefresh}
                   onAssessmentSaved={onRefresh}
                   isPrerequisiteDoc={isPrerequisiteDoc}
+                  questionPrefix={questionPrefix}
+                  questionAttachments={attachments}
                 />
               )}
               {showAnswerKey && singleAnswerKey && (

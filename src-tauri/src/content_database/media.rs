@@ -234,6 +234,37 @@ pub fn get_question_image_base64(relative_path: String) -> Result<String, String
     Ok(format!("data:{};base64,{}", mime_type, base64_data))
 }
 
+pub fn get_file_sha256(path_str: String) -> Result<String, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+
+    // Resolve path if it's a relative data/ path
+    let abs_path_str = resolve_image_path(path_str.clone()).unwrap_or(path_str);
+    let path = std::path::Path::new(&abs_path_str);
+
+    if !path.exists() {
+        return Err(format!("File not found: {}", abs_path_str));
+    }
+
+    let mut file = std::fs::File::open(path)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    
+    let mut hasher = Sha256::new();
+    let mut buffer = [0; 8192];
+
+    loop {
+        let count = file.read(&mut buffer).map_err(|e| format!("Read error: {}", e))?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+
+    let result = hasher.finalize();
+    Ok(format!("{:x}", result))
+}
+
+
 // ============================================================
 // Phase 5G: Trainee Attachments
 // ============================================================
@@ -260,6 +291,7 @@ pub fn upload_trainee_attachment(
     document_id: String,
     question_id: String,
     user_id: String,
+    friendly_prefix: Option<String>,
 ) -> Result<String, String> {
     let source = std::path::Path::new(&source_path);
     if !source.exists() {
@@ -303,9 +335,16 @@ pub fn upload_trainee_attachment(
             .map_err(|e| format!("Failed to create trainee-attachments directory: {}", e))?;
     }
 
-    // Construct unique filename: {question_id}_{user_id}_{short_uuid}.{ext}
     let short_uuid = generate_uuid().chars().take(8).collect::<String>();
-    let filename = format!("{}_{}_{}.{}", question_id, user_id, short_uuid, extension);
+    
+    let filename = if let Some(prefix) = friendly_prefix {
+        let safe_prefix = prefix.replace("/", "-").replace("\\", "-");
+        let original_stem = source.file_stem().and_then(|s| s.to_str()).unwrap_or("attachment").replace(" ", "_");
+        format!("{}_{}_{}_{}.{}", safe_prefix, original_stem, user_id, short_uuid, extension)
+    } else {
+        format!("{}_{}_{}.{}", question_id, user_id, short_uuid, extension)
+    };
+
     let target_path = target_dir.join(&filename);
 
     logger::debug(format!(

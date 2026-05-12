@@ -124,6 +124,7 @@ fn main() {
             // ===== Content: Trainee Attachments (Phase 5G) =====
             commands::content::upload_trainee_attachment,
             commands::content::delete_trainee_attachment,
+            commands::content::get_file_sha256,
             // ===== Content: Sections =====
             commands::content::create_section,
             commands::content::get_sections_by_document,
