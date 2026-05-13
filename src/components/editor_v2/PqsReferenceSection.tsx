@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import ConfirmModal from '../modals/ConfirmModal';
 import ImagePreviewModal from '../modals/ImagePreviewModal';
 import Button from '../ui/Button';
-import { logger } from '../../utils/logger';
 
 
 import { ReferenceDoc, AlertVariant } from './reference/types';

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, CheckCircle, Globe, Video, Image as ImageIcon, Mic, FileDigit, FileText, Trash2, Save, Plus } from 'lucide-react';
+import { Search, CheckCircle, Globe, Video, Image as ImageIcon, Mic, FileDigit, FileText, Trash2, Save } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/tauri';
 import Button from '../../ui/Button';
 import Tooltip from '../../ui/Tooltip';

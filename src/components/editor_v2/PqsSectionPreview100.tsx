@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
-import { ReferenceDoc } from './PqsReferenceSection';
+import { ReferenceDoc } from './reference/types';
 import { logger } from '../../utils/logger';
 
 interface AnswerKeyRow {

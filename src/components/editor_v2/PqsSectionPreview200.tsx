@@ -5,7 +5,7 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
-import { ReferenceDoc } from './PqsReferenceSection';
+import { ReferenceDoc } from './reference/types';
 import TraineeAnswerBox from './TraineeAnswerBox';
 import { logger } from '../../utils/logger';
 
