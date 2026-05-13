@@ -514,70 +514,106 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             </div>
           )}
 
-          {/* Qualifier Assessment Controls (Inside the Box) - Only if an answer exists (or it's a prerequisite doc with attachments) and NOT passed and panel is open */}
-          {mode === "qualifier" && hasAnswer && localStatus !== "passed" && isQualifierPanelOpen && (
-            <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
-                <div className="flex items-center gap-2">
+          {/* Qualifier Assessment Controls — available for all statuses when Qualifier mode */}
+          {mode === "qualifier" && hasAnswer && (() => {
+            // PASSED state: show a compact "แก้ไขการประเมิน" button to reopen the panel
+            if (localStatus === "passed" && !isQualifierPanelOpen) {
+              return (
+                <div className="mt-3 pt-2 border-t border-emerald-100 dark:border-emerald-900/30 flex items-center justify-end">
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleSaveAssessment("passed"); }}
-                    disabled={isSaving}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20`}
+                    onClick={(e) => { e.stopPropagation(); setIsQualifierPanelOpen(true); }}
+                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2.5 py-1 rounded border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-1"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    ผ่าน
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setLocalStatus("needs_improvement"); }}
-                    disabled={isSaving}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "needs_improvement" ? "bg-rose-600 text-white shadow-lg" : "bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    ปรับปรุง
+                    <RotateCcw className="w-3 h-3" />
+                    แก้ไขการประเมิน
                   </button>
                 </div>
-              </div>
+              );
+            }
 
-              {localStatus === "needs_improvement" && (
-                <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase">ข้อเสนอแนะสำหรับการปรับปรุง</label>
-                  <textarea
-                    value={localFeedback}
-                    onChange={(e) => setLocalFeedback(e.target.value)}
-                    placeholder="พิมพ์คำแนะนำที่นี่เพื่อให้ Trainee นำไปแก้ไข..."
-                    className="w-full p-2 text-sm bg-rose-50/30 dark:bg-rose-900/10 border border-rose-200/50 dark:border-rose-800/30 rounded focus:outline-none focus:ring-1 focus:ring-rose-500/50 min-h-[60px]"
-                  />
-                  {(() => {
-                    const feedbackReady = localFeedback.trim().length > 0 && localFeedback.trim() !== originalFeedback.trim();
-                    return (
-                      <div className="flex justify-end">
-                        <Tooltip
-                          content={!feedbackReady ? "กรุณาพิมพ์ข้อเสนอแนะก่อนบันทึก" : null}
-                          position="top-end"
+            // Panel is open (pending, needs_improvement, or re-opened from passed)
+            if (isQualifierPanelOpen) {
+              return (
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
+                    <div className="flex items-center gap-2">
+                      {/* ผ่าน button — toggles between pass/revert */}
+                      {localStatus === "passed" ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSaveAssessment("pending"); }}
+                          disabled={isSaving}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
                         >
-                          <button
-                            onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
-                            disabled={isSaving || !feedbackReady}
-                            className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${
-                              isSaved
-                                ? "bg-emerald-600 text-white"
-                                : feedbackReady
-                                  ? "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 cursor-pointer"
-                                  : "bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60"
-                            }`}
-                          >
-                            {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
-                            {isSaved ? "บันทึกคำแนะนำเรียบร้อย!" : "บันทึกคำแนะนำ"}
-                          </button>
-                        </Tooltip>
-                      </div>
-                    );
-                  })()}
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          ยกเลิกผ่าน
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleSaveAssessment("passed"); }}
+                          disabled={isSaving}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          ผ่าน
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setLocalStatus("needs_improvement"); }}
+                        disabled={isSaving || localStatus === "passed"}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "needs_improvement" ? "bg-rose-600 text-white shadow-lg" : localStatus === "passed" ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-50" : "bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        ปรับปรุง
+                      </button>
+                    </div>
+                  </div>
+
+                  {localStatus === "needs_improvement" && (
+                    <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">ข้อเสนอแนะสำหรับการปรับปรุง</label>
+                      <textarea
+                        value={localFeedback}
+                        onChange={(e) => setLocalFeedback(e.target.value)}
+                        placeholder="พิมพ์คำแนะนำที่นี่เพื่อให้ Trainee นำไปแก้ไข..."
+                        rows={3}
+                        className="w-full p-2 text-sm bg-rose-50/30 dark:bg-rose-900/10 border border-rose-200/50 dark:border-rose-800/30 rounded focus:outline-none focus:ring-1 focus:ring-rose-500/50"
+                        style={{ minHeight: '72px', resize: 'vertical' }}
+                      />
+                      {(() => {
+                        const feedbackReady = localFeedback.trim().length > 0 && localFeedback.trim() !== originalFeedback.trim();
+                        return (
+                          <div className="flex justify-end">
+                            <Tooltip
+                              content={!feedbackReady ? "กรุณาพิมพ์ข้อเสนอแนะก่อนบันทึก" : null}
+                              position="top-end"
+                            >
+                              <button
+                                onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
+                                disabled={isSaving || !feedbackReady}
+                                className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${
+                                  isSaved
+                                    ? "bg-emerald-600 text-white"
+                                    : feedbackReady
+                                      ? "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 cursor-pointer"
+                                      : "bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60"
+                                }`}
+                              >
+                                {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+                                {isSaved ? "บันทึกคำแนะนำเรียบร้อย!" : "บันทึกคำแนะนำ"}
+                              </button>
+                            </Tooltip>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              );
+            }
+
+            return null;
+          })()}
         </div>
       </div>
     );
