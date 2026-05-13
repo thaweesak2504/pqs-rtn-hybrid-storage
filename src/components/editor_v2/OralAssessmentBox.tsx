@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { CheckCircle2, Edit3, FileText, Save, X } from "lucide-react";
+import { CheckCircle2, Edit3, FileText, RotateCcw, Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import ConfirmModal from "../modals/ConfirmModal";
 import { logger } from '../../utils/logger';
@@ -96,6 +96,10 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
     await persistAssessment("passed", nextFeedback);
   };
 
+  const handleUndoPassed = async () => {
+    await persistAssessment("pending", localFeedback.trim());
+  };
+
   return (
     <>
     <div className="mt-2 rounded-lg border border-slate-200/70 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/20 px-3 py-2">
@@ -167,20 +171,33 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
               <Edit3 className="w-3.5 h-3.5" />
               แก้ไข
             </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleMarkPassed();
-              }}
-              disabled={isSaving}
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${localStatus === "passed"
-                ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                : "border border-emerald-200 dark:border-emerald-800/50 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              ผ่าน
-            </button>
+            {localStatus === "passed" ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleUndoPassed();
+                }}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-2 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                ยกเลิกผ่าน
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleMarkPassed();
+                }}
+                disabled={isSaving}
+                className="inline-flex items-center gap-1 rounded-md border border-emerald-200 dark:border-emerald-800/50 bg-white dark:bg-slate-800 px-2 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                ผ่าน
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -189,12 +206,12 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
         <div className="mt-2" onClick={(e) => e.stopPropagation()}>
           <textarea
             ref={textareaRef}
-            rows={1}
+            rows={2}
             value={draftFeedback}
             onChange={(e) => setDraftFeedback(e.target.value)}
             placeholder="พิมพ์รายงานการประเมินที่นี่..."
             className="w-full resize-none overflow-hidden rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-1.5 text-sm leading-5 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400/40"
-            style={{ minHeight: '2rem', height: '2rem' }}
+            style={{ minHeight: '48px' }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
               target.style.height = 'auto';
