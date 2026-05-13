@@ -15,70 +15,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
 import { logger } from '../../utils/logger';
 
-interface CareerBranchManagerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-  userRole?: string;
-}
-
-interface OccupationBranch {
-  code: string;
-  name: string;
-}
-
-interface OccupationSubBranch {
-  code: string;
-  branch_code: string;
-  name: string;
-}
-
-interface OccupationSubQuestion {
-  id: number;
-  branch_code: string;
-  sub_branch_code: string;
-  code: string;
-  text: string;
-  always_checked: boolean;
-  sequence: number;
-}
-
-// Each tab maps to a 2-char code prefix: sCode + lCode
-// e.g. '2xx.2' → sCode='2', lCode='2' → prefix '22'
-const SECTION_SLOTS = [
-  { id: '2xx.2', label: '2xx.2 (ส่วนประกอบ)', type: '200', sCode: '2', lCode: '2' },
-  { id: '2xx.4', label: '2xx.4 (ข้อจำกัด)', type: '200', sCode: '2', lCode: '4' },
-  { id: '3xx.2', label: '3xx.2 (ปกติ)', type: '300', sCode: '3', lCode: '2' },
-  { id: '3xx.3', label: '3xx.3 (พิเศษ)', type: '300', sCode: '3', lCode: '3' },
-  { id: '3xx.4', label: '3xx.4 (ขัดข้อง)', type: '300', sCode: '3', lCode: '4' },
-  { id: '3xx.5', label: '3xx.5 (ฉุกเฉิน)', type: '300', sCode: '3', lCode: '5' },
-];
-
-const STANDARD_BRANCH_NAME = 'ต้นแบบมาตรฐาน';
-
-// Default mandatory (always_checked) last-item text per 300-series tab
-const MANDATORY_TEXTS: Record<string, string> = {
-  '3xx.2': 'เริ่มปฏิบัติ',
-  '3xx.3': 'เริ่มปฏิบัติจริงหรือสมมติเหตุการณ์พิเศษ',
-  '3xx.4': 'เริ่มปฏิบัติจริงหรือสมมติเหตุขัดข้องแล้วทำการแก้ไข',
-  '3xx.5': 'เริ่มปฏิบัติจริงหรือสมมติเหตุฉุกเฉินแล้วทำการแก้ไข',
-};
-
-/** Build the 2-char slot prefix from active tab, e.g. '22' for tab '2xx.2'. */
-function slotPrefix(tabId: string): string {
-  const slot = SECTION_SLOTS.find(s => s.id === tabId);
-  return slot ? `${slot.sCode}${slot.lCode}` : '';
-}
-
-/** Pad a branch code to 2 digits: 'STD' → '00', '1' → '01', '12' → '12'. */
-function padBC(code: string): string {
-  return code === 'STD' ? '00' : code.padStart(2, '0');
-}
-
-/** Build the 6-char code prefix for a specific branch+sub+slot, e.g. '220101'. */
-function fullPrefix(tabId: string, mainCode: string, subCode: string): string {
-  return `${slotPrefix(tabId)}${padBC(mainCode)}${padBC(subCode)}`;
-}
+import {
+  CareerBranchManagerModalProps,
+  OccupationBranch,
+  OccupationSubBranch,
+  OccupationSubQuestion
+} from './careerBranchManager/types';
+import { SECTION_SLOTS, STANDARD_BRANCH_NAME, MANDATORY_TEXTS } from './careerBranchManager/constants';
+import { slotPrefix, fullPrefix } from './careerBranchManager/utils';
 
 const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
   isOpen,

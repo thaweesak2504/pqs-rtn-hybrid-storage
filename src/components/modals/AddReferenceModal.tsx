@@ -5,16 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import ConfirmModal from './ConfirmModal';
 import { logger } from '../../utils/logger';
 
-interface DocumentReference {
-  id: number;
-  code: string;
-  title: string;
-  classification: string | null;
-  category: string | null;
-  file_path: string | null;
-  created_at: string;
-  updated_at: string | null;
-}
+import { DocumentReference } from '../editor_v2/reference/types';
 
 interface AddReferenceModalProps {
   isOpen: boolean;
