@@ -97,7 +97,7 @@ const OralAssessmentBox: React.FC<OralAssessmentBoxProps> = ({
   };
 
   const handleUndoPassed = async () => {
-    await persistAssessment("pending", localFeedback.trim());
+    await persistAssessment("pending", "");
   };
 
   return (

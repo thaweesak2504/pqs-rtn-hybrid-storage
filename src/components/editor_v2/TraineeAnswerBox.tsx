@@ -212,7 +212,13 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       });
       setLocalStatus(targetStatus);
       // Update original feedback after successful save
-      setOriginalFeedback(targetStatus === "needs_improvement" ? localFeedback.trim() : "");
+      if (targetStatus === "needs_improvement") {
+        setOriginalFeedback(localFeedback.trim());
+      } else {
+        // Clear feedback completely when passing or reverting to pending
+        setOriginalFeedback("");
+        setLocalFeedback("");
+      }
       // Close panel after successful save
       setIsQualifierPanelOpen(false);
       // Immediately close and refresh after save per user request
