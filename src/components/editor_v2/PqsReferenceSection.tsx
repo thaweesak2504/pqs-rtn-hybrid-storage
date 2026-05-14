@@ -33,6 +33,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
   compact = false,
   sectionId,
   sectionNumber = '100',
+  sectionGroup = 100,
   onRefresh
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -234,6 +235,7 @@ const PqsReferenceSection: React.FC<PqsReferenceSectionProps> = ({
                 index={index}
                 readOnly={readOnly}
                 compact={compact}
+                sectionGroup={sectionGroup}
                 onEdit={() => handleStartEdit(ref.id)}
                 onDelete={() => handleDelete(ref.id)}
                 onAlert={showAlert}
