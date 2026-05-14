@@ -11,7 +11,6 @@ interface ReferenceDisplayCardProps {
   index: number;
   readOnly?: boolean;
   compact?: boolean;
-  sectionGroup?: 100 | 200 | 300;
   onEdit: () => void;
   onDelete: () => void;
   onAlert?: (message: string, variant?: AlertVariant, title?: string) => void;
@@ -19,7 +18,7 @@ interface ReferenceDisplayCardProps {
 }
 
 const ReferenceDisplayCard: React.FC<ReferenceDisplayCardProps> = ({
-  data, index, readOnly, compact, sectionGroup = 100, onEdit, onDelete, onAlert, onImageClick
+  data, index, readOnly, compact, onEdit, onDelete, onAlert, onImageClick
 }) => {
   // Convert index to Thai Alphabet (ก., ข., ค., ...)
   const getThaiLetter = (i: number) => {
@@ -101,8 +100,8 @@ const ReferenceDisplayCard: React.FC<ReferenceDisplayCardProps> = ({
           </span>
         )}
 
-        {/* Usage Badge — hidden in compact mode or for section 200/300 */}
-        {!compact && sectionGroup === 100 && ((data.usage_count || 0) > 0 ? (
+        {/* Usage Badge — hidden in compact mode */}
+        {!compact && ((data.usage_count || 0) > 0 ? (
           <Tooltip content={`ถูกอ้างอิงในคำถาม ${data.usage_count} ข้อ`}>
             <span className="shrink-0 px-2 py-[1px] rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
               Used: {data.usage_count}
