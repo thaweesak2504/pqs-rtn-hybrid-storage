@@ -12,7 +12,7 @@ Understand the domain-specific logic of the Royal Thai Navy PQS System to preven
 2. **Section 200 (Systems)**:
    - System/Equipment breakdowns.
    - Questions DO NOT usually have L2 children in the `Questions` table. Instead, they use `OccupationSubQuestions` and manage selections via `metadata` field (`activeSubQCodes`, `selectedSubQCodes`).
-   - References are attached globally to the **Section** itself via `SectionReferences`, not to individual questions. The `usage_count` badge logic should be hidden for Section 200.
+   - Like Section 100, newly created questions in Section 200 **must** reference a document. However, an exception is allowed for older documents that didn't strictly map references.
 
 3. **Section 300 (Watchstations)**:
    - Evaluation of performance.
@@ -23,7 +23,7 @@ Understand the domain-specific logic of the Royal Thai Navy PQS System to preven
 ## The `usage_count` Rule
 - The `usage_count` determines if a `DocumentReference` is actively linked to any `Question` via `QuestionReferences`.
 - It dictates if a reference can be deleted safely (preventing orphan constraints).
-- Because Section 200 uses Section-wide references, its references natively have a usage_count of 0 in relation to questions.
+- The `usage_count` logic is critical for **both Section 100 and Section 200**. It allows authors to evaluate how effectively each reference is being utilized across the questions, and whether any unused references should be removed.
 
 ## Database File Attachments
 - Use `AttachmentPanel.tsx` for file attachments.
