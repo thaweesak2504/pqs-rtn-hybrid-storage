@@ -236,7 +236,14 @@ pub fn search_documents(
     Ok(docs)
 }
 const PROTECTED_DOCUMENT_IDS: &[&str] = &["22724201001"];
-/// Delete a document by ID
+/// Delete a document by ID.
+///
+/// This performs a full cleanup:
+/// 1. Deletes the document row from `Documents` (CASCADE handles child tables:
+///    Sections, Questions, QuestionChoices, QuestionReferences, SectionReferences,
+///    QuestionSectionLinks, UserAnswers, UserProgress).
+/// 2. Removes the document's data folder on disk (`data/{doc_id}/`) which may
+///    contain `question-images/`, `references/`, and `trainee-attachments/`.
 pub fn delete_document(id: String) -> Result<String, String> {
     // Guard: built-in example documents are protected from deletion.
     if PROTECTED_DOCUMENT_IDS.contains(&id.as_str()) {
@@ -261,9 +268,29 @@ pub fn delete_document(id: String) -> Result<String, String> {
         return Err(format!("Document with ID {} not found", id));
     }
 
-    // Perform delete
+    // Perform database delete (CASCADE handles all child tables)
     conn.execute("DELETE FROM Documents WHERE id = ?1", params![id])
         .map_err(|e| format!("Failed to delete document: {}", e))?;
+
+    // Cleanup filesystem: remove the document's data folder
+    // Contains: question-images/, references/, trainee-attachments/
+    if let Ok(data_dir) = get_portable_data_dir() {
+        let doc_folder = data_dir.join(&id);
+        if doc_folder.exists() && doc_folder.is_dir() {
+            if let Err(e) = std::fs::remove_dir_all(&doc_folder) {
+                // Log but don't fail — DB delete already succeeded
+                logger::warn(format!(
+                    "Document {} deleted from DB, but failed to remove data folder {:?}: {}",
+                    id, doc_folder, e
+                ));
+            } else {
+                logger::info(format!(
+                    "Document {} data folder cleaned up: {:?}",
+                    id, doc_folder
+                ));
+            }
+        }
+    }
 
     Ok(format!("Document {} deleted successfully", id))
 }
