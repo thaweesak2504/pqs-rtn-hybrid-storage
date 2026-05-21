@@ -586,6 +586,15 @@ pub fn get_file_sha256(path_str: String) -> Result<String, String> {
     content_database::get_file_sha256(path_str)
 }
 
+#[tauri::command]
+#[allow(dead_code)]
+pub fn check_section_duplicate_file(
+    question_id: String,
+    file_hash: String,
+) -> Result<Option<String>, String> {
+    content_database::check_section_duplicate_file(question_id, file_hash)
+}
+
 // ===== Trainee Answer Commands =====
 
 #[tauri::command]

@@ -23,7 +23,20 @@ function categorize(path: string): FileCategory {
 }
 
 function friendlyName(path: string): string {
-  return path.split("/").pop() || path;
+  const filename = path.split("/").pop() || path;
+  const lastDot = filename.lastIndexOf(".");
+  let stem = lastDot !== -1 ? filename.substring(0, lastDot) : filename;
+  const ext = lastDot !== -1 ? filename.substring(lastDot) : "";
+  
+  // Strip trainee suffix: e.g. _T-001_18b15734 or _18b15734
+  const suffixRegex = /_T-[a-zA-Z0-9\-]+_[a-fA-F0-9]{8}$|_T-[a-zA-Z0-9\-]+_[a-fA-F0-9]{4}$|_[a-fA-F0-9]{8}$|_[a-fA-F0-9]{4}$/i;
+  stem = stem.replace(suffixRegex, "");
+  
+  // Strip leading prefix: safePrefix_ or questionId_
+  const prefixRegex = /^[a-zA-Z0-9ก-ฮ.\-]{1,30}_/;
+  stem = stem.replace(prefixRegex, "");
+  
+  return stem + ext;
 }
 
 interface AttachmentPanelProps {
@@ -110,32 +123,22 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
 
       setIsUploading(true);
       
-      // Calculate hash of the selected file
+      // Calculate hash of the selected file and perform section-wide duplicate check
       try {
         const sourceHash = await invoke<string>("get_file_sha256", { pathStr: selected });
         
-        // Check against existing trainee attachments
-        for (const relPath of attachments) {
-          try {
-            const existingHash = await invoke<string>("get_file_sha256", { pathStr: relPath });
-            if (sourceHash === existingHash) {
-              setError("ไฟล์นี้ถูกแนบไว้แล้ว (ไม่อนุญาตให้แนบไฟล์ซ้ำ)");
-              setIsUploading(false);
-              return;
-            }
-          } catch { /* ignore individual hash errors */ }
-        }
-        
-        // Check against question attachments
-        for (const relPath of questionAttachments) {
-          try {
-            const existingHash = await invoke<string>("get_file_sha256", { pathStr: relPath });
-            if (sourceHash === existingHash) {
-              setError("ไฟล์นี้ตรงกับไฟล์ที่โจทย์ให้มาแล้ว (ไม่อนุญาตให้แนบไฟล์ซ้ำ)");
-              setIsUploading(false);
-              return;
-            }
-          } catch { /* ignore individual hash errors */ }
+        const duplicatePrefix = await invoke<string | null>("check_section_duplicate_file", {
+          questionId,
+          fileHash: sourceHash,
+        });
+
+        if (duplicatePrefix) {
+          const friendlyRef = (duplicatePrefix === "Question Attachment" || duplicatePrefix === "Question Image" || duplicatePrefix === "Trainee Attachment")
+            ? "ข้ออื่นในหัวข้อนี้"
+            : duplicatePrefix;
+          setError(`ไฟล์นี้ซ้ำกับไฟล์ในข้อ ${friendlyRef} กรุณาอ้างอิงถึงไฟล์ดังกล่าวแทน`);
+          setIsUploading(false);
+          return;
         }
       } catch (e) {
         logger.warn("Could not check file hash", e);

@@ -1503,6 +1503,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 excludeAudio
                 onUploadFile={handleQuestionAttachmentUpload}
                 onDeleteFile={handleQuestionAttachmentDelete}
+                questionAttachments={questionAttachments}
               />
             </div>
           )}

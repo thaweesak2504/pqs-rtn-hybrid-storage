@@ -125,6 +125,7 @@ fn main() {
             commands::content::upload_trainee_attachment,
             commands::content::delete_trainee_attachment,
             commands::content::get_file_sha256,
+            commands::content::check_section_duplicate_file,
             // ===== Content: Sections =====
             commands::content::create_section,
             commands::content::get_sections_by_document,

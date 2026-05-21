@@ -180,8 +180,17 @@ pub(crate) fn delete_question_image_in_dir(
 }
 
 pub fn delete_question_image(relative_path: String) -> Result<(), String> {
-    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-    delete_question_image_in_dir(&data_dir, &relative_path)
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let ref_count = count_database_references(&conn, &relative_path)?;
+
+    if ref_count <= 1 {
+        let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+        delete_question_image_in_dir(&data_dir, &relative_path)?;
+        logger::debug(format!("Deleted physical question image: {}", relative_path));
+    } else {
+        logger::debug(format!("Skipped physical deletion of question image (referenced elsewhere): {}", relative_path));
+    }
+    Ok(())
 }
 
 pub(crate) fn resolve_image_path_in_dir(
@@ -367,15 +376,156 @@ pub fn delete_trainee_attachment(relative_path: String) -> Result<(), String> {
         return Err("Invalid trainee attachment path".to_string());
     }
 
-    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-    let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
-    let target_path = data_dir.join(suffix);
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let ref_count = count_database_references(&conn, &relative_path)?;
 
-    if target_path.exists() {
-        std::fs::remove_file(&target_path)
-            .map_err(|e| format!("Failed to delete attachment file: {}", e))?;
-        logger::debug(format!("Deleted trainee attachment: {}", relative_path));
+    if ref_count <= 1 {
+        let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+        let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+        let target_path = data_dir.join(suffix);
+
+        if target_path.exists() {
+            std::fs::remove_file(&target_path)
+                .map_err(|e| format!("Failed to delete attachment file: {}", e))?;
+            logger::debug(format!("Deleted physical trainee attachment: {}", relative_path));
+        }
+    } else {
+        logger::debug(format!("Skipped physical deletion of trainee attachment (referenced elsewhere): {}", relative_path));
     }
 
     Ok(())
+}
+
+fn count_database_references(conn: &Connection, relative_path: &str) -> Result<usize, String> {
+    let pattern = format!("%\"{}\"%", relative_path);
+
+    let answers_count: usize = conn.query_row(
+        "SELECT COUNT(*) FROM UserAnswers WHERE attachments LIKE ?1",
+        params![pattern],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    let questions_count: usize = conn.query_row(
+        "SELECT COUNT(*) FROM Questions WHERE metadata LIKE ?1",
+        params![pattern],
+        |row| row.get(0)
+    ).map_err(|e| e.to_string())?;
+
+    Ok(answers_count + questions_count)
+}
+
+/// Check if a file with the given SHA-256 hash already exists in this Section (either in Questions or UserAnswers)
+/// If a duplicate is found, return the friendly prefix/number of the question containing that file.
+pub fn check_section_duplicate_file(
+    question_id: String,
+    file_hash: String,
+) -> Result<Option<String>, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Get section_id and document_id of the active question
+    let (section_id_opt, document_id): (Option<i64>, String) = conn
+        .query_row(
+            "SELECT section_id, document_id FROM Questions WHERE id = ?1",
+            params![question_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| format!("Failed to find question in database: {}", e))?;
+
+    let section_id = match section_id_opt {
+        Some(sid) => sid,
+        None => return Ok(None),
+    };
+
+    // 1. Scan Questions in this section
+    let mut stmt = conn
+        .prepare(
+            "SELECT metadata FROM Questions WHERE document_id = ?1 AND section_id = ?2",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows = stmt
+        .query_map(params![document_id, section_id], |row| {
+            let metadata: Option<String> = row.get(0)?;
+            Ok(metadata)
+        })
+        .map_err(|e| e.to_string())?;
+
+    for row in rows {
+        if let Ok(Some(metadata_str)) = row {
+            if let Ok(meta_json) = serde_json::from_str::<serde_json::Value>(&metadata_str) {
+                if let Some(attachments) = meta_json.get("attachments").and_then(|a| a.as_array()) {
+                    for att in attachments {
+                        if let Some(path_str) = att.as_str() {
+                            if let Ok(existing_hash) = get_file_sha256(path_str.to_string()) {
+                                if existing_hash == file_hash {
+                                    if let Some(filename) = std::path::Path::new(path_str).file_name().and_then(|f| f.to_str()) {
+                                        let prefix = filename.split('_').next().unwrap_or("").to_string();
+                                        if !prefix.is_empty() {
+                                            return Ok(Some(prefix));
+                                        }
+                                    }
+                                    return Ok(Some("Question Attachment".to_string()));
+                                }
+                            }
+                        }
+                    }
+                } else if let Some(image_str) = meta_json.get("image").and_then(|i| i.as_str()) {
+                    if let Ok(existing_hash) = get_file_sha256(image_str.to_string()) {
+                        if existing_hash == file_hash {
+                            if let Some(filename) = std::path::Path::new(image_str).file_name().and_then(|f| f.to_str()) {
+                                let prefix = filename.split('_').next().unwrap_or("").to_string();
+                                if !prefix.is_empty() {
+                                    return Ok(Some(prefix));
+                                }
+                            }
+                            return Ok(Some("Question Image".to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Scan Trainee Answers in this section
+    let mut stmt_answers = conn
+        .prepare(
+            "SELECT ua.attachments 
+             FROM UserAnswers ua 
+             JOIN Questions q ON ua.question_id = q.id 
+             WHERE q.document_id = ?1 AND q.section_id = ?2",
+        )
+        .map_err(|e| e.to_string())?;
+
+    let rows_answers = stmt_answers
+        .query_map(params![document_id, section_id], |row| {
+            let attachments: Option<String> = row.get(0)?;
+            Ok(attachments)
+        })
+        .map_err(|e| e.to_string())?;
+
+    for row in rows_answers {
+        if let Ok(Some(attachments_str)) = row {
+            if let Ok(attach_json) = serde_json::from_str::<serde_json::Value>(&attachments_str) {
+                if let Some(arr) = attach_json.as_array() {
+                    for att in arr {
+                        if let Some(path_str) = att.as_str() {
+                            if let Ok(existing_hash) = get_file_sha256(path_str.to_string()) {
+                                if existing_hash == file_hash {
+                                    if let Some(filename) = std::path::Path::new(path_str).file_name().and_then(|f| f.to_str()) {
+                                        let prefix = filename.split('_').next().unwrap_or("").to_string();
+                                        if !prefix.is_empty() {
+                                            return Ok(Some(prefix));
+                                        }
+                                    }
+                                    return Ok(Some("Trainee Attachment".to_string()));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(None)
 }
