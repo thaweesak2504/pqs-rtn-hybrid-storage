@@ -6,6 +6,7 @@ import { toThaiAlphabet } from "../../../utils/thaiNumbering";
 // 1. Unified "ไม่ต้องปฏิบัติ" checkbox
 export const ExemptedCheckbox = ({
   is300, isRequiredInstance, isPrerequisiteQuestion, isPrerequisiteChild,
+  isPrerequisiteSubLevel,
   isSection300Selector, isSection100Selector, isSection200Selector, isExamChild,
   isFixedPracticeL1, isPerformanceL2, formScoreType, setFormScoreType,
   setFormScoreDisplayText, setFormScoreIsScored, setFormScoreValue,
@@ -14,7 +15,7 @@ export const ExemptedCheckbox = ({
   handleQuestionAttachmentDelete, isL1, hasActualChildren
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 }: any) => {
-  if (!(is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !isPerformanceL2)) {
+  if (!(is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isPrerequisiteSubLevel && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !isPerformanceL2)) {
     return null;
   }
   return (

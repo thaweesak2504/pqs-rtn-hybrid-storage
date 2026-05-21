@@ -406,4 +406,36 @@ describe("QuestionFormCard integration", () => {
     expect(within(autoContainer as HTMLElement).getByText("220102")).toBeInTheDocument();
     expect(within(autoContainer as HTMLElement).queryByText("เต็ม")).not.toBeInTheDocument();
   });
+
+  it("shows exempted checkbox toggle for Section 300 prerequisite parent questions (3xx.1.1 and 3xx.1.2)", () => {
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          sectionGroup: 300,
+          level: 1,
+          prefix: "๓๐๑.๑.๑",
+          questionSequence: 1,
+          isInsidePrerequisiteDoc: true,
+          initialQuestionType: "normal",
+        })}
+      />,
+    );
+    expect(screen.getByLabelText("ไม่ต้องปฏิบัติ")).toBeInTheDocument();
+  });
+
+  it("hides exempted checkbox toggle for Section 300 prerequisite sub-levels", () => {
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          sectionGroup: 300,
+          level: 2,
+          prefix: "ก.",
+          questionSequence: 1,
+          isInsidePrerequisiteDoc: true,
+          initialQuestionType: "normal",
+        })}
+      />,
+    );
+    expect(screen.queryByLabelText("ไม่ต้องปฏิบัติ")).not.toBeInTheDocument();
+  });
 });

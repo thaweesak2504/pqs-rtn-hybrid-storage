@@ -110,6 +110,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isRequiredInstance = is300 && initialQuestionType === 'required_instance';
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
   const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild;
+  const isPrerequisiteSubLevel = is300 && level >= 2 && isInsidePrerequisiteDoc;
 
   // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
   const sqClr = getThemeColors(is300);
@@ -1296,7 +1297,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           isPrerequisiteChild={isPrerequisiteChild} isSection300Selector={isSection300Selector}
           isSection100Selector={isSection100Selector} isSection200Selector={isSection200Selector}
           isExamChild={isExamChild} isFixedPracticeL1={isFixedPracticeL1} isPerformanceL2={isPerformanceL2}
-          isInsidePrerequisiteDoc={isInsidePrerequisiteDoc}
+          isInsidePrerequisiteDoc={isInsidePrerequisiteDoc} isPrerequisiteSubLevel={isPrerequisiteSubLevel}
           formScoreType={formScoreType} setFormScoreType={setFormScoreType}
           setFormScoreDisplayText={setFormScoreDisplayText} setFormScoreIsScored={setFormScoreIsScored}
           setFormScoreValue={setFormScoreValue} setDescription={setDescription}
