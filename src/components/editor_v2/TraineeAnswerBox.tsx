@@ -41,7 +41,6 @@ interface TraineeAnswerBoxProps {
   traineeAnswer?: UserAnswer;
   isPrerequisiteDoc?: boolean;
   questionPrefix?: string;
-  questionAttachments?: string[];
 }
 
 const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
@@ -59,7 +58,6 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   traineeAnswer,
   isPrerequisiteDoc = false,
   questionPrefix,
-  questionAttachments = [],
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
@@ -515,7 +513,6 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                 readOnly={true}
                 onlyImageAndPdf={isPrerequisiteDoc}
                 filePrefix={questionPrefix}
-                questionAttachments={questionAttachments}
               />
             </div>
           )}
@@ -752,7 +749,6 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           userId={MOCK_TRAINEE_ID}
           onlyImageAndPdf={isPrerequisiteDoc}
           filePrefix={questionPrefix}
-          questionAttachments={questionAttachments}
         />
       </div>
     </div>

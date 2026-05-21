@@ -200,7 +200,6 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         onAssessmentSaved={onRefresh}
                         isPrerequisiteDoc={isPrerequisiteDoc}
                         questionPrefix={questionPrefix ? `${questionPrefix}.${label}` : label}
-                        questionAttachments={attachments}
                       />
                     )}
                     {showAnswerKey && (
@@ -235,7 +234,6 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                   onAssessmentSaved={onRefresh}
                   isPrerequisiteDoc={isPrerequisiteDoc}
                   questionPrefix={questionPrefix}
-                  questionAttachments={attachments}
                 />
               )}
               {showAnswerKey && singleAnswerKey && (

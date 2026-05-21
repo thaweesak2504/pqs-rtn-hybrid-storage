@@ -29,11 +29,11 @@ function friendlyName(path: string): string {
   const ext = lastDot !== -1 ? filename.substring(lastDot) : "";
   
   // Strip trainee suffix: e.g. _T-001_18b15734 or _18b15734
-  const suffixRegex = /_T-[a-zA-Z0-9\-]+_[a-fA-F0-9]{8}$|_T-[a-zA-Z0-9\-]+_[a-fA-F0-9]{4}$|_[a-fA-F0-9]{8}$|_[a-fA-F0-9]{4}$/i;
+  const suffixRegex = /_T-[a-zA-Z0-9-]+_[a-fA-F0-9]{8}$|_T-[a-zA-Z0-9-]+_[a-fA-F0-9]{4}$|_[a-fA-F0-9]{8}$|_[a-fA-F0-9]{4}$/i;
   stem = stem.replace(suffixRegex, "");
   
   // Strip leading prefix: safePrefix_ or questionId_
-  const prefixRegex = /^[a-zA-Z0-9ก-ฮ.\-]{1,30}_/;
+  const prefixRegex = /^[a-zA-Z0-9ก-ฮ.-]{1,30}_/;
   stem = stem.replace(prefixRegex, "");
   
   return stem + ext;
@@ -55,7 +55,6 @@ interface AttachmentPanelProps {
   onDeleteFile?: (relPath: string) => Promise<void>;
   onlyImageAndPdf?: boolean;
   filePrefix?: string;
-  questionAttachments?: string[];
 }
 
 const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
@@ -70,7 +69,6 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   onDeleteFile,
   onlyImageAndPdf = false,
   filePrefix,
-  questionAttachments = [],
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +162,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
     } finally {
       setIsUploading(false);
     }
-  }, [attachments, documentId, questionId, userId, onAttachmentsChange, excludeAudio, onUploadFile, onlyImageAndPdf, filePrefix, questionAttachments]);
+  }, [attachments, documentId, questionId, userId, onAttachmentsChange, excludeAudio, onUploadFile, onlyImageAndPdf, filePrefix]);
 
   const handleDelete = useCallback(async (relPath: string) => {
     try {
