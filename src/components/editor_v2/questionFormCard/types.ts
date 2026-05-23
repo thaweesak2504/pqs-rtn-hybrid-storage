@@ -59,4 +59,5 @@ export interface QuestionFormCardProps {
   usageRefreshKey?: number;
   subQUsageParentId?: string; // L1 ancestor ID for consistent SubQ usage counting across L2/L3
   isInsidePrerequisiteDoc?: boolean; // True for 3xx.1.1/3xx.1.2 and their children
+  fullPrefix?: string;
 }

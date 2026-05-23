@@ -8,6 +8,7 @@ import Tooltip from '../ui/Tooltip';
 import { ReferenceDoc } from './reference/types';
 import TraineeAnswerBox from './TraineeAnswerBox';
 import { logger } from '../../utils/logger';
+import { buildFullPrefix } from '../../utils/thaiNumbering';
 
 interface AnswerKeyRow {
   id: number;
@@ -190,6 +191,9 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               mode={mode}
               showAnswerKey={showAnswerKey}
               docBranch={docBranch}
+              parentFullPrefix={null}
+              parentSequence={null}
+              isInsidePrerequisiteDoc={false}
             />
           ))}
         </div>
@@ -212,6 +216,9 @@ interface PreviewQuestionNode200Props {
   mode: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
   showAnswerKey?: boolean;
   docBranch?: { main: string; sub: string };
+  parentFullPrefix?: string | null;
+  parentSequence?: number | null;
+  isInsidePrerequisiteDoc?: boolean;
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -226,6 +233,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   mode,
   showAnswerKey = false,
   docBranch,
+  parentFullPrefix,
+  parentSequence = null,
+  isInsidePrerequisiteDoc = false,
 }) => {
   const is200 = sectionGroup === 200;
 
@@ -265,6 +275,16 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       return {};
     }
   }, [question.metadata]);
+
+  const fullPrefix = useMemo(() => {
+    return buildFullPrefix(level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup);
+  }, [level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup]);
+
+  const is300 = sectionGroup === 300;
+  const qSeqNum = question.sequence;
+  const isParentDefault300L1 = is300 && parentSequence === 1;
+  const isPrerequisiteDocSelf = is300 && level === 1 && (qSeqNum === 1 || qSeqNum === 2) && isParentDefault300L1;
+  const effectiveIsInsidePrerequisiteDoc = isInsidePrerequisiteDoc || isPrerequisiteDocSelf;
 
   const hasChildren = question.children && question.children.length > 0;
   const [answerKey, setAnswerKey] = useState('');
@@ -465,12 +485,13 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && 
         question.question_type !== 'exempted' && !question.is_group_header && (
           <div className={`mt-1 ${contentStartOffsetClass} flex flex-col gap-1`}>
-            {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
+            {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (!is300 || effectiveIsInsidePrerequisiteDoc) && (
               <TraineeAnswerBox
                 mode={mode}
                 questionId={question.id}
                 documentId={docId}
                 readOnly={mode !== "trainee"}
+                questionPrefix={fullPrefix}
               />
             )}
             <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary mb-1">
@@ -503,10 +524,23 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                 const text = answerKeys[code] || '';
                 const sqIdx = effectiveSqList.findIndex(s => s.code === code);
                 const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
+                
+                const cleanLabel = sqIdx >= 0 && sqIdx < thaiAlpha.length 
+                  ? thaiAlpha[sqIdx] 
+                  : (sqIdx >= 0 ? `${sqIdx + 1}` : code);
+                const subQPrefix = fullPrefix ? `${fullPrefix}.${cleanLabel}.` : `${cleanLabel}.`;
+
                 return (
                   <div key={code} className="flex flex-col gap-1">
-                    {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
-                      <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} subQuestionCode={code} readOnly={mode !== "trainee"} />
+                    {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (!is300 || effectiveIsInsidePrerequisiteDoc) && (
+                      <TraineeAnswerBox 
+                        mode={mode} 
+                        questionId={question.id} 
+                        documentId={docId} 
+                        subQuestionCode={code} 
+                        readOnly={mode !== "trainee"} 
+                        questionPrefix={subQPrefix}
+                      />
                     )}
                     <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary">
                       <div className="flex items-start gap-2">
@@ -531,9 +565,16 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         !showAnswerKey && mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') &&
         question.question_type !== 'exempted' && !question.is_group_header &&
         level !== 0 &&
+        (!is300 || effectiveIsInsidePrerequisiteDoc) &&
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
-            <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />
+            <TraineeAnswerBox 
+              mode={mode} 
+              questionId={question.id} 
+              documentId={docId} 
+              readOnly={mode !== "trainee"} 
+              questionPrefix={fullPrefix}
+            />
           </div>
         )
       }
@@ -568,6 +609,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   mode={mode}
                   showAnswerKey={showAnswerKey}
                   docBranch={docBranch}
+                  parentFullPrefix={fullPrefix}
+                  parentSequence={question.sequence}
+                  isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
                 />
               </div>
             ))}

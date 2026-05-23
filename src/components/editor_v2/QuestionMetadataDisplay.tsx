@@ -146,16 +146,20 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
     return [];
   }, [data]);
 
+  const is300 = questionPrefix ? (questionPrefix.startsWith('3') || questionPrefix.startsWith('๓')) : false;
+
   const hasAnswerKeyData = !!singleAnswerKey || Object.keys(multiAnswerKeys).length > 0;
+
+  const hasAttachments = attachments.length > 0 && !is300;
 
   // Render if: has attachments, OR should show answer box, OR has answer key data in DB
   // (hasAnswerKeyData is checked independently so Trainee mode still renders the answer box)
-  if (attachments.length === 0 && !showAnswerBox && !hasAnswerKeyData) return null;
+  if (!hasAttachments && !showAnswerBox && !hasAnswerKeyData) return null;
 
   return (
     <div className="mt-2 space-y-2">
       {/* Attachments Display (First) */}
-      {attachments.length > 0 && (
+      {attachments.length > 0 && !is300 && (
         <AttachmentPanel
           attachments={attachments}
           onAttachmentsChange={() => {}}
@@ -199,7 +203,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         onAnswerSaved={onRefresh}
                         onAssessmentSaved={onRefresh}
                         isPrerequisiteDoc={isPrerequisiteDoc}
-                        questionPrefix={questionPrefix ? `${questionPrefix}.${label}` : label}
+                        questionPrefix={questionPrefix ? `${questionPrefix}.${label}.` : `${label}.`}
                       />
                     )}
                     {showAnswerKey && (

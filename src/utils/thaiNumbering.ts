@@ -68,3 +68,48 @@ export const buildPrefix200_300 = (
   if (level === 3) return '(' + formatNumberByMode(sequence, digitMode) + ')';
   return formatNumberByMode(sequence, digitMode) + '.';
 };
+
+export const buildFullPrefix = (
+  level: number,
+  sequence: number | null | undefined,
+  sectionNumber: number | undefined,
+  parentFullPrefix: string | undefined | null,
+  sectionGroup: 100 | 200 | 300 = 100,
+  digitMode: DigitNumberingMode = 'arabic',
+): string => {
+  if (!sequence) return '';
+  const sNum = sectionNumber ? sectionNumber.toString().padStart(3, '0') : (sectionGroup === 100 ? '100' : '200');
+  const formattedSection = formatNumberByMode(sNum, digitMode);
+  
+  if (sectionGroup === 200 || sectionGroup === 300) {
+    if (level === 0) {
+      return formattedSection + '.' + formatNumberByMode(sequence, digitMode);
+    }
+    const parent = parentFullPrefix || '';
+    if (level === 1) {
+      return parent + '.' + formatNumberByMode(sequence, digitMode);
+    }
+    if (level === 2) {
+      return parent + '.' + toThaiAlphabet(sequence) + '.';
+    }
+    if (level === 3) {
+      return parent + '(' + formatNumberByMode(sequence, digitMode) + ')';
+    }
+    return parent + '.' + formatNumberByMode(sequence, digitMode);
+  } else {
+    if (level === 0) {
+      return formattedSection + '.' + formatNumberByMode(sequence, digitMode);
+    }
+    const parent = parentFullPrefix || '';
+    if (level === 1) {
+      return parent + '.' + toThaiAlphabet(sequence) + '.';
+    }
+    if (level === 2) {
+      return parent + '(' + formatNumberByMode(sequence, digitMode) + ')';
+    }
+    if (level === 3) {
+      return parent + '(' + toThaiAlphabet(sequence) + ')';
+    }
+    return parent + '.' + formatNumberByMode(sequence, digitMode);
+  }
+};

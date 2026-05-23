@@ -74,6 +74,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   usageRefreshKey = 0,
   subQUsageParentId,
   isInsidePrerequisiteDoc,
+  fullPrefix,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -853,7 +854,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setGeneratedId(targetId);
       }
     }
-    const friendlyPrefix = convertThaiToArabic(prefix);
+    const friendlyPrefix = convertThaiToArabic(fullPrefix || prefix);
     const relPath = await invoke<string>("upload_question_image", {
       path: sourcePath,
       documentId: documentId,
@@ -861,7 +862,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       friendlyPrefix: friendlyPrefix,
     });
     return relPath;
-  }, [existingId, generatedId, prefix, documentId]);
+  }, [existingId, generatedId, fullPrefix, prefix, documentId]);
 
   const handleQuestionAttachmentDelete = useCallback(async (relPath: string): Promise<void> => {
     await invoke("delete_question_image", { path: relPath });
@@ -1493,7 +1494,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
           {/* Phase 5G: Question Attachments Panel (Image/PDF/Video) */}
-          {showExtraButtons && !isInsidePrerequisiteDoc && (
+          {showExtraButtons && !isInsidePrerequisiteDoc && !is300 && (
             <div className="pt-1">
               <AttachmentPanel
                 attachments={questionAttachments}
@@ -1504,6 +1505,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 excludeAudio
                 onUploadFile={handleQuestionAttachmentUpload}
                 onDeleteFile={handleQuestionAttachmentDelete}
+                filePrefix={fullPrefix || prefix}
               />
             </div>
           )}

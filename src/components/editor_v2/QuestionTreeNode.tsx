@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { QuestionDetail, QuestionReferenceDetail } from "../../types/content";
-import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
+import { buildPrefix, buildPrefix200_300, buildFullPrefix } from "../../utils/thaiNumbering";
 import Button from "../ui/Button";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
@@ -25,6 +25,7 @@ interface QuestionTreeNodeProps {
   sectionNumber?: number;
   sectionGroup?: 100 | 200 | 300;
   parentSequence?: number | null;
+  parentFullPrefix?: string | null;
   readOnly: boolean;
   editingId: string | null;
   isCreating: boolean;
@@ -102,6 +103,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   traineeAnswer,
   answerMap,
   isInsidePrerequisiteDoc = false,
+  parentFullPrefix,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -123,6 +125,11 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     : is200or300
       ? buildPrefix200_300(level, question.sequence as number, sectionNumber, parentSequence)
       : buildPrefix(level, question.sequence as number, sectionNumber);
+
+  const fullPrefix = useMemo(() => {
+    return buildFullPrefix(level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup);
+  }, [level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup]);
+
   const hasChildren = question.children && question.children.length > 0;
 
   // Convert sequence to number for comparisons
@@ -295,6 +302,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
         <QuestionFormCard
           prefix={prefix}
+          fullPrefix={fullPrefix}
           level={level}
           sectionGroup={sectionGroup}
           isDefaultL1={isDefaultL1}
@@ -360,6 +368,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         question={question}
         viewMode={viewMode}
         prefix={prefix}
+        fullPrefix={fullPrefix}
         level={level}
         sectionGroup={sectionGroup}
         readOnly={readOnly}
@@ -394,6 +403,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
           <QuestionFormCard
             prefix={is200or300 ? buildPrefix200_300(level, qSeqNum + 1, sectionNumber, parentSequence) : buildPrefix(level, qSeqNum + 1, sectionNumber)}
+            fullPrefix={buildFullPrefix(level, qSeqNum + 1, sectionNumber, parentFullPrefix, sectionGroup)}
             level={level}
             sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
@@ -429,6 +439,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 parentSequence={question.sequence as number}
+                parentFullPrefix={fullPrefix}
                 parentSubQuestionList={effectiveChildSubQuestionList}
                 collapsedIds={collapsedIds}
                 onToggleCollapse={onToggleCollapse}
@@ -474,6 +485,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <div className={childLayout === "grid" ? "m-1" : "ml-12 mt-1 mb-1"}>
           <QuestionFormCard
             prefix={is200or300 ? buildPrefix200_300(level + 1, (question.children?.length || 0) + 1, sectionNumber, qSeqNum) : buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
+            fullPrefix={buildFullPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber, fullPrefix, sectionGroup)}
             level={level + 1}
             sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.id, null)}

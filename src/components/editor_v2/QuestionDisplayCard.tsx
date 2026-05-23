@@ -64,6 +64,7 @@ interface QuestionDisplayCardProps {
   usageRefreshKey?: number;
   sectionSelectedBranch?: { main: string; sub: string };
   isInsidePrerequisiteDoc?: boolean;
+  fullPrefix?: string;
 }
 
 // ============ Helpers ============
@@ -113,6 +114,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   usageRefreshKey = 0,
   sectionSelectedBranch,
   isInsidePrerequisiteDoc,
+  fullPrefix,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -632,7 +634,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               answerMap={answerMap}
               onRefresh={onRefresh}
               isPrerequisiteDoc={isPrerequisiteDoc}
-              questionPrefix={prefix}
+              questionPrefix={fullPrefix || prefix}
             />
           </div>
         )}

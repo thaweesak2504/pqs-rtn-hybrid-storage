@@ -32,9 +32,14 @@ function friendlyName(path: string): string {
   const suffixRegex = /_T-[a-zA-Z0-9-]+_[a-fA-F0-9]{8}$|_T-[a-zA-Z0-9-]+_[a-fA-F0-9]{4}$|_[a-fA-F0-9]{8}$|_[a-fA-F0-9]{4}$/i;
   stem = stem.replace(suffixRegex, "");
   
-  // Strip leading prefix: safePrefix_ or questionId_
-  const prefixRegex = /^[a-zA-Z0-9ก-ฮ.-]{1,30}_/;
-  stem = stem.replace(prefixRegex, "");
+  // Parse and retain the leading prefix, separating with a space
+  const prefixRegex = /^([a-zA-Z0-9ก-ฮ.-]{1,30})_/;
+  const match = stem.match(prefixRegex);
+  if (match) {
+    const prefix = match[1];
+    const rest = stem.substring(match[0].length);
+    return `${prefix} ${rest}${ext}`;
+  }
   
   return stem + ext;
 }
@@ -132,9 +137,9 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
 
         if (duplicatePrefix) {
           const friendlyRef = (duplicatePrefix === "Question Attachment" || duplicatePrefix === "Question Image" || duplicatePrefix === "Trainee Attachment")
-            ? "ข้ออื่นในหัวข้อนี้"
+            ? "อื่นในหัวข้อนี้"
             : duplicatePrefix;
-          setError(`ไฟล์นี้ซ้ำกับไฟล์ในข้อ ${friendlyRef} กรุณาอ้างอิงถึงไฟล์ดังกล่าวแทน`);
+          setError(`ไฟล์นี้ถูกใช้งานอยู่แล้วในข้อ ${friendlyRef} กรุณาอ้างอิงถึงข้อที่กำลังใช้อยู่`);
           setIsUploading(false);
           return;
         }

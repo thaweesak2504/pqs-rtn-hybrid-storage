@@ -78,6 +78,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const is300 = questionPrefix ? (questionPrefix.startsWith("3") || questionPrefix.startsWith("๓")) : false;
 
   // Sync with props
   useEffect(() => {
@@ -502,7 +503,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           </div>
 
           {/* Phase 5G: Attachments Panel (View mode) */}
-          {attachments.length > 0 && (
+          {attachments.length > 0 && (!is300 || isPrerequisiteDoc) && (
             <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
               <AttachmentPanel
                 attachments={attachments}
@@ -740,17 +741,19 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         </div>
       )}
       {/* Phase 5G: Attachments Panel (Edit mode) */}
-      <div className="px-3 pb-2">
-        <AttachmentPanel
-          attachments={attachments}
-          onAttachmentsChange={handleAttachmentsChange}
-          documentId={documentId}
-          questionId={questionId}
-          userId={MOCK_TRAINEE_ID}
-          onlyImageAndPdf={isPrerequisiteDoc}
-          filePrefix={questionPrefix}
-        />
-      </div>
+      {(!is300 || isPrerequisiteDoc) && (
+        <div className="px-3 pb-2">
+          <AttachmentPanel
+            attachments={attachments}
+            onAttachmentsChange={handleAttachmentsChange}
+            documentId={documentId}
+            questionId={questionId}
+            userId={MOCK_TRAINEE_ID}
+            onlyImageAndPdf={isPrerequisiteDoc}
+            filePrefix={questionPrefix}
+          />
+        </div>
+      )}
     </div>
 
     <ConfirmModal
