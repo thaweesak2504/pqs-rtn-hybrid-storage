@@ -4,6 +4,11 @@
 // Removed unused imports
 use tauri::Manager;
 
+#[cfg(target_os = "windows")]
+use webview2_com::Microsoft::Web::WebView2::Win32::{
+    ICoreWebView2Controller2, COREWEBVIEW2_COLOR,
+};
+
 // Database module
 mod auth;
 mod content_database; // Separate content database
@@ -251,20 +256,35 @@ fn main() {
                 logger::warn("Avatar operations may not work correctly");
             }
 
-            // Show window after it's ready (prevents flickering)
+            // Set WebView2 background color to app dark blue (#010409)
+            // BEFORE showing the window — prevents "dark gray → dark blue" flash
+            #[cfg(target_os = "windows")]
             if let Some(window) = app.get_window("main") {
-                match window.show() {
-                    Ok(_) => {
-                        // Force maximize to override any saved state from window-state plugin
-                        if let Err(e) = window.maximize() {
-                            logger::warn(format!("Failed to maximize window: {}", e));
-                        }
+                let _ = window.with_webview(|webview| unsafe {
+                    use windows::core::Interface;
+                    let controller = webview.controller();
+                    // Cast to Controller2 which has SetDefaultBackgroundColor
+                    if let Ok(controller2) = controller.cast::<ICoreWebView2Controller2>() {
+                        let bg = COREWEBVIEW2_COLOR {
+                            A: 255,
+                            R: 1,
+                            G: 4,
+                            B: 9,
+                        };
+                        let _ = controller2.SetDefaultBackgroundColor(bg);
                     }
-                    Err(e) => logger::error(format!("Failed to show main window: {}", e)),
-                }
-            } else {
-                logger::warn("Main window not found");
+                });
             }
+
+            // Pre-maximize while hidden so it's ready when frontend calls show()
+            if let Some(window) = app.get_window("main") {
+                if let Err(e) = window.maximize() {
+                    logger::warn(format!("Failed to maximize window: {}", e));
+                }
+            }
+            // NOTE: window.show() is NOT called here.
+            // The frontend calls `appWindow.show()` after React mounts,
+            // ensuring the UI is fully rendered before the window becomes visible.
 
             Ok(())
         })
