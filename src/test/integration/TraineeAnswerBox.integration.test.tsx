@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import React from 'react';
-import TraineeAnswerBox, { AssessmentStatus } from '../../components/editor_v2/TraineeAnswerBox';
+import TraineeAnswerBox from '../../components/editor_v2/TraineeAnswerBox';
 import { invoke } from '@tauri-apps/api/tauri';
 import { UserAnswer } from '../../components/editor_v2/PqsQuestionSection';
 
