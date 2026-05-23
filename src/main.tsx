@@ -13,6 +13,9 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 // Show window after React mount + first paint — eliminates all flash
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
-    appWindow.show();
+    appWindow.show().then(() => {
+      // Trigger fade-in after window is visible
+      document.getElementById("root")?.classList.add("app-ready");
+    });
   });
 });

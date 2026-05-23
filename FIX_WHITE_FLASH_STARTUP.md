@@ -51,7 +51,7 @@ webview2-com = "0.19"          # WebView2 COM bindings (same as Tauri's internal
 windows = { version = "0.39", features = ["implement"] }  # Interface trait for casting
 ```
 
-### 4. [main.tsx](file:///d:/pqs-rtn-hybrid-storage/src/main.tsx) — Frontend สั่ง show window
+### 4. [main.tsx](file:///d:/pqs-rtn-hybrid-storage/src/main.tsx) — Frontend สั่ง show window + fade-in
 
 ```tsx
 import { appWindow } from "@tauri-apps/api/window";
@@ -59,12 +59,31 @@ import { appWindow } from "@tauri-apps/api/window";
 // Show window after React mount + first paint
 requestAnimationFrame(() => {
   requestAnimationFrame(() => {
-    appWindow.show();
+    appWindow.show().then(() => {
+      // Trigger fade-in after window is visible
+      document.getElementById("root")?.classList.add("app-ready");
+    });
   });
 });
 ```
 
 Double `requestAnimationFrame` รับประกันว่า browser render frame แรกเสร็จก่อน show
+หลัง `show()` สำเร็จ → เพิ่ม class `.app-ready` เพื่อ trigger CSS fade-in transition
+
+### 5. [index.html](file:///d:/pqs-rtn-hybrid-storage/index.html) — Fade-in CSS
+
+```css
+#root {
+  /* ... existing styles ... */
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+#root.app-ready {
+  opacity: 1;
+}
+```
+
+`#root` เริ่มที่ `opacity: 0` → เมื่อ `.app-ready` ถูกเพิ่ม → ค่อยๆ fade-in 300ms
 
 ## ลำดับการทำงานใหม่
 
@@ -79,20 +98,19 @@ sequenceDiagram
     Tauri->>WV: Set bg = #010409
     Tauri->>WV: Maximize (hidden)
     WV->>React: Load HTML + CSS
-    Note over WV: Dark bg from inline CSS
+    Note over WV: Dark bg from inline CSS, #root opacity=0
     React->>React: Mount components
     React->>React: First paint complete
     React->>Tauri: appWindow.show()
-    Tauri->>User: Window appears with full UI ✨
+    Note over User: Window visible (dark bg, UI invisible)
+    React->>React: Add .app-ready class
+    Note over User: UI fades in smoothly (300ms) ✨
 ```
 
 ## ผลลัพธ์
 
 - ✅ **ไม่เห็น white flash** อีกเลย
 - ✅ **ไม่เห็น gray flash** อีกเลย
-- ✅ Window ปรากฏพร้อมเนื้อหาทันที
+- ✅ **Smooth fade-in** 300ms — ดูมืออาชีพ
 - ✅ ทำงานทั้ง Dev mode และ Production build
 - ✅ Windows-specific code อยู่ใน `#[cfg(target_os = "windows")]` ไม่กระทบ platform อื่น
-
-> [!TIP]
-> ถ้าในอนาคตต้องการ fade-in animation ตอนเปิด app ให้เพิ่ม CSS transition กับ opacity ใน React component ที่ครอบ App ทั้งหมด

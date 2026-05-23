@@ -26,6 +26,12 @@
         position: relative;
         overflow-x: hidden;
         overflow-y: auto;
+        /* Fade-in on startup */
+        opacity: 0;
+        transition: opacity 300ms ease-out;
+      }
+      #root.app-ready {
+        opacity: 1;
       }
       
     </style>
