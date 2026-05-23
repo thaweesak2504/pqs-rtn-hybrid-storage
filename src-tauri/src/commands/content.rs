@@ -603,6 +603,16 @@ pub fn save_trainee_answer(args: content_database::SaveTraineeAnswerArgs) -> Res
 }
 
 #[tauri::command]
+pub fn delete_trainee_answer(
+    user_id: String,
+    question_id: String,
+    document_id: String,
+    sub_question_code: String,
+) -> Result<String, String> {
+    content_database::delete_trainee_answer(&user_id, &question_id, &document_id, &sub_question_code)
+}
+
+#[tauri::command]
 pub fn save_qualifier_assessment(
     args: content_database::SaveQualifierAssessmentArgs,
 ) -> Result<String, String> {

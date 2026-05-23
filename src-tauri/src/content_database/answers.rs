@@ -1,5 +1,5 @@
 use crate::logger;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use super::*;
 
@@ -119,6 +119,46 @@ pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<St
     }
 
     Ok("Assessment saved successfully".to_string())
+}
+
+/// Delete a trainee's answer row and its associated attachments from disk and database
+pub fn delete_trainee_answer(
+    user_id: &str,
+    question_id: &str,
+    document_id: &str,
+    sub_question_code: &str,
+) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // First retrieve attachments to delete them from disk
+    let mut stmt = conn.prepare(
+        "SELECT attachments FROM UserAnswers WHERE user_id = ?1 AND question_id = ?2 AND document_id = ?3 AND sub_question_code = ?4"
+    ).map_err(|e| e.to_string())?;
+
+    let attachments_opt: Option<String> = stmt.query_row(
+        params![user_id, question_id, document_id, sub_question_code],
+        |row| row.get(0)
+    ).optional().map_err(|e| e.to_string())?.flatten();
+
+    if let Some(attachments_str) = attachments_opt {
+        if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&attachments_str) {
+            for file in parsed {
+                let _ = super::delete_trainee_attachment(file);
+            }
+        }
+    }
+
+    conn.execute(
+        "DELETE FROM UserAnswers WHERE user_id = ?1 AND question_id = ?2 AND document_id = ?3 AND sub_question_code = ?4",
+        params![user_id, question_id, document_id, sub_question_code]
+    ).map_err(|e| format!("Failed to delete answer: {}", e))?;
+
+    // Recalculate progress for this section after delete
+    if let Err(e) = recalculate_section_progress(user_id.to_string(), document_id.to_string()) {
+        logger::warn(format!("delete_trainee_answer completed but progress recalculation failed: {}", e));
+    }
+
+    Ok("Answer deleted successfully".to_string())
 }
 
 /// Clear all trainee answers and progress

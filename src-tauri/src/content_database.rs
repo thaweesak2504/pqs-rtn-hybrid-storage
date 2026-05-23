@@ -85,7 +85,7 @@ pub use media::{
     upload_trainee_attachment, get_file_sha256, check_section_duplicate_file,
 };
 pub mod answers;
-pub use answers::{get_trainee_answers, save_qualifier_assessment, save_trainee_answer};
+pub use answers::{get_trainee_answers, save_qualifier_assessment, save_trainee_answer, delete_trainee_answer};
 pub mod helpers;
 pub use helpers::{
     add_question_reference_with_conn, ensure_section_300_policy_allows_question_action,

@@ -76,6 +76,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     isOpen: false,
     message: "",
   });
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const is300 = questionPrefix ? (questionPrefix.startsWith("3") || questionPrefix.startsWith("๓")) : false;
@@ -115,20 +116,6 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     return document.documentElement.classList.contains("dark") ? "dark" : "light";
   }, []);
 
-  // Handle outside click to save and close
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsEditing(false);
-      }
-    }
-    if (isEditing) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isEditing]);
 
   const handleSaveAnswer = async () => {
     if (isSaving) return;
@@ -152,6 +139,17 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     setIsSaving(true);
     setIsSaved(false);
     try {
+      // 1. Physically delete any files from disk that were deleted in the editor
+      const deletedFiles = originalAttachments.filter(file => !attachments.includes(file));
+      for (const file of deletedFiles) {
+        try {
+          await invoke("delete_trainee_attachment", { path: file });
+        } catch (err) {
+          logger.error("Failed to delete trainee attachment from disk:", err);
+        }
+      }
+
+      // 2. Save answer to DB
       await invoke("save_trainee_answer", {
         args: {
           user_id: MOCK_TRAINEE_ID,
@@ -177,6 +175,64 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setIsSaving(false);
     }
   };
+
+  const handleCancelEdit = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    
+    // Find newly uploaded files to delete from disk
+    const newFiles = attachments.filter(file => !originalAttachments.includes(file));
+    for (const file of newFiles) {
+      try {
+        await invoke("delete_trainee_attachment", { path: file });
+      } catch (err) {
+        logger.error("Failed to delete temp attachment on cancel:", err);
+      }
+    }
+    
+    setValue(originalValue);
+    setAttachments(originalAttachments);
+    setIsEditing(false);
+  };
+
+  const hasSavedAnswer = originalValue.trim().length > 0 || originalAttachments.length > 0;
+
+  const handleClearAnswer = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteAnswerConfirm = async () => {
+    setIsSaving(true);
+    try {
+      await invoke("delete_trainee_answer", {
+        userId: MOCK_TRAINEE_ID,
+        questionId,
+        documentId,
+        subQuestionCode: subQuestionCode || "",
+      });
+
+      // Reset local and original states
+      setValue("");
+      setOriginalValue("");
+      setAttachments([]);
+      setOriginalAttachments([]);
+      setIsEditing(false);
+      onAnswerSaved?.();
+    } catch (error) {
+      logger.error("Failed to delete answer:", error);
+      setAlertModal({
+        isOpen: true,
+        message: "ไม่สามารถลบคำตอบได้ (โปรดแจ้งนักพัฒนา)",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTraineeAttachmentDelete = useCallback(async (relPath: string): Promise<void> => {
+    // Actual file deletion from disk is deferred until Save is clicked.
+    logger.debug("Trainee attachment deletion deferred until save:", relPath);
+  }, []);
 
   const handleSaveAssessment = async (targetStatus: AssessmentStatus) => {
     if (isSaving) return;
@@ -327,25 +383,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }, 10);
   };
 
-  const handleAttachmentsChange = async (newAttachments: string[]) => {
+  const handleAttachmentsChange = (newAttachments: string[]) => {
     setAttachments(newAttachments);
-    if (mode === "trainee") {
-      try {
-        await invoke("save_trainee_answer", {
-          args: {
-            user_id: MOCK_TRAINEE_ID,
-            question_id: questionId,
-            document_id: documentId,
-            sub_question_code: subQuestionCode || "",
-            answer_text: value.trim(),
-            attachments: newAttachments.length > 0 ? JSON.stringify(newAttachments) : null,
-          }
-        });
-        if (onAnswerSaved) onAnswerSaved();
-      } catch (err) {
-        logger.error("Failed to auto-save attachments:", err);
-      }
-    }
   };
 
   const cleanValue = value.trim();
@@ -687,9 +726,19 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             </>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          {hasSavedAnswer && (
+            <button
+              onClick={handleClearAnswer}
+              disabled={isSaving}
+              className="h-6 px-2 text-[10px] font-bold text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 transition-colors border border-rose-200 dark:border-rose-900 rounded"
+              title="ล้างคำตอบและไฟล์แนบทั้งหมด"
+            >
+              ล้างคำตอบ
+            </button>
+          )}
           <button
-            onClick={(e) => { e.stopPropagation(); setIsEditing(false); }}
+            onClick={handleCancelEdit}
             className="h-6 px-2 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           >
             ยกเลิก
@@ -751,6 +800,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             userId={MOCK_TRAINEE_ID}
             onlyImageAndPdf={isPrerequisiteDoc}
             filePrefix={questionPrefix}
+            onDeleteFile={handleTraineeAttachmentDelete}
           />
         </div>
       )}
@@ -763,6 +813,17 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       title="แจ้งเตือน"
       message={alertModal.message}
       variant="warning"
+    />
+
+    <ConfirmModal
+      isOpen={deleteModalOpen}
+      onClose={() => setDeleteModalOpen(false)}
+      onConfirm={handleDeleteAnswerConfirm}
+      title="ล้างคำตอบ"
+      message={`คุณต้องการลบคำตอบและไฟล์แนบทั้งหมดของข้อนี้ใช่หรือไม่?\n(การดำเนินการนี้จะไม่สามารถย้อนกลับได้)`}
+      confirmText="ยืนยันลบ"
+      cancelText="ยกเลิก"
+      variant="danger"
     />
     </>
   );

@@ -204,6 +204,7 @@ fn main() {
             commands::content::get_all_completed_branch_pairs,
             // ===== Content: Trainee Answers =====
             commands::content::save_trainee_answer,
+            commands::content::delete_trainee_answer,
             commands::content::save_qualifier_assessment,
             commands::content::get_trainee_answers,
             // ===== Content: Direct module exports =====
