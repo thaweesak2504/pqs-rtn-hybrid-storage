@@ -28,7 +28,7 @@ const Card: React.FC<CardProps> = ({
     elevated: 'bg-white dark:bg-github-bg-tertiary shadow-lg border border-github-border-primary',
     outlined: 'bg-transparent border-2 border-github-border-primary',
     filled: 'bg-github-bg-secondary dark:bg-github-bg-secondary border border-github-border-primary',
-    glass: 'bg-white/10 dark:bg-white/5 border border-github-border-primary dark:border-white/10'
+    glass: 'bg-white/20 dark:bg-white/5 border border-github-border-primary dark:border-white/10'
   }
 
   const sizeClasses = {

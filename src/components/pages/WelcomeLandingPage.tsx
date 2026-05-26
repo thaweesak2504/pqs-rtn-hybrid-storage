@@ -491,21 +491,21 @@ const WelcomeLandingPage: React.FC = () => {
                   className="mb-6"
                 />
                 <div className="space-y-4">
-                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/10 dark:bg-white/5">
+                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/20 dark:bg-white/5">
                     <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติหน้าที่ในตำแหน่ง</h3>
                       <p className="text-sm sm:text-base font-normal text-github-text-secondary">Specific watch station</p>
                     </div>
                   </div>
-                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/10 dark:bg-white/5">
+                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/20 dark:bg-white/5">
                     <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การดำรงสภาพของยุทโธปกรณ์</h3>
                       <p className="text-sm sm:text-base font-normal text-github-text-secondary">Maintain specific equipment</p>
                     </div>
                   </div>
-                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/10 dark:bg-white/5">
+                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/20 dark:bg-white/5">
                     <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติร่วมเป็นกลุ่มหรือทีม</h3>
