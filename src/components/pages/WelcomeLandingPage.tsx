@@ -1,35 +1,34 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // Assets
-import navyLogo from '../../assets/images/navy_logo.webp'
-import usNavyLogo from '../../assets/images/usnavy_logo.webp'
-import teamImage from '../../assets/images/fcs_team.webp'
-import heroBg from '../../assets/images/naval_fleet_bg.png'
-import twt from '../../assets/images/twt.webp'
 import boonchana from '../../assets/images/boonchana.webp'
+import teamImage from '../../assets/images/fcs_team.webp'
 import kittisak from '../../assets/images/kittisak.webp'
+import heroBg from '../../assets/images/naval_fleet_bg.png'
+import navyLogo from '../../assets/images/navy_logo.webp'
+import twt from '../../assets/images/twt.webp'
+import usNavyLogo from '../../assets/images/usnavy_logo.webp'
 
 // UI Components
-import { Container, Card, Button, Alert, Header, Title, Grid } from '../ui'
-import { MiniAudioPlayer } from '../ui'
+import { Alert, Button, Card, Container, Grid, Header, MiniAudioPlayer, Title } from '../ui'
 
 // Icons
 import {
-  Award,
-  Mail,
-  ShieldCheck,
-  Users,
-  GitMerge,
   ArrowRight,
-  CheckCircle,
-  Headphones,
+  Award,
   BookOpen,
-  Target,
-  Shield,
-  Star,
-  Home,
-  History,
+  CheckCircle,
   ChevronUp,
+  GitMerge,
+  Headphones,
+  History,
+  Home,
+  Mail,
+  Shield,
+  ShieldCheck,
+  Star,
+  Target,
+  Users,
 } from 'lucide-react'
 
 // Utils
@@ -491,27 +490,33 @@ const WelcomeLandingPage: React.FC = () => {
                   className="mb-6"
                 />
                 <div className="space-y-4">
-                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/20 dark:bg-white/5">
-                    <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติหน้าที่ในตำแหน่ง</h3>
-                      <p className="text-sm sm:text-base font-normal text-github-text-secondary">Specific watch station</p>
+                  <Card variant="glass" hover>
+                    <div className="flex items-start space-x-4">
+                      <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติหน้าที่ในตำแหน่ง</h3>
+                        <p className="text-sm sm:text-base font-normal text-github-text-secondary">Specific watch station</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/20 dark:bg-white/5">
-                    <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การดำรงสภาพของยุทโธปกรณ์</h3>
-                      <p className="text-sm sm:text-base font-normal text-github-text-secondary">Maintain specific equipment</p>
+                  </Card>
+                  <Card variant="glass" hover>
+                    <div className="flex items-start space-x-4">
+                      <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การดำรงสภาพของยุทโธปกรณ์</h3>
+                        <p className="text-sm sm:text-base font-normal text-github-text-secondary">Maintain specific equipment</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-start space-x-4 p-6 rounded-lg border border-github-border-primary dark:border-white/10 bg-white/20 dark:bg-white/5">
-                    <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติร่วมเป็นกลุ่มหรือทีม</h3>
-                      <p className="text-sm sm:text-base font-normal text-github-text-secondary">Perform as a team member within unit</p>
+                  </Card>
+                  <Card variant="glass" hover>
+                    <div className="flex items-start space-x-4">
+                      <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติร่วมเป็นกลุ่มหรือทีม</h3>
+                        <p className="text-sm sm:text-base font-normal text-github-text-secondary">Perform as a team member within unit</p>
+                      </div>
                     </div>
-                  </div>
+                  </Card>
                 </div>
               </div>
             </div>
@@ -561,7 +566,6 @@ const WelcomeLandingPage: React.FC = () => {
         <Container size="large" padding="large" className="py-12 sm:py-20">
           {/* Header Section */}
           <Header
-            logo={navyLogo}
             logoAlt="PQS RTN Logo"
             title={language === 'en' ? 'History of PQS' : 'ประวัติความเป็นมาของ PQS'}
             subtitle="Personnel Qualification Standard"
@@ -739,7 +743,6 @@ const WelcomeLandingPage: React.FC = () => {
         <Container size="large" padding="large" className="py-12 sm:py-20">
           {/* Header Section */}
           <Header
-            logo={navyLogo}
             logoAlt="Royal Thai Navy Logo"
             title="ระบบ PQS กองทัพเรือ"
             subtitle="Personnel Qualification Standard System"
