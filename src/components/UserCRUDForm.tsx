@@ -546,7 +546,7 @@ const UserCRUDForm: React.FC = () => {
             {users.map((user) => (
               <div
                 key={user.id}
-                className="flex items-center justify-between p-4 border border-github-border-primary rounded-lg bg-github-bg-secondary hover:bg-github-bg-hover transition-colors"
+                className="flex flex-wrap items-center justify-between gap-3 p-4 border border-github-border-primary rounded-lg bg-github-bg-secondary hover:bg-github-bg-hover transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-4">

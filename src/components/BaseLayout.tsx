@@ -110,14 +110,25 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
     if (onLogoClick) {
       onLogoClick()
     } else {
-      // Default behavior - always go to Hero (Home) page
-      navigate('/home')
-      setCurrentPage('home')
+      // Default behavior - always go to Welcome page
+      navigate('/welcome')
+      setCurrentPage('welcome')
     }
   }
 
-  // Desktop-first layout adjustments
-  const showFullHeader = true // Always show full header on desktop
+  // Desktop-first layout adjustments - responsive collapse
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Show full header only when window is wide enough (>= 900px)
+  const showFullHeader = windowWidth >= 900
+  // Show breadcrumb only when there's enough space (>= 800px minimum Tauri window)
+  const showBreadcrumb = windowWidth >= 800
 
   // Build container classes
   const containerClasses = [
@@ -184,9 +195,11 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               </div>
 
               {/* Breadcrumb - ต่อจาก PQS RTN */}
+              {showBreadcrumb && (
               <div className="flex-shrink-0 ml-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                 <Breadcrumb variant="default" />
               </div>
+              )}
 
               {showFullHeader && (
                 <>
@@ -263,7 +276,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
         {/* Content Area */}
         <div 
           id="main-content"
-          className="flex-1 min-h-0 flex flex-col"
+          className="flex-1 min-w-0 min-h-0 flex flex-col"
         >
           <RouteTransition>
             <Outlet />

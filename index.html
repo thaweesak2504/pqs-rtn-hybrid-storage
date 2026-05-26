@@ -1,43 +1,48 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/react.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PQS RTN - Tauri</title>
-    <style>
-      /* Prevent white flash - use direct colors */
-      html, body {
-        margin: 0;
-        padding: 0;
-        background: #010409 !important;
-        /* Fixed viewport height - never changes */
-        height: 100vh;
-        overflow: hidden;
-        /* Root font-size for zoom - default 16px */
-        font-size: 16px;
-      }
-      
-      #root {
-        width: 100vw;
-        /* Fixed viewport height with internal scrolling */
-        height: 100vh;
-        background: #010409 !important;
-        position: relative;
-        overflow-x: hidden;
-        overflow-y: auto;
-        /* Fade-in on startup */
-        opacity: 0;
-        transition: opacity 300ms ease-out;
-      }
-      #root.app-ready {
-        opacity: 1;
-      }
-      
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/src/assets/react.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PQS RTN - Tauri</title>
+  <style>
+    /* Prevent white flash - use direct colors */
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #010409 !important;
+      /* Fixed viewport height - never changes */
+      height: 100vh;
+      overflow: hidden;
+      /* Root font-size for zoom - default 16px */
+      font-size: 16px;
+    }
+
+    #root {
+      width: 100vw;
+      /* Fixed viewport height with internal scrolling */
+      height: 100vh;
+      background: #010409 !important;
+      position: relative;
+      overflow-x: hidden;
+      overflow-y: auto;
+      /* Fade-in on startup */
+      opacity: 0;
+      /* Change 300ms to 1000ms */
+      transition: opacity 1000ms ease-out;
+    }
+
+    #root.app-ready {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
 </html>

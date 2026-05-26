@@ -13,8 +13,8 @@ const GlobalRedirect: React.FC = () => {
       hasNavigated.current = true
       // Force Home if not already there, BUT ONLY IN PRODUCTION
       // This prevents HMR (Hot Module Replacement) from resetting the page during development
-      if (!import.meta.env.DEV && location.pathname !== '/home') {
-        navigate('/home', { replace: true })
+      if (!import.meta.env.DEV && location.pathname !== '/welcome') {
+        navigate('/welcome', { replace: true })
       }
     }
     isInitialMount.current = false

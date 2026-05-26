@@ -29,7 +29,7 @@ interface NavigationShortcuts {
  */
 export const useNavigationShortcuts = (): NavigationShortcuts => {
   const navigate = useNavigate()
-  const [navigationState, navigationActions] = useNavigationState()
+  const [, navigationActions] = useNavigationState()
   // navigationHandlers removed - using direct navigationActions instead
   
   const shortcutsRef = useRef<ShortcutConfig[]>([])
@@ -40,22 +40,8 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
     {
       key: 'h',
       ctrlKey: true,
-      action: () => navigate('/home'),
-      description: 'Go to Home',
-      category: 'navigation'
-    },
-    {
-      key: 't',
-      ctrlKey: true,
-      action: () => navigate('/team'),
-      description: 'Go to Team',
-      category: 'navigation'
-    },
-    {
-      key: 'y',
-      ctrlKey: true,
-      action: () => navigate('/history'),
-      description: 'Go to History',
+      action: () => navigate('/welcome'),
+      description: 'Go to Welcome',
       category: 'navigation'
     },
     {
@@ -78,21 +64,6 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
       action: () => navigate('/register'),
       description: 'Go to Registration',
       category: 'navigation'
-    },
-    {
-      key: 'w',
-      ctrlKey: true,
-      action: () => {
-        // Toggle Welcome menu
-        const isExpanded = navigationState.expandedMenus.includes('welcome')
-        if (isExpanded) {
-          navigationActions.setExpandedMenus([])
-        } else {
-          navigationActions.setExpandedMenus(['welcome'])
-        }
-      },
-      description: 'Toggle Welcome Menu',
-      category: 'menu'
     },
     {
       key: 'Escape',

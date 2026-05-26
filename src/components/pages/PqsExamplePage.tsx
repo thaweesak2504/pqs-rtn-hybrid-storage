@@ -98,7 +98,7 @@ const PqsExamplePage: React.FC = () => {
       >
         <div className="p-4 border-b border-gray-200 dark:border-github-border-primary flex justify-between items-center">
           <span className="font-bold text-gray-700 dark:text-gray-200">Sections</span>
-          <Button variant="ghost" size="small" onClick={() => navigate('/home')}>
+          <Button variant="ghost" size="small" onClick={() => navigate('/welcome')}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Back
           </Button>
         </div>

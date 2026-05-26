@@ -41,10 +41,11 @@ export const useNavigationHistory = (): NavigationHistory => {
   // Get label for path
   const getPathLabel = useCallback((path: string): string => {
     const pathLabels: Record<string, string> = {
-      '/': 'Home',
-      '/home': 'Home',
-      '/history': 'History',
-      '/team': 'Team',
+      '/': 'Welcome',
+      '/welcome': 'Welcome',
+      '/home': 'Welcome',
+      '/history': 'Welcome',
+      '/team': 'Welcome',
       '/contact': 'Contact Us',
       '/signin': 'Sign In',
       '/register': 'Registration',

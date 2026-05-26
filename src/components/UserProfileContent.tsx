@@ -24,7 +24,7 @@ const UserProfileContent: React.FC = () => {
 
   const handleSignOut = () => {
     signOut()
-    navigate('/home') // Navigate to Welcome/Home after sign out
+    navigate('/welcome') // Navigate to Welcome Landing Page after sign out
   }
 
   const handleEditProfile = () => {

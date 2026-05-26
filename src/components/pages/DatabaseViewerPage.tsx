@@ -126,7 +126,7 @@ const DatabaseViewerPage: React.FC = () => {
 
 
   return (
-    <Container size="large" className="py-8">
+    <Container size="large" padding="medium" className="py-8">
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-4">
           <Database className="w-8 h-8 text-github-accent-primary" />
@@ -159,27 +159,26 @@ const DatabaseViewerPage: React.FC = () => {
 
       {/* Users Table */}
       <Card className="mb-8">
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4">
             <Users className="w-6 h-6 text-github-accent-primary" />
             <h2 className="text-xl font-semibold">Users Table ({users.length} records)</h2>
             {isLoading && <RefreshCw className="w-4 h-4 animate-spin text-github-text-secondary" />}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="overflow-x-auto rounded-lg border border-github-border-secondary">
+            <table className="w-full border-collapse min-w-[700px]">
               <thead>
-                <tr className="border-b border-github-border-primary">
-                  <th className="text-left p-3 font-medium">ID</th>
-                  <th className="text-left p-3 font-medium">Username</th>
-                  <th className="text-left p-3 font-medium">Email</th>
-                  <th className="text-left p-3 font-medium">Full Name</th>
-                  <th className="text-left p-3 font-medium">Rank</th>
-                  <th className="text-left p-3 font-medium">Role</th>
-                  <th className="text-left p-3 font-medium">Active</th>
-                  <th className="text-left p-3 font-medium">Avatar</th>
-                  <th className="text-left p-3 font-medium">Created</th>
-                  <th className="text-left p-3 font-medium">Updated</th>
+                <tr className="border-b border-github-border-primary bg-github-bg-secondary">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">ID</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Username</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Email</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Full Name</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Rank</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Role</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Active</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Avatar</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Created</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Updated</th>
                 </tr>
               </thead>
               <tbody>
@@ -193,14 +192,14 @@ const DatabaseViewerPage: React.FC = () => {
                   users.map((user) => {
                   const avatar = getUserAvatar(user.id)
                   return (
-                    <tr key={user.id} className="border-b border-github-border-secondary hover:bg-github-bg-hover">
-                      <td className="p-3 font-mono text-sm">{user.id}</td>
-                      <td className="p-3 font-medium">{user.username}</td>
-                      <td className="p-3 text-github-text-secondary">{user.email}</td>
-                      <td className="p-3">{user.full_name}</td>
-                      <td className="p-3">{user.rank}</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    <tr key={user.id} className="border-b border-github-border-secondary hover:bg-github-bg-hover transition-colors">
+                      <td className="px-3 py-2 font-mono text-xs">{user.id}</td>
+                      <td className="px-3 py-2 text-sm font-medium whitespace-nowrap">{user.username}</td>
+                      <td className="px-3 py-2 text-sm text-github-text-secondary max-w-[200px] truncate">{user.email}</td>
+                      <td className="px-3 py-2 text-sm whitespace-nowrap">{user.full_name}</td>
+                      <td className="px-3 py-2 text-sm">{user.rank}</td>
+                      <td className="px-3 py-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           user.role === 'admin' 
                             ? 'bg-github-accent-danger/20 text-github-accent-danger' 
                             : 'bg-github-accent-success/20 text-github-accent-success'
@@ -208,8 +207,8 @@ const DatabaseViewerPage: React.FC = () => {
                           {user.role}
                         </span>
                       </td>
-                      <td className="p-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      <td className="px-3 py-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
                           user.is_active 
                             ? 'bg-github-accent-success/20 text-github-accent-success' 
                             : 'bg-github-accent-danger/20 text-github-accent-danger'
@@ -217,7 +216,7 @@ const DatabaseViewerPage: React.FC = () => {
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-2">
                         {avatar ? (
                           <div className="flex items-center gap-2">
                             <Image className="w-4 h-4 text-github-accent-success" />
@@ -229,10 +228,10 @@ const DatabaseViewerPage: React.FC = () => {
                           <span className="text-xs text-github-text-tertiary">No avatar</span>
                         )}
                       </td>
-                      <td className="p-3 text-xs text-github-text-secondary">
+                      <td className="px-3 py-2 text-xs text-github-text-secondary whitespace-nowrap">
                         {formatDate(user.created_at)}
                       </td>
-                      <td className="p-3 text-xs text-github-text-secondary">
+                      <td className="px-3 py-2 text-xs text-github-text-secondary whitespace-nowrap">
                         {formatDate(user.updated_at)}
                       </td>
                     </tr>
@@ -242,30 +241,28 @@ const DatabaseViewerPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
       </Card>
 
       {/* Avatars Table */}
       <Card>
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-4">
             <Image className="w-6 h-6 text-github-accent-primary" />
             <h2 className="text-xl font-semibold">Avatars Table ({avatars.length} records)</h2>
             {isLoading && <RefreshCw className="w-4 h-4 animate-spin text-github-text-secondary" />}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+          <div className="overflow-x-auto rounded-lg border border-github-border-secondary">
+            <table className="w-full border-collapse min-w-[600px]">
               <thead>
-                <tr className="border-b border-github-border-primary">
-                  <th className="text-left p-3 font-medium">User ID</th>
-                  <th className="text-left p-3 font-medium">Username</th>
-                  <th className="text-left p-3 font-medium">File Path</th>
-                  <th className="text-left p-3 font-medium">MIME Type</th>
-                  <th className="text-left p-3 font-medium">Size</th>
-                  <th className="text-left p-3 font-medium">File Exists</th>
-                  <th className="text-left p-3 font-medium">Updated</th>
-                  <th className="text-left p-3 font-medium">Preview</th>
+                <tr className="border-b border-github-border-primary bg-github-bg-secondary">
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">User ID</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Username</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">File Path</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">MIME</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Size</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Exists</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Updated</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-github-text-secondary whitespace-nowrap">Preview</th>
                 </tr>
               </thead>
               <tbody>
@@ -279,31 +276,31 @@ const DatabaseViewerPage: React.FC = () => {
                   avatars.map((avatar) => {
                   const user = getUserById(avatar.user_id)
                   return (
-                    <tr key={avatar.user_id} className="border-b border-github-border-secondary hover:bg-github-bg-hover">
-                      <td className="p-3 font-mono text-sm">{avatar.user_id}</td>
-                      <td className="p-3 font-medium">
+                    <tr key={avatar.user_id} className="border-b border-github-border-secondary hover:bg-github-bg-hover transition-colors">
+                      <td className="px-3 py-2 font-mono text-xs">{avatar.user_id}</td>
+                      <td className="px-3 py-2 text-sm font-medium whitespace-nowrap">
                         {user ? user.username : 'Unknown User'}
                       </td>
-                      <td className="p-3 font-mono text-sm text-github-text-secondary">
+                      <td className="px-3 py-2 font-mono text-xs text-github-text-secondary max-w-[180px] truncate" title={avatar.avatar_path || 'No path'}>
                         {avatar.avatar_path || 'No path'}
                       </td>
-                      <td className="p-3 text-github-text-secondary">{avatar.avatar_mime || 'Unknown'}</td>
-                      <td className="p-3 text-github-text-secondary">
+                      <td className="px-3 py-2 text-xs text-github-text-secondary whitespace-nowrap">{avatar.avatar_mime || 'Unknown'}</td>
+                      <td className="px-3 py-2 text-xs text-github-text-secondary whitespace-nowrap">
                         {avatar.avatar_size ? formatFileSize(avatar.avatar_size) : 'Unknown'}
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-2">
                         <div className="flex items-center justify-center">
                           {avatar.file_exists ? (
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                            <CheckCircle className="w-4 h-4 text-green-600" />
                           ) : (
-                            <XCircle className="w-5 h-5 text-red-600" />
+                            <XCircle className="w-4 h-4 text-red-600" />
                           )}
                         </div>
                       </td>
-                      <td className="p-3 text-github-text-secondary">
+                      <td className="px-3 py-2 text-xs text-github-text-secondary whitespace-nowrap">
                         {avatar.avatar_updated_at ? formatDate(avatar.avatar_updated_at) : 'Never'}
                       </td>
-                      <td className="p-3">
+                      <td className="px-3 py-2">
                         <div className="flex items-center gap-2">
                           {avatar.avatar_path && avatar.file_exists && avatarImages[avatar.user_id] ? (
                             <img 
@@ -339,14 +336,13 @@ const DatabaseViewerPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        </div>
       </Card>
 
 
       {/* Avatar Preview Modal */}
       {selectedAvatar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedAvatar(null)}>
-          <div className="max-w-md max-h-[90vh] w-full mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setSelectedAvatar(null)}>
+          <div className="max-w-md hd:max-w-lg max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
             <Card 
               variant="elevated" 
               size="medium"

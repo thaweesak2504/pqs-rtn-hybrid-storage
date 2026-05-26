@@ -28,7 +28,7 @@ const Container: React.FC<ContainerProps> = ({
   }
 
   return (
-    <div className={`mx-auto ${sizeClasses[size]} ${paddingClasses[padding]} ${className}`}>
+    <div className={`w-full min-w-0 mx-auto ${sizeClasses[size]} ${paddingClasses[padding]} ${className}`}>
       {children}
     </div>
   )

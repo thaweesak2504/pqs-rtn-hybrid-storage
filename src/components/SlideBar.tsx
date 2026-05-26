@@ -235,7 +235,7 @@ const SlideBar: React.FC = () => {
           </h2>
           <button
             onClick={closeSlideBar}
-            className="p-1 rounded-lg hover:bg-github-bg-hover hover:border-github-border-active active:bg-github-bg-hover active:border-github-border-active md:hidden transition-colors duration-200"
+            className="p-1 rounded-lg hover:bg-github-bg-hover hover:border-github-border-active active:bg-github-bg-hover active:border-github-border-active transition-colors duration-200"
             aria-label="Close sidebar"
             type="button"
             ref={closeBtnRef}

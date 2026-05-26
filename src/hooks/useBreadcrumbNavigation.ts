@@ -35,36 +35,17 @@ export const useBreadcrumbNavigation = (): BreadcrumbNavigation => {
     const path = location.pathname
     const breadcrumbs: BreadcrumbItem[] = []
 
-    // Always start with Home
+    // Always start with Welcome
     breadcrumbs.push({
-      id: 'home',
-      label: 'Home',
-      path: '/home',
+      id: 'welcome',
+      label: 'Welcome',
+      path: '/welcome',
       isClickable: true,
-      isActive: path === '/home' || path === '/'
+      isActive: path === '/welcome' || path === '/'
     })
 
     // Add route-specific breadcrumbs
     switch (path) {
-      case '/history':
-        breadcrumbs.push({
-          id: 'history',
-          label: 'History',
-          path: '/history',
-          isClickable: true,
-          isActive: true
-        })
-        break
-
-      case '/team':
-        breadcrumbs.push({
-          id: 'team',
-          label: 'Team',
-          path: '/team',
-          isClickable: true,
-          isActive: true
-        })
-        break
 
       case '/contact':
         breadcrumbs.push({
@@ -191,7 +172,7 @@ export const useBreadcrumbNavigation = (): BreadcrumbNavigation => {
   // Auto-generate breadcrumbs when route changes
   useEffect(() => {
     // Clear custom breadcrumbs when navigating to main routes
-    const mainRoutes = ['/home', '/history', '/team', '/contact', '/signin', '/register']
+    const mainRoutes = ['/welcome', '/contact', '/signin', '/register']
     if (mainRoutes.includes(location.pathname)) {
       clearBreadcrumbs()
     }

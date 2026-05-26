@@ -1,7 +1,4 @@
 import {
-  Home,
-  History,
-  Users,
   Star,
   Mail,
   LogIn,
@@ -18,11 +15,6 @@ import {
 
 // Route configuration for navigation
 export const ROUTE_CONFIG = {
-  welcome: {
-    home: '/home',
-    history: '/history',
-    team: '/team'
-  },
   admin: {
     dashboard: '/dashboard',
     database: '/dashboard/database',
@@ -30,6 +22,7 @@ export const ROUTE_CONFIG = {
     management: '/dashboard/management'
   },
   standalone: {
+    welcome: '/welcome',
     contact: '/contact',
     signin: '/signin',
     registration: '/register',
@@ -41,10 +34,11 @@ export const ROUTE_CONFIG = {
 
 // Route to state mapping for router synchronization
 export const ROUTE_STATE_MAP = {
-  '/home': { activeItem: 'home', expandedMenus: [] },
-  '/': { activeItem: 'home', expandedMenus: [] },
-  '/history': { activeItem: 'history', expandedMenus: [] },
-  '/team': { activeItem: 'team', expandedMenus: [] },
+  '/welcome': { activeItem: 'welcome', expandedMenus: [] },
+  '/home': { activeItem: 'welcome', expandedMenus: [] },
+  '/': { activeItem: 'welcome', expandedMenus: [] },
+  '/history': { activeItem: 'welcome', expandedMenus: [] },
+  '/team': { activeItem: 'welcome', expandedMenus: [] },
   '/dashboard': { activeItem: 'dashboard', expandedMenus: ['admin'] },
   '/dashboard/database': { activeItem: 'database', expandedMenus: ['admin'] },
   '/dashboard/highranks': { activeItem: 'highranks', expandedMenus: ['admin'] },
@@ -74,12 +68,7 @@ export const MENU_ITEMS_CONFIG: MenuItemConfig[] = [
   {
     id: 'welcome',
     label: 'Welcome',
-    icon: <Star className="w-5 h-5" />,
-    subItems: [
-      { id: 'home', label: 'Home', icon: <Home className="w-4 h-4" /> },
-      { id: 'history', label: 'History', icon: <History className="w-4 h-4" /> },
-      { id: 'team', label: 'Team', icon: <Users className="w-4 h-4" /> }
-    ]
+    icon: <Star className="w-5 h-5" />
   },
   {
     id: 'admin',
@@ -129,18 +118,13 @@ export const AUTH_MENU_ITEMS: MenuItemConfig[] = [
 ]
 
 // Type definitions for better type safety
-export type WelcomeRouteKey = keyof typeof ROUTE_CONFIG.welcome
 export type AdminRouteKey = keyof typeof ROUTE_CONFIG.admin
 export type StandaloneRouteKey = keyof typeof ROUTE_CONFIG.standalone
-export type RouteKey = WelcomeRouteKey | AdminRouteKey | StandaloneRouteKey
+export type RouteKey = AdminRouteKey | StandaloneRouteKey
 export type RoutePath = keyof typeof ROUTE_STATE_MAP
 
 // Helper functions
 export const getRouteForItem = (itemId: string, subItemId?: string): string | null => {
-  if (subItemId && ROUTE_CONFIG.welcome[subItemId as WelcomeRouteKey]) {
-    return ROUTE_CONFIG.welcome[subItemId as WelcomeRouteKey]
-  }
-
   if (subItemId && ROUTE_CONFIG.admin[subItemId as AdminRouteKey]) {
     return ROUTE_CONFIG.admin[subItemId as AdminRouteKey]
   }
@@ -156,10 +140,6 @@ export const getStateForRoute = (path: string): { activeItem: string; expandedMe
   const state = ROUTE_STATE_MAP[path as RoutePath] || ROUTE_STATE_MAP['/home']
   // Return the state as configured - spread to convert readonly to mutable
   return { activeItem: state.activeItem, expandedMenus: [...state.expandedMenus] }
-}
-
-export const isWelcomeSubItem = (itemId: string): boolean => {
-  return itemId in ROUTE_CONFIG.welcome
 }
 
 export const isAdminSubItem = (itemId: string): boolean => {

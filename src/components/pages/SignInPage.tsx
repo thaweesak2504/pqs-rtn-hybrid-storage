@@ -111,7 +111,7 @@ const SignInPage: React.FC = () => {
 
         // Redirect based on user role
         // All roles (Admin/Editor/Visitor) -> Home
-        const redirectPath = '/home'
+        const redirectPath = '/welcome'
         setTimeout(() => {
           navigate(redirectPath, { replace: true })
         }, 1000)

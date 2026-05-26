@@ -158,8 +158,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signOut = () => {
     clearAuthData()
     setIsLoading(false) // Reset loading state
-    // Navigate to home page after sign out
-    window.location.href = '/home'
+    // Navigate to welcome page after sign out
+    window.location.href = '/welcome'
   }
 
   // Update avatar using Tauri

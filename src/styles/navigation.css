@@ -215,24 +215,22 @@
   }
 }
 
-/* Dark Mode Enhancements */
-@media (prefers-color-scheme: dark) {
-  .navigation-container {
-    background: var(--github-bg-primary);
-    border-color: var(--github-border-primary);
-  }
-  
-  .navigation-menu-item {
-    color: var(--github-text-primary);
-  }
-  
-  .navigation-menu-item:hover {
-    background: var(--github-bg-hover);
-  }
-  
-  .navigation-menu-item:active {
-    background: var(--github-bg-active);
-  }
+/* Dark Mode Enhancements - Using class-based dark mode (matches Tailwind darkMode: 'class') */
+.dark .navigation-container {
+  background: var(--github-bg-primary);
+  border-color: var(--github-border-primary);
+}
+
+.dark .navigation-menu-item {
+  color: var(--github-text-primary);
+}
+
+.dark .navigation-menu-item:hover {
+  background: var(--github-bg-hover);
+}
+
+.dark .navigation-menu-item:active {
+  background: var(--github-bg-active);
 }
 
 /* Focus Management */
