@@ -5,7 +5,7 @@ interface CardProps {
   title?: string
   subtitle?: string
   icon?: React.ReactNode
-  variant?: 'default' | 'elevated' | 'outlined' | 'filled'
+  variant?: 'default' | 'elevated' | 'outlined' | 'filled' | 'glass'
   size?: 'small' | 'medium' | 'large'
   hover?: boolean
   className?: string
@@ -27,7 +27,8 @@ const Card: React.FC<CardProps> = ({
     default: 'bg-white dark:bg-github-bg-tertiary border border-github-border-primary',
     elevated: 'bg-white dark:bg-github-bg-tertiary shadow-lg border border-github-border-primary',
     outlined: 'bg-transparent border-2 border-github-border-primary',
-    filled: 'bg-github-bg-secondary dark:bg-github-bg-secondary border border-github-border-primary'
+    filled: 'bg-github-bg-secondary dark:bg-github-bg-secondary border border-github-border-primary',
+    glass: 'bg-white/10 dark:bg-white/5 border border-github-border-primary dark:border-white/10'
   }
 
   const sizeClasses = {
@@ -55,7 +56,7 @@ const Card: React.FC<CardProps> = ({
     large: 'text-sm sm:text-base font-light'
   }
 
-  const hoverClasses = hover ? 'hover:shadow-md hover:border-github-border-active transition-all duration-200' : ''
+  const hoverClasses = hover ? 'hover:shadow-md hover:border-github-border-active dark:hover:border-github-border-active transition-all duration-200' : ''
   const cursorClass = onClick ? 'cursor-pointer' : ''
 
   return (
