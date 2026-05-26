@@ -21,8 +21,6 @@ import {
   ChevronUp,
   GitMerge,
   Headphones,
-  History,
-  Home,
   Mail,
   Shield,
   ShieldCheck,
@@ -52,27 +50,11 @@ interface HighRankingOfficer {
 
 type SectionId = 'hero' | 'history' | 'team'
 
-interface SectionConfig {
-  id: SectionId
-  label: string
-  thaiLabel: string
-  icon: React.ReactNode
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const SECTIONS: SectionConfig[] = [
-  { id: 'hero', label: 'Home', thaiLabel: 'หน้าหลัก', icon: <Home className="w-4 h-4" /> },
-  { id: 'history', label: 'History', thaiLabel: 'ประวัติ', icon: <History className="w-4 h-4" /> },
-  { id: 'team', label: 'Team', thaiLabel: 'ทีมงาน', icon: <Users className="w-4 h-4" /> },
-]
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const WelcomeLandingPage: React.FC = () => {
 
   // ── Section Navigation State ─────────────────────────────────────────────
-  const [activeSection, setActiveSection] = useState<SectionId>('hero')
   const [showScrollTop, setShowScrollTop] = useState(false)
   const sectionRefs = useRef<Record<SectionId, HTMLElement | null>>({
     hero: null,
@@ -140,28 +122,6 @@ const WelcomeLandingPage: React.FC = () => {
     { value: "24/7", label: "พร้อมรบ" }
   ]
 
-  // ── Intersection Observer for Section Tracking ───────────────────────────
-  useEffect(() => {
-    const observerOptions: IntersectionObserverInit = {
-      root: null,
-      rootMargin: '-20% 0px -60% 0px',
-      threshold: 0,
-    }
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          setActiveSection(entry.target.id as SectionId)
-        }
-      })
-    }, observerOptions)
-
-    Object.values(sectionRefs.current).forEach((ref) => {
-      if (ref) observer.observe(ref)
-    })
-
-    return () => observer.disconnect()
-  }, [])
 
   // ── Scroll Top Button Visibility ─────────────────────────────────────────
   useEffect(() => {
@@ -282,13 +242,6 @@ const WelcomeLandingPage: React.FC = () => {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  const scrollToSection = useCallback((sectionId: SectionId) => {
-    const element = sectionRefs.current[sectionId]
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [])
-
   const scrollToTop = useCallback(() => {
     const scrollParent = sectionRefs.current.hero?.closest('.overflow-y-auto')
     if (scrollParent) {
@@ -296,7 +249,12 @@ const WelcomeLandingPage: React.FC = () => {
     }
   }, [])
 
-  const handleLearnMore = () => scrollToSection('history')
+  const handleLearnMore = () => {
+    const element = document.getElementById('history')
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
 
   const handlePodcastToggle = () => {
     if (audioRef.current) {
@@ -397,41 +355,12 @@ const WelcomeLandingPage: React.FC = () => {
       />
 
       {/* ═══════════════════════════════════════════════════════════════════
-          Sticky Section Navigation Bar
-          ═══════════════════════════════════════════════════════════════════ */}
-      <nav className="sticky top-0 z-30 bg-github-bg-primary/90 backdrop-blur-md border-b border-github-border-primary shadow-sm">
-        <div className="max-w-5xl mx-auto px-4">
-          <div className="flex items-center justify-center gap-1 sm:gap-2 py-2">
-            {SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                onClick={() => scrollToSection(section.id)}
-                className={`
-                  flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium
-                  transition-all duration-200 whitespace-nowrap
-                  ${activeSection === section.id
-                    ? 'bg-github-bg-active text-github-text-primary shadow-sm'
-                    : 'text-github-text-secondary hover:text-github-text-primary hover:bg-github-bg-hover'
-                  }
-                `}
-                type="button"
-              >
-                {section.icon}
-                <span className="hidden sm:inline">{section.thaiLabel}</span>
-                <span className="sm:hidden">{section.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      {/* ═══════════════════════════════════════════════════════════════════
           SECTION 1: HERO (from HeroSection.tsx)
           ═══════════════════════════════════════════════════════════════════ */}
       <section
         id="hero"
         ref={(el) => { sectionRefs.current.hero = el }}
-        className="scroll-mt-14 relative overflow-hidden"
+        className="relative overflow-hidden"
       >
         {/* Background Image with CSS Gradient Overlay */}
         <div className="absolute inset-0 z-0 pointer-events-none">
@@ -561,7 +490,7 @@ const WelcomeLandingPage: React.FC = () => {
       <section
         id="history"
         ref={(el) => { sectionRefs.current.history = el }}
-        className="scroll-mt-14"
+        className=""
       >
         <Container size="large" padding="large" className="py-12 sm:py-20">
           {/* Header Section */}
@@ -738,7 +667,7 @@ const WelcomeLandingPage: React.FC = () => {
       <section
         id="team"
         ref={(el) => { sectionRefs.current.team = el }}
-        className="scroll-mt-14"
+        className=""
       >
         <Container size="large" padding="large" className="py-12 sm:py-20">
           {/* Header Section */}
