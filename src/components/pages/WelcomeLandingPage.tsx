@@ -30,7 +30,8 @@ import {
 } from 'lucide-react'
 
 // Utils
-import { invoke } from '@tauri-apps/api/tauri'
+import { convertFileSrc, invoke } from '@tauri-apps/api/tauri'
+import { open as openDialog } from '@tauri-apps/api/dialog'
 import { logger } from '../../utils/logger'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +39,7 @@ import { logger } from '../../utils/logger'
 interface Track {
   src: string
   title: string
+  isTemporary?: boolean
 }
 
 interface HighRankingOfficer {
@@ -69,16 +71,28 @@ const WelcomeLandingPage: React.FC = () => {
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
   const audioRef = useRef<HTMLAudioElement>(null)
 
-  const defaultPlaylist: Track[] = useMemo(() => ([
-    {
-      src: new URL('../../assets/audio/หลักการ-Pqs.mp3', import.meta.url).toString(),
-      title: "หลักการ PQS"
-    },
-    {
-      src: new URL('../../assets/audio/ความฝันอันสูงสุด.ogg', import.meta.url).toString(),
-      title: "ความฝันอันสูงสุด"
-    }
-  ]), [])
+  const defaultPlaylist: Track[] = useMemo(() => {
+    const audioModules = import.meta.glob('../../assets/audio/*.{mp3,ogg,wav,flac,aac,m4a,wma,opus}', {
+      eager: true,
+      import: 'default'
+    }) as Record<string, string>;
+
+    return Object.entries(audioModules).map(([path, url]) => {
+      const fileName = path.split('/').pop() || '';
+      const titleWithoutExt = fileName.replace(/\.[^/.]+$/, '');
+      let title = titleWithoutExt.replace(/[-_]/g, ' ');
+      
+      // Clean up title (e.g. capitalize "PQS" if it ends with "pqs" case-insensitively)
+      if (title.toLowerCase().endsWith(' pqs')) {
+        title = title.slice(0, -4) + ' PQS';
+      }
+      
+      return {
+        src: url,
+        title
+      };
+    });
+  }, []);
 
   const [playlist, setPlaylist] = useState<Track[]>(defaultPlaylist)
   const [isPlaylistLoading, setIsPlaylistLoading] = useState(true)
@@ -156,10 +170,25 @@ const WelcomeLandingPage: React.FC = () => {
           if (track.src.startsWith('blob:')) return false
           return true
         })
-        if (validPlaylist.length !== parsedPlaylist.length) {
-          localStorage.setItem('pqs-audio-playlist', JSON.stringify(validPlaylist))
+
+        // Check if loaded playlist matches the new defaultPlaylist.
+        // If not (e.g., user added a new default audio file), update to defaultPlaylist
+        const isMatchingDefault = validPlaylist.length === defaultPlaylist.length &&
+          validPlaylist.every((track: Track) => 
+            defaultPlaylist.some(dTrack => dTrack.title === track.title || dTrack.src === track.src)
+          );
+
+        if (!isMatchingDefault) {
+          setPlaylist(defaultPlaylist)
+          localStorage.setItem('pqs-audio-playlist', JSON.stringify(defaultPlaylist))
+        } else {
+          if (validPlaylist.length !== parsedPlaylist.length) {
+            localStorage.setItem('pqs-audio-playlist', JSON.stringify(validPlaylist))
+          }
+          setPlaylist(validPlaylist)
         }
-        setPlaylist(validPlaylist)
+      } else {
+        setPlaylist(defaultPlaylist)
       }
     } catch (error) {
       logger.error('Error loading playlist:', error)
@@ -169,11 +198,12 @@ const WelcomeLandingPage: React.FC = () => {
     }
   }, [defaultPlaylist])
 
-  // Save playlist to localStorage whenever it changes
+  // Save playlist to localStorage whenever it changes (exclude temporary tracks)
   useEffect(() => {
     if (!isPlaylistLoading) {
       try {
-        localStorage.setItem('pqs-audio-playlist', JSON.stringify(playlist))
+        const persistedPlaylist = playlist.filter(track => !track.isTemporary)
+        localStorage.setItem('pqs-audio-playlist', JSON.stringify(persistedPlaylist))
       } catch (error) {
         logger.error('Error saving playlist:', error)
       }
@@ -325,15 +355,98 @@ const WelcomeLandingPage: React.FC = () => {
     }
   }
 
-  const resetPlaylist = () => {
-    setPlaylist(defaultPlaylist)
-    setCurrentTrackIndex(0)
-    if (audioRef.current) {
-      audioRef.current.pause()
-      setIsPlaying(false)
-      setShowMiniPlayer(false)
+  const handleClearTemporary = () => {
+    const permanentTracks = playlist.filter(track => !track.isTemporary)
+    setPlaylist(permanentTracks)
+
+    // If currently playing a temporary track, stop and go to first track
+    if (playlist[currentTrackIndex]?.isTemporary) {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        setIsPlaying(false)
+      }
+      setCurrentTrackIndex(0)
+    } else if (currentTrackIndex >= permanentTracks.length) {
+      // Adjust index if it's now out of bounds
+      setCurrentTrackIndex(Math.max(0, permanentTracks.length - 1))
+    } else {
+      // Recalculate index: count how many temp tracks were before current
+      const tempBeforeCurrent = playlist.slice(0, currentTrackIndex).filter(t => t.isTemporary).length
+      setCurrentTrackIndex(currentTrackIndex - tempBeforeCurrent)
     }
-    localStorage.removeItem('pqs-audio-playlist')
+  }
+
+  const handleOpenAudioFile = async () => {
+    try {
+      const selected = await openDialog({
+        multiple: true,
+        filters: [{
+          name: 'Audio / Video Files',
+          extensions: ['mp3', 'ogg', 'wav', 'flac', 'aac', 'm4a', 'wma', 'opus', 'mp4', 'webm', 'mkv', 'avi', 'mov']
+        }]
+      })
+
+      if (!selected) return
+
+      const files = Array.isArray(selected) ? selected : [selected]
+      if (files.length === 0) return
+
+      const newTracks: Track[] = files.map((filePath) => {
+        // Extract filename without extension as title
+        const fileName = filePath.split('\\').pop()?.split('/').pop() || 'Unknown'
+        const title = fileName.replace(/\.[^/.]+$/, '')
+        return {
+          src: convertFileSrc(filePath),
+          title,
+          isTemporary: true
+        }
+      })
+
+      // Add temporary tracks to playlist
+      setPlaylist(prev => [...prev, ...newTracks])
+
+      // Auto-play the first newly added track
+      const firstNewIndex = playlist.length
+      setCurrentTrackIndex(firstNewIndex)
+      setShowMiniPlayer(true)
+
+      // Wait for the audio element to update, then play
+      setTimeout(() => {
+        if (audioRef.current) {
+          audioRef.current.load()
+          const playAudio = () => {
+            audioRef.current?.play().then(() => setIsPlaying(true))
+              .catch((error) => logger.error('Error playing opened file:', error))
+          }
+          audioRef.current.addEventListener('canplaythrough', playAudio, { once: true })
+        }
+      }, 50)
+    } catch (error) {
+      logger.error('Error opening audio file:', error)
+    }
+  }
+
+  const handleRemoveTrack = (index: number) => {
+    const track = playlist[index]
+    if (!track?.isTemporary) return
+
+    const newPlaylist = playlist.filter((_, i) => i !== index)
+    setPlaylist(newPlaylist)
+
+    // Adjust current track index
+    if (index === currentTrackIndex) {
+      // Currently playing track was removed — stop playback
+      if (audioRef.current) {
+        audioRef.current.pause()
+        setIsPlaying(false)
+      }
+      // Move to previous track or 0
+      const newIndex = Math.min(currentTrackIndex, newPlaylist.length - 1)
+      setCurrentTrackIndex(Math.max(0, newIndex))
+    } else if (index < currentTrackIndex) {
+      // Removed track before current — shift index down
+      setCurrentTrackIndex(currentTrackIndex - 1)
+    }
   }
 
   const getOfficerImage = (officerId: number): string => {
@@ -348,7 +461,7 @@ const WelcomeLandingPage: React.FC = () => {
       {/* Hidden Audio Element */}
       <audio
         ref={audioRef}
-        src={playlist[currentTrackIndex]?.src || new URL('../../assets/audio/หลักการ-Pqs.mp3', import.meta.url).toString()}
+        src={playlist[currentTrackIndex]?.src || defaultPlaylist[0]?.src || ''}
         onEnded={handleAudioEnded}
         onPause={() => setIsPlaying(false)}
         onPlay={() => { setIsPlaying(true); setShowMiniPlayer(true) }}
@@ -551,17 +664,6 @@ const WelcomeLandingPage: React.FC = () => {
                     >
                       {isPlaying ? 'กำลังเล่น Podcast' : 'ฟัง Podcast'}
                     </Button>
-
-                    {playlist.length > defaultPlaylist.length && (
-                      <Button
-                        variant="outline"
-                        size="small"
-                        onClick={resetPlaylist}
-                        className="text-github-accent-danger hover:text-github-accent-danger border-github-accent-danger hover:border-github-accent-danger"
-                      >
-                        Reset Playlist
-                      </Button>
-                    )}
                   </div>
                 </div>
               </div>
@@ -639,6 +741,9 @@ const WelcomeLandingPage: React.FC = () => {
                     playlist={playlist}
                     currentTrackIndex={currentTrackIndex}
                     onTrackChange={handleTrackChange}
+                    onOpenFile={handleOpenAudioFile}
+                    onRemoveTrack={handleRemoveTrack}
+                    onClearTemporary={handleClearTemporary}
                   />
                 </div>
               )}
