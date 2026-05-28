@@ -26,7 +26,7 @@ const CountUp: React.FC<CountUpProps> = ({ value }) => {
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries
-        if (entry.isIntersecting && !hasAnimatedRef.current) {
+        if (entry && entry.isIntersecting && !hasAnimatedRef.current) {
           hasAnimatedRef.current = true
           startAnimation()
           observer.unobserve(entry.target)
@@ -56,7 +56,7 @@ const CountUp: React.FC<CountUpProps> = ({ value }) => {
     }
 
     const targetNumber = parseInt(match[1], 10)
-    const suffix = match[2]
+    const suffix = match[2] || ''
     
     const duration = 1500 // 1.5 seconds animation
     const startTime = performance.now()
