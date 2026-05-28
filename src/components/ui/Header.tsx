@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 
 interface HeaderProps {
   logo?: string
@@ -21,6 +21,39 @@ const CountUp: React.FC<CountUpProps> = ({ value }) => {
   const [displayValue, setDisplayValue] = useState('0')
   const elementRef = useRef<HTMLSpanElement>(null)
   const hasAnimatedRef = useRef(false)
+
+  const startAnimation = useCallback(() => {
+    const match = value.match(/^(\d+)(.*)$/)
+    if (!match) {
+      setDisplayValue(value)
+      return
+    }
+
+    const targetNumber = parseInt(match[1] ?? '0', 10)
+    const suffix = match[2] ?? ''
+    
+    const duration = 1500 // 1.5 seconds animation
+    const startTime = performance.now()
+
+    const animate = (currentTime: number) => {
+      const elapsedTime = currentTime - startTime
+      const progress = Math.min(elapsedTime / duration, 1)
+      
+      // Easing out quad formula: f(t) = t * (2 - t)
+      const easeProgress = progress * (2 - progress)
+      const currentNumber = Math.floor(easeProgress * targetNumber)
+      
+      setDisplayValue(`${currentNumber}${suffix}`)
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        setDisplayValue(value) // ensure it lands precisely on target value
+      }
+    }
+
+    requestAnimationFrame(animate)
+  }, [value])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -46,40 +79,7 @@ const CountUp: React.FC<CountUpProps> = ({ value }) => {
       }
       observer.disconnect()
     }
-  }, [value])
-
-  const startAnimation = () => {
-    const match = value.match(/^(\d+)(.*)$/)
-    if (!match) {
-      setDisplayValue(value)
-      return
-    }
-
-    const targetNumber = parseInt(match[1], 10)
-    const suffix = match[2] || ''
-    
-    const duration = 1500 // 1.5 seconds animation
-    const startTime = performance.now()
-
-    const animate = (currentTime: number) => {
-      const elapsedTime = currentTime - startTime
-      const progress = Math.min(elapsedTime / duration, 1)
-      
-      // Easing out quad formula: f(t) = t * (2 - t)
-      const easeProgress = progress * (2 - progress)
-      const currentNumber = Math.floor(easeProgress * targetNumber)
-      
-      setDisplayValue(`${currentNumber}${suffix}`)
-
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        setDisplayValue(value) // ensure it lands precisely on target value
-      }
-    }
-
-    requestAnimationFrame(animate)
-  }
+  }, [value, startAnimation])
 
   return <span ref={elementRef}>{displayValue}</span>
 }
