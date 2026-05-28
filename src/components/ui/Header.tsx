@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 interface HeaderProps {
   logo?: string
@@ -11,6 +11,77 @@ interface HeaderProps {
     label: string
   }>
   className?: string
+}
+
+interface CountUpProps {
+  value: string
+}
+
+const CountUp: React.FC<CountUpProps> = ({ value }) => {
+  const [displayValue, setDisplayValue] = useState('0')
+  const elementRef = useRef<HTMLSpanElement>(null)
+  const hasAnimatedRef = useRef(false)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && !hasAnimatedRef.current) {
+          hasAnimatedRef.current = true
+          startAnimation()
+          observer.unobserve(entry.target)
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const currentRef = elementRef.current
+    if (currentRef) {
+      observer.observe(currentRef)
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef)
+      }
+      observer.disconnect()
+    }
+  }, [value])
+
+  const startAnimation = () => {
+    const match = value.match(/^(\d+)(.*)$/)
+    if (!match) {
+      setDisplayValue(value)
+      return
+    }
+
+    const targetNumber = parseInt(match[1], 10)
+    const suffix = match[2]
+    
+    const duration = 1500 // 1.5 seconds animation
+    const startTime = performance.now()
+
+    const animate = (currentTime: number) => {
+      const elapsedTime = currentTime - startTime
+      const progress = Math.min(elapsedTime / duration, 1)
+      
+      // Easing out quad formula: f(t) = t * (2 - t)
+      const easeProgress = progress * (2 - progress)
+      const currentNumber = Math.floor(easeProgress * targetNumber)
+      
+      setDisplayValue(`${currentNumber}${suffix}`)
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        setDisplayValue(value) // ensure it lands precisely on target value
+      }
+    }
+
+    requestAnimationFrame(animate)
+  }
+
+  return <span ref={elementRef}>{displayValue}</span>
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -60,7 +131,7 @@ const Header: React.FC<HeaderProps> = ({
           {metrics.map((metric, index) => (
             <div key={index} className="text-center">
               <div className="text-base sm:text-lg md:text-xl lg:text-2xl font-normal text-github-text-primary mb-1">
-                {metric.value}
+                <CountUp value={metric.value} />
               </div>
               <div className="text-xs sm:text-sm md:text-base lg:text-lg font-light text-github-text-secondary">
                 {metric.label}
@@ -74,3 +145,4 @@ const Header: React.FC<HeaderProps> = ({
 }
 
 export default Header
+

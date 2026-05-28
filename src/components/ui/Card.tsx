@@ -56,7 +56,8 @@ const Card: React.FC<CardProps> = ({
     large: 'text-sm sm:text-base font-light'
   }
 
-  const hoverClasses = hover ? 'hover:shadow-md hover:border-github-border-active dark:hover:border-github-border-active transition-all duration-200' : ''
+  const defaultHoverClasses = 'hover:shadow-md hover:border-github-border-active dark:hover:border-github-border-active transition-all duration-200'
+  const hoverClasses = hover ? defaultHoverClasses : ''
   const cursorClass = onClick ? 'cursor-pointer' : ''
 
   return (
