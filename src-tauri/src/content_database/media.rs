@@ -288,7 +288,7 @@ pub fn get_file_sha256(path_str: String) -> Result<String, String> {
 const ALLOWED_ATTACHMENT_EXTENSIONS: &[&str] = &[
     // Images
     "jpg", "jpeg", "png", "webp", // Documents
-    "pdf", // Videos
+    "pdf",  // Videos
     "mp4", "webm", // Audio
     "mp3", "wav", "m4a", "ogg",
 ];
