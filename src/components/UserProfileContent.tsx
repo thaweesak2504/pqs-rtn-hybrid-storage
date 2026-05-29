@@ -1,11 +1,12 @@
 import React from 'react'
 import { User, Settings, LogOut, Mail, Shield, Edit } from 'lucide-react'
 import Avatar from './ui/Avatar'
-import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
+import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/hybridAvatarService'
 import { useAuth } from '../hooks/useAuth'
 import { useHybridAvatar } from '../hooks/useHybridAvatar'
 import { Button } from './ui'
 import { useNavigate } from 'react-router-dom'
+import { logger } from '../utils/logger';
 
 const UserProfileContent: React.FC = () => {
   const { signOut, user, updateAvatar } = useAuth()
@@ -23,7 +24,7 @@ const UserProfileContent: React.FC = () => {
 
   const handleSignOut = () => {
     signOut()
-    navigate('/home') // Navigate to Welcome/Home after sign out
+    navigate('/welcome') // Navigate to Welcome Landing Page after sign out
   }
 
   const handleEditProfile = () => {
@@ -65,7 +66,7 @@ const UserProfileContent: React.FC = () => {
       const fileData = new Uint8Array(arrayBuffer)
       
       // Get MIME type from data URL
-      const mimeType = preview.split(';')[0].split(':')[1] || 'image/jpeg'
+      const mimeType = preview.split(';')[0]?.split(':')[1] || 'image/jpeg'
       
       // Save using hybrid avatar system
       const success = await saveAvatar(fileData, mimeType)
@@ -79,7 +80,7 @@ const UserProfileContent: React.FC = () => {
         setUploadError('ไม่สามารถบันทึกรูปได้')
       }
     } catch (error) {
-      console.error('Failed to convert data URL to file:', error)
+      logger.error('Failed to convert data URL to file:', error)
       setUploadError('ไม่สามารถแปลงรูปได้')
     }
   }
@@ -106,7 +107,7 @@ const UserProfileContent: React.FC = () => {
       }))
 
     } catch (error) {
-      console.error('Failed to remove avatar:', error)
+      logger.error('Failed to remove avatar:', error)
     }
   }
 
@@ -155,9 +156,9 @@ const UserProfileContent: React.FC = () => {
       if (!user?.id) return
       if (preview) return
       if (user?.avatar) return
-      const pathOnly = (user as any)?.avatar_path
+      const pathOnly = user?.avatar_path
       if (!pathOnly) return
-      const api = (window as any)?.api
+      const api = (window as unknown as { api?: { avatar?: { read: (id: string) => Promise<{ ok: boolean, dataUrl: string }> } } })?.api
       if (!api?.avatar?.read) return
       const origin = window.location.origin
       if (origin.startsWith('file://')) return
@@ -167,12 +168,12 @@ const UserProfileContent: React.FC = () => {
           await updateAvatar(res.dataUrl)
         }
       } catch (error) {
-          console.warn('Error:', error);
+          logger.warn('Error:', error);
         }
     }
     run()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, (user as any)?.avatar_path])
+  }, [user?.id, user?.avatar_path])
 
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -196,6 +197,7 @@ const UserProfileContent: React.FC = () => {
     setIsDragging(false); dragDepth.current = 0
     if (e.dataTransfer.files?.length) {
       const f = e.dataTransfer.files[0]
+      if (!f) return
       const validation = validateAvatarFile(f)
       if (!validation.ok) { setUploadError(validation.error || 'ไฟล์ไม่ถูกต้อง'); return }
       setIsUploading(true); setUploadError(null)
@@ -230,7 +232,7 @@ const UserProfileContent: React.FC = () => {
         <div className="relative">
           <Avatar
             src={preview || hybridAvatar || undefined}
-            version={preview ? null : (user as any)?.avatar_updated_at || null}
+            version={preview ? null : user?.avatar_updated_at || null}
             name={user?.name}
             size="lg"
             className={`border-2 ${preview ? 'ring-2 ring-github-accent-primary' : ''}`}

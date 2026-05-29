@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { logger } from '../utils/logger';
 
 interface WindowVisibilityState {
   isVisible: boolean
@@ -180,7 +181,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
                 })
               }
             } catch (error) {
-              console.warn('Error in Tauri resize listener:', error)
+              logger.warn('Error in Tauri resize listener:', error)
             }
           })
 
@@ -193,7 +194,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
                 handleMaximizeChange(true)
               }
             } catch (error) {
-              console.warn('Error in Tauri maximize listener:', error)
+              logger.warn('Error in Tauri maximize listener:', error)
             }
           })
 
@@ -206,7 +207,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
                 handleMaximizeChange(false)
               }
             } catch (error) {
-              console.warn('Error in Tauri unmaximize listener:', error)
+              logger.warn('Error in Tauri unmaximize listener:', error)
             }
           })
 
@@ -220,12 +221,12 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
                 handleMaximizeChange(isMaximized)
               }
             } catch (error) {
-              console.warn('Failed to check initial maximize state:', error)
+              logger.warn('Failed to check initial maximize state:', error)
             }
           }
 
         } catch (error) {
-          console.warn('Failed to setup Tauri listeners:', error)
+          logger.warn('Failed to setup Tauri listeners:', error)
         }
       }
 
@@ -250,7 +251,7 @@ export const useWindowVisibility = (options: WindowVisibilityOptions = {}) => {
         try {
           cleanup()
         } catch (error) {
-          console.warn('Error during Tauri listener cleanup:', error)
+          logger.warn('Error during Tauri listener cleanup:', error)
         }
       })
       cleanupFunctions = []

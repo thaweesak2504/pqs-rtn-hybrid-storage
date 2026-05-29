@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
 import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
+import { logger } from '../../utils/logger';
 
 // ============ Helpers ============
 
@@ -46,7 +47,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
 
   useEffect(() => {
     if (!docId) return;
-    invoke<any>('get_document_branch', { docId })
+    invoke<{main?: string, sub?: string}>('get_document_branch', { docId })
       .then(data => { setDocBranchMain(data.main || ''); setDocBranchSub(data.sub || ''); })
       .catch(() => {});
   }, [docId]);
@@ -68,7 +69,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
         );
         setQuestions(filtered);
       } catch (error) {
-        console.error('Failed to fetch questions for preview:', error);
+        logger.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }
@@ -217,6 +218,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         setOwnSubQuestionList(filtered);
       }).catch(() => setOwnSubQuestionList([]));
     } catch { setOwnSubQuestionList([]); }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.metadata, question.sequence]);
 
   // Effective sub-question list to pass to children

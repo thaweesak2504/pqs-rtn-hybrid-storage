@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri'
+import { logger } from '../utils/logger';
 
 export interface ZoomService {
   zoomIn: () => Promise<void>
@@ -11,7 +12,7 @@ const zoomService: ZoomService = {
     try {
       await invoke('zoom_in')
     } catch (error) {
-      console.error('Failed to zoom in:', error)
+      logger.error('Failed to zoom in:', error)
       throw error
     }
   },
@@ -20,7 +21,7 @@ const zoomService: ZoomService = {
     try {
       await invoke('zoom_out')
     } catch (error) {
-      console.error('Failed to zoom out:', error)
+      logger.error('Failed to zoom out:', error)
       throw error
     }
   },
@@ -29,7 +30,7 @@ const zoomService: ZoomService = {
     try {
       await invoke('zoom_reset')
     } catch (error) {
-      console.error('Failed to reset zoom:', error)
+      logger.error('Failed to reset zoom:', error)
       throw error
     }
   }

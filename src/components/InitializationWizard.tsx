@@ -6,6 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from './modals/ConfirmModal';
 import Button from './ui/Button';
 import Card from './ui/Card';
+import { logger } from '../utils/logger';
 
 interface BackupManifest {
   version: string;
@@ -67,7 +68,7 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete,
       const info: InitializationBackupInfo = JSON.parse(result);
       setBackupInfo(info);
     } catch (err) {
-      console.error('Failed to check for backups:', err);
+      logger.error('Failed to check for backups:', err);
       setError('Failed to check for existing backups');
     } finally {
       setIsLoading(false);
@@ -94,7 +95,7 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete,
       showSuccess(`กู้คืนข้อมูลสำเร็จ!\n${result}`);
       onComplete();
     } catch (err) {
-      console.error('Failed to import backup:', err);
+      logger.error('Failed to import backup:', err);
       showError(`กู้คืนข้อมูลล้มเหลว: ${err}`);
     } finally {
       setIsImporting(false);
@@ -116,7 +117,7 @@ const InitializationWizard: React.FC<InitializationWizardProps> = ({ onComplete,
         await handleImportBackup(selected);
       }
     } catch (err) {
-      console.error('Failed to select backup file:', err);
+      logger.error('Failed to select backup file:', err);
       showError(`เลือกไฟล์สำรองล้มเหลว: ${err}`);
     }
   };

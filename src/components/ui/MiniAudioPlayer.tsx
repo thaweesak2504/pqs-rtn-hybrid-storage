@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, RotateCcw, RotateCw, List } from 'lucide-react'
+import { Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, RotateCcw, RotateCw, List, FolderOpen, X, Trash2 } from 'lucide-react'
 
 interface MiniAudioPlayerProps {
   audioRef: React.RefObject<HTMLAudioElement>
@@ -12,9 +12,13 @@ interface MiniAudioPlayerProps {
   playlist?: Array<{
     src: string
     title: string
+    isTemporary?: boolean
   }>
   currentTrackIndex?: number
   onTrackChange?: (index: number) => void
+  onOpenFile?: () => void
+  onRemoveTrack?: (index: number) => void
+  onClearTemporary?: () => void
 }
 
 const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
@@ -27,7 +31,10 @@ const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
   title = 'PQS Podcast',
   playlist = [],
   currentTrackIndex = 0,
-  onTrackChange
+  onTrackChange,
+  onOpenFile,
+  onRemoveTrack,
+  onClearTemporary
 }) => {
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -188,6 +195,7 @@ const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
         document.removeEventListener('mouseup', handleProgressMouseUp)
       }
     }
+    return undefined;
   }, [isDragging, handleProgressMouseMove, handleProgressMouseUp])
 
   
@@ -236,6 +244,7 @@ const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
         document.removeEventListener('mouseup', handleVolumeMouseUp)
       }
     }
+    return undefined;
   }, [isVolumeDragging, handleVolumeMouseMove, handleVolumeMouseUp])
 
   // Handle mute toggle
@@ -554,26 +563,80 @@ const MiniAudioPlayer: React.FC<MiniAudioPlayerProps> = ({
             className="absolute top-full right-0 mt-2 bg-github-bg-tertiary border border-github-border-primary rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto min-w-48 max-w-64"
           >
             <div className="p-3">
-              <div className="text-xs font-medium text-github-text-secondary mb-3 px-1">
-                Playlist
+              <div className="flex items-center justify-between mb-3 px-1">
+                <div className="text-xs font-medium text-github-text-secondary">
+                  Playlist
+                </div>
+                <div className="flex items-center space-x-1">
+                  {onClearTemporary && playlist.some(t => t.isTemporary) && (
+                    <button
+                      onClick={() => {
+                        onClearTemporary()
+                      }}
+                      className="flex items-center space-x-1 px-2 py-1 rounded-md text-xs
+                               text-github-accent-danger hover:bg-github-accent-danger/10
+                               transition-colors duration-200"
+                      aria-label="Clear temporary tracks"
+                      type="button"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>ล้าง</span>
+                    </button>
+                  )}
+                  {onOpenFile && (
+                    <button
+                      onClick={() => {
+                        onOpenFile()
+                        setShowPlaylist(false)
+                      }}
+                      className="flex items-center space-x-1.5 px-2 py-1 rounded-md text-xs
+                               text-github-accent-info hover:bg-github-bg-hover
+                               transition-colors duration-200"
+                      aria-label="Open audio file"
+                      type="button"
+                    >
+                      <FolderOpen className="w-3.5 h-3.5" />
+                      <span>เปิดไฟล์</span>
+                    </button>
+                  )}
+                </div>
               </div>
               {playlist.map((track, index) => (
-                <button
+                <div
                   key={index}
-                  onClick={() => handleTrackSelect(index)}
-                  className={`w-full text-left px-3 py-2.5 rounded-md text-sm transition-colors duration-200 ${
+                  className={`flex items-center rounded-md text-sm transition-colors duration-200 ${
                     index === currentTrackIndex
                       ? 'bg-github-bg-active text-github-text-primary'
                       : 'text-github-text-secondary hover:bg-github-bg-hover'
                   }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="truncate pr-2">{track.title}</span>
-                    {index === currentTrackIndex && (
-                      <div className="w-2 h-2 bg-github-text-primary rounded-full flex-shrink-0" />
-                    )}
-                  </div>
-                </button>
+                  <button
+                    onClick={() => handleTrackSelect(index)}
+                    className="flex-1 text-left px-3 py-2.5 min-w-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="truncate pr-2">{track.title}</span>
+                      {index === currentTrackIndex && (
+                        <div className="w-2 h-2 bg-github-text-primary rounded-full flex-shrink-0" />
+                      )}
+                    </div>
+                  </button>
+                  {track.isTemporary && onRemoveTrack && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onRemoveTrack(index)
+                      }}
+                      className="flex-shrink-0 p-1.5 mr-1 rounded hover:bg-github-accent-danger/20
+                               text-github-text-secondary hover:text-github-accent-danger
+                               transition-colors duration-200"
+                      aria-label={`Remove ${track.title}`}
+                      type="button"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           </div>

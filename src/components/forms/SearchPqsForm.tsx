@@ -6,6 +6,7 @@ import UnitSelector from '../common/UnitSelector'
 import ConfirmModal from '../modals/ConfirmModal'
 import { FormGroup, FormInput, FormSelect } from '../ui/Form'
 import Tooltip from '../ui/Tooltip'
+import { logger } from '../../utils/logger';
 
 const PROTECTED_DOCUMENT_IDS = new Set(['22724201001'])
 
@@ -75,7 +76,7 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
       })
       setResults(docs)
     } catch (err) {
-      console.error("Search failed:", err)
+      logger.error("Search failed:", err)
       setErrorMsg("Failed to search documents.")
       setResults([])
     } finally {
@@ -98,7 +99,7 @@ const SearchPqsForm: React.FC<SearchPqsFormProps> = ({ onEdit }) => {
       // Refresh results
       handleSearch()
     } catch (err) {
-      console.error("Delete failed:", err)
+      logger.error("Delete failed:", err)
       setErrorMsg(`Failed to delete document: ${err}`)
       setDocToDelete(null)
     }

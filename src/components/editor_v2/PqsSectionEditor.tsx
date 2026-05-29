@@ -4,9 +4,11 @@ import ConfirmModal from '../modals/ConfirmModal';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
-import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
+import PqsReferenceSection from './PqsReferenceSection';
+import { ReferenceDoc } from './reference/types';
 import PqsSectionPreview100 from './PqsSectionPreview100';
 import ScoreProgressBanner from './ScoreProgressBanner';
+import { logger } from '../../utils/logger';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -31,7 +33,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   printSubView = 'question-only',
   onMenuLabelChange,
 }) => {
-  const readOnly = viewMode !== 'edit';
+  const readOnly = viewMode !== 'edit' && viewMode !== 'trainee' && viewMode !== 'qualifier';
   const isCompact = viewMode !== 'edit' && viewMode !== 'print';
 
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
@@ -62,7 +64,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
 
   const fetchReferences = async (sId: number) => {
     try {
-      const refs = await invoke<any[]>('get_section_references', { sectionId: sId });
+      const refs = await invoke<{id: number, reference: {id: number, code: string, title: string, category: string, classification: string, resource_type: string, file_path: string}, usage_count: number}[]>('get_section_references', { sectionId: sId });
       setReferences(refs.map(r => ({
         id: r.id.toString(),
         reference_id: r.reference.id,
@@ -76,7 +78,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         usage_count: r.usage_count || 0 // Added usage_count
       })));
     } catch (error) {
-      console.error("Failed to fetch references:", error);
+      logger.error("Failed to fetch references:", error);
     }
   };
 
@@ -84,7 +86,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+        const sections = await invoke<{id: number, section_number: number, title_th: string, menu_label: string}[]>('get_sections_by_document', { documentId: docId });
         const currentSection = sections.find(s => s.section_number === sectionNumber);
 
         if (currentSection) {
@@ -98,7 +100,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           setSectionId(currentSection.id);
         }
       } catch (error) {
-        console.error("Failed to fetch section data:", error);
+        logger.error("Failed to fetch section data:", error);
       }
     };
     fetchData();
@@ -115,7 +117,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       });
       setCurrentTitle(newTitle);
     } catch (error) {
-      console.error("Failed to update title:", error);
+      logger.error("Failed to update title:", error);
       showAlert("Failed to save title: " + error, 'danger');
     }
   };
@@ -132,7 +134,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setCurrentMenuLabel(newSubTitle);
       onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
-      console.error("Failed to update menu label:", error);
+      logger.error("Failed to update menu label:", error);
       showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
@@ -143,7 +145,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       // 1. Create Reference (or retrieve if code exists - logic needs to be robust)
       // For now, naive create. If fails (duplicate), we might need to search.
       // Let's try to search first to be safe.
-      const existingRefs = await invoke<any[]>('get_references', { search: ref.code, commonOnly: false });
+      const existingRefs = await invoke<{id: number, code: string}[]>('get_references', { search: ref.code, commonOnly: false });
       let refId = 0;
       const match = existingRefs.find(r => r.code === ref.code);
 
@@ -151,7 +153,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
         refId = match.id;
       } else {
         // Create new
-        const newRef = await invoke<any>('create_reference', {
+        const newRef = await invoke<{id: number}>('create_reference', {
           request: {
             code: ref.code,
             title: ref.title,
@@ -178,9 +180,9 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
           referenceId: refId,
           displayOrder: null // Auto append
         });
-      } catch (linkErr: any) {
+      } catch (linkErr) {
         // If it's already linked in DB (even if UI was out of sync)
-        const errMsg = linkErr.toString().toLowerCase();
+        const errMsg = String(linkErr).toLowerCase();
         if (errMsg.includes('unique') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
           showAlert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ", 'warning');
         } else {
@@ -193,7 +195,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
 
     } catch (error) {
-      console.error("Failed to add reference:", error);
+      logger.error("Failed to add reference:", error);
       showAlert("Failed to add reference: " + error, 'danger');
     }
   };
@@ -224,7 +226,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       ));
 
     } catch (error) {
-      console.error("Failed to update reference:", error);
+      logger.error("Failed to update reference:", error);
       showAlert("Failed to update reference: " + error, 'danger');
     }
   };
@@ -237,7 +239,7 @@ const PqsSectionEditor: React.FC<PqsSectionEditorProps> = ({
       setReferences(prev => prev.filter(r => r.id !== id));
       setRefreshQuestionsTrigger(prev => prev + 1); // Trigger question refresh
     } catch (error) {
-      console.error("Failed to remove reference:", error);
+      logger.error("Failed to remove reference:", error);
       showAlert("ไม่สามารถลบเอกสารอ้างอิงที่กำลังถูกใช้งานอยู่ได้", 'warning');
     }
   };

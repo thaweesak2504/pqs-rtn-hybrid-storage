@@ -1,22 +1,9 @@
-import { open as openDialog } from "@tauri-apps/api/dialog";
 import { invoke } from "@tauri-apps/api/tauri";
 import {
-    CheckCircle,
-    ChevronDown,
-    ChevronRight,
-    FileDigit,
     FileText,
-    Globe,
-    GripVertical,
-    ImageIcon,
-    ListChecks,
-    Lock as LockIcon,
-    Mic,
     Plus,
     Save,
-    Shield,
     Trash2,
-    Video,
     X
 } from "lucide-react";
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -29,76 +16,29 @@ import {
 import ConfirmModal from "../modals/ConfirmModal";
 import Button from "../ui/Button";
 import Tooltip from "../ui/Tooltip";
-import AnswerKeyEditor from "./AnswerKeyEditor";
-import AsyncImagePreview from "./AsyncImagePreview";
+import AnswerKeyEditor from "./questionFormCard/AnswerKeyEditor";
+import ReferenceEditor from "./questionFormCard/ReferenceEditor";
+import { SubQuestionListEditor, SubQuestionBindingEditor } from "./questionFormCard/SubQuestionEditor";
+import {
+  ExemptedCheckbox,
+  ExemptedExplainCheckbox,
+  ScoreInput,
+  RequiredCountInput,
+  PrerequisiteExemptedCheckbox,
+  SectionPickerEditor
+} from "./questionFormCard/QuestionMetadataEditor";
+import { logger } from '../../utils/logger';
+import AttachmentPanel from "./AttachmentPanel";
 
-// ============ Types ============
-interface SubQuestionItem {
-  code: string;
-  text: string;
-  alwaysChecked?: boolean;
-}
-
-// ============ QuestionFormCard ============
-
-interface QuestionFormCardProps {
-  prefix: string;
-  level: number; // New prop to determine if L1
-  sectionGroup?: 100 | 200 | 300;
-  isDefaultL1?: boolean; // Flag for default L1 questions (restricted editing)
-  isDefault300L2?: boolean; // Flag for default L2 questions in 300Template (lock text)
-  initialContent?: string;
-  initialDescription?: string;
-  initialImage?: string;
-  initialMetadata?: string | null; // Added initialMetadata
-  initialAnswerKeys?: AnswerKeyRow[];
-  initialReferences?: QuestionReferenceDetail[];
-  onSave: (data: {
-    content: string;
-    description?: string;
-    image?: string;
-    id?: string;
-    references?: QuestionReferenceDetail[];
-    metadata?: string;
-    answerKeys?: AnswerKeyRow[];
-    childLayout?: "list" | "grid";
-  }) => void | Promise<void>; // Added references, metadata & childLayout
-  onCancel: () => void;
-  documentId: string; // Added documentId
-  existingId?: string; // Edit mode ID
-  parentId?: string | null; // Parent question ID (for background save of new L2)
-  sectionId?: number; // Added sectionId for fetching available references
-  onAlert?: (message: string, type?: "warning" | "danger") => void;
-  childLayout?: "list" | "grid";
-  questionSequence?: number;
-  parentSubQuestionList?: SubQuestionItem[];
-  sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
-  sectionSelectedBranch?: { main: string; sub: string };
-  // Scoring props (Section 300)
-  initialScore?: number;
-  initialIsScored?: boolean;
-  initialQuestionType?: string;
-  initialDisplayText?: string;
-  initialIsGroupHeader?: boolean;
-  onRefresh?: () => void; // Callback to refresh question tree after DB changes
-  currentSectionNumber?: number; // For "Don't select yourself" logic in Section Picker
-  usageRefreshKey?: number;
-  subQUsageParentId?: string; // L1 ancestor ID for consistent SubQ usage counting across L2/L3
-}
-
-interface AnswerKeyRow {
-  id: number;
-  question_id: string;
-  sub_question_code: string;
-  answer_key_text: string | null;
-  is_required: boolean;
-  order_index: number;
-}
-
-const EMPTY_REFS: QuestionReferenceDetail[] = [];
-const REFERENCE_PAGE_ALLOWED_CHARS = /^[0-9-]*$/;
-const REFERENCE_PAGE_VALID_FORMAT = /^(?:\d+|\d+-\d+)$/;
-const REFERENCE_PAGE_ERROR_MESSAGE = "รูปแบบเลขหน้าไม่ถูกต้อง: ใช้เลขอารบิก และ - เท่านั้น เช่น 5 หรือ 2-56 ฯ";
+import { AnswerKeyRow, QuestionFormCardProps, SubQuestionItem } from "./questionFormCard/types";
+import {
+  EMPTY_REFS,
+  REFERENCE_PAGE_ALLOWED_CHARS,
+  REFERENCE_PAGE_ERROR_MESSAGE,
+  REFERENCE_PAGE_VALID_FORMAT,
+} from "./questionFormCard/constants";
+import { getThemeColors } from "./questionFormCard/themeColors";
+import { useScrollVisibility } from "./questionFormCard/useScrollVisibility";
 
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
@@ -133,6 +73,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   currentSectionNumber,
   usageRefreshKey = 0,
   subQUsageParentId,
+  isInsidePrerequisiteDoc,
+  fullPrefix,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -151,7 +93,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   // We need to know if its parent is 3xx.1. Check prefix for both Thai (๑) and Arabic (1) numerals.
   const isChildOf1 = prefix.includes('.๑.') || prefix.includes('.1.');
   const isChildOf7 = prefix.includes('.๗.') || prefix.includes('.7.');
-  const isPrerequisiteChild = is300 && !isL1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && isChildOf1; // 3xx.1.1-3xx.1.2
+  // isPrerequisiteChild targets exactly the L2 children (3xx.1.1 and 3xx.1.2) for Exempted checkbox logic
+  const isPrerequisiteChild = is300 && level === 1 && questionSequence !== undefined && questionSequence >= 1 && questionSequence <= 2 && isChildOf1;
   const isSection300Selector = is300 && !isL1 && questionSequence === 3 && isChildOf1; // 3xx.1.3 → select 300Sections (no score)
   const isSection100Selector = is300 && !isL1 && questionSequence === 4 && isChildOf1; // 3xx.1.4 → select 100Sections
   const isSection200Selector = is300 && !isL1 && questionSequence === 5 && isChildOf1; // 3xx.1.5 → select 200Sections
@@ -168,37 +111,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const isRequiredInstance = is300 && initialQuestionType === 'required_instance';
   // L2 children of 3xx.2-3xx.6 → can have required_count (จำนวนครั้ง) L3 children
   const isPerformanceL2 = is300 && level === 1 && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild;
+  const isPrerequisiteSubLevel = is300 && level >= 2 && isInsidePrerequisiteDoc;
 
   // Accent colors for sub-question theming (orange/amber for 200, purple for 300)
-  const sqClr = is300 ? {
-    border: 'border-purple-200 dark:border-purple-800/50', bg: 'bg-purple-50/50 dark:bg-purple-950/20',
-    text: 'text-purple-600 dark:text-purple-400', textBold: 'text-purple-700 dark:text-purple-300',
-    textDim: 'text-purple-600/70 dark:text-purple-400/50', count: 'text-purple-500',
-    toggle: 'peer-checked:bg-purple-500', btn: 'bg-purple-500 text-white hover:bg-purple-600',
-    editBtn: 'border-purple-200 dark:border-purple-700 text-purple-500 hover:bg-purple-100 dark:hover:bg-purple-900/30',
-    addBtn: 'border-purple-300 dark:border-purple-700 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-200',
-    inputBd: 'border-purple-300 dark:border-purple-700 focus:ring-1 focus:ring-purple-400',
-    selectBd: 'border-purple-200 dark:border-purple-800 focus:ring-1 focus:ring-purple-400',
-    code: 'text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800',
-    itemBd: 'border-purple-100 dark:border-purple-900/30', itemText: 'text-purple-600 dark:text-purple-400',
-    activeBg: 'bg-purple-50 dark:bg-purple-900/20', check: 'accent-purple-600 border-purple-400 text-purple-600 focus:ring-purple-500',
-    activeAll: 'border-purple-500 bg-purple-500 text-white',
-    bindWrap: 'border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20',
-  } : {
-    border: 'border-orange-200 dark:border-orange-800/50', bg: 'bg-orange-50/50 dark:bg-orange-950/20',
-    text: 'text-orange-600 dark:text-orange-400', textBold: 'text-orange-700 dark:text-orange-300',
-    textDim: 'text-orange-600/70 dark:text-orange-400/50', count: 'text-orange-500',
-    toggle: 'peer-checked:bg-orange-500', btn: 'bg-orange-500 text-white hover:bg-orange-600',
-    editBtn: 'border-orange-200 dark:border-orange-700 text-orange-500 hover:bg-orange-100 dark:hover:bg-orange-900/30',
-    addBtn: 'border-orange-300 dark:border-orange-700 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200',
-    inputBd: 'border-orange-300 dark:border-orange-700 focus:ring-1 focus:ring-orange-400',
-    selectBd: 'border-orange-200 dark:border-orange-800 focus:ring-1 focus:ring-orange-400',
-    code: 'text-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800',
-    itemBd: 'border-orange-100 dark:border-orange-900/30', itemText: 'text-orange-600 dark:text-orange-400',
-    activeBg: 'bg-amber-50 dark:bg-amber-900/20', check: 'accent-amber-600 border-amber-400 text-amber-600 focus:ring-amber-500',
-    activeAll: 'border-amber-500 bg-amber-500 text-white',
-    bindWrap: 'border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20',
-  };
+  const sqClr = getThemeColors(is300);
   const [content, setContent] = useState(initialContent);
   const [description, setDescription] = useState(initialDescription);
   const [showDescription, setShowDescription] = useState(() => {
@@ -239,15 +155,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   }, [isPrerequisiteQuestion, isSection300Selector, isSection100Selector, isSection200Selector, isDefaultDescL1, isDefaultDescL1_200, questionSequence]);
 
-  const [imagePath, setImagePath] = useState<string | null>(initialImage || null);
+  // Phase 5G: Multi-attachment state (replaces single-image system)
+  // Backward compat: migrate metadata.image → attachments array on init
+  const [questionAttachments, setQuestionAttachments] = useState<string[]>(() => {
+    if (parsedInitialMeta?.attachments && Array.isArray(parsedInitialMeta.attachments)) {
+      return parsedInitialMeta.attachments;
+    }
+    // Backward compat: existing single image → first attachment
+    if (initialImage) return [initialImage];
+    return [];
+  });
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
-
-  // Image operation state - defer upload/delete until Save
-  const [pendingImageUpload, setPendingImageUpload] = useState<string | null>(null); // source file path
-  const [pendingImageDelete, setPendingImageDelete] = useState<boolean>(false);
-  const [originalImagePath] = useState<string | null>(initialImage || null); // for rollback on cancel
 
   // ---- Score Editor State (Section 300 only) ----
   const [formScoreIsScored, setFormScoreIsScored] = useState<boolean>(initialIsScored);
@@ -317,7 +237,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setEffectiveIsGroupHeader(true);
           }
         })
-        .catch(err => console.error("Failed to check children count:", err));
+        .catch(err => logger.error("Failed to check children count:", err));
     }
   }, [existingId, initialIsGroupHeader]);
 
@@ -328,7 +248,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       setRequiredCountChildren(children);
       setRequiredCount(children.length);
       if (children.length > 0) {
-        setScorePerInstance(children[0].score);
+        setScorePerInstance(children[0]?.score || 0);
         setEffectiveIsGroupHeader(true);
       } else {
         // No children but was group_header → stale state, revert
@@ -356,7 +276,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }
           });
         } catch (error) {
-          console.error("Failed to update question score:", error);
+          logger.error("Failed to update question score:", error);
         }
       };
       updateScore();
@@ -391,7 +311,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             fetchSectionRefChildren();
           }
         } catch (error) {
-          console.error("Failed to update question score:", error);
+          logger.error("Failed to update question score:", error);
         }
       };
       updateScore();
@@ -516,7 +436,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         setRequiredCountChildren(children);
         if (children.length > 0) setEffectiveIsGroupHeader(true);
       } catch (err) {
-        console.error('Failed to sync 306 L2 children:', err);
+        logger.error('Failed to sync 306 L2 children:', err);
       }
       return;
     }
@@ -525,7 +445,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!isPerformanceL2 || !sectionId || (!existingId && !generatedId && !parentId)) return;
 
     // Build current metadata from form state (sub-questions will be copied to L3)
-    const syncMeta: Record<string, any> = {};
+    const syncMeta: Record<string, unknown> = {};
     if (useSubQuestions) {
       syncMeta.useSubQuestions = true;
       if (selMainBranch) syncMeta.selectedBranch = { main: selMainBranch, sub: selSubBranch };
@@ -557,7 +477,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         });
         setIsBackgroundSaved(true);
       } catch (err) {
-        console.error('Failed to background save L2:', err);
+        logger.error('Failed to background save L2:', err);
         return;
       }
     } else {
@@ -567,7 +487,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           args: { id: questionId, content: content.trim() || '(รอบันทึก)', description: null, metadata: syncMetaStr }
         });
       } catch (err) {
-        console.error('Failed to update L2 metadata before sync:', err);
+        logger.error('Failed to update L2 metadata before sync:', err);
       }
     }
 
@@ -584,20 +504,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       });
       setRequiredCountChildren(children);
     } catch (err) {
-      console.error('Failed to sync required count children:', err);
+      logger.error('Failed to sync required count children:', err);
     }
   }, [is306L1, isPerformanceL2, existingId, generatedId, sectionId, documentId, parentId, content, description, requiredCount, scorePerInstance, useSubQuestions, selMainBranch, selSubBranch, activeSubQCodes, selectedSubQCodes]);
 
   // Fetch branches from DB on mount (both normal and 2xx.4)
   useEffect(() => {
     if (!showSubQuestionEditor) return;
-    invoke<DbBranch[]>('get_occupation_branches').then(setDbBranches).catch(console.error);
+    invoke<DbBranch[]>('get_occupation_branches').then(setDbBranches).catch(logger.error);
   }, [showSubQuestionEditor]);
 
   // Fetch sub-branches when main branch changes (both normal and 2xx.4)
   useEffect(() => {
     if (!showSubQuestionEditor || !selMainBranch) { setDbSubBranches([]); return; }
-    invoke<DbSubBranch[]>('get_occupation_sub_branches', { branchCode: selMainBranch }).then(setDbSubBranches).catch(console.error);
+    invoke<DbSubBranch[]>('get_occupation_sub_branches', { branchCode: selMainBranch }).then(setDbSubBranches).catch(logger.error);
   }, [showSubQuestionEditor, selMainBranch]);
 
   // Fetch sub-questions when branch+sub-branch changes
@@ -615,7 +535,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
           }
         })
-        .catch(console.error);
+        .catch(logger.error);
     } else {
       // Normal case: fetch by specific sub-branch
       invoke<DbSubQuestion[]>('get_occupation_sub_questions', { branchCode: selMainBranch, subBranchCode: selSubBranch })
@@ -627,7 +547,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             setActiveSubQCodes(prev => Array.from(new Set([...prev, ...alwaysCodes])));
           }
         })
-        .catch(console.error);
+        .catch(logger.error);
     }
   }, [showSubQuestionEditor, selMainBranch, selSubBranch, sectionOccupationBranches]);
 
@@ -784,62 +704,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const answerKeyRef = useRef<HTMLTextAreaElement>(null);
-  const formCardRef = useRef<HTMLDivElement>(null);
-  const hasInitialAutoScrolledRef = useRef(false);
-
-  const findScrollableParent = (el: HTMLElement | null): HTMLElement | null => {
-    if (!el) return null;
-    let parent = el.parentElement;
-    while (parent) {
-      const style = window.getComputedStyle(parent);
-      const overflowY = style.overflowY;
-      const canScroll = overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
-      if (canScroll && parent.scrollHeight > parent.clientHeight) return parent;
-      parent = parent.parentElement;
-    }
-    return null;
-  };
-
-  const ensureFormFullyVisible = (smooth = false) => {
-    const formEl = formCardRef.current;
-    if (!formEl) return;
-
-    const scrollParent = findScrollableParent(formEl);
-    const behavior: ScrollBehavior = smooth ? "smooth" : "auto";
-
-    // Extra bottom space to avoid fixed footer / OS taskbar overlap feeling
-    const bottomSafeArea = 88;
-    const topPadding = 8;
-    const bottomPadding = 12;
-
-    if (!scrollParent) {
-      const rect = formEl.getBoundingClientRect();
-      const visibleTop = topPadding;
-      const visibleBottom = window.innerHeight - bottomSafeArea;
-
-      if (rect.bottom > visibleBottom) {
-        window.scrollBy({ top: rect.bottom - visibleBottom + bottomPadding, behavior });
-        return;
-      }
-      if (rect.top < visibleTop) {
-        window.scrollBy({ top: rect.top - visibleTop - bottomPadding, behavior });
-      }
-      return;
-    }
-
-    const formRect = formEl.getBoundingClientRect();
-    const parentRect = scrollParent.getBoundingClientRect();
-    const visibleTop = parentRect.top + topPadding;
-    const visibleBottom = parentRect.bottom - bottomPadding;
-
-    if (formRect.bottom > visibleBottom) {
-      scrollParent.scrollBy({ top: formRect.bottom - visibleBottom + bottomPadding, behavior });
-      return;
-    }
-    if (formRect.top < visibleTop) {
-      scrollParent.scrollBy({ top: formRect.top - visibleTop - bottomPadding, behavior });
-    }
-  };
+  const formCardRef = useScrollVisibility([
+    showDescription,
+    questionAttachments.length,
+    requireRef,
+    requireAnswerKey,
+    isRefExpanded,
+    linkedRefs.length
+  ]);
 
   // Auto-resize textarea helper (Strict)
   const adjustHeight = (el: HTMLTextAreaElement | null) => {
@@ -861,29 +733,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     adjustHeight(answerKeyRef.current);
   }, [answerKey]);
 
-  // Bottom-awareness: keep newly opened form fully visible without manual scrolling.
-  useEffect(() => {
-    if (hasInitialAutoScrolledRef.current) return;
-    hasInitialAutoScrolledRef.current = true;
-    const rafId = window.requestAnimationFrame(() => ensureFormFullyVisible(true));
-    return () => window.cancelAnimationFrame(rafId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Re-check visibility when optional sections expand/collapse and change form height.
-  useEffect(() => {
-    if (!hasInitialAutoScrolledRef.current) return;
-    const rafId = window.requestAnimationFrame(() => ensureFormFullyVisible(false));
-    return () => window.cancelAnimationFrame(rafId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showDescription, imagePath, requireRef, requireAnswerKey, isRefExpanded, linkedRefs.length]);
-
   // Fetch Available References
   useEffect(() => {
     if (requireRef && sectionId) {
       invoke<SectionReferenceDetail[]>("get_section_references", { sectionId })
         .then((refs) => setAvailableRefs(refs))
-        .catch((err) => console.error("Failed to fetch section references:", err));
+        .catch((err) => logger.error("Failed to fetch section references:", err));
     }
   }, [requireRef, sectionId, usageRefreshKey]);
 
@@ -988,38 +843,33 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (errors.refs) setErrors((prev) => ({ ...prev, refs: false }));
   };
 
-  const handleImageUpload = async () => {
-    try {
-      const selected = await openDialog({
-        multiple: false,
-        filters: [{ name: "Image", extensions: ["jpg", "jpeg", "png", "webp"] }],
-      });
-
-      if (selected && typeof selected === "string") {
-        // Store pending upload - don't execute until Save
-        setPendingImageUpload(selected);
-        setPendingImageDelete(false);
-        // Show preview using the selected file path
-        setImagePath(selected);
+  // Phase 5G: Question attachment upload/delete handlers for AttachmentPanel
+  const handleQuestionAttachmentUpload = useCallback(async (sourcePath: string): Promise<string> => {
+    let targetId = existingId;
+    if (!targetId) {
+      if (generatedId) {
+        targetId = generatedId;
+      } else {
+        targetId = crypto.randomUUID();
+        setGeneratedId(targetId);
       }
-    } catch (err) {
-      console.error("Failed to select image:", err);
     }
-  };
+    const friendlyPrefix = convertThaiToArabic(fullPrefix || prefix);
+    const relPath = await invoke<string>("upload_question_image", {
+      path: sourcePath,
+      documentId: documentId,
+      questionId: targetId,
+      friendlyPrefix: friendlyPrefix,
+    });
+    return relPath;
+  }, [existingId, generatedId, fullPrefix, prefix, documentId]);
 
-  const handleRemoveImage = () => {
-    // Mark for deletion - don't execute until Save
-    setPendingImageDelete(true);
-    setPendingImageUpload(null);
-    setImagePath(null);
-  };
+  const handleQuestionAttachmentDelete = useCallback(async (relPath: string): Promise<void> => {
+    await invoke("delete_question_image", { path: relPath });
+  }, []);
 
   const persistAnswerKeys = async (questionId: string) => {
     try {
-      // Prevent clearing answer keys for parent questions that have children
-      // This preserves parent answer boxes when child questions are added
-      const hasChildren = effectiveIsGroupHeader || hasActualChildren;
-      
       if (requireAnswerKey) {
         if (hasParentSubQ && selectedSubQCodes.length > 0) {
           await invoke('replace_question_answer_keys', {
@@ -1037,73 +887,15 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           });
         }
       } else {
-        // Only clear answer keys if the question truly doesn't need them AND doesn't have children
-        if (!hasChildren) {
-          await invoke('replace_question_answer_keys', { questionId, items: [] });
-        }
-        // If has children, preserve existing answer keys even if requireAnswerKey is temporarily false
+        // Authoritative clearing: if toggle is OFF, ALWAYS clear answer keys.
+        await invoke('replace_question_answer_keys', { questionId, items: [] });
       }
     } catch (err) {
-      console.error('Failed to reconcile answer keys:', err);
+      logger.error('Failed to reconcile answer keys:', err);
     }
   };
 
   const handleSave = async () => {
-    // Execute pending image operations BEFORE saving
-    let finalImagePath = imagePath;
-    
-    // Handle pending image upload
-    if (pendingImageUpload) {
-      try {
-        // Delete old image first if it exists (replacement scenario)
-        if (originalImagePath) {
-          try {
-            await invoke('delete_question_image', { path: originalImagePath });
-          } catch (err) {
-            console.error("Failed to delete old image:", err);
-            // Continue with upload anyway
-          }
-        }
-        
-        let targetId = existingId;
-        if (!targetId) {
-          if (generatedId) {
-            targetId = generatedId;
-          } else {
-            targetId = crypto.randomUUID();
-            setGeneratedId(targetId);
-          }
-        }
-        const friendlyPrefix = convertThaiToArabic(prefix);
-        const newPath = await invoke<string>("upload_question_image", {
-          path: pendingImageUpload,
-          documentId: documentId,
-          questionId: targetId,
-          friendlyPrefix: friendlyPrefix,
-        });
-        finalImagePath = newPath;
-        setImagePath(newPath);
-        setPendingImageUpload(null);
-        setPendingImageDelete(false); // Clear delete flag since we're replacing
-      } catch (err) {
-        console.error("Failed to upload image:", err);
-        if (onAlert) {
-          onAlert("ไม่สามารถอัปโหลดรูปภาพได้", "danger");
-        }
-        return;
-      }
-    }
-    // Handle pending image deletion (only if no new upload)
-    else if (pendingImageDelete && originalImagePath) {
-      try {
-        await invoke('delete_question_image', { path: originalImagePath });
-        finalImagePath = null;
-        setPendingImageDelete(false);
-      } catch (err) {
-        console.error("Failed to delete image file:", err);
-        // Continue anyway - deletion failure shouldn't block save
-      }
-    }
 
     // Reset errors
     setErrors({});
@@ -1153,7 +945,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
-    let newMeta: any = {};
+    let newMeta: Record<string, unknown> = {};
     if (initialMetadata) {
       try {
         newMeta = JSON.parse(initialMetadata);
@@ -1218,11 +1010,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (isBackgroundSaved && !isEdit && generatedId) {
       try {
         // Update L2 content/metadata
-        let metaObj: any = {};
+        let metaObj: Record<string, unknown> = {};
         if (metadataString) {
           try { metaObj = JSON.parse(metadataString); } catch { }
         }
-        if (finalImagePath) metaObj.image = finalImagePath;
+        // Phase 5G: store attachments array, remove legacy image
+        delete metaObj.image;
+        if (questionAttachments.length > 0) metaObj.attachments = questionAttachments;
+        else delete metaObj.attachments;
         if (showExtraButtons && currentChildLayout) metaObj.childLayout = currentChildLayout;
         const finalMeta = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
 
@@ -1260,7 +1055,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         }
         await persistAnswerKeys(generatedId);
       } catch (err) {
-        console.error('Failed to finalize background-saved L2:', err);
+        logger.error('Failed to finalize background-saved L2:', err);
       }
       // Refresh tree and close form (silent — avoids full reload flicker in 300 editor)
       onRefresh?.();
@@ -1292,7 +1087,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save question score:', err);
+        logger.error('Failed to save question score:', err);
       }
     }
 
@@ -1309,17 +1104,27 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save 200-series exempted state:', err);
+        logger.error('Failed to save 200-series exempted state:', err);
       }
     }
+
+    // Phase 5G: Inject attachments into metadata before saving
+    let finalMeta = metadataString;
+    try {
+      const metaForSave: Record<string, unknown> = metadataString ? JSON.parse(metadataString) : {};
+      delete metaForSave.image; // Remove legacy single-image field
+      if (questionAttachments.length > 0) metaForSave.attachments = questionAttachments;
+      else delete metaForSave.attachments;
+      finalMeta = Object.keys(metaForSave).length > 0 ? JSON.stringify(metaForSave) : '{}';
+    } catch { /* keep metadataString as-is */ }
 
     await onSave({
       content,
       description: showExtraButtons ? description : undefined,
-      image: showExtraButtons ? finalImagePath || undefined : undefined,
+      image: undefined, // Legacy field — no longer used
       id: !isEdit ? questionId : undefined,
       references: requireRef ? linkedRefs : [],
-      metadata: metadataString,
+      metadata: finalMeta,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
 
@@ -1342,7 +1147,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to sync required count children:', err);
+        logger.error('Failed to sync required count children:', err);
       }
     }
 
@@ -1359,7 +1164,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save question score for new L2:', err);
+        logger.error('Failed to save question score for new L2:', err);
       }
     }
 
@@ -1372,20 +1177,15 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Cleanup background-saved L2 if user cancels
   const handleCancel = useCallback(async () => {
-    // Restore original image state (rollback pending operations)
-    setImagePath(originalImagePath);
-    setPendingImageUpload(null);
-    setPendingImageDelete(false);
-    
     if (isBackgroundSaved && generatedId) {
       try {
         await invoke('delete_question', { id: generatedId });
       } catch (err) {
-        console.error('Failed to cleanup background-saved L2:', err);
+        logger.error('Failed to cleanup background-saved L2:', err);
       }
     }
     onCancel();
-  }, [isBackgroundSaved, generatedId, originalImagePath, onCancel]);
+  }, [isBackgroundSaved, generatedId, onCancel]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -1424,17 +1224,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <FileText className="w-3.5 h-3.5" />
                 </button>
               </Tooltip>
-              {!imagePath && (
-                <Tooltip content="เพิ่มรูปภาพ" position="top-end">
-                  <button
-                    type="button"
-                    onClick={handleImageUpload}
-                    className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
-                  >
-                    <ImageIcon className="w-3.5 h-3.5" />
-                  </button>
-                </Tooltip>
-              )}
+
               {!isDefaultL1 && !is300 && (
                 <Tooltip content="สลับโหมดการแสดงผลคำถามย่อย" position="top-end">
                   <button
@@ -1503,119 +1293,32 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         </div>}
 
         {/* ── Unified "ไม่ต้องปฏิบัติ" checkbox (right after question title for visibility) ── */}
-        {is300 && !isRequiredInstance && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && !isFixedPracticeL1 && !isPerformanceL2 && (
-          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={formScoreType === 'exempted'}
-                  onChange={(e) => {
-                    const isExempted = e.target.checked;
-                    setFormScoreType(isExempted ? 'exempted' : 'normal');
-                    if (isExempted) {
-                      // Clear everything including image
-                      setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
-                      setFormScoreIsScored(false);
-                      setFormScoreValue('0');
-                      setDescription('');
-                      setShowDescription(false);
-                      setUseSubQuestions(false);
-                      setRequiredCount(0);
-                      setRequiredCountChildren([]);
-                      // Clear image (mark for deletion on Save)
-                      if (imagePath) {
-                        setPendingImageDelete(true);
-                        setPendingImageUpload(null);
-                        setImagePath(null);
-                      }
-                    } else {
-                      setFormScoreDisplayText('');
-                    }
-                  }}
-                  className="accent-amber-600 w-3.5 h-3.5"
-                />
-                ไม่ต้องปฏิบัติ
-              </label>
-              {formScoreType === 'exempted' && (
-                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
-                  (ไม่ต้องปฏิบัติ)
-                </span>
-              )}
-            </div>
-            {isL1 && hasActualChildren && formScoreType === 'exempted' && (
-              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
-                <div className="flex items-start gap-2">
-                  <span className="text-red-600 dark:text-red-400 text-sm font-bold">⚠️</span>
-                  <div className="flex-1 text-xs text-red-700 dark:text-red-300">
-                    <div className="font-bold mb-1">คำเตือน: คำถามนี้มีคำถามย่อยอยู่</div>
-                    <div>เมื่อบันทึกเป็น "ไม่ต้องปฏิบัติ" คำถามย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <ExemptedCheckbox
+          is300={is300} isRequiredInstance={isRequiredInstance} isPrerequisiteQuestion={isPrerequisiteQuestion}
+          isPrerequisiteChild={isPrerequisiteChild} isSection300Selector={isSection300Selector}
+          isSection100Selector={isSection100Selector} isSection200Selector={isSection200Selector}
+          isExamChild={isExamChild} isFixedPracticeL1={isFixedPracticeL1} isPerformanceL2={isPerformanceL2}
+          isInsidePrerequisiteDoc={isInsidePrerequisiteDoc} isPrerequisiteSubLevel={isPrerequisiteSubLevel}
+          formScoreType={formScoreType} setFormScoreType={setFormScoreType}
+          setFormScoreDisplayText={setFormScoreDisplayText} setFormScoreIsScored={setFormScoreIsScored}
+          setFormScoreValue={setFormScoreValue} setDescription={setDescription}
+          setShowDescription={setShowDescription} setUseSubQuestions={setUseSubQuestions}
+          setRequiredCount={setRequiredCount} setRequiredCountChildren={setRequiredCountChildren}
+          questionAttachments={questionAttachments} setQuestionAttachments={setQuestionAttachments}
+          handleQuestionAttachmentDelete={handleQuestionAttachmentDelete}
+          isL1={isL1} hasActualChildren={hasActualChildren}
+        />
 
         {/* ── 200-series: all L1 start as "(ไม่ต้องอธิบาย)"; 2xx.2/2xx.4 add default descriptions when activated ── */}
-        {isExemptableL1_200 && (
-          <div className="rounded-md border border-orange-200 dark:border-orange-800/50 bg-orange-50/30 dark:bg-orange-950/20 p-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">การอธิบาย</span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={formScoreType === 'exempted'}
-                  onChange={(e) => {
-                    const isExempted = e.target.checked;
-                    setFormScoreType(isExempted ? 'exempted' : 'normal');
-                    if (isExempted) {
-                      setFormScoreDisplayText('(ไม่ต้องอธิบาย)');
-                      setDescription('');
-                      setShowDescription(false);
-                      setUseSubQuestions(false);
-                      // Clear image (mark for deletion on Save)
-                      if (imagePath) {
-                        setPendingImageDelete(true);
-                        setPendingImageUpload(null);
-                        setImagePath(null);
-                      }
-                    } else {
-                      setFormScoreDisplayText('');
-                      if (isDefaultDescL1_200 && questionSequence !== undefined) {
-                        const DEFAULT_200_DESC: Record<number, string> = {
-                          2: 'อ้างถึงเอกสารประกอบระบบ หรือตัวอุปกรณ์ เพื่อหาส่วนประกอบและชิ้นส่วนในส่วนประกอบ ดังต่อไปนี้ แล้วตอบคำถามที่กำหนด',
-                          4: 'จงอธิบายค่าทำงานปกติ ค่าสูงสุด ต่ำสุด ของการทำงาน ตามรายการที่กำหนด',
-                        };
-                        setDescription(DEFAULT_200_DESC[questionSequence] || '');
-                        setShowDescription(true);
-                      }
-                    }
-                  }}
-                  className="accent-orange-600 w-3.5 h-3.5"
-                />
-                ไม่ต้องอธิบาย
-              </label>
-              {formScoreType === 'exempted' && (
-                <span className="text-xs font-medium text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded">
-                  (ไม่ต้องอธิบาย)
-                </span>
-              )}
-            </div>
-            {isL1 && hasActualChildren && formScoreType === 'exempted' && (
-              <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded">
-                <div className="flex items-start gap-2">
-                  <span className="text-red-600 dark:text-red-400 text-sm font-bold">⚠️</span>
-                  <div className="flex-1 text-xs text-red-700 dark:text-red-300">
-                    <div className="font-bold mb-1">คำเตือน: คำถามนี้มีรายการย่อยอยู่</div>
-                    <div>เมื่อบันทึกเป็น "ไม่ต้องอธิบาย" รายการย่อยทั้งหมดจะถูกลบออกจากฐานข้อมูลอัตโนมัติ</div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        <ExemptedExplainCheckbox
+          isExemptableL1_200={isExemptableL1_200} formScoreType={formScoreType} setFormScoreType={setFormScoreType}
+          setFormScoreDisplayText={setFormScoreDisplayText} setDescription={setDescription}
+          setShowDescription={setShowDescription} setUseSubQuestions={setUseSubQuestions}
+          questionAttachments={questionAttachments} setQuestionAttachments={setQuestionAttachments}
+          handleQuestionAttachmentDelete={handleQuestionAttachmentDelete}
+          isDefaultDescL1_200={isDefaultDescL1_200} questionSequence={questionSequence}
+          isL1={isL1} hasActualChildren={hasActualChildren}
+        />
 
         {/* Form Extras */}
         <div className="space-y-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
@@ -1674,269 +1377,45 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
           {/* ── SubQuestionList Editor (2xx.2 and 2xx.4 L1 headers only) ── */}
           {showSubQuestionEditor && (
-            <div className={`rounded-lg border ${sqClr.border} ${sqClr.bg} p-3 space-y-2`}>
-              {/* Header + Opt-in Toggle */}
-              <div className="flex items-center gap-2">
-                <ListChecks className={`w-4 h-4 ${sqClr.text} shrink-0`} />
-                <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider flex-1`}>
-                  รายการคำถามย่อย (SubQuestion List)
-                </span>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                  <div className="relative inline-flex items-center">
-                    <input type="checkbox" checked={useSubQuestions}
-                      onChange={(e) => {
-                        const newValue = e.target.checked;
-                        setUseSubQuestions(newValue);
-                        if (!newValue) setActiveSubQCodes([]);
-
-                        // Auto-change from Exempted to Normal when enabling sub-questions
-                        if (newValue && formScoreType === 'exempted') {
-                          setFormScoreType('normal');
-                          setFormScoreIsScored(false); // Disable scoring initially
-                        }
-                        // Always set as Group Header when sub-questions are enabled
-                        if (newValue) {
-                          setEffectiveIsGroupHeader(true); // Set as Group Header
-                        }
-                      }}
-                      className="sr-only peer" />
-                    <div className={`w-7 h-4 rounded-full bg-slate-300 dark:bg-slate-600 ${sqClr.toggle} transition-colors`}></div>
-                    <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-white shadow-sm transition-transform peer-checked:translate-x-3"></div>
-                  </div>
-                  <span className={`text-[10px] font-semibold ${useSubQuestions ? sqClr.text : "text-slate-400 dark:text-slate-500"}`}>
-                    {useSubQuestions ? "ใช้งาน" : "ไม่ใช้"}
-                  </span>
-                </label>
-              </div>
-
-              {useSubQuestions && (
-                <div className="space-y-2">
-                  {/* Branch Selector Row */}
-                  <div className="flex flex-wrap gap-2 items-end">
-                    {/* Main Branch */}
-                    <div className="min-w-[140px] max-w-[280px] w-fit">
-                      <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>
-                        สาขาอาชีพหลัก{sectionOccupationBranches && <span className="ml-1 text-[9px] text-slate-400">(จาก 2xx.2)</span>}
-                      </label>
-                      {!sectionOccupationBranches ? (
-                        <Tooltip
-                          disabled={!sectionSelectedBranch}
-                          content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
-                          position="top-start"
-                          className="w-full"
-                        >
-                          <select value={selMainBranch} onChange={(e) => { setSelMainBranch(e.target.value); setSelSubBranch(""); }}
-                            className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
-                            disabled={!!sectionSelectedBranch}>
-                            <option value="">-- เลือก --</option>
-                            {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
-                          </select>
-                        </Tooltip>
-                      ) : (
-                        /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
-                        <Tooltip
-                          content="แสดงค่าที่เลือกมาจากข้อย่อย 2xx.2"
-                          position="top-start"
-                          className="w-full"
-                        >
-                          <select value={selMainBranch} disabled
-                            className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
-                            <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
-                            {dbBranches.map(b => <option key={b.code} value={b.code}>{b.code} - {b.name}</option>)}
-                          </select>
-                        </Tooltip>
-                      )}
-                    </div>
-
-                    {/* Sub Branch */}
-                    {selMainBranch && (
-                      <div className="min-w-[140px] max-w-[280px] w-fit">
-                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>สาขาย่อย</label>
-                        {!sectionOccupationBranches ? (
-                          <Tooltip
-                            disabled={!sectionSelectedBranch}
-                            content="ถูกบังคับใช้งานโดยระดับเอกสาร (แก้ไขไม่ได้)"
-                            position="top-start"
-                            className="w-full"
-                          >
-                            <select value={selSubBranch} onChange={(e) => setSelSubBranch(e.target.value)}
-                              className={`w-full px-2 py-1.5 text-xs border ${sqClr.selectBd} rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 outline-none ${sectionSelectedBranch ? 'cursor-not-allowed opacity-80' : ''}`}
-                              disabled={!!sectionSelectedBranch}>
-                              <option value="">-- เลือก --</option>
-                              {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
-                            </select>
-                          </Tooltip>
-                        ) : (
-                          /* 2xx.4: disabled select แสดงค่าจาก DB (เหมือน 2xx.2) */
-                          <Tooltip
-                            content="แสดงค่าที่เลือกมาจากข้อย่อย 2xx.2"
-                            position="top-start"
-                            className="w-full"
-                          >
-                            <select value={selSubBranch} disabled
-                              className="w-full px-2 py-1.5 text-xs border border-slate-200 dark:border-slate-700 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 outline-none cursor-not-allowed opacity-80">
-                              <option value="">-- ไม่ได้เลือกใน 2xx.2 --</option>
-                              {dbSubBranches.map(sb => <option key={sb.code} value={sb.code}>{sb.code} - {sb.name}</option>)}
-                            </select>
-                          </Tooltip>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Auto code display */}
-                    {autoCodePrefix && (
-                      <div className="shrink-0">
-                        <label className={`block text-[10px] ${sqClr.textDim} mb-0.5`}>รหัส (Auto)</label>
-                        <div className={`px-2 py-1.5 text-xs font-mono font-bold ${sqClr.code} rounded`}>
-                          {autoCodePrefix}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Filtered item list for current branch */}
-                  {filteredItems.length > 0 && (
-                    <div className="grid grid-cols-1 gap-0.5">
-                      {filteredItems.map((item, localIdx) => {
-                        const dbSq = dbSubQuestions.find(sq => sq.code === item.code);
-                        const isLastItem = localIdx === filteredItems.length - 1;
-                        // For protected branch in 300-series: last item shows forced badge, no actions on any item
-                        const showForcedBadge = is300 && item.alwaysChecked && (!isProtectedBranch || isLastItem);
-                        const showActionButtons = !isProtectedBranch;
-                        return (
-                          <div key={item.code} className={`flex items-center gap-2 px-2 py-1 bg-white dark:bg-slate-900/60 border ${sqClr.itemBd} rounded-md group/sq-item`}>
-                            <GripVertical className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
-                            <span className={`text-xs font-bold ${sqClr.itemText} min-w-[1.5ch]`}>{toThaiAlphabet(localIdx + 1)}.</span>
-                            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded shrink-0">{item.code}</span>
-                            <span className="flex-1 text-xs text-slate-700 dark:text-slate-200 truncate">{item.text}</span>
-                            {showForcedBadge && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
-                            {showActionButtons && (
-                              <div className="flex items-center gap-0.5 opacity-0 group-hover/sq-item:opacity-100 transition-opacity">
-                                {is300 && (
-                                  <Tooltip content={item.alwaysChecked ? "ยกเลิกบังคับ" : "บังคับเลือกเสมอ"}>
-                                    <button onClick={async () => { if (dbSq) { const newAc = !item.alwaysChecked; await invoke('update_occupation_sub_question', { id: dbSq.id, text: dbSq.text, alwaysChecked: newAc }); setDbSubQuestions(prev => prev.map(s => s.id === dbSq.id ? { ...s, always_checked: newAc } : s)); if (newAc && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } else { const gi = subQuestionList.findIndex(sq => sq.code === item.code); const u = [...subQuestionList]; u[gi] = { ...u[gi], alwaysChecked: !u[gi].alwaysChecked }; setSubQuestionList(u); if (!item.alwaysChecked && useSubQuestions) { setActiveSubQCodes(prev => Array.from(new Set([...prev, item.code]))); } } }}
-                                        className={`p-0.5 rounded transition-colors ${item.alwaysChecked ? 'text-emerald-500 hover:text-slate-400' : 'text-slate-400 hover:text-emerald-500'}`}>
-                                        <CheckCircle className="w-3 h-3" />
-                                    </button>
-                                  </Tooltip>
-                                )}
-                                <Tooltip content="ลบ">
-                                  <button onClick={async () => { if (dbSq) { await invoke('delete_occupation_sub_question', { id: dbSq.id }); setDbSubQuestions(prev => prev.filter(s => s.id !== dbSq.id)); } else { setSubQuestionList(prev => prev.filter(sq => sq.code !== item.code)); } }} className="p-0.5 text-slate-400 hover:text-red-500 rounded"><Trash2 className="w-3 h-3" /></button>
-                                </Tooltip>
-                              </div>
-                            )}
-
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Step 2: Select active items for children */}
-                  {filteredItems.length > 0 && autoCodePrefix && (() => {
-                    const branchCodes = filteredItems.map(sq => sq.code);
-                    const alwaysCodes = filteredItems.filter(sq => sq.alwaysChecked).map(sq => sq.code);
-                    const activeInBranch = Array.from(new Set([
-                      ...activeSubQCodes.filter(c => branchCodes.includes(c)),
-                      ...alwaysCodes,
-                    ]));
-                    const allActive = activeInBranch.length === filteredItems.length;
-                    return (
-                      <div className={`pt-2 border-t ${sqClr.border}`}>
-                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                          <CheckCircle className={`w-3.5 h-3.5 ${sqClr.text}`} />
-                          <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider flex-1`}>เลือกข้อย่อยที่ใช้งาน</span>
-                          <span className={`text-[10px] ${sqClr.count}`}>{activeInBranch.length}/{filteredItems.length}</span>
-                          <div className="flex gap-1 ml-auto">
-                            <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...branchCodes])}
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded border transition-colors ${allActive ? sqClr.activeAll : sqClr.addBtn}`}>เลือกทั้งหมด</button>
-                            <button type="button" onClick={() => setActiveSubQCodes(prev => [...prev.filter(c => !branchCodes.includes(c)), ...alwaysCodes])}
-                              className="px-2 py-0.5 text-[10px] font-bold rounded border border-slate-300 dark:border-slate-600 text-slate-500 hover:bg-slate-100">ยกเลิกทั้งหมด</button>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-0.5">
-                          {filteredItems.map((sq, idx) => {
-                            const isForced = is300 && sq.alwaysChecked === true;
-                            const isActive = isForced || activeSubQCodes.includes(sq.code);
-                            return (
-                              <label key={sq.code} className={`flex items-center gap-2 px-2 py-1 rounded cursor-pointer select-none text-xs ${isActive ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-80' : ''}`}>
-                                <input type="checkbox" checked={isActive} disabled={isForced} onChange={() => { if (isForced) return; setActiveSubQCodes(prev => isActive ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
-                                  className={`w-3 h-3 rounded ${sqClr.check}`} />
-                                <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
-                                <span className="flex-1 truncate">{sq.text}</span>
-                                {isForced && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
-                                <span className="text-[9px] font-mono text-slate-400 dark:text-slate-600">{sq.code}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-            </div>
+            <SubQuestionListEditor
+              sqClr={sqClr}
+              useSubQuestions={useSubQuestions}
+              setUseSubQuestions={setUseSubQuestions}
+              setActiveSubQCodes={setActiveSubQCodes}
+              formScoreType={formScoreType}
+              setFormScoreType={setFormScoreType}
+              setFormScoreIsScored={setFormScoreIsScored}
+              setEffectiveIsGroupHeader={setEffectiveIsGroupHeader}
+              sectionOccupationBranches={sectionOccupationBranches}
+              sectionSelectedBranch={sectionSelectedBranch}
+              selMainBranch={selMainBranch}
+              setSelMainBranch={setSelMainBranch}
+              selSubBranch={selSubBranch}
+              setSelSubBranch={setSelSubBranch}
+              dbBranches={dbBranches}
+              dbSubBranches={dbSubBranches}
+              autoCodePrefix={autoCodePrefix}
+              filteredItems={filteredItems}
+              dbSubQuestions={dbSubQuestions}
+              setDbSubQuestions={setDbSubQuestions}
+              is300={is300}
+              isProtectedBranch={isProtectedBranch}
+              subQuestionList={subQuestionList}
+              setSubQuestionList={setSubQuestionList}
+              activeSubQCodes={activeSubQCodes}
+            />
           )}
 
           {/* ── SubQuestion Binding (children of L1 with SubQuestionList) ── */}
-          {hasParentSubQ && (
-            <div className={`rounded-lg border ${sqClr.bindWrap} p-3`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <ListChecks className={`w-4 h-4 ${sqClr.text}`} />
-                  <span className={`text-xs font-bold ${sqClr.textBold} uppercase tracking-wider`}>เลือกคำถามย่อย (Select Sub-Questions)</span>
-                  <span className={`text-[10px] ${sqClr.count}`}>{selectedSubQCodes.length}/{parentSubQuestionList!.length}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant={selectedSubQCodes.length > 0 && selectedSubQCodes.length < parentSubQuestionList!.filter(sq => !(is300 && sq.alwaysChecked === true)).length ? "primary" : "outline"}
-                    size="small"
-                    onClick={() => {
-                      const allCodes = parentSubQuestionList!.filter(sq => !(is300 && sq.alwaysChecked === true)).map(sq => sq.code);
-                      setSelectedSubQCodes(allCodes);
-                    }}
-                    disabled={selectedSubQCodes.length === parentSubQuestionList!.filter(sq => !(is300 && sq.alwaysChecked === true)).length}
-                    className={`text-xs px-1.5 py-0.5 ${is300 ? 'hover:border-purple-500' : ''}`}
-                  >
-                    เลือกทั้งหมด
-                  </Button>
-                  <Button
-                    variant={selectedSubQCodes.length > 0 ? "primary" : "outline"}
-                    size="small"
-                    onClick={() => setSelectedSubQCodes([])}
-                    disabled={selectedSubQCodes.length === 0}
-                    className={`text-xs px-1.5 py-0.5 ${is300 ? 'hover:border-purple-500' : ''}`}
-                  >
-                    ยกเลิกทั้งหมด
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-1">
-                {parentSubQuestionList!.map((sq, idx) => {
-                  const isForced = is300 && sq.alwaysChecked === true;
-                  const isChecked = isForced || selectedSubQCodes.includes(sq.code);
-                  return (
-                    <label key={sq.code} className={`flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer select-none text-xs ${isChecked ? sqClr.activeBg + ' text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${isForced ? 'opacity-70' : ''}`}>
-                      <input type="checkbox" checked={isChecked} disabled={isForced}
-                        onChange={() => { if (isForced) return; setSelectedSubQCodes(prev => isChecked ? prev.filter(c => c !== sq.code) : [...prev, sq.code]); }}
-                        className={`w-3 h-3 rounded ${sqClr.check}`} />
-                      <span className={`font-bold ${sqClr.textBold} min-w-[1.5ch]`}>{toThaiAlphabet(idx + 1)}.</span>
-                      <span className="flex-1">{sq.text}</span>
-                      {isForced && <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full shrink-0">บังคับ ✓</span>}
-                      {/* Sub-question usage badge (from relational table) */}
-                      {!isForced && hasParentSubQ && (() => {
-                        const count = subQUsageData.usage_map[sq.code] || 0;
-                        const total = subQUsageData.total_children;
-                        if (count === 0) {
-                          return <span className="ml-auto text-[10px] px-2 py-[1px] rounded-full bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 font-bold whitespace-nowrap">Unused (0/{total})</span>;
-                        }
-                        return <span className="ml-auto text-[10px] px-2 py-[1px] rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
-                      })()}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
+          {hasParentSubQ && parentSubQuestionList && (
+            <SubQuestionBindingEditor
+              sqClr={sqClr}
+              selectedSubQCodes={selectedSubQCodes}
+              setSelectedSubQCodes={setSelectedSubQCodes}
+              parentSubQuestionList={parentSubQuestionList}
+              is300={is300}
+              subQUsageData={subQUsageData}
+            />
           )}
 
           {/* Toggle Options: Reference + Answer Key (Hidden for default 200/300 L1, hidden for 300Template entirely) */}
@@ -1998,203 +1477,42 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           {/* References Section (Both L1 & L2, conditional on toggle — hidden for default 200/300 L1, hidden for 300Template) */}
           {!isDefaultL1 && !is300 && requireRef && (
             <>
-              <label className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
-                <span>เอกสารอ้างอิง (References)</span>
-                <span
-                  className={`text-xs font-normal ${errors.refs ? "text-red-500" : "text-slate-500 dark:text-slate-400"}`}
-                >
-                  (เลือกแล้ว {isRefExpanded ? draftSelectedRefIds.length : linkedRefs.length}/2 รายการ)
-                </span>
-              </label>
-
-              {/* Collapsible References */}
-              <div
-                className={`rounded-md overflow-hidden space-y-2 ${errors.refs ? "p-2 border border-red-500 bg-red-50 dark:bg-red-900/10" : ""}`}
-              >
-                <div
-                  className={`border rounded-md transition-all duration-200 ${isRefExpanded
-                    ? "border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20"
-                    : "border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-600 bg-slate-50 dark:bg-slate-900/30"
-                    }`}
-                >
-                    {/* Toggle Header */}
-                    <div
-                      className="flex items-center justify-between p-2 cursor-pointer"
-                      onClick={handleToggleReferenceEditor}
-                    >
-                      <span
-                        className={`text-xs font-medium ${isRefExpanded ? "text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400"}`}
-                      >
-                        {isRefExpanded
-                          ? "ซ่อนตัวเลือก (Hide Options)"
-                          : linkedRefs.length > 0
-                            ? "แก้ไขเอกสารอ้างอิง (Update References)"
-                            : "+ เพิ่มเอกสารอ้างอิง (Add References)"}
-                      </span>
-                      {isRefExpanded ? (
-                        <ChevronDown className="w-4 h-4 text-blue-500" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      )}
-                    </div>
-
-                    {/* Selector Content */}
-                    {isRefExpanded && (
-                      <div className="p-2 border-t border-blue-100 dark:border-blue-800/50">
-                        <div className="flex flex-col gap-2 animate-in slide-in-from-top-1">
-                          <div className="max-h-[150px] overflow-y-auto border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-slate-900 p-1 custom-scrollbar">
-                            {availableRefs.length === 0 ? (
-                              <div className="text-center py-2 text-xs text-gray-400 italic">
-                                ไม่มีเอกสารเพิ่มเติม
-                              </div>
-                            ) : (
-                              availableRefs
-                                .map((r) => {
-                                  const refId = r.reference.id.toString();
-                                  const isSelected = draftSelectedRefIds.includes(refId);
-                                  const pageError = draftPageErrors[refId];
-                                  return (
-                                    <div
-                                      key={r.reference.id}
-                                      onClick={() => handleToggleDraftReference(refId)}
-                                      className={`p-2 rounded cursor-pointer transition-colors border-b border-gray-100 dark:border-slate-800/50 last:border-0 ${isSelected ? "bg-blue-100 dark:bg-blue-900/40 border border-blue-300 dark:border-blue-700" : "hover:bg-gray-50 dark:hover:bg-slate-800 border-transparent"}`}
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <span
-                                          className={`text-[10px] font-bold w-5 text-center ${isSelected ? "text-blue-700 dark:text-blue-300" : "text-slate-500 dark:text-slate-400"}`}
-                                        >
-                                          {r.thai_letter}.
-                                        </span>
-
-                                        <div
-                                          className={`shrink-0 w-6 h-6 rounded flex items-center justify-center border cursor-default ${isSelected ? "bg-blue-600 border-blue-600 text-white" : "bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-400"}`}
-                                        >
-                                          {isSelected ? (
-                                            <CheckCircle className="w-4 h-4" />
-                                          ) : (
-                                            <>
-                                              {r.reference.resource_type === "WEBLINK" ? (
-                                                <Globe className="w-3.5 h-3.5 text-emerald-500" />
-                                              ) : r.reference.resource_type === "VIDEO" ? (
-                                                <Video className="w-3.5 h-3.5 text-purple-500" />
-                                              ) : r.reference.resource_type === "IMAGE" ? (
-                                                <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                                              ) : r.reference.resource_type === "AUDIO" ? (
-                                                <Mic className="w-3.5 h-3.5 text-orange-500" />
-                                              ) : r.reference.resource_type === "TEMPLATE" ? (
-                                                <FileDigit className="w-3.5 h-3.5 text-slate-500" />
-                                              ) : (
-                                                <FileText className="w-3.5 h-3.5 text-slate-400" />
-                                              )}
-                                            </>
-                                          )}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0 space-y-1">
-                                          <div className="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
-                                            <span className="text-[10px] font-mono font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded shrink-0">
-                                              {r.reference.code}
-                                            </span>
-                                            <div className="min-w-0 flex-1 flex items-center gap-2">
-                                              <Tooltip content={r.reference.title}>
-                                                <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
-                                                  {r.reference.title}
-                                                </span>
-                                              </Tooltip>
-                                            </div>
-                                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                                Page
-                                              </span>
-                                              <input
-                                                type="text"
-                                                value={draftPageByRefId[refId] || ""}
-                                                onChange={(e) => handleDraftPageChange(refId, e.target.value)}
-                                                disabled={!isSelected}
-                                                aria-invalid={!!pageError}
-                                                placeholder={isSelected ? "5 หรือ 2-56" : "เลือก Ref ก่อน"}
-                                                className={`w-28 px-2 py-1 h-8 text-xs text-slate-900 dark:text-slate-100 border rounded bg-white dark:bg-slate-800 focus:ring-1 focus:ring-blue-500 outline-none placeholder:text-slate-400 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed dark:disabled:bg-slate-900/40 dark:disabled:text-slate-500 ${pageError ? "border-red-500 dark:border-red-400" : "border-gray-300 dark:border-gray-600"}`}
-                                              />
-                                            </div>
-                                          </div>
-                                          {pageError && (
-                                            <p className="text-[11px] text-red-600 dark:text-red-400">{pageError}</p>
-                                          )}
-                                        </div>
-
-                                        <div className="shrink-0 flex items-center gap-2">
-                                          {r.usage_count > 0 ? (
-                                            <span className="px-2 py-[1px] rounded-full text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
-                                              Used: {r.usage_count}
-                                            </span>
-                                          ) : (
-                                            <span className="px-2 py-[1px] rounded-full text-[10px] font-bold bg-orange-100 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/50 opacity-80">
-                                              Unused
-                                            </span>
-                                          )}
-
-                                          <Tooltip content={r.reference.classification || "Unclassified"}>
-                                            <div className="flex items-center">
-                                              {r.reference.classification === "Confidential" ||
-                                                r.reference.classification === "Secret" ? (
-                                                <LockIcon className="w-3.5 h-3.5 text-red-500" />
-                                              ) : r.reference.classification === "Restricted" ? (
-                                                <Shield className="w-3.5 h-3.5 text-blue-500" />
-                                              ) : (
-                                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                              )}
-                                            </div>
-                                          </Tooltip>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                              เลือกได้สูงสุด 2 รายการ และแก้ไขเลขหน้าได้พร้อมกันในแต่ละแถว
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="small"
-                              onClick={handleUpdateReferences}
-                              disabled={Object.keys(draftPageErrors).length > 0}
-                              icon={<Plus className="w-3 h-3" />}
-                              className="h-8 text-xs px-3"
-                            >
-                              Update
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-              </div>
+              <ReferenceEditor
+                isExpanded={isRefExpanded}
+                draftSelectedRefIds={draftSelectedRefIds}
+                linkedRefs={linkedRefs}
+                hasError={!!errors.refs}
+                availableRefs={availableRefs}
+                draftPageErrors={draftPageErrors}
+                draftPageByRefId={draftPageByRefId}
+                onToggleExpand={handleToggleReferenceEditor}
+                onToggleDraftRef={handleToggleDraftReference}
+                onDraftPageChange={handleDraftPageChange}
+                onUpdateReferences={handleUpdateReferences}
+              />
             </>
           )}
 
-          {/* Image Preview (L1 Only for 100/300, L0+L1 for 200) */}
-          {showExtraButtons && imagePath && (
-            <div className="flex items-center gap-2 pt-1">
-              <div className="relative group inline-block">
-                <div className="w-16 h-12 rounded border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 overflow-hidden">
-                  <AsyncImagePreview path={imagePath} className="w-full h-full object-cover" />
-                </div>
-                <button
-                  onClick={handleRemoveImage}
-                  className="absolute -top-1.5 -right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded bg-white dark:bg-slate-800 shadow-sm transition-colors opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
+          {/* Phase 5G: Question Attachments Panel (Image/PDF/Video) */}
+          {showExtraButtons && !isInsidePrerequisiteDoc && !is300 && (
+            <div className="pt-1">
+              <AttachmentPanel
+                attachments={questionAttachments}
+                onAttachmentsChange={setQuestionAttachments}
+                documentId={documentId}
+                questionId={existingId || generatedId || ''}
+                userId=""
+                excludeAudio
+                onUploadFile={handleQuestionAttachmentUpload}
+                onDeleteFile={handleQuestionAttachmentDelete}
+                filePrefix={fullPrefix || prefix}
+              />
             </div>
           )}
         </div>
 
         {/* Answer Key (conditional on toggle — hidden for default 200 L1, hidden when useSubQuestions=true but none selected, hidden when hasParentSubQ but none selected) */}
-        {!is300 && !isDefaultL1 && requireAnswerKey
+        {!is300 && !isDefaultL1 && requireAnswerKey && !isInsidePrerequisiteDoc
           && !(showSubQuestionEditor && useSubQuestions && activeSubQCodes.length === 0)
           && !(hasParentSubQ && selectedSubQCodes.length === 0)
           && (
@@ -2242,319 +1560,47 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
 
         {/* ── Scoring section (hidden when exempted or fixedPracticeL1) ── */}
-        {is300 && formScoreType !== 'exempted' && !isFixedPracticeL1 && !((isPerformanceL2 || is306L1) ? (effectiveIsGroupHeader || requiredCount > 0) : effectiveIsGroupHeader) && !isPrerequisiteQuestion && !isPrerequisiteChild && !isSection300Selector && !isSection100Selector && !isSection200Selector && !isExamChild && (
-          <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2 space-y-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">คะแนน</span>
-              {isPerformanceL2 && requiredCount === 0 && !isRequiredInstance ? (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min="0"
-                    value={formScoreValue}
-                    onChange={(e) => setFormScoreValue(e.target.value)}
-                    className={`w-16 px-2 py-0.5 text-xs border rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400 ${parseInt(formScoreValue) === 0
-                      ? 'border-red-300 dark:border-red-700 ring-1 ring-red-400'
-                      : 'border-purple-300 dark:border-purple-700'
-                      }`}
-                  />
-                  <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
-                  {parseInt(formScoreValue) === 0 && (
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded">
-                      ไม่กำหนดจำนวนครั้ง ต้องกำหนดคะแนน
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={formScoreIsScored}
-                    onChange={(e) => setFormScoreIsScored(e.target.checked)}
-                    disabled={effectiveIsGroupHeader}
-                    className="accent-purple-600 w-3.5 h-3.5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  มีคะแนน (is_scored)
-                </label>
-              )}
-              {formScoreIsScored && !(isPerformanceL2 && requiredCount === 0) && (
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min="0"
-                    value={formScoreValue}
-                    onChange={(e) => setFormScoreValue(e.target.value)}
-                    className="w-16 px-2 py-0.5 text-xs border border-purple-300 dark:border-purple-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-purple-400"
-                  />
-                  <span className="text-xs text-slate-500 dark:text-slate-400">คะแนน</span>
-                </div>
-              )}
-            </div>
-          </div>
+        {!isInsidePrerequisiteDoc && (
+          <ScoreInput
+            is300={is300} formScoreType={formScoreType} isFixedPracticeL1={isFixedPracticeL1}
+            isPerformanceL2={isPerformanceL2} is306L1={is306L1} effectiveIsGroupHeader={effectiveIsGroupHeader}
+            requiredCount={requiredCount} isPrerequisiteQuestion={isPrerequisiteQuestion}
+            isPrerequisiteChild={isPrerequisiteChild} isSection300Selector={isSection300Selector}
+            isSection100Selector={isSection100Selector} isSection200Selector={isSection200Selector}
+            isExamChild={isExamChild} isRequiredInstance={isRequiredInstance}
+            formScoreValue={formScoreValue} setFormScoreValue={setFormScoreValue}
+            formScoreIsScored={formScoreIsScored} setFormScoreIsScored={setFormScoreIsScored}
+          />
         )}
 
-
-        {(isPerformanceL2 || is306L1) && !isRequiredInstance && formScoreType !== 'exempted' && (
-          <div className="rounded-md border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/30 dark:bg-indigo-950/20 p-2 space-y-2">
-            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">จำนวนครั้งที่ต้องปฏิบัติ</span>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs text-slate-600 dark:text-slate-300">จำนวนครั้ง</label>
-                <button
-                  type="button"
-                  onClick={() => setRequiredCount(prev => Math.max(0, prev - 1))}
-                  className="w-6 h-6 flex items-center justify-center rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-sm font-bold"
-                >−</button>
-                <input
-                  type="number"
-                  min="0"
-                  max="20"
-                  value={requiredCount}
-                  onChange={(e) => setRequiredCount(Math.max(0, Math.min(20, parseInt(e.target.value) || 0)))}
-                  className="w-12 px-1 py-0.5 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-indigo-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => setRequiredCount(prev => Math.min(20, prev + 1))}
-                  className="w-6 h-6 flex items-center justify-center rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 text-sm font-bold"
-                >+</button>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs text-slate-600 dark:text-slate-300">คะแนน/ครั้ง</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={scorePerInstance}
-                  onChange={(e) => setScorePerInstance(parseInt(e.target.value) || 0)}
-                  className="w-14 px-1 py-0.5 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded bg-white dark:bg-slate-800 dark:text-white focus:ring-1 focus:ring-indigo-400"
-                />
-              </div>
-              {requiredCount > 0 && (
-                <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">
-                  รวม {requiredCount} × {scorePerInstance} = {requiredCount * scorePerInstance} คะแนน
-                </span>
-              )}
-              {(requiredCount > 0 || requiredCountChildren.length > 0) && (existingId || generatedId || parentId) ? (
-                <button
-                  type="button"
-                  onClick={handleSyncRequiredCount}
-                  className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 transition-colors"
-                >
-                  ✓ อัปเดต
-                </button>
-              ) : null}
-            </div>
-            {requiredCountChildren.length > 0 && (
-              <div className="mt-2 space-y-2">
-                {requiredCountChildren.map((child, idx) => (
-                  <div key={child.id} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 pl-2">
-                    <span className="text-indigo-500 font-medium">{is306L1 ? `${prefix}.${child.sequence}` : `${toThaiAlphabet(idx + 1)}.`}</span>
-                    <span className="flex-1 truncate">{child.content}</span>
-                    <span className="text-indigo-500 font-medium">{child.score} คะแนน</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <RequiredCountInput
+          isPerformanceL2={isPerformanceL2} is306L1={is306L1} isRequiredInstance={isRequiredInstance}
+          formScoreType={formScoreType} requiredCount={requiredCount} setRequiredCount={setRequiredCount}
+          scorePerInstance={scorePerInstance} setScorePerInstance={setScorePerInstance}
+          requiredCountChildren={requiredCountChildren} existingId={existingId}
+          generatedId={generatedId} parentId={parentId} handleSyncRequiredCount={handleSyncRequiredCount}
+          prefix={prefix}
+        />
 
         {/* Special handling for 3xx.1.1-3xx.1.3 (Prerequisite Children) */}
-        {is300 && isPrerequisiteChild && (
-          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2">
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={formScoreType === 'exempted'}
-                  onChange={(e) => {
-                    const newType = e.target.checked ? 'exempted' : 'normal';
-                    setFormScoreType(newType);
-                    if (newType === 'exempted') {
-                      setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
-                    }
-                  }}
-                  className="accent-amber-600 w-3.5 h-3.5"
-                />
-                ไม่ต้องปฏิบัติ
-              </label>
-              {formScoreType === 'exempted' && (
-                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
-                  (ไม่ต้องปฏิบัติ)
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        <PrerequisiteExemptedCheckbox
+          is300={is300} isPrerequisiteChild={isPrerequisiteChild}
+          formScoreType={formScoreType} setFormScoreType={setFormScoreType}
+          setFormScoreDisplayText={setFormScoreDisplayText}
+        />
 
         {/* Section Picker for 3xx.1.3 (300Sections), 3xx.1.4 (100Sections) and 3xx.1.5 (200Sections) — L3 section_ref children */}
-        {is300 && (isSection300Selector || isSection100Selector || isSection200Selector) && (
-          <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-950/20 p-2 space-y-2">
-            {/* Single checkbox: ปฏิบัติ / ไม่ต้องปฏิบัติ */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">การปฏิบัติ</span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={formScoreType === 'exempted'}
-                  onChange={(e) => {
-                    const newType = e.target.checked ? 'exempted' : 'normal';
-                    setFormScoreType(newType);
-                    if (newType === 'exempted') {
-                      setFormScoreDisplayText('(ไม่ต้องปฏิบัติ)');
-                    }
-                  }}
-                  className="accent-amber-600 w-3.5 h-3.5"
-                />
-                ไม่ต้องปฏิบัติ
-              </label>
-              {formScoreType === 'exempted' && (
-                <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded">
-                  (ไม่ต้องปฏิบัติ)
-                </span>
-              )}
-            </div>
-
-            {/* When NOT exempted: show section list directly */}
-            {formScoreType !== 'exempted' && (
-              <div className="space-y-2">
-                {/* Section header */}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
-                    {isSection300Selector ? 'เลือก Section 300 ที่ต้องผ่าน' : isSection100Selector ? 'เลือก Section 100 ที่ต้องผ่าน' : 'เลือก Section 200 ที่ต้องผ่าน'}
-                  </span>
-                </div>
-
-                {/* Current L3 section-ref children summary with score */}
-                {sectionRefChildren.length > 0 && (
-                  <div className="space-y-0.5">
-                    {sectionRefChildren.map(child => (
-                      <div key={child.id} className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300">
-                        <span className="font-medium">{child.ref_section_number}</span>
-                        <span className="flex-1">{child.content}</span>
-                        {/* Show score for 3xx.1.3/3xx.1.4/3xx.1.5 */}
-                        {isEdit && (
-                          <Tooltip content="คะแนน">
-                            <input
-                              type="number"
-                              min={0}
-                              value={child.score}
-                              onChange={(e) => {
-                                const newScore = parseInt(e.target.value) || 0;
-                                setSectionRefChildren(prev => prev.map(c => c.id === child.id ? { ...c, score: newScore } : c));
-                              }}
-                              onBlur={async (e) => {
-                                const newScore = parseInt(e.target.value) || 0;
-                                try {
-                                  await invoke('update_section_ref_score', { questionId: child.id, score: newScore });
-                                } catch (err) { console.error('Failed to update section ref score:', err); }
-                              }}
-                              className="w-12 text-center text-xs px-1 py-0.5 border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300"
-                            />
-                          </Tooltip>
-                        )}
-                        {!isEdit && child.score > 0 && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400">
-                            {child.score} คะแนน
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                    {/* Show total score for 3xx.1.3/3xx.1.4/3xx.1.5 */}
-                    {(
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-purple-800 dark:text-purple-200 border-t border-purple-200 dark:border-purple-700 pt-1 mt-1">
-                        <span>รวม</span>
-                        <span className="ml-auto">{sectionRefChildren.reduce((sum, c) => sum + c.score, 0)} คะแนน</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Section checkboxes — always visible when ต้องปฏิบัติ, edit mode + saved only */}
-                {isEdit && existingId && sectionId ? (
-                  <div className="border border-purple-200 dark:border-purple-700 rounded bg-white dark:bg-slate-800 max-h-56 overflow-y-auto">
-                    {availableSections.length === 0 ? (
-                      <div className="px-3 py-2 text-xs text-slate-400">ไม่พบ Section ในกลุ่มนี้</div>
-                    ) : (<>
-                      <div className="sticky top-0 z-10 flex gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-950/40 border-b border-purple-100 dark:border-purple-800/50">
-                        <button type="button" onClick={async () => {
-                          const unchecked = availableSections
-                            .filter(s => !sectionRefChildren.find(c => c.ref_section_id === s.id))
-                            .filter(s => !(currentSectionNumber !== undefined && s.section_number === currentSectionNumber))
-                            .filter(s => !backRefSectionIds.has(s.id));
-                          if (unchecked.length === 0) return;
-                          try {
-                            const children = await invoke<SectionRefChild[]>('batch_add_section_ref_children', {
-                              args: {
-                                parent_id: existingId, document_id: documentId, section_id: sectionId,
-                                sections: unchecked.map(s => ({ linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th })),
-                              }
-                            });
-                            setSectionRefChildren(children);
-                          } catch (e) { console.error('Failed to select all:', e); }
-                        }} className="text-[10px] px-2 py-0.5 rounded bg-purple-600 text-white hover:bg-purple-700">เลือกทั้งหมด</button>
-                        <button type="button" onClick={async () => {
-                          try {
-                            await invoke('remove_all_section_ref_children', { parentId: existingId });
-                            setSectionRefChildren([]);
-                          } catch (e) { console.error('Failed to deselect all:', e); }
-                        }} className="text-[10px] px-2 py-0.5 rounded border border-red-300 dark:border-red-700 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">ยกเลิกทั้งหมด</button>
-                      </div>
-                      <div className="divide-y divide-purple-100 dark:divide-purple-800/50">
-                        {availableSections.map(s => {
-                          const existingChild = sectionRefChildren.find(c => c.ref_section_id === s.id);
-                          const checked = !!existingChild;
-                          // Don't select yourself: disable if this section is the current one
-                          const isSelf = currentSectionNumber !== undefined && s.section_number === currentSectionNumber;
-                          // Disable if target section already references this section (would create circular)
-                          const isBackRef = backRefSectionIds.has(s.id);
-                          const isDisabled = isSelf || isBackRef;
-                          return (
-                            <label key={s.id} className={`flex items-center gap-2 px-3 py-1.5 ${isDisabled ? 'cursor-not-allowed bg-slate-100/60 dark:bg-slate-700/30' : 'cursor-pointer hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}>
-                              <input
-                                type="checkbox"
-                                checked={checked}
-                                disabled={isDisabled}
-                                onChange={async () => {
-                                  if (isDisabled) return;
-                                  if (checked && existingChild) {
-                                    try {
-                                      await invoke('remove_section_ref_child', { questionId: existingChild.id });
-                                      setSectionRefChildren(prev => prev.filter(c => c.id !== existingChild.id));
-                                    } catch (e) { console.error('Failed to remove section ref child:', e); }
-                                  } else {
-                                    try {
-                                      const newChild = await invoke<SectionRefChild>('add_section_ref_child', {
-                                        args: { parent_id: existingId, document_id: documentId, section_id: sectionId, linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th }
-                                      });
-                                      setSectionRefChildren(prev => [...prev, newChild].sort((a, b) => a.ref_section_number - b.ref_section_number));
-                                    } catch (e) { console.error('Failed to add section ref child:', e); }
-                                  }
-                                }}
-                                className="accent-purple-600 w-3.5 h-3.5 shrink-0"
-                              />
-                              <span className={`text-xs font-medium shrink-0 ${isDisabled ? 'text-slate-500 dark:text-slate-400' : 'text-purple-600 dark:text-purple-400'}`}>{s.section_number}</span>
-                              <span className={`text-xs flex-1 ${isDisabled ? 'text-slate-500 dark:text-slate-400 line-through decoration-slate-400 dark:decoration-slate-400' : 'text-slate-700 dark:text-slate-300'}`}>{s.title_th}</span>
-                              {isSelf && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded shrink-0">(ตัวเอง)</span>}
-                              {isBackRef && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 rounded shrink-0">(อ้างอิงสูงกว่า)</span>}
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </>)}
-                  </div>
-                ) : (
-                  <div className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-1 rounded">
-                    ⚠ บันทึกก่อน แล้วค่อยเลือก Section
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        <SectionPickerEditor
+          is300={is300} isSection300Selector={isSection300Selector} isSection100Selector={isSection100Selector}
+          isSection200Selector={isSection200Selector} formScoreType={formScoreType}
+          setFormScoreType={setFormScoreType} setFormScoreDisplayText={setFormScoreDisplayText}
+          sectionRefChildren={sectionRefChildren} setSectionRefChildren={setSectionRefChildren}
+          isEdit={isEdit} existingId={existingId} sectionId={sectionId} availableSections={availableSections}
+          currentSectionNumber={currentSectionNumber} backRefSectionIds={backRefSectionIds} documentId={documentId}
+        />
 
         {/* Group Header Info (Section 300 only) - auto-calc info */}
-        {is300 && effectiveIsGroupHeader && !isSection300Selector && (
+        {is300 && effectiveIsGroupHeader && !isSection300Selector && formScoreType !== 'exempted' && !isPrerequisiteChild && (
           <div className="rounded-md border border-purple-200 dark:border-purple-800/50 bg-purple-50/30 dark:bg-purple-950/20 p-2">
             <div className="flex items-center gap-2 text-xs text-purple-600 dark:text-purple-400">
               <span className="font-bold uppercase tracking-wider">Group Header</span>

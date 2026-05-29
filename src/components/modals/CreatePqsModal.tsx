@@ -3,6 +3,7 @@ import Modal from '../ui/Modal'
 import { invoke } from '@tauri-apps/api/tauri'
 import Button from '../ui/Button' // Assuming default export based on name
 // import Form inputs or use generic HTML/Tailwind for speed/customization?
+import { logger } from '../../utils/logger';
 // Checking Form.tsx might be useful but standard inputs are fine for this specificity.
 
 interface OwnerUnit {
@@ -67,6 +68,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       setSelectedL4('')
       setPreviewId('')
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   const loadRootUnits = async () => {
@@ -80,15 +82,15 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       // Check if units length > 1 or is Navy?
       // For now, let's assume 'units' here are the top level selectable items (e.g. Fleets, Departments)
       // Or if Navy is the ONLY root, we load its children.
-      if (units.length === 1 && units[0].unit_level === 1) { // L1 logic
+      if (units.length === 1 && units[0]?.unit_level === 1) { // L1 logic
         // This is Navy. Load its children as L2.
-        loadChildren(units[0].unit_id, setL2Units)
+        loadChildren(units[0]?.unit_id || '', setL2Units)
       } else {
         // These are likely L2s already?
         setL2Units(units)
       }
     } catch (err) {
-      console.error("Failed to load units:", err)
+      logger.error("Failed to load units:", err)
       setError("Failed to load initial units")
     }
   }
@@ -98,7 +100,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
       setter(units)
     } catch (err) {
-      console.error(`Failed to load children for ${parentId}:`, err)
+      logger.error(`Failed to load children for ${parentId}:`, err)
     }
   }
 
@@ -145,6 +147,7 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
           userLevel
         })
         setPreviewId(id)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (err) {
         setPreviewId("Error generating ID")
       }
@@ -190,8 +193,8 @@ const CreatePqsModal: React.FC<CreatePqsModalProps> = ({ isOpen, onClose, onSucc
       onClose()
       // You might want to show a toast success here?
 
-    } catch (err: any) {
-      console.error("Create failed:", err)
+    } catch (err) {
+      logger.error("Create failed:", err)
       setError(typeof err === 'string' ? err : "Failed to create document")
     } finally {
       setIsLoading(false)

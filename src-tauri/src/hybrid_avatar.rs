@@ -1,4 +1,4 @@
-use crate::database::get_connection_safe;
+use crate::auth::get_connection_safe;
 use crate::file_manager::FileManager;
 use crate::logger;
 use rusqlite::params;

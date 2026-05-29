@@ -1,13 +1,14 @@
 import { tauriDatabaseService, tauriUserService } from './tauriService';
+import { logger } from '../utils/logger';
 
 // Database initialization and health check functions
 export const initDatabase = async (): Promise<string> => {
   try {
     const result = await tauriDatabaseService.initializeDatabase();
-    console.log('Database initialized successfully');
+    logger.info('Database initialized successfully');
     return result || 'Database initialized successfully';
   } catch (error) {
-    console.error('Failed to initialize database:', error);
+    logger.error('Failed to initialize database:', error);
     throw error;
   }
 };
@@ -17,7 +18,7 @@ export const checkDatabaseHealth = async (): Promise<boolean> => {
     await tauriUserService.getAllUsers();
     return true;
   } catch (error) {
-    console.error('Database health check failed:', error);
+    logger.error('Database health check failed:', error);
     return false;
   }
 };

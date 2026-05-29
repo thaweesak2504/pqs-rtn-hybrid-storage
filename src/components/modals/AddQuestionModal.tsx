@@ -3,6 +3,7 @@ import { AlertCircle, BookOpen, HelpCircle, Save, Table, X } from 'lucide-react'
 import React, { useEffect, useState } from 'react';
 import { QuestionDetail } from '../../types/content'; // Ensure this import exists
 import { normalizePolicyGuardError } from '../../utils/policyGuards';
+import { logger } from '../../utils/logger';
 
 interface DocumentReference {
   id: number;
@@ -102,7 +103,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
         const refs = await invoke<SectionReferenceDetail[]>('get_section_references', { sectionId });
         setAvailableRefs(refs);
       } catch (err) {
-        console.error('Failed to load references:', err);
+        logger.error('Failed to load references:', err);
       } finally {
         setLoading(false);
       }
@@ -253,7 +254,7 @@ const AddQuestionModal: React.FC<AddQuestionModalProps> = ({
       onSuccess();
       onClose();
     } catch (err) {
-      console.error('Failed to save question:', err);
+      logger.error('Failed to save question:', err);
       setSubmitError(normalizePolicyGuardError(err, 'Failed to save question'));
     } finally {
       setSaving(false);

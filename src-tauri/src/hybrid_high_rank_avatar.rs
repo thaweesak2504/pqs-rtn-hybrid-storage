@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::sync::Arc; // Phase 1.4: Arc for shared FileManager
 
-use crate::database::get_connection_safe;
+use crate::auth::get_connection_safe;
 use crate::file_manager::FileManager;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

@@ -4,9 +4,11 @@ import ConfirmModal from '../modals/ConfirmModal';
 import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
-import PqsReferenceSection, { ReferenceDoc } from './PqsReferenceSection';
+import PqsReferenceSection from './PqsReferenceSection';
+import { ReferenceDoc } from './reference/types';
 import PqsSectionPreview200 from './PqsSectionPreview200';
 import ScoreProgressBanner from './ScoreProgressBanner';
+import { logger } from '../../utils/logger';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -37,7 +39,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   docBranchMain,
   docBranchSub,
 }) => {
-  const readOnly = viewMode !== 'edit';
+  const readOnly = viewMode !== 'edit' && viewMode !== 'trainee' && viewMode !== 'qualifier';
   const isCompact = viewMode !== 'edit' && viewMode !== 'print';
   const [references, setReferences] = useState<ReferenceDoc[]>([]);
   const [currentTitle, setCurrentTitle] = useState(title);
@@ -67,7 +69,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
 
   const fetchReferences = async (sId: number) => {
     try {
-      const refs = await invoke<any[]>('get_section_references', { sectionId: sId });
+      const refs = await invoke<{id: number, reference: {id: number, code: string, title: string, category: string, classification: string, resource_type: string, file_path: string}, usage_count: number}[]>('get_section_references', { sectionId: sId });
       setReferences(refs.map(r => ({
         id: r.id.toString(),
         reference_id: r.reference.id,
@@ -81,7 +83,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         usage_count: r.usage_count || 0
       })));
     } catch (error) {
-      console.error("Failed to fetch references:", error);
+      logger.error("Failed to fetch references:", error);
     }
   };
 
@@ -89,7 +91,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+        const sections = await invoke<{id: number, section_number: number, title_th: string, menu_label: string}[]>('get_sections_by_document', { documentId: docId });
         const currentSection = sections.find(s => s.section_number === sectionNumber);
 
         if (currentSection) {
@@ -103,7 +105,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
           setSectionId(currentSection.id);
         }
       } catch (error) {
-        console.error("Failed to fetch section data:", error);
+        logger.error("Failed to fetch section data:", error);
       }
     };
     fetchData();
@@ -120,7 +122,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
       });
       setCurrentTitle(newTitle);
     } catch (error) {
-      console.error("Failed to update title:", error);
+      logger.error("Failed to update title:", error);
       showAlert("Failed to save title: " + error, 'danger');
     }
   };
@@ -137,7 +139,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
       setCurrentMenuLabel(newSubTitle);
       onMenuLabelChange?.();
     } catch (error) {
-      console.error("Failed to update menu label:", error);
+      logger.error("Failed to update menu label:", error);
       showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
@@ -145,14 +147,14 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
   const handleAddRef = async (ref: Omit<ReferenceDoc, 'id'>) => {
     if (!sectionId) return;
     try {
-      const existingRefs = await invoke<any[]>('get_references', { search: ref.code, commonOnly: false });
+      const existingRefs = await invoke<{id: number, code: string}[]>('get_references', { search: ref.code, commonOnly: false });
       let refId = 0;
       const match = existingRefs.find(r => r.code === ref.code);
 
       if (match) {
         refId = match.id;
       } else {
-        const newRef = await invoke<any>('create_reference', {
+        const newRef = await invoke<{id: number}>('create_reference', {
           request: {
             code: ref.code,
             title: ref.title,
@@ -177,8 +179,8 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
           referenceId: refId,
           displayOrder: null
         });
-      } catch (linkErr: any) {
-        const errMsg = linkErr.toString().toLowerCase();
+      } catch (linkErr) {
+        const errMsg = String(linkErr).toLowerCase();
         if (errMsg.includes('unique') || errMsg.includes('already exists') || errMsg.includes('duplicate')) {
           showAlert("เอกสารนี้ถูกเพิ่มไว้ในรายการแล้วครับ", 'warning');
         } else {
@@ -189,7 +191,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
       await fetchReferences(sectionId);
       setRefreshQuestionsTrigger(prev => prev + 1);
     } catch (error) {
-      console.error("Failed to add reference:", error);
+      logger.error("Failed to add reference:", error);
       showAlert("Failed to add reference: " + error, 'danger');
     }
   };
@@ -218,7 +220,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
         r.id === updatedRef.id ? { ...r, ...updatedRef } : r
       ));
     } catch (error) {
-      console.error("Failed to update reference:", error);
+      logger.error("Failed to update reference:", error);
       showAlert("Failed to update reference: " + error, 'danger');
     }
   };
@@ -229,7 +231,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
       setReferences(prev => prev.filter(r => r.id !== id));
       setRefreshQuestionsTrigger(prev => prev + 1);
     } catch (error) {
-      console.error("Failed to remove reference:", error);
+      logger.error("Failed to remove reference:", error);
       showAlert("ไม่สามารถลบเอกสารอ้างอิงที่กำลังถูกใช้งานอยู่ได้", 'warning');
     }
   };

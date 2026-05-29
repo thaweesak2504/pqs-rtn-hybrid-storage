@@ -4,6 +4,7 @@ import { FormInput, FormTextarea, FormSelect, FormGroup, FormRow, FormActions } 
 import Button from '../ui/Button'
 import UnitSelector from '../common/UnitSelector'
 import { Save, CheckCircle, AlertCircle } from 'lucide-react'
+import { logger } from '../../utils/logger';
 
 interface CreateDocumentArgs {
   name: string
@@ -15,7 +16,8 @@ interface CreateDocumentArgs {
 }
 
 interface CreatePqsFormProps {
-  initialData?: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialData?: any;
   onSuccess?: (docId?: string) => void
   onCancel?: () => void
 }
@@ -41,14 +43,14 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
   // Populate form when initialData changes
   useEffect(() => {
     if (initialData) {
-      setDocName(initialData.name || '')
+      setDocName(initialData.title || initialData.name || '')
       setAppliedTo(initialData.applied_to || '')
       setDocType(initialData.doc_type || '10')
       setUserLevel(initialData.user_level || '2')
 
       // For ID, we just show it, we don't allow changing unit in simple edit mode normally
       // But for now let's just show the ID in preview and verify usage
-      setPreviewId(initialData.id)
+      setPreviewId(initialData.id || '')
 
       // Pre-fill unit selector if possible? 
       // This is tricky because UnitSelector is self-contained. 
@@ -89,7 +91,7 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
         })
         setPreviewId(id)
       } catch (err) {
-        console.error("ID Generation Error:", err)
+        logger.error("ID Generation Error:", err)
         setPreviewId(`Error: ${err}`)
       }
     }
@@ -151,8 +153,8 @@ const CreatePqsForm: React.FC<CreatePqsFormProps> = ({ initialData, onSuccess, o
 
       if (onSuccess) onSuccess(resultId)
 
-    } catch (err: any) {
-      console.error("Operation failed:", err)
+    } catch (err) {
+      logger.error("Operation failed:", err)
       setErrorMsg(typeof err === 'string' ? err : "Failed to save document")
     } finally {
       setIsLoading(false)

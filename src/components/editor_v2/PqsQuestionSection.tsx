@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/tauri";
 import {
     ChevronDown,
     FileQuestion,
-    Layers
+    Layers,
+    Plus
 } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
@@ -14,9 +15,10 @@ import {
 } from "../../types/content";
 import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
-import ImagePreviewModal from "../modals/ImagePreviewModal";
+
 import QuestionFormCard from "./QuestionFormCard";
 import QuestionTreeNode from "./QuestionTreeNode";
+import { logger } from '../../utils/logger';
 
 // ============ Types ============
 
@@ -31,6 +33,7 @@ export interface UserAnswer {
   assessed_at: string | null;
   assessed_by: string | null;
   updated_at?: string | null;
+  attachments?: string | null; // Phase 5G: JSON array of file paths
 }
 
 interface PqsQuestionSectionProps {
@@ -80,8 +83,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const handleToggleCollapse = (id: string) => {
     setCollapsedIds(prev => {
@@ -171,10 +173,10 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         // Notify parent to refresh the progress banner after new answers are loaded
         onProgressUpdate?.();
       } catch (err) {
-        console.error("Failed to fetch trainee answers:", err);
+        logger.error("Failed to fetch trainee answers:", err);
       }
     } catch (error) {
-      console.error("Failed to fetch questions:", error);
+      logger.error("Failed to fetch questions:", error);
     } finally {
       if (!silent) setLoading(false);
     }
@@ -305,7 +307,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     try {
       // 1. Create Question
       // Construct metadata from image AND answerKey (passed in data.metadata)
-      let metaObj: any = {};
+      let metaObj: Record<string, unknown> = {};
       if (data.metadata) {
         try {
           metaObj = JSON.parse(data.metadata);
@@ -401,7 +403,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       onReferencesUpdated?.();
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to create question:", err);
+      logger.error("Failed to create question:", err);
     }
   };
 
@@ -510,7 +512,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       onReferencesUpdated?.();
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to update question:", err);
+      logger.error("Failed to update question:", err);
     }
   };
 
@@ -527,7 +529,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
           onReferencesUpdated?.();
           setBgSyncTrigger(prev => prev + 1);
         } catch (err) {
-          console.error("Failed to delete:", err);
+          logger.error("Failed to delete:", err);
         }
       },
       variant: "warning",
@@ -539,7 +541,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     const idx = siblings.findIndex((q) => q.id === questionId);
     if (idx <= 0) return; // Already first
     const reordered = [...siblings];
-    [reordered[idx - 1], reordered[idx]] = [reordered[idx], reordered[idx - 1]];
+    const item1 = reordered[idx - 1];
+    const item2 = reordered[idx];
+    if (item1 && item2) {
+      reordered[idx - 1] = item2;
+      reordered[idx] = item1;
+    }
     try {
       // Optimistic: update sequence in local state
       setQuestions(prev => prev.map(q => {
@@ -549,7 +556,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to reorder:", err);
+      logger.error("Failed to reorder:", err);
     }
   };
 
@@ -557,7 +564,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     const idx = siblings.findIndex((q) => q.id === questionId);
     if (idx < 0 || idx >= siblings.length - 1) return; // Already last
     const reordered = [...siblings];
-    [reordered[idx], reordered[idx + 1]] = [reordered[idx + 1], reordered[idx]];
+    const item1 = reordered[idx];
+    const item2 = reordered[idx + 1];
+    if (item1 && item2) {
+      reordered[idx] = item2;
+      reordered[idx + 1] = item1;
+    }
     try {
       // Optimistic: update sequence in local state
       setQuestions(prev => prev.map(q => {
@@ -567,7 +579,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       await invoke("reorder_questions", { questionIds: reordered.map((q) => q.id) });
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to reorder:", err);
+      logger.error("Failed to reorder:", err);
     }
   };
 
@@ -665,10 +677,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 isLast={idx === questionTree.length - 1}
                 documentId={docId}
                 sectionId={sectionId || 0} // Pass sectionId
-                onImageClick={(src) => {
-                  setSelectedImage(src);
-                  setIsImageModalOpen(true);
-                }}
+
                 onAlert={(msg, type) =>
                   setConfirmModal({
                     isOpen: true,
@@ -711,20 +720,23 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         {!isCreating && questionTree.length === 0 && (
           <div
             onClick={readOnly ? undefined : () => handleStartCreate(null)}
-            className={`group relative overflow-hidden rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900/50 dark:to-slate-800/30 py-14 transition-all ${readOnly ? 'cursor-default' : 'cursor-pointer hover:border-blue-300 dark:hover:border-blue-700 hover:shadow-lg hover:shadow-blue-500/5'}`}
+            className={`group relative overflow-hidden rounded-xl border border-github-border-primary bg-github-bg-active py-16 transition-all duration-200 shadow-github-small hover:shadow-github-medium transform hover:scale-[1.01] active:scale-[0.99] ${readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-github-bg-hover hover:border-github-border-active'}`}
           >
-            <div className="flex flex-col items-center gap-3 relative z-10">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                <Layers className="w-7 h-7 text-blue-400 dark:text-blue-500" />
+            <div className="flex flex-col items-center gap-4 relative z-10">
+              <div className="w-16 h-16 rounded-2xl bg-github-bg-secondary border border-github-border-primary flex items-center justify-center group-hover:scale-110 group-hover:border-github-accent-primary transition-all duration-300">
+                <Layers className="w-8 h-8 text-github-text-tertiary group-hover:text-github-accent-primary transition-colors" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                <p className="text-base font-semibold text-github-text-primary tracking-tight">
                   ยังไม่มีคำถามในหัวข้อนี้
                 </p>
+                {!readOnly && (
+                  <p className="mt-2 text-github-accent-primary text-sm font-medium flex items-center justify-center gap-2">
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>คลิกเพื่อเพิ่มคำถามแรก</span>
+                  </p>
+                )}
               </div>
-            </div>
-            <div className="absolute top-4 right-6 opacity-[0.04] dark:opacity-[0.06]">
-              <FileQuestion className="w-32 h-32 text-slate-900 dark:text-slate-100" />
             </div>
           </div>
         )}
@@ -739,11 +751,6 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         variant={confirmModal.variant}
       />
 
-      <ImagePreviewModal // Added ImagePreviewModal
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        imageSrc={selectedImage || ""}
-      />
     </div>
   );
 };

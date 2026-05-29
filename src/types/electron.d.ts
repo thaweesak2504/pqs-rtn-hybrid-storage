@@ -72,6 +72,6 @@ declare global {
     api: {
       ping: () => string
     }
-    __TAURI__?: any
+    __TAURI__?: unknown
   }
 }

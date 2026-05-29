@@ -56,7 +56,7 @@ describe("DesktopService integration", () => {
     await DesktopService.setWindowSize(1280, 720);
 
     expect(windowMock.setSize).toHaveBeenCalledTimes(1);
-    const arg = windowMock.setSize.mock.calls[0][0] as { width: number; height: number };
+    const arg = windowMock.setSize.mock.calls[0]?.[0] as { width: number; height: number };
     expect(arg.width).toBe(1280);
     expect(arg.height).toBe(720);
   });

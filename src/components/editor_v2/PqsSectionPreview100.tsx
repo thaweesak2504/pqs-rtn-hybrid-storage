@@ -1,10 +1,11 @@
-﻿import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/tauri';
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
-import { ReferenceDoc } from './PqsReferenceSection';
+import { ReferenceDoc } from './reference/types';
+import { logger } from '../../utils/logger';
 
 interface AnswerKeyRow {
   id: number;
@@ -80,7 +81,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
         );
         setQuestions(filtered);
       } catch (error) {
-        console.error('Failed to fetch questions for preview:', error);
+        logger.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }
@@ -270,7 +271,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiAlphaRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-alpha">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -283,7 +284,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiDigitRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-num">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);

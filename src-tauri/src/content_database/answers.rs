@@ -1,5 +1,5 @@
 use crate::logger;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 
 use super::*;
 
@@ -13,7 +13,8 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
 
     let mut stmt = conn.prepare(
         "SELECT ua.user_id, ua.question_id, ua.document_id, ua.sub_question_code, ua.answer_text,
-                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text
+                ua.status, ua.feedback, ua.assessed_at, ua.assessed_by, ua.updated_at, ak.answer_key_text,
+                ua.attachments
          FROM UserAnswers ua
          LEFT JOIN QuestionAnswerKeys ak ON ak.question_id = ua.question_id AND ak.sub_question_code = ua.sub_question_code
          WHERE ua.user_id = ?1 AND ua.document_id = ?2"
@@ -33,6 +34,7 @@ pub fn get_trainee_answers(user_id: &str, document_id: &str) -> Result<Vec<UserA
                 assessed_by: row.get(8)?,
                 updated_at: row.get(9)?,
                 answer_key: row.get(10)?,
+                attachments: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -74,13 +76,14 @@ pub fn save_trainee_answer(args: SaveTraineeAnswerArgs) -> Result<String, String
     ensure_answer_key_placeholder(&conn, &args.question_id, &args.sub_question_code)?;
 
     conn.execute(
-        "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'pending', CURRENT_TIMESTAMP)
+        "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, attachments, status, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, 'pending', CURRENT_TIMESTAMP)
          ON CONFLICT(user_id, question_id, document_id, sub_question_code) DO UPDATE SET
             answer_text = excluded.answer_text,
+            attachments = excluded.attachments,
             status = 'pending',
             updated_at = CURRENT_TIMESTAMP",
-        params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text]
+        params![args.user_id, args.question_id, args.document_id, args.sub_question_code, args.answer_text, args.attachments]
     ).map_err(|e| {
         let err_msg = format!("Failed to save answer: {}", e);
         logger::error(format!("save_trainee_answer failed: {}", err_msg));
@@ -118,9 +121,68 @@ pub fn save_qualifier_assessment(args: SaveQualifierAssessmentArgs) -> Result<St
     Ok("Assessment saved successfully".to_string())
 }
 
+/// Delete a trainee's answer row and its associated attachments from disk and database
+pub fn delete_trainee_answer(
+    user_id: &str,
+    question_id: &str,
+    document_id: &str,
+    sub_question_code: &str,
+) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // First retrieve attachments to delete them from disk
+    let mut stmt = conn.prepare(
+        "SELECT attachments FROM UserAnswers WHERE user_id = ?1 AND question_id = ?2 AND document_id = ?3 AND sub_question_code = ?4"
+    ).map_err(|e| e.to_string())?;
+
+    let attachments_opt: Option<String> = stmt.query_row(
+        params![user_id, question_id, document_id, sub_question_code],
+        |row| row.get(0)
+    ).optional().map_err(|e| e.to_string())?.flatten();
+
+    if let Some(attachments_str) = attachments_opt {
+        if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&attachments_str) {
+            for file in parsed {
+                let _ = super::delete_trainee_attachment(file);
+            }
+        }
+    }
+
+    conn.execute(
+        "DELETE FROM UserAnswers WHERE user_id = ?1 AND question_id = ?2 AND document_id = ?3 AND sub_question_code = ?4",
+        params![user_id, question_id, document_id, sub_question_code]
+    ).map_err(|e| format!("Failed to delete answer: {}", e))?;
+
+    // Recalculate progress for this section after delete
+    if let Err(e) = recalculate_section_progress(user_id.to_string(), document_id.to_string()) {
+        logger::warn(format!("delete_trainee_answer completed but progress recalculation failed: {}", e));
+    }
+
+    Ok("Answer deleted successfully".to_string())
+}
+
 /// Clear all trainee answers and progress
 pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
     let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+
+    // Wipe all trainee-attachments directories directly from the file system to clean up orphaned files
+    if let Ok(data_dir) = get_portable_data_dir() {
+        if let Ok(entries) = std::fs::read_dir(&data_dir) {
+            for entry in entries.flatten() {
+                let doc_path = entry.path();
+                if doc_path.is_dir() {
+                    let attachments_dir = doc_path.join("trainee-attachments");
+                    if attachments_dir.exists() {
+                        if let Err(e) = std::fs::remove_dir_all(&attachments_dir) {
+                            logger::warn(format!("Failed to delete trainee-attachments dir {:?}: {}", attachments_dir, e));
+                        } else {
+                            logger::info(format!("Cleared trainee-attachments dir: {:?}", attachments_dir));
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     conn.execute("DELETE FROM UserAnswers", rusqlite::params![])
         .map_err(|e| {
@@ -134,7 +196,9 @@ pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
             e.to_string()
         })?;
 
-    logger::info("Successfully cleared all records from UserAnswers and UserProgress tables.");
+
+
+    logger::info("Successfully cleared all records from UserAnswers and UserProgress tables, and cleaned up trainee attachments.");
     Ok(())
 }
 

@@ -31,6 +31,7 @@ const Toast: React.FC<ToastProps> = ({
 
       return () => clearTimeout(timer)
     }
+    return undefined;
   }, [duration, onClose])
 
   const handleClose = () => {

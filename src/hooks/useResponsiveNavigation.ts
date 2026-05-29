@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { logger } from '../utils/logger';
 
 export interface BreakpointConfig {
   mobile: number
@@ -52,7 +53,7 @@ export const useResponsiveNavigation = (
       setIsTouchDevice(
         'ontouchstart' in window ||
         navigator.maxTouchPoints > 0 ||
-        (navigator as any).msMaxTouchPoints > 0
+        ((navigator as unknown as { msMaxTouchPoints?: number }).msMaxTouchPoints ?? 0) > 0
       )
     }
 
@@ -125,7 +126,7 @@ export const useResponsiveNavigation = (
       try {
         callback(newWidth, newHeight)
       } catch (error) {
-        console.error('Resize listener error:', error)
+        logger.error('Resize listener error:', error)
       }
     })
 
@@ -135,7 +136,7 @@ export const useResponsiveNavigation = (
         try {
           callback(newOrientation)
         } catch (error) {
-          console.error('Orientation listener error:', error)
+          logger.error('Orientation listener error:', error)
         }
       })
     }

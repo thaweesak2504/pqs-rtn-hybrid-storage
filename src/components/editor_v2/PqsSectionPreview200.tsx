@@ -5,8 +5,10 @@ import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
 import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
-import { ReferenceDoc } from './PqsReferenceSection';
+import { ReferenceDoc } from './reference/types';
 import TraineeAnswerBox from './TraineeAnswerBox';
+import { logger } from '../../utils/logger';
+import { buildFullPrefix } from '../../utils/thaiNumbering';
 
 interface AnswerKeyRow {
   id: number;
@@ -69,7 +71,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
 
   useEffect(() => {
     if (!docId) return;
-    invoke<any>('get_document_branch', { docId })
+    invoke<{main?: string, sub?: string}>('get_document_branch', { docId })
       .then(data => { setDocBranchMain(data.main || ''); setDocBranchSub(data.sub || ''); })
       .catch(() => {});
   }, [docId]);
@@ -98,7 +100,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
         );
         setQuestions(filtered);
       } catch (error) {
-        console.error('Failed to fetch questions for preview:', error);
+        logger.error('Failed to fetch questions for preview:', error);
       } finally {
         setLoading(false);
       }
@@ -189,6 +191,9 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               mode={mode}
               showAnswerKey={showAnswerKey}
               docBranch={docBranch}
+              parentFullPrefix={null}
+              parentSequence={null}
+              isInsidePrerequisiteDoc={false}
             />
           ))}
         </div>
@@ -211,6 +216,9 @@ interface PreviewQuestionNode200Props {
   mode: "trainee" | "qualifier" | "viewer" | "edit" | "visitor" | "print";
   showAnswerKey?: boolean;
   docBranch?: { main: string; sub: string };
+  parentFullPrefix?: string | null;
+  parentSequence?: number | null;
+  isInsidePrerequisiteDoc?: boolean;
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -225,6 +233,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   mode,
   showAnswerKey = false,
   docBranch,
+  parentFullPrefix,
+  parentSequence = null,
+  isInsidePrerequisiteDoc = false,
 }) => {
   const is200 = sectionGroup === 200;
 
@@ -264,6 +275,16 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
       return {};
     }
   }, [question.metadata]);
+
+  const fullPrefix = useMemo(() => {
+    return buildFullPrefix(level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup);
+  }, [level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup]);
+
+  const is300 = sectionGroup === 300;
+  const qSeqNum = question.sequence;
+  const isParentDefault300L1 = is300 && parentSequence === 1;
+  const isPrerequisiteDocSelf = is300 && level === 1 && (qSeqNum === 1 || qSeqNum === 2) && isParentDefault300L1;
+  const effectiveIsInsidePrerequisiteDoc = isInsidePrerequisiteDoc || isPrerequisiteDocSelf;
 
   const hasChildren = question.children && question.children.length > 0;
   const [answerKey, setAnswerKey] = useState('');
@@ -314,6 +335,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         setOwnSubQuestionList(filtered);
       }).catch(() => setOwnSubQuestionList([]));
     } catch { setOwnSubQuestionList([]); }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question.metadata, sectionGroup, question.sequence]);
 
   // The effective sub-question list to pass to children
@@ -347,7 +369,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiAlphaRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-alpha">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -360,7 +382,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         while (i < lines.length) {
           const m = (lines[i] ?? "").match(thaiDigitRe);
           if (!m) break;
-          items.push(m[2]);
+          items.push(m[2] || '');
           i++;
         }
         out.push(`<ol class="thai-num">${items.map((t) => `<li>${t}</li>`).join("")}</ol>`);
@@ -463,12 +485,13 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && 
         question.question_type !== 'exempted' && !question.is_group_header && (
           <div className={`mt-1 ${contentStartOffsetClass} flex flex-col gap-1`}>
-            {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
+            {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (!is300 || effectiveIsInsidePrerequisiteDoc) && (
               <TraineeAnswerBox
                 mode={mode}
                 questionId={question.id}
                 documentId={docId}
                 readOnly={mode !== "trainee"}
+                questionPrefix={fullPrefix}
               />
             )}
             <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary mb-1">
@@ -498,13 +521,26 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
           return (
             <div className={`mt-1 ${contentStartOffsetClass} space-y-1`}>
               {ordered.map(code => {
-                const text = answerKeys[code];
+                const text = answerKeys[code] || '';
                 const sqIdx = effectiveSqList.findIndex(s => s.code === code);
                 const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx) : code;
+                
+                const cleanLabel = sqIdx >= 0 && sqIdx < thaiAlpha.length 
+                  ? thaiAlpha[sqIdx] 
+                  : (sqIdx >= 0 ? `${sqIdx + 1}` : code);
+                const subQPrefix = fullPrefix ? `${fullPrefix}.${cleanLabel}.` : `${cleanLabel}.`;
+
                 return (
                   <div key={code} className="flex flex-col gap-1">
-                    {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (
-                      <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} subQuestionCode={code} readOnly={mode !== "trainee"} />
+                    {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (!is300 || effectiveIsInsidePrerequisiteDoc) && (
+                      <TraineeAnswerBox 
+                        mode={mode} 
+                        questionId={question.id} 
+                        documentId={docId} 
+                        subQuestionCode={code} 
+                        readOnly={mode !== "trainee"} 
+                        questionPrefix={subQPrefix}
+                      />
                     )}
                     <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary">
                       <div className="flex items-start gap-2">
@@ -529,9 +565,16 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
         !showAnswerKey && mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') &&
         question.question_type !== 'exempted' && !question.is_group_header &&
         level !== 0 &&
+        (!is300 || effectiveIsInsidePrerequisiteDoc) &&
         (!answerKey && Object.keys(answerKeys).length === 0 && (!question.children || question.children.length === 0)) && (
           <div className={`mt-2 ${contentStartOffsetClass}`}>
-            <TraineeAnswerBox mode={mode} questionId={question.id} documentId={docId} readOnly={mode !== "trainee"} />
+            <TraineeAnswerBox 
+              mode={mode} 
+              questionId={question.id} 
+              documentId={docId} 
+              readOnly={mode !== "trainee"} 
+              questionPrefix={fullPrefix}
+            />
           </div>
         )
       }
@@ -566,6 +609,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   mode={mode}
                   showAnswerKey={showAnswerKey}
                   docBranch={docBranch}
+                  parentFullPrefix={fullPrefix}
+                  parentSequence={question.sequence}
+                  isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
                 />
               </div>
             ))}

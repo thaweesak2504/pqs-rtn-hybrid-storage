@@ -1,5 +1,5 @@
-﻿import React from 'react';
-import { ReferenceDoc } from './PqsReferenceSection';
+import React from 'react';
+import { ReferenceDoc } from './reference/types';
 import PqsSectionPreview100 from './PqsSectionPreview100';
 import PqsSectionPreview200 from './PqsSectionPreview200';
 

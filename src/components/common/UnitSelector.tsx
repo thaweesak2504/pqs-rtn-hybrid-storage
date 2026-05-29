@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { FormSelect, FormGroup } from '../ui/Form'
 import { invoke } from '@tauri-apps/api/tauri'
+import { logger } from '../../utils/logger';
 
 export interface OwnerUnit {
   unit_id: string
@@ -37,6 +38,15 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
   const [selectedL3, setSelectedL3] = useState<string>('')
   const [selectedL4, setSelectedL4] = useState<string>('')
 
+  const loadChildren = async (parentId: string, setter: React.Dispatch<React.SetStateAction<OwnerUnit[]>>) => {
+    try {
+      const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
+      setter(units)
+    } catch (err) {
+      logger.error(`Failed to load children for ${parentId}:`, err)
+    }
+  }
+
   // Load L2 based on L1
   useEffect(() => {
     // Reset lower levels when L1 changes
@@ -52,13 +62,13 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
         try {
           const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId: null })
           // If single root (Navy), load its children
-          if (units.length === 1 && units[0].unit_level === 1) {
-            loadChildren(units[0].unit_id, setL2Units)
+          if (units.length === 1 && units[0]?.unit_level === 1) {
+            loadChildren(units[0]?.unit_id || '', setL2Units)
           } else {
             setL2Units(units)
           }
         } catch (err) {
-          console.error("Failed to load units:", err)
+          logger.error("Failed to load units:", err)
         }
       }
       loadRootUnits()
@@ -67,15 +77,6 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
       // l2Units is already []
     }
   }, [selectedL1])
-
-  const loadChildren = async (parentId: string, setter: React.Dispatch<React.SetStateAction<OwnerUnit[]>>) => {
-    try {
-      const units = await invoke<OwnerUnit[]>('get_owner_units', { parentId })
-      setter(units)
-    } catch (err) {
-      console.error(`Failed to load children for ${parentId}:`, err)
-    }
-  }
 
   // Effect: When L2 changes
   useEffect(() => {
@@ -110,6 +111,7 @@ const UnitSelector: React.FC<UnitSelectorProps> = ({ onSelectionChange, label, c
       finalUnitId,
       unitCode
     })
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedL1, selectedL2, selectedL3, selectedL4])
 
   // Helper to map units to options

@@ -1,5 +1,6 @@
 import React from 'react'
 import { User as UserIcon } from 'lucide-react'
+import { logger } from '../../utils/logger';
 
 interface AvatarProps {
   src?: string | null
@@ -26,8 +27,8 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
   const initials = React.useMemo(() => {
     if (!name) return 'U'
     const parts = name.trim().split(/\s+/)
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+    if (parts.length === 1) return parts[0]?.charAt(0).toUpperCase() || 'U'
+    return ((parts[0]?.charAt(0) || '') + (parts[parts.length - 1]?.charAt(0) || '')).toUpperCase()
   }, [name])
 
   const sizeCls = SIZE_MAP[size]
@@ -49,7 +50,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
             return null
           }
         } catch (error) {
-          console.warn('Avatar path validation error:', error);
+          logger.warn('Avatar path validation error:', error);
         }
         const finalSrc = (function(){
           let s = src
@@ -63,7 +64,6 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
         })()
         if (!finalSrc) return null
         return (
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           <img
             src={finalSrc}
             alt={name || 'Avatar'}
@@ -74,7 +74,7 @@ export const Avatar: React.FC<AvatarProps> = ({ src, name, size = 'md', classNam
               try { 
                 onImageError?.() 
               } catch (error) {
-                console.warn('Avatar onImageError callback error:', error);
+                logger.warn('Avatar onImageError callback error:', error);
               }
             }}
           />

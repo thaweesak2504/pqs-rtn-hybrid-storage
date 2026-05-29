@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { invoke } from "@tauri-apps/api/tauri";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -38,7 +39,7 @@ class FakeTemplateBackend {
   private readonly sections = new Map<number, WorkflowSection>();
   private readonly questionsById = new Map<string, WorkflowQuestion>();
 
-  async handle(command: string, payload?: any): Promise<any> {
+  async handle(command: string, payload?: any): Promise<unknown> {
     switch (command) {
       case "create_new_document":
         return this.createDocument();
@@ -113,7 +114,7 @@ class FakeTemplateBackend {
     for (let seq = 1; seq <= 5; seq += 1) {
       this.insertQuestion({
         sectionId,
-        parentId: l1Ids[0],
+        parentId: l1Ids[0] ?? null,
         sequence: seq,
         questionType: "standard",
         isGroupHeader: false,
@@ -124,7 +125,7 @@ class FakeTemplateBackend {
     for (let seq = 1; seq <= 2; seq += 1) {
       this.insertQuestion({
         sectionId,
-        parentId: l1Ids[6],
+        parentId: l1Ids[6] ?? null,
         sequence: seq,
         questionType: "standard",
         isGroupHeader: false,
@@ -382,7 +383,7 @@ describe("template workflow integration", () => {
 
     await invoke("update_question_score", {
       args: {
-        id: scoredChildren[0].id,
+        id: scoredChildren[0]!.id,
         score: 15,
         is_scored: true,
         question_type: "standard",
@@ -391,7 +392,7 @@ describe("template workflow integration", () => {
 
     await invoke("update_question_score", {
       args: {
-        id: scoredChildren[1].id,
+        id: scoredChildren[1]!.id,
         score: 20,
         is_scored: true,
         question_type: "standard",

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import QuestionFormCard from "../../components/editor_v2/QuestionFormCard";
 import { SectionReferenceDetail } from "../../types/content";
 
-vi.mock("../../components/editor_v2/AnswerKeyEditor", () => ({
+vi.mock("../../components/editor_v2/questionFormCard/AnswerKeyEditor", () => ({
   default: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
     <textarea
       aria-label="answer-key-editor"
@@ -405,5 +405,37 @@ describe("QuestionFormCard integration", () => {
     expect(autoContainer).not.toBeNull();
     expect(within(autoContainer as HTMLElement).getByText("220102")).toBeInTheDocument();
     expect(within(autoContainer as HTMLElement).queryByText("เต็ม")).not.toBeInTheDocument();
+  });
+
+  it("shows exempted checkbox toggle for Section 300 prerequisite parent questions (3xx.1.1 and 3xx.1.2)", () => {
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          sectionGroup: 300,
+          level: 1,
+          prefix: "๓๐๑.๑.๑",
+          questionSequence: 1,
+          isInsidePrerequisiteDoc: true,
+          initialQuestionType: "normal",
+        })}
+      />,
+    );
+    expect(screen.getByLabelText("ไม่ต้องปฏิบัติ")).toBeInTheDocument();
+  });
+
+  it("hides exempted checkbox toggle for Section 300 prerequisite sub-levels", () => {
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          sectionGroup: 300,
+          level: 2,
+          prefix: "ก.",
+          questionSequence: 1,
+          isInsidePrerequisiteDoc: true,
+          initialQuestionType: "normal",
+        })}
+      />,
+    );
+    expect(screen.queryByLabelText("ไม่ต้องปฏิบัติ")).not.toBeInTheDocument();
   });
 });

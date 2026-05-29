@@ -112,14 +112,51 @@ describe("tauriService integration", () => {
     });
   });
 
-  it("maps hashPassword payload", async () => {
+  it("maps changePassword payload", async () => {
     setTauriAvailable();
-    vi.mocked(invoke).mockResolvedValueOnce("hashed-value");
+    vi.mocked(invoke).mockResolvedValueOnce(undefined);
 
-    const result = await tauriUserService.hashPassword("secret");
+    await tauriUserService.changePassword(42, "old-secret", "new-strong-pass");
 
-    expect(invoke).toHaveBeenCalledWith("hash_password", { password: "secret" });
-    expect(result).toBe("hashed-value");
+    expect(invoke).toHaveBeenCalledWith("change_password", {
+      userId: 42,
+      oldPassword: "old-secret",
+      newPassword: "new-strong-pass",
+    });
+  });
+
+  it("maps updateUser payload with plaintext password", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke).mockResolvedValueOnce({ id: 7, username: "jane" });
+
+    await tauriUserService.updateUser(7, "jane", "j@x.com", "brand-new-pw", "Jane Doe", "LT", "editor");
+
+    expect(invoke).toHaveBeenCalledWith("update_user", {
+      id: 7,
+      username: "jane",
+      email: "j@x.com",
+      password: "brand-new-pw",
+      fullName: "Jane Doe",
+      rank: "LT",
+      role: "editor",
+    });
+  });
+
+  it("maps updateUser without password change (null)", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke).mockResolvedValueOnce({ id: 7, username: "jane" });
+
+    await tauriUserService.updateUser(7, "jane", "j@x.com", undefined, "Jane Doe", "LT", "editor");
+
+    expect(invoke).toHaveBeenCalledWith("update_user", {
+      id: 7,
+      username: "jane",
+      email: "j@x.com",
+      password: null,
+      fullName: "Jane Doe",
+      rank: "LT",
+      role: "editor",
+    });
   });
 
   it("maps initializeDatabase command", async () => {

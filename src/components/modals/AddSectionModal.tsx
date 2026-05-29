@@ -96,6 +96,7 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
     }
 
     setError('');
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionNumber, existingNumbers, sectionGroup]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,8 +130,8 @@ const AddSectionModal: React.FC<AddSectionModalProps> = ({
 
       onSuccess(parseInt(sectionNumber));
       onClose();
-    } catch (err: any) {
-      setError(err.toString());
+    } catch (err) {
+      setError(String(err));
     } finally {
       setIsSubmitting(false);
     }

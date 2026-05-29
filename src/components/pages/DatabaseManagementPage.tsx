@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
+import { logger } from '../../utils/logger';
 import { open, save } from '@tauri-apps/api/dialog';
 import { Container, Title, Card, Button, Alert } from '../ui';
 import { Database, Download, Trash2, RefreshCw, FileText, Archive, Package, RotateCcw, FileInput, Shield } from 'lucide-react';
@@ -52,7 +53,7 @@ const DatabaseManagementPage: React.FC = () => {
       const backupList = await invoke<BackupFile[]>('list_database_backups');
       setBackups(backupList);
     } catch (error) {
-      console.error('Error loading backups:', error);
+      logger.error('Error loading backups:', error);
     }
   };
 
@@ -62,7 +63,7 @@ const DatabaseManagementPage: React.FC = () => {
       const hybridBackupList: HybridBackupFile[] = JSON.parse(hybridBackupListJson);
       setHybridBackups(hybridBackupList);
     } catch (error) {
-      console.error('Error loading hybrid backups:', error);
+      logger.error('Error loading hybrid backups:', error);
       setHybridBackups([]); // Set empty array on error
     }
   };
@@ -73,7 +74,7 @@ const DatabaseManagementPage: React.FC = () => {
       const exportList: ExportFile[] = JSON.parse(exportListJson);
       setExports(exportList);
     } catch (error) {
-      console.error('Error loading exports:', error);
+      logger.error('Error loading exports:', error);
       setExports([]); // Set empty array on error
     }
   };
@@ -126,6 +127,7 @@ const DatabaseManagementPage: React.FC = () => {
       loadHybridBackups();
     } catch (error) {
       showMessage('error', `Failed to import hybrid backup: ${error}`);
+
     } finally {
       setIsLoading(false);
     }
@@ -284,7 +286,7 @@ const DatabaseManagementPage: React.FC = () => {
         
         // Copy to selected location
         const copyResult = await invoke<string>('export_hybrid_backup_to_location', {
-          sourceFilename: latestBackup.filename,
+          sourceFilename: latestBackup?.filename || '',
           destinationPath: savePath
         });
         
@@ -428,7 +430,10 @@ const DatabaseManagementPage: React.FC = () => {
           </Button>
         </div>
         <p className="text-github-text-secondary">
-          จัดการฐานข้อมูล สำรองข้อมูล และนำเข้าข้อมูล
+          จัดการฐานข้อมูล ส่งออก (Export) และสำรองข้อมูล (Backup) <br/>
+          <span className="text-github-text-primary font-medium mt-1 inline-block">
+            💡 แนะนำให้ใช้ <b>Hybrid Backup</b> เพราะจะเป็นการสำรองข้อมูลที่สมบูรณ์ที่สุด (รวมไฟล์รูปภาพและเอกสารทั้งหมด)
+          </span>
         </p>
       </div>
 
@@ -460,31 +465,32 @@ const DatabaseManagementPage: React.FC = () => {
 
             <div className="mb-4 space-y-2">
               <Button
-                onClick={createUniversalBackup}
-                disabled={isLoading}
-                className="w-full"
-                icon={<Archive className="w-4 h-4" />}
-                iconPosition="left"
-              >
-                Create Universal SQLite Backup
-              </Button>
-              <Button
                 onClick={createHybridBackup}
                 disabled={isLoading}
-                className="w-full"
+                className="w-full bg-github-accent-primary text-white hover:bg-github-accent-secondary border-none"
                 icon={<Package className="w-4 h-4" />}
                 iconPosition="left"
               >
-                Create Hybrid Backup (Database + Media)
+                Create Full Backup (Database + Image Media) - Recommended
+              </Button>
+              <Button
+                onClick={createUniversalBackup}
+                disabled={isLoading}
+                className="w-full"
+                variant="outline"
+                icon={<Archive className="w-4 h-4" />}
+                iconPosition="left"
+              >
+                Create Database-Only Backup (.db)
               </Button>
             </div>
 
             <div className="space-y-2">
-              <h3 className="font-medium text-github-text-primary mb-1">
-                Available Backups ({backups.length})
+              <h3 className="font-medium text-github-text-primary mb-1 mt-6">
+                Database-Only Backups (.db / .json) ({backups.length})
               </h3>
               <p className="text-xs text-github-text-secondary mb-3">
-                ⚠️ The most recent backup is protected and cannot be deleted.
+                ⚠️ Not recommended for full restoration since media is missing. Only the most recent backup is protected.
               </p>
               {backups.length === 0 ? (
                 <p className="text-github-text-secondary text-sm">
@@ -564,10 +570,10 @@ const DatabaseManagementPage: React.FC = () => {
             {/* Hybrid Backups Section */}
             <div className="space-y-2 mt-6 pt-6 border-t border-github-border-primary">
               <h3 className="font-medium text-github-text-primary mb-1">
-                Hybrid Backups (Database + Media) ({Array.isArray(hybridBackups) ? hybridBackups.length : 0})
+                Full Backups (Hybrid .zip) ({Array.isArray(hybridBackups) ? hybridBackups.length : 0})
               </h3>
               <p className="text-xs text-github-text-secondary mb-3">
-                ⚠️ The most recent hybrid backup is protected and cannot be deleted.
+                ✅ Complete system backups containing both Database and Media. The most recent backup is protected.
               </p>
               {!Array.isArray(hybridBackups) || hybridBackups.length === 0 ? (
                 <p className="text-github-text-secondary text-sm">

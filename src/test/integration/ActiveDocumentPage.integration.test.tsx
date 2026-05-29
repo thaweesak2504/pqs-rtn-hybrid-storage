@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActiveDocumentPage from "../../components/pages/ActiveDocumentPage";
-import { AuthContext } from "../../contexts/authContextObject";
+import { AuthContext } from "../../contexts/AuthContext";
 import { ToastProvider } from "../../contexts/ToastContext";
 
 const mockAuthValue = {
@@ -14,6 +14,7 @@ const mockAuthValue = {
   signOut: vi.fn(),
   checkAuthStatus: vi.fn(),
   updateAvatar: vi.fn(),
+  markPasswordChanged: vi.fn(),
 };
 
 describe("ActiveDocumentPage integration", () => {
@@ -64,7 +65,7 @@ describe("ActiveDocumentPage integration", () => {
     ];
 
     vi.mocked(invoke).mockReset();
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "get_document_with_hierarchy") {
         return {
           document: {

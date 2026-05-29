@@ -1,3 +1,4 @@
+use crate::content_database::{get_content_database_path, get_portable_data_dir};
 use crate::logger;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -52,7 +53,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     let mut database_size = 0u64;
 
     // 1. Add database file
-    let db_path = get_database_path()?;
+    let db_path = get_content_database_path()?;
     if db_path.exists() {
         logger::debug("Adding database file to backup");
         let db_filename = db_path
@@ -125,12 +126,55 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         logger::warn("Media directory not found, skipping media backup");
     }
 
+    // 3. Add data directory (Documents, Question Images, Trainee Attachments, References)
+    let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
+    let mut data_size = 0u64;
+    if data_dir.exists() {
+        logger::debug("Adding data directory to backup");
+
+        for entry in WalkDir::new(&data_dir).into_iter() {
+            let entry =
+                entry.map_err(|e| format!("Failed to read data directory entry: {}", e))?;
+
+            if entry.file_type().is_file() {
+                let file_path = entry.path();
+                let relative_path = file_path
+                    .strip_prefix(&data_dir)
+                    .map_err(|e| format!("Failed to get relative path: {}", e))?;
+
+                let zip_path = format!("data/{}", relative_path.to_string_lossy());
+
+                zip.start_file(&zip_path, options)
+                    .map_err(|e| format!("Failed to start data file in zip: {}", e))?;
+
+                let mut file = fs::File::open(file_path)
+                    .map_err(|e| format!("Failed to open data file: {}", e))?;
+
+                let mut buffer = Vec::new();
+                file.read_to_end(&mut buffer)
+                    .map_err(|e| format!("Failed to read data file: {}", e))?;
+
+                data_size += buffer.len() as u64;
+                zip.write_all(&buffer)
+                    .map_err(|e| format!("Failed to write data file to zip: {}", e))?;
+
+                total_files += 1;
+            }
+        }
+        logger::debug(format!(
+            "Data files added: {} bytes",
+            data_size
+        ));
+    } else {
+        logger::warn("Data directory not found, skipping data backup");
+    }
+
     // 3. Create and add manifest
     let manifest = BackupManifest {
         version: "1.0".to_string(),
         timestamp,
         database_size,
-        media_size,
+        media_size: media_size + data_size,
         total_files,
         backup_type: "hybrid".to_string(),
         checksum: "".to_string(), // Will be calculated after zip is complete
@@ -283,17 +327,26 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         }
     }
 
-    // Validate extracted files
-    let extracted_db = temp_dir.join("database.db");
+    // Validate extracted files — support both new (content.db) and old (database.db) backup formats
+    // TODO(post-v0.2.x): remove `database.db` fallback once we're confident no users
+    // are restoring backups created before the DB consolidation (Phase 6). Keep for now
+    // to preserve backward compatibility with older backup ZIPs.
+    let extracted_db = if temp_dir.join("content.db").exists() {
+        temp_dir.join("content.db")
+    } else {
+        temp_dir.join("database.db")
+    };
     let extracted_media = temp_dir.join("media");
+    let extracted_data = temp_dir.join("data");
 
     if !extracted_db.exists() {
         return Err("Database file not found in backup".to_string());
     }
 
     // Replace current files
-    let current_db = get_database_path()?;
+    let current_db = get_content_database_path()?;
     let current_media = get_media_directory()?;
+    let current_data = get_portable_data_dir().map_err(|e| e.to_string())?;
 
     // Backup current files (if they exist) - simple approach
     if current_db.exists() {
@@ -316,6 +369,18 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
         // Copy new media directory
         copy_dir_recursive(&extracted_media, &current_media)
             .map_err(|e| format!("Failed to restore media files: {}", e))?;
+    }
+
+    if extracted_data.exists() {
+        // Remove current data directory if exists
+        if current_data.exists() {
+            fs::remove_dir_all(&current_data)
+                .map_err(|e| format!("Failed to remove current data directory: {}", e))?;
+        }
+
+        // Copy new data directory
+        copy_dir_recursive(&extracted_data, &current_data)
+            .map_err(|e| format!("Failed to restore data files: {}", e))?;
     }
 
     // Clean up temp directory
@@ -415,14 +480,6 @@ fn get_backup_directory() -> Result<PathBuf, String> {
     Ok(backup_dir)
 }
 
-/// Get database path
-fn get_database_path() -> Result<PathBuf, String> {
-    let config = Config::default();
-    let app_data = app_data_dir(&config).ok_or("Failed to get app data directory")?;
-
-    Ok(app_data.join("pqs-rtn-hybrid-storage").join("database.db"))
-}
-
 /// Get media directory path
 fn get_media_directory() -> Result<PathBuf, String> {
     let config = Config::default();
@@ -457,7 +514,7 @@ pub struct SystemStateInfo {
 /// Check system state and backups for initialization decision
 pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String> {
     let database_exists_and_valid =
-        crate::database::check_database_exists_and_valid().unwrap_or(false);
+        crate::auth::check_database_exists_and_valid().unwrap_or(false);
     // Check media state (without creating directories)
     let media_exists_and_valid =
         crate::file_manager::FileManager::check_media_exists_and_valid_no_create().unwrap_or(false);

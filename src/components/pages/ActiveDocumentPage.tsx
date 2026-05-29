@@ -19,6 +19,7 @@ import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import DropdownMenu from '../ui/DropdownMenu';
+import { logger } from '../../utils/logger';
 
 interface Document {
   id: string;
@@ -80,7 +81,7 @@ const ActiveDocumentPage: React.FC = () => {
     if (docId) {
       invoke<DocumentHierarchy>('get_document_with_hierarchy', { id: docId })
         .then(data => setDocData(data))
-        .catch(err => console.error("Failed to fetch doc:", err));
+        .catch(err => logger.error("Failed to fetch doc:", err));
     }
   }, [docId]);
 
@@ -88,7 +89,7 @@ const ActiveDocumentPage: React.FC = () => {
     if (docId) {
       invoke<Section[]>('get_sections_by_document', { documentId: docId })
         .then(data => setSections(data))
-        .catch(err => console.error("Failed to fetch sections:", err));
+        .catch(err => logger.error("Failed to fetch sections:", err));
     }
   }, [docId]);
 
@@ -123,10 +124,10 @@ const ActiveDocumentPage: React.FC = () => {
       setActiveSection(`${deletedGroup}`);
       await invoke<Section[]>('get_sections_by_document', { documentId: docId })
         .then(data => setSections(data))
-        .catch(err => console.error("Failed to fetch sections:", err));
+        .catch(err => logger.error("Failed to fetch sections:", err));
       setSectionToDelete(null);
     } catch (err) {
-      console.error("Failed to delete section:", err);
+      logger.error("Failed to delete section:", err);
       showError(`ไม่สามารถลบหัวข้อได้: ${err}`);
     }
   };
@@ -142,7 +143,7 @@ const ActiveDocumentPage: React.FC = () => {
       setClearSuccessModal(true);
       setRefreshKey(prev => prev + 1);
     } catch (err) {
-      console.error("Failed to clear trainee answers:", err);
+      logger.error("Failed to clear trainee answers:", err);
       setClearConfirmModal(false);
       setClearError(String(err));
       setClearErrorModal(true);

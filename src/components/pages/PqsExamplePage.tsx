@@ -45,6 +45,7 @@ import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 
 import type { ViewMode } from './ActiveDocumentPage';
+import { logger } from '../../utils/logger';
 
 const EXAMPLE_DOC_ID = '22724201001';
 
@@ -65,13 +66,13 @@ const PqsExamplePage: React.FC = () => {
   const fetchDocData = useCallback(() => {
     invoke<DocumentHierarchy>('get_document_with_hierarchy', { id: EXAMPLE_DOC_ID })
       .then(data => setDocData(data))
-      .catch(err => console.error("Failed to fetch doc:", err));
+      .catch(err => logger.error("Failed to fetch doc:", err));
   }, []);
 
   const fetchSections = useCallback(() => {
     invoke<Section[]>('get_sections_by_document', { documentId: EXAMPLE_DOC_ID })
       .then(data => setSections(data))
-      .catch(err => console.error("Failed to fetch sections:", err));
+      .catch(err => logger.error("Failed to fetch sections:", err));
   }, []);
 
   const fetchDocBranch = useCallback(() => {
@@ -97,7 +98,7 @@ const PqsExamplePage: React.FC = () => {
       >
         <div className="p-4 border-b border-gray-200 dark:border-github-border-primary flex justify-between items-center">
           <span className="font-bold text-gray-700 dark:text-gray-200">Sections</span>
-          <Button variant="ghost" size="small" onClick={() => navigate('/home')}>
+          <Button variant="ghost" size="small" onClick={() => navigate('/welcome')}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Back
           </Button>
         </div>

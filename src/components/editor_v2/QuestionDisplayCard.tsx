@@ -1,7 +1,9 @@
 import { invoke } from "@tauri-apps/api/tauri";
 import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Edit, MessageSquarePlus, MoreVertical, Plus, Trash2 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { QuestionDetail } from "../../types/content";
+import { logger } from "../../utils/logger";
+import ConfirmModal from "../modals/ConfirmModal";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import Tooltip from "../ui/Tooltip";
 import OralAssessmentBox from "./OralAssessmentBox";
@@ -53,7 +55,6 @@ interface QuestionDisplayCardProps {
   onMoveUp: () => void;
   onMoveDown: () => void;
   viewMode?: ViewMode;
-  onImageClick?: (src: string) => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
   traineeAnswer?: UserAnswer;
@@ -62,6 +63,8 @@ interface QuestionDisplayCardProps {
   onRefresh?: () => void;
   usageRefreshKey?: number;
   sectionSelectedBranch?: { main: string; sub: string };
+  isInsidePrerequisiteDoc?: boolean;
+  fullPrefix?: string;
 }
 
 // ============ Helpers ============
@@ -101,7 +104,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   onInsertAfter,
   onMoveUp,
   onMoveDown,
-  onImageClick,
   parentLayout = "list",
   parentSubQuestionList,
   viewMode = 'edit',
@@ -111,11 +113,71 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   onRefresh,
   usageRefreshKey = 0,
   sectionSelectedBranch,
+  isInsidePrerequisiteDoc,
+  fullPrefix,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
   const is200or300 = is200 || is300;
   const isL1 = level === 0;
+
+  // ConfirmModal state for SubQuestion delete
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+    cancelText?: string;
+  }>({
+    isOpen: false, title: '', message: '', onConfirm: () => {}, variant: 'warning'
+  });
+
+  // Handler: remove a sub-question code from activeSubQuestions in metadata
+  const handleRemoveSubQ = useCallback((code: string, text: string, usageCount: number) => {
+    if (usageCount > 0) {
+      setConfirmModal({
+        isOpen: true,
+        title: 'แจ้งเตือน (ไม่อนุญาตให้ลบ)',
+        message: `ไม่สามารถนำคำถามย่อย "${text}" ออกได้\n\nเนื่องจากกำลังถูกใช้งานอยู่ในคำถามจำนวน ${usageCount} ข้อ\nกรุณาไปปลดการเรียกใช้ออกจากข้อคำถามให้ครบก่อนทำการนำออก`,
+        onConfirm: () => setConfirmModal(prev => ({ ...prev, isOpen: false })),
+        variant: 'danger',
+        confirmText: 'รับทราบ',
+        cancelText: ''
+      });
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'ยืนยันการนำออก',
+      message: `คุณต้องการนำคำถามย่อย "${text}" ออกจากรายการใช่หรือไม่?`,
+      onConfirm: async () => {
+        try {
+          if (!question.metadata) return;
+          const meta = JSON.parse(question.metadata);
+          const activeSubs: string[] = Array.isArray(meta.activeSubQuestions) ? meta.activeSubQuestions : [];
+          meta.activeSubQuestions = activeSubs.filter(c => c !== code);
+          await invoke('update_question', {
+            args: {
+              id: question.id,
+              content: question.content,
+              description: question.description,
+              metadata: JSON.stringify(meta),
+            }
+          });
+          onRefresh?.();
+        } catch (err) {
+          logger.error('Failed to remove sub-question:', err);
+        } finally {
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      },
+      variant: 'warning',
+      confirmText: 'ยืนยัน',
+      cancelText: 'ยกเลิก'
+    });
+  }, [question.id, question.metadata, question.content, question.description, onRefresh]);
   // Regression guard: 200Template parents can become group headers after Add Sub-Question,
   // but their inline SubQ badges must remain visible. Only hide for the intended 300Template case.
   const shouldHideInlineSubQBadges = is300 && question.is_group_header;
@@ -129,14 +191,30 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
     && question.question_type !== 'exempted'
     && !!question.is_scored
     && (question.score ?? 0) > 0;
+  
+  const isPrerequisiteDoc = isInsidePrerequisiteDoc || (is300 && !isL1 && (questionSequence === 1 || questionSequence === 2) && (prefix.startsWith('1.') || prefix.startsWith('๑.')));
+  
+  const requireAnswerKey = useMemo(() => {
+    if (!question.metadata) return !question.is_group_header; // Legacy default
+    try {
+      const meta = JSON.parse(question.metadata);
+      if (meta.requireAnswerKey !== undefined) return meta.requireAnswerKey;
+      // Default fallback for legacy data: true unless it's a group header
+      return !question.is_group_header;
+    } catch {
+      return !question.is_group_header;
+    }
+  }, [question.metadata, question.is_group_header]);
+
   // 300Template has no answer keys at all - no answer boxes anywhere
   // Section 200: L1 questions (2xx.1-2xx.6) are always section headers — never have answer boxes
   // regardless of exempted/normal status. Only L2+ questions can have answer boxes.
   const shouldShowAnswerBox = question.question_type !== 'exempted'
     && viewMode !== 'visitor'
-    && !is300
+    && (!is300 || isPrerequisiteDoc)
     && !(is200 && isL1)
-    && (is200 || !question.is_group_header);
+    && (is200 || requireAnswerKey || isPrerequisiteDoc)
+    && (!hasChildren || !isPrerequisiteDoc);
 
   // Section-ref L3 children are now rendered via the question tree (QuestionTreeNode),
   // so no special inline fetch/display is needed here.
@@ -165,7 +243,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
       invoke<{ id: number; code: string; text: string; always_checked: boolean }[]>(
         'get_all_sub_questions_for_branch',
         { branchCode: selectedBranch.main }
-      ).then((dbSqs: any[]) => {
+      ).then((dbSqs: {code: string; text: string; always_checked?: boolean}[]) => {
         const filtered = derivedPrefix
           ? dbSqs.filter(sq => sq.code.startsWith(derivedPrefix))
           : dbSqs;
@@ -180,6 +258,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         }
       }).catch(() => { setDisplaySubQList([]); setDisplayActiveCodes(activeCodes); });
     } catch { setDisplaySubQList([]); setDisplayActiveCodes([]); }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [is200or300, is300, isL1, question.metadata, question.sequence]);
 
   // SubQ usage count per code for L1 header — fetched from backend relational table
@@ -522,6 +601,17 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
                     }
                     return <span className="text-[10px] px-2 py-[1px] rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800 font-bold whitespace-nowrap">Used: {count}/{total}</span>;
                   })()}
+                  {/* Delete SubQ button (edit mode, non-alwaysChecked only) */}
+                  {viewMode === 'edit' && !sq.alwaysChecked && (
+                    <Tooltip content={(subQUsedData.usage_map[sq.code] || 0) > 0 ? 'ถูกใช้งานอยู่ — ต้องปลดก่อน' : 'นำออกจากรายการ'} position="top">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRemoveSubQ(sq.code, sq.text, subQUsedData.usage_map[sq.code] || 0); }}
+                        className="p-0.5 rounded transition-colors shrink-0 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </Tooltip>
+                  )}
                 </div>
               ))}
             </div>
@@ -535,7 +625,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               metadata={question.metadata}
               questionId={question.id}
               documentId={documentId}
-              onImageClick={onImageClick}
               parentSubQuestionList={parentSubQuestionList}
               readOnly={readOnly}
               showAnswerBox={shouldShowAnswerBox}
@@ -544,6 +633,8 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
               traineeAnswer={traineeAnswer}
               answerMap={answerMap}
               onRefresh={onRefresh}
+              isPrerequisiteDoc={isPrerequisiteDoc}
+              questionPrefix={fullPrefix || prefix}
             />
           </div>
         )}
@@ -656,6 +747,18 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
           />
         </div>
       )}
+
+      {/* SubQuestion delete confirmation modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        variant={confirmModal.variant}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+      />
     </div>
   );
 };

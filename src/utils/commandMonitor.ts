@@ -14,6 +14,7 @@
  */
 
 import { ExecutionResult } from './commandExecutor';
+import { logger } from './logger';
 
 export interface CommandExecution {
   id: string;
@@ -527,7 +528,7 @@ export class CommandMonitor {
     const dailyStats: Map<string, DailyStats> = new Map();
     
     executions.forEach(execution => {
-      const date = execution.timestamp.toISOString().split('T')[0];
+      const date = execution.timestamp.toISOString().split('T')[0] || '';
       const stats = dailyStats.get(date) || {
         date, totalCommands: 0, successfulCommands: 0, failedCommands: 0, 
         averageExecutionTime: 0, uniqueCommands: 0
@@ -542,7 +543,7 @@ export class CommandMonitor {
     
     // Calculate averages and unique commands
     dailyStats.forEach(stats => {
-      const dayExecutions = executions.filter(e => e.timestamp.toISOString().split('T')[0] === stats.date);
+      const dayExecutions = executions.filter(e => (e.timestamp.toISOString().split('T')[0] || '') === stats.date);
       stats.averageExecutionTime = dayExecutions.reduce((sum, e) => sum + e.executionTime, 0) / dayExecutions.length;
       stats.uniqueCommands = new Set(dayExecutions.map(e => e.sanitizedCommand)).size;
     });
@@ -631,14 +632,14 @@ export class CommandMonitor {
     const category = `[${execution.category}]`;
     const risk = `[${execution.riskLevel.toUpperCase()}]`;
     
-    console.log(`${status} ${category} ${risk} [${time}ms]${timeout} ${execution.sanitizedCommand}`);
+    logger.info(`${status} ${category} ${risk} [${time}ms]${timeout} ${execution.sanitizedCommand}`);
     
     if (!execution.success) {
-      console.error(`   Error: ${execution.error}`);
+      logger.error(`   Error: ${execution.error}`);
     }
     
     if (execution.sanitizationStats && execution.sanitizationStats.charactersRemoved > 0) {
-      console.log(`   Sanitized: ${execution.sanitizationStats.charactersRemoved} characters removed`);
+      logger.info(`   Sanitized: ${execution.sanitizationStats.charactersRemoved} characters removed`);
     }
   }
 }

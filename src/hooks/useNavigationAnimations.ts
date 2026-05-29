@@ -168,6 +168,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options }
     const keyframes = createKeyframes('slide', 'in')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Slide out animation
@@ -175,6 +176,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options }
     const keyframes = createKeyframes('slide', 'out')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Fade in animation
@@ -182,6 +184,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options }
     const keyframes = createKeyframes('fade', 'in')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Fade out animation
@@ -189,6 +192,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options }
     const keyframes = createKeyframes('fade', 'out')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Scale in animation
@@ -196,6 +200,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options }
     const keyframes = createKeyframes('scale', 'in')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Scale out animation
@@ -203,6 +208,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options }
     const keyframes = createKeyframes('scale', 'out')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Bounce in animation
@@ -210,6 +216,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options, duration: 600 }
     const keyframes = createKeyframes('bounce', 'in')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Shake animation
@@ -217,6 +224,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options, duration: 500 }
     const keyframes = createKeyframes('shake', 'in')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Pulse animation
@@ -224,6 +232,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
     const mergedOptions = { ...defaultOptions, ...options, duration: 200 }
     const keyframes = createKeyframes('pulse', 'in')
     await executeAnimation(element, keyframes, mergedOptions)
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createKeyframes, executeAnimation])
 
   // Cleanup animations on unmount
@@ -232,6 +241,7 @@ export const useNavigationAnimations = (): NavigationAnimations => {
       animationRefs.current.forEach((animation) => {
         animation.cancel()
       })
+// eslint-disable-next-line react-hooks/exhaustive-deps
       animationRefs.current.clear()
     }
   }, [])

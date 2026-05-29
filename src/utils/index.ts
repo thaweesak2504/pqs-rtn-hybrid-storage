@@ -10,6 +10,7 @@ import { CommandExecutor, ExecutionOptions, ExecutionResult, ExecutionStats } fr
 import { CommandMonitor, CommandStatistics } from './commandMonitor';
 import { AICommandFilter, FilteredCommands } from './aiCommandFilter';
 import { CommandProtectionTest, TestSuite } from './commandProtectionTest';
+import { logger } from './logger';
 
 // Core components
 export { CommandSanitizer, sanitizeCommand, validateCommand, detectEncodingIssues, hasProblematicCharacters } from './commandSanitizer';
@@ -51,14 +52,14 @@ export class CommandProtectionSystem {
    * Initialize the command protection system
    */
   async initialize(): Promise<void> {
-    console.log('🛡️ Initializing Command Protection System...');
+    logger.info('🛡️ Initializing Command Protection System...');
     
     // Clear any existing data
     CommandMonitor.clearAllData();
     AICommandFilter.clearProcessingHistory();
     CommandExecutor.clearHistory();
     
-    console.log('✅ Command Protection System initialized successfully!');
+    logger.info('✅ Command Protection System initialized successfully!');
   }
   
   /**
@@ -70,7 +71,7 @@ export class CommandProtectionSystem {
   async processAIResponse(aiResponse: string): Promise<{
     filtered: FilteredCommands;
     executions: ExecutionResult[];
-    statistics: any;
+    statistics: Record<string, unknown>;
   }> {
     // Step 1: Filter AI response
     const filtered = AICommandFilter.filterAIOutput(aiResponse);
@@ -82,6 +83,7 @@ export class CommandProtectionSystem {
       executions.push(result);
       
       // Log execution
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       CommandMonitor.logExecution(result as any);
     }
     
@@ -112,7 +114,8 @@ export class CommandProtectionSystem {
     });
     
     // Log execution
-    CommandMonitor.logExecution(result as any);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      CommandMonitor.logExecution(result as any);
     
     return result;
   }
@@ -123,10 +126,10 @@ export class CommandProtectionSystem {
    * @returns System statistics
    */
   getSystemStatistics(): {
-    sanitizer: any;
+    sanitizer: Record<string, unknown>;
     executor: ExecutionStats;
     monitor: CommandStatistics;
-    ai: any;
+    ai: Record<string, unknown>;
   } {
     return {
       sanitizer: {

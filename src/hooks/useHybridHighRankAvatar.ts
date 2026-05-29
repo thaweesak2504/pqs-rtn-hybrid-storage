@@ -89,9 +89,9 @@ export const useHybridHighRankAvatar = ({
         setAvatar(null);
       }
       return true;
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Failed to save high rank avatar:', err);
-      setError(err.toString());
+      setError(err instanceof Error ? err.message : String(err));
       return false;
     } finally {
       setIsLoading(false);
@@ -112,9 +112,9 @@ export const useHybridHighRankAvatar = ({
         setExists(false);
       }
       return success;
-    } catch (err: any) {
+    } catch (err) {
       logger.error('Failed to delete high rank avatar:', err);
-      setError(err.toString());
+      setError(err instanceof Error ? err.message : String(err));
       return false;
     } finally {
       setIsLoading(false);

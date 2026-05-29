@@ -4,6 +4,7 @@ import Container from '../ui/Container'
 import Title from '../ui/Title'
 import UserCRUDForm from '../UserCRUDForm'
 import { checkDatabaseHealth } from '../../services/database'
+import { logger } from '../../utils/logger';
 
 const DashboardPage: React.FC = () => {
   const [dbStatus, setDbStatus] = useState<'checking' | 'connected' | 'error'>('checking')
@@ -16,7 +17,7 @@ const DashboardPage: React.FC = () => {
         const isHealthy = await checkDatabaseHealth()
         setDbStatus(isHealthy ? 'connected' : 'error')
       } catch (error) {
-        console.error('Database health check failed:', error)
+        logger.error('Database health check failed:', error)
         setDbStatus('error')
       }
     }

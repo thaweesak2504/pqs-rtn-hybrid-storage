@@ -7,6 +7,7 @@ import SearchPqsForm from '../forms/SearchPqsForm'
 import Button from '../ui/Button'
 import { FilePlus, Search, LayoutDashboard, Clock } from 'lucide-react'
 import { invoke } from '@tauri-apps/api/tauri'
+import { logger } from '../../utils/logger';
 
 interface DocumentStats {
   total_count: number;
@@ -19,23 +20,23 @@ const EditorPage: React.FC = () => {
   const navigate = useNavigate()
 
   // State to hold the document currently being edited
-  const [editingDoc, setEditingDoc] = useState<any | null>(null)
+  const [editingDoc, setEditingDoc] = useState<{id?: string, title?: string, unit_code?: string} | null>(null)
   const [stats, setStats] = useState<DocumentStats>({ total_count: 0, draft_count: 0 })
-  const [recentDrafts, setRecentDrafts] = useState<any[]>([])
+  const [recentDrafts, setRecentDrafts] = useState<{id: string, title?: string, unit_code?: string, name?: string, updated_at?: string, created_at?: string}[]>([])
 
   const fetchStats = async () => {
     try {
       const data = await invoke<DocumentStats>('get_document_stats')
       setStats(data)
     } catch (err) {
-      console.error("Failed to fetch stats:", err)
+      logger.error("Failed to fetch stats:", err)
     }
   }
 
   const fetchRecentDrafts = async () => {
     try {
       // Search for status='draft', limit 5
-      const data = await invoke<any[]>('search_documents', {
+      const data = await invoke<{id: string, title: string, unit_code?: string}[]>('search_documents', {
         unitIdPrefix: null,
         docType: null,
         namePart: null,
@@ -43,7 +44,7 @@ const EditorPage: React.FC = () => {
       })
       setRecentDrafts(data.slice(0, 5)) // Ensure we only show top 5
     } catch (err) {
-      console.error("Failed to fetch recent drafts:", err)
+      logger.error("Failed to fetch recent drafts:", err)
     }
   }
 
@@ -52,6 +53,7 @@ const EditorPage: React.FC = () => {
     fetchRecentDrafts()
   }, [])
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleEditDocument = (doc: any) => {
     setEditingDoc(doc)
     setActiveTab('create')
@@ -166,7 +168,7 @@ const EditorPage: React.FC = () => {
                         <h3 className="font-bold text-github-text-primary">{doc.name}</h3>
                         <p className="text-xs text-github-text-secondary font-mono mt-0.5">ID: {doc.id} • {doc.unit_code}</p>
                         <p className="text-[10px] text-github-text-tertiary mt-1 italic">
-                          แก้ไขล่าสุด: {new Date(doc.updated_at || doc.created_at).toLocaleDateString('th-TH')}
+                          แก้ไขล่าสุด: {(doc.updated_at ? new Date(doc.updated_at) : (doc.created_at ? new Date(doc.created_at) : new Date())).toLocaleDateString('th-TH')}
                         </p>
                       </div>
                     </div>

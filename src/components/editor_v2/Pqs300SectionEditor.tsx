@@ -7,6 +7,7 @@ import PqsEditorLayout from './PqsEditorLayout';
 import PqsHeader from './PqsHeader';
 import PqsQuestionSection from './PqsQuestionSection';
 import PqsSectionPreview300 from './PqsSectionPreview300';
+import { logger } from '../../utils/logger';
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 type PrintSubView = 'question-only' | 'question-with-key';
@@ -63,7 +64,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   docBranchMain,
   docBranchSub,
 }) => {
-  const readOnly = viewMode !== 'edit';
+  const readOnly = viewMode !== 'edit' && viewMode !== 'trainee' && viewMode !== 'qualifier';
   const [sectionId, setSectionId] = useState<number>(0);
 
   // Default prefix for 300Template
@@ -107,7 +108,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       const freshTotal = await invoke<number>('calculate_section_total_score', { sectionId });
       setTotalScore(freshTotal);
     } catch (error) {
-      console.error('Failed to refresh section total score:', error);
+      logger.error('Failed to refresh section total score:', error);
     }
   }, [sectionId]);
 
@@ -136,7 +137,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         needs_improvement_questions: 0,
       });
     } catch (error) {
-      console.error('Failed to refresh section progress:', error);
+      logger.error('Failed to refresh section progress:', error);
     }
   }, [docId, sectionId]);
 
@@ -159,7 +160,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       });
       setCurrentTitle(newTitle);
     } catch (error) {
-      console.error("Failed to update title:", error);
+      logger.error("Failed to update title:", error);
       showAlert("Failed to save title: " + error, 'danger');
     }
   };
@@ -179,7 +180,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       setCurrentMenuLabel(newSubTitle);
       onMenuLabelChange?.(); // refresh sidebar
     } catch (error) {
-      console.error("Failed to update menu label:", error);
+      logger.error("Failed to update menu label:", error);
       showAlert("Failed to save menu label: " + error, 'danger');
     }
   };
@@ -201,7 +202,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
       setDurationUnit(tempUnit);
       setIsEditingMeta(false);
     } catch (error) {
-      console.error("Failed to update section meta:", error);
+      logger.error("Failed to update section meta:", error);
       showAlert("Failed to save: " + error, 'danger');
     }
   };
@@ -210,7 +211,7 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
   // Fetch Section ID on mount or when sectionNumber changes
   const fetchSectionData = useCallback(async () => {
     try {
-      const sections = await invoke<any[]>('get_sections_by_document', { documentId: docId });
+      const sections = await invoke<{id: number, section_number: number, title_th: string, menu_label: string, duration_value?: number, duration_unit?: string, total_score?: number}[]>('get_sections_by_document', { documentId: docId });
       const currentSection = sections.find(s => s.section_number === sectionNumber);
       if (currentSection) {
         setCurrentTitle(currentSection.title_th);
@@ -218,14 +219,14 @@ const Pqs300SectionEditor: React.FC<Pqs300SectionEditorProps> = ({
         const rawLabel = currentSection.menu_label || '';
         const prefix = `${sectionNumber} `;
         setCurrentMenuLabel(rawLabel.startsWith(prefix) ? rawLabel.slice(prefix.length) : rawLabel);
-        setDurationValue(currentSection.duration_value);
-        setDurationUnit(currentSection.duration_unit || 'weeks');
-        setTotalScore(currentSection.total_score);
+        setDurationValue(currentSection.duration_value ?? null);
+        setDurationUnit((currentSection.duration_unit as 'days' | 'weeks' | 'months') || 'weeks');
+        setTotalScore(currentSection.total_score ?? null);
         // Set sectionId LAST so all metadata is ready when the guard passes
         setSectionId(currentSection.id);
       }
     } catch (error) {
-      console.error("Failed to fetch section data:", error);
+      logger.error("Failed to fetch section data:", error);
     }
   }, [docId, sectionNumber]);
 

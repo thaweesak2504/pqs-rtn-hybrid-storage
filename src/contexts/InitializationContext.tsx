@@ -18,7 +18,11 @@ interface InitializationProviderProps {
 export const InitializationProvider: React.FC<InitializationProviderProps> = ({ children }) => {
   const [showWizard, setShowWizard] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [systemState, setSystemState] = useState<any>(null);
+  const [systemState, setSystemState] = useState<{
+    database_exists_and_valid: boolean;
+    media_exists_and_valid: boolean;
+    backup_info: { has_backups: boolean; total_backups: number; [key: string]: unknown };
+  } | null>(null);
   const [hasChecked, setHasChecked] = useState(false);
 
   // Check if initialization is needed on app start
@@ -65,6 +69,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
     };
 
     checkInitialization();
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleWizardComplete = useCallback(async () => {
@@ -79,6 +84,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
     await initializeDatabaseIfNeeded();
     setIsInitialized(true);
     localStorage.setItem('pqs_initialization_completed', 'true');
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const initializeDatabaseIfNeeded = useCallback(async () => {
@@ -86,7 +92,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
       const { invoke } = await import('@tauri-apps/api/tauri');
       await invoke<string>('initialize_database_if_needed');
     } catch (error) {
-      console.error('Failed to initialize database:', error);
+      logger.error('Failed to initialize database:', error);
       // Continue anyway - the app might still work
     }
   }, []);
@@ -104,7 +110,7 @@ export const InitializationProvider: React.FC<InitializationProviderProps> = ({ 
         <InitializationWizard
           onComplete={handleWizardComplete}
           onSkip={handleWizardSkip}
-          systemState={systemState}
+          systemState={systemState || undefined}
         />
       ) : (
         children

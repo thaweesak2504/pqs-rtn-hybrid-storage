@@ -75,7 +75,7 @@ export const useFocusManagement = (options: FocusManagementOptions = {}) => {
     const visibleElements = focusableElements.filter(isElementFocusable)
     
     if (visibleElements.length > 0) {
-      visibleElements[0].focus()
+      visibleElements[0]?.focus()
       return true
     }
     
@@ -91,7 +91,7 @@ export const useFocusManagement = (options: FocusManagementOptions = {}) => {
     const visibleElements = focusableElements.filter(isElementFocusable)
     
     if (visibleElements.length > 0) {
-      visibleElements[visibleElements.length - 1].focus()
+      visibleElements[visibleElements.length - 1]?.focus()
       return true
     }
     
@@ -117,7 +117,7 @@ export const useFocusManagement = (options: FocusManagementOptions = {}) => {
     }
     
     const nextIndex = (currentIndex + 1) % visibleElements.length
-    visibleElements[nextIndex].focus()
+    visibleElements[nextIndex]?.focus()
     return true
   }, [getFocusableElements, isElementFocusable, focusFirstElement])
 
@@ -140,7 +140,7 @@ export const useFocusManagement = (options: FocusManagementOptions = {}) => {
     }
     
     const prevIndex = currentIndex === 0 ? visibleElements.length - 1 : currentIndex - 1
-    visibleElements[prevIndex].focus()
+    visibleElements[prevIndex]?.focus()
     return true
   }, [getFocusableElements, isElementFocusable, focusLastElement])
 
@@ -176,6 +176,8 @@ export const useFocusManagement = (options: FocusManagementOptions = {}) => {
       const firstElement = visibleElements[0]
       const lastElement = visibleElements[visibleElements.length - 1]
       const activeElement = document.activeElement as HTMLElement
+      
+      if (!firstElement || !lastElement) return
       
       if (event.shiftKey) {
         // Shift + Tab: focus last element if currently on first
@@ -221,12 +223,14 @@ export const useFocusManagement = (options: FocusManagementOptions = {}) => {
 
   // Focus first element on mount
   useEffect(() => {
+    let timer: number | undefined;
     if (focusFirstElementOnMount) {
-      const timer = setTimeout(() => {
+      timer = window.setTimeout(() => {
         focusFirstElement()
       }, 100)
-      
-      return () => clearTimeout(timer)
+    }
+    return () => {
+      if (timer !== undefined) window.clearTimeout(timer)
     }
   }, [focusFirstElementOnMount, focusFirstElement])
 

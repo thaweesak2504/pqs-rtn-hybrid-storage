@@ -3,17 +3,9 @@ import { BookOpen, Edit, FileText, Lock, Plus, Search, Shield, X } from 'lucide-
 import React, { useEffect, useMemo, useState } from 'react';
 import { useToast } from '../../contexts/ToastContext';
 import ConfirmModal from './ConfirmModal';
+import { logger } from '../../utils/logger';
 
-interface DocumentReference {
-  id: number;
-  code: string;
-  title: string;
-  classification: string | null;
-  category: string | null;
-  file_path: string | null;
-  created_at: string;
-  updated_at: string | null;
-}
+import { DocumentReference } from '../editor_v2/reference/types';
 
 interface AddReferenceModalProps {
   isOpen: boolean;
@@ -82,10 +74,10 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
   const loadSectionReferences = async () => {
     try {
-      const refs = await invoke<any[]>('get_section_references', { sectionId });
-      setExistingRefs(refs.map(r => r.reference.id));
+      const refs = await invoke<{id: number, reference_id: number}[]>('get_section_references', { sectionId });
+      setExistingRefs(refs.map(r => r.reference_id));
     } catch (err) {
-      console.error('Failed to load section references:', err);
+      logger.error('Failed to load section references:', err);
     }
   };
 
@@ -97,7 +89,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       });
       setAllRefs(refs);
     } catch (err) {
-      console.error('Failed to load references:', err);
+      logger.error('Failed to load references:', err);
     }
   };
 
@@ -109,7 +101,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       });
       setCommonRefs(refs);
     } catch (err) {
-      console.error('Failed to load common references:', err);
+      logger.error('Failed to load common references:', err);
     }
   };
 
@@ -191,7 +183,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
             displayOrder: null,
           });
         } catch (err) {
-          console.warn(`Failed to add reference ${refId}:`, err);
+          logger.warn(`Failed to add reference ${refId}:`, err);
           // If one fails, we continue with others? Or stop? 
           // Backend checks for existence, so if it's already there it might error.
         }
@@ -199,9 +191,9 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      console.error('Failed to add selected references:', err);
-      setError(err.toString());
+    } catch (err) {
+      logger.error('Failed to add selected references:', err);
+      setError(String(err));
     } finally {
       setAddingMany(false);
     }
@@ -244,9 +236,9 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      console.error('Failed to create reference:', err);
-      setError(err.toString());
+    } catch (err) {
+      logger.error('Failed to create reference:', err);
+      setError(String(err));
     } finally {
       setCreating(false);
     }
@@ -263,7 +255,7 @@ const AddReferenceModal: React.FC<AddReferenceModalProps> = ({
       loadAllReferences();
       loadCommonReferences();
       setRefToDelete(null);
-    } catch (err: any) {
+    } catch (err) {
       showError('ไม่สามารถลบได้: ' + err);
     }
   };

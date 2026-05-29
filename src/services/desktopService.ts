@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri'
 import { getCurrent } from '@tauri-apps/api/window'
 import { LogicalSize, LogicalPosition } from '@tauri-apps/api/window'
+import { logger } from '../utils/logger';
 
 /**
  * Desktop Service - Enhanced desktop-specific functionality
@@ -13,7 +14,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.minimize()
     } catch (error) {
-      console.error('Failed to minimize window:', error)
+      logger.error('Failed to minimize window:', error)
     }
   }
 
@@ -22,7 +23,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.maximize()
     } catch (error) {
-      console.error('Failed to maximize window:', error)
+      logger.error('Failed to maximize window:', error)
     }
   }
 
@@ -31,7 +32,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.unmaximize()
     } catch (error) {
-      console.error('Failed to unmaximize window:', error)
+      logger.error('Failed to unmaximize window:', error)
     }
   }
 
@@ -40,7 +41,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.close()
     } catch (error) {
-      console.error('Failed to close window:', error)
+      logger.error('Failed to close window:', error)
     }
   }
 
@@ -49,7 +50,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.hide()
     } catch (error) {
-      console.error('Failed to hide window:', error)
+      logger.error('Failed to hide window:', error)
     }
   }
 
@@ -58,7 +59,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.show()
     } catch (error) {
-      console.error('Failed to show window:', error)
+      logger.error('Failed to show window:', error)
     }
   }
 
@@ -67,7 +68,7 @@ export class DesktopService {
     try {
       await invoke('zoom_in')
     } catch (error) {
-      console.error('Failed to zoom in:', error)
+      logger.error('Failed to zoom in:', error)
     }
   }
 
@@ -75,7 +76,7 @@ export class DesktopService {
     try {
       await invoke('zoom_out')
     } catch (error) {
-      console.error('Failed to zoom out:', error)
+      logger.error('Failed to zoom out:', error)
     }
   }
 
@@ -83,7 +84,7 @@ export class DesktopService {
     try {
       await invoke('zoom_reset')
     } catch (error) {
-      console.error('Failed to reset zoom:', error)
+      logger.error('Failed to reset zoom:', error)
     }
   }
 
@@ -102,7 +103,7 @@ export class DesktopService {
         }]
       })
     } catch (error) {
-      console.error('Failed to open file dialog:', error)
+      logger.error('Failed to open file dialog:', error)
       return null
     }
   }
@@ -126,7 +127,7 @@ export class DesktopService {
         }]
       })
     } catch (error) {
-      console.error('Failed to save file dialog:', error)
+      logger.error('Failed to save file dialog:', error)
       return null
     }
   }
@@ -139,7 +140,7 @@ export class DesktopService {
         multiple: false
       })
     } catch (error) {
-      console.error('Failed to open directory dialog:', error)
+      logger.error('Failed to open directory dialog:', error)
       return null
     }
   }
@@ -150,7 +151,7 @@ export class DesktopService {
       const { open } = await import('@tauri-apps/api/shell')
       await open(url)
     } catch (error) {
-      console.error('Failed to open external URL:', error)
+      logger.error('Failed to open external URL:', error)
     }
   }
 
@@ -159,7 +160,7 @@ export class DesktopService {
       const { getVersion } = await import('@tauri-apps/api/app')
       return await getVersion()
     } catch (error) {
-      console.error('Failed to get app version:', error)
+      logger.error('Failed to get app version:', error)
       return '0.1.0'
     }
   }
@@ -169,7 +170,7 @@ export class DesktopService {
       const { getName } = await import('@tauri-apps/api/app')
       return await getName()
     } catch (error) {
-      console.error('Failed to get app name:', error)
+      logger.error('Failed to get app name:', error)
       return 'PQS RTN'
     }
   }
@@ -180,7 +181,7 @@ export class DesktopService {
       const window = getCurrent()
       return await window.isMaximized()
     } catch (error) {
-      console.error('Failed to check if window is maximized:', error)
+      logger.error('Failed to check if window is maximized:', error)
       return false
     }
   }
@@ -190,7 +191,7 @@ export class DesktopService {
       const window = getCurrent()
       return await window.isMinimized()
     } catch (error) {
-      console.error('Failed to check if window is minimized:', error)
+      logger.error('Failed to check if window is minimized:', error)
       return false
     }
   }
@@ -200,7 +201,7 @@ export class DesktopService {
       const window = getCurrent()
       return await window.isVisible()
     } catch (error) {
-      console.error('Failed to check if window is visible:', error)
+      logger.error('Failed to check if window is visible:', error)
       return true
     }
   }
@@ -211,7 +212,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.setSize(new LogicalSize(width, height))
     } catch (error) {
-      console.error('Failed to set window size:', error)
+      logger.error('Failed to set window size:', error)
     }
   }
 
@@ -220,7 +221,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.setPosition(new LogicalPosition(x, y))
     } catch (error) {
-      console.error('Failed to set window position:', error)
+      logger.error('Failed to set window position:', error)
     }
   }
 
@@ -229,7 +230,7 @@ export class DesktopService {
       const window = getCurrent()
       await window.center()
     } catch (error) {
-      console.error('Failed to center window:', error)
+      logger.error('Failed to center window:', error)
     }
   }
 
@@ -243,7 +244,7 @@ export class DesktopService {
         icon: 'icons/32x32.png'
       })
     } catch (error) {
-      console.error('Failed to show notification:', error)
+      logger.error('Failed to show notification:', error)
     }
   }
 }

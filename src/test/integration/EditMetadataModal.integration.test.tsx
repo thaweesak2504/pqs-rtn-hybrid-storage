@@ -9,7 +9,7 @@ describe("EditMetadataModal integration", () => {
   });
 
   it("loads document branch and related sub-branches when opened", async () => {
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "get_occupation_branches") {
         return [
           { code: "02", name: "Mechanical" },
@@ -67,7 +67,7 @@ describe("EditMetadataModal integration", () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
 
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "get_occupation_branches") {
         return [
           { code: "02", name: "Mechanical" },
@@ -194,7 +194,7 @@ describe("EditMetadataModal integration", () => {
     const onSuccess = vi.fn();
     const onClose = vi.fn();
 
-    vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+    vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
       if (command === "get_occupation_branches") {
         return [{ code: "02", name: "Mechanical" }];
       }
@@ -299,7 +299,7 @@ describe("EditMetadataModal integration", () => {
   // Career Branch Protection Tests
   describe("Career Branch Protection", () => {
     it("detects conflict when changing branch with existing SubQ usage", async () => {
-      vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
         if (command === "get_occupation_branches") {
           return [
             { code: "1", name: "ต้นแบบมาตรฐาน" },
@@ -359,7 +359,7 @@ describe("EditMetadataModal integration", () => {
     });
 
     it("shows no conflict message when branch change has no SubQ usage", async () => {
-      vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
         if (command === "get_occupation_branches") {
           return [
             { code: "1", name: "ต้นแบบมาตรฐาน" },
@@ -429,7 +429,7 @@ describe("EditMetadataModal integration", () => {
       const onSuccess = vi.fn();
       const onClose = vi.fn();
 
-      vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
         if (command === "get_occupation_branches") {
           return [
             { code: "1", name: "ต้นแบบมาตรฐาน" },
@@ -535,7 +535,7 @@ describe("EditMetadataModal integration", () => {
       const onSuccess = vi.fn();
       const onClose = vi.fn();
 
-      vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
         if (command === "get_occupation_branches") {
           return [
             { code: "1", name: "ต้นแบบมาตรฐาน" },
@@ -624,7 +624,7 @@ describe("EditMetadataModal integration", () => {
       const onSuccess = vi.fn();
       const onClose = vi.fn();
 
-      vi.mocked(invoke).mockImplementation(async (command: string, args?: any) => {
+      vi.mocked(invoke).mockImplementation(async (command: string, args?: Record<string, unknown>) => {
         if (command === "get_occupation_branches") {
           return [
             { code: "1", name: "ต้นแบบมาตรฐาน" },

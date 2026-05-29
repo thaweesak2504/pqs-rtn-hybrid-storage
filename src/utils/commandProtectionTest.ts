@@ -9,13 +9,14 @@ import { CommandSanitizer } from './commandSanitizer';
 import { CommandExecutor, ExecutionResult } from './commandExecutor';
 import { CommandMonitor, CommandExecution } from './commandMonitor';
 import { AICommandFilter } from './aiCommandFilter';
+import { logger } from './logger';
 
 export interface TestResult {
   testName: string;
   passed: boolean;
   error?: string;
   executionTime: number;
-  details?: any;
+  details?: unknown;
 }
 
 export interface TestSuite {
@@ -39,7 +40,7 @@ export class CommandProtectionTest {
     const startTime = Date.now();
     this.testResults = [];
     
-    console.log('🧪 Starting Command Protection System Tests...\n');
+    logger.info('🧪 Starting Command Protection System Tests...\n');
     
     // Run test suites
     await this.runCommandSanitizerTests();
@@ -69,7 +70,7 @@ export class CommandProtectionTest {
    * Run CommandSanitizer tests
    */
   private static async runCommandSanitizerTests(): Promise<void> {
-    console.log('🔧 Testing CommandSanitizer...');
+    logger.info('🔧 Testing CommandSanitizer...');
     
     // Test 1: Basic sanitization
     await this.runTest('CommandSanitizer - Basic Sanitization', async () => {
@@ -157,7 +158,7 @@ export class CommandProtectionTest {
       if (validations.length !== 3) {
         throw new Error('Expected 3 validation results');
       }
-      if (validations[0].isValid) {
+      if (validations[0]?.isValid) {
         throw new Error('Expected first command validation to fail');
       }
       return { validations };
@@ -179,7 +180,7 @@ export class CommandProtectionTest {
    * Run CommandExecutor tests
    */
   private static async runCommandExecutorTests(): Promise<void> {
-    console.log('⚡ Testing CommandExecutor...');
+    logger.info('⚡ Testing CommandExecutor...');
     
     // Test 1: Basic command execution
     await this.runTest('CommandExecutor - Basic Execution', async () => {
@@ -279,7 +280,7 @@ export class CommandProtectionTest {
    * Run CommandMonitor tests
    */
   private static async runCommandMonitorTests(): Promise<void> {
-    console.log('📊 Testing CommandMonitor...');
+    logger.info('📊 Testing CommandMonitor...');
     
     // Test 1: Log execution
     await this.runTest('CommandMonitor - Log Execution', async () => {
@@ -295,7 +296,7 @@ export class CommandProtectionTest {
         riskLevel: 'low'
       };
       
-      CommandMonitor.logExecution(mockExecution as any);
+      CommandMonitor.logExecution(mockExecution as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       return { logged: true };
     });
     
@@ -349,7 +350,7 @@ export class CommandProtectionTest {
    * Run AICommandFilter tests
    */
   private static async runAICommandFilterTests(): Promise<void> {
-    console.log('🤖 Testing AICommandFilter...');
+    logger.info('🤖 Testing AICommandFilter...');
     
     // Test 1: Basic AI response filtering
     await this.runTest('AICommandFilter - Basic Filtering', async () => {
@@ -435,7 +436,7 @@ export class CommandProtectionTest {
    * Run integration tests
    */
   private static async runIntegrationTests(): Promise<void> {
-    console.log('🔗 Testing Integration...');
+    logger.info('🔗 Testing Integration...');
     
     // Test 1: End-to-end command protection
     await this.runTest('Integration - End-to-End Command Protection', async () => {
@@ -454,7 +455,7 @@ export class CommandProtectionTest {
       
       // Log executions
       for (const result of results) {
-        CommandMonitor.logExecution(result as any);
+        CommandMonitor.logExecution(result as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       }
       
       if (results.length === 0) {
@@ -482,7 +483,7 @@ export class CommandProtectionTest {
       
       // Step 4: Monitor
       if (result) {
-        CommandMonitor.logExecution(result as any);
+        CommandMonitor.logExecution(result as any); // eslint-disable-line @typescript-eslint/no-explicit-any
       }
       
       if (sanitized !== 'git add .') {
@@ -531,7 +532,7 @@ export class CommandProtectionTest {
    * @param testName - Name of the test
    * @param testFunction - Test function to run
    */
-  private static async runTest(testName: string, testFunction: () => Promise<any>): Promise<void> {
+  private static async runTest(testName: string, testFunction: () => Promise<unknown>): Promise<void> {
     const startTime = Date.now();
     
     try {
@@ -545,7 +546,7 @@ export class CommandProtectionTest {
         details: result
       });
       
-      console.log(`  ✅ ${testName} (${executionTime}ms)`);
+      logger.info(`  ✅ ${testName} (${executionTime}ms)`);
     } catch (error) {
       const executionTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -557,7 +558,7 @@ export class CommandProtectionTest {
         executionTime
       });
       
-      console.log(`  ❌ ${testName} (${executionTime}ms) - ${errorMessage}`);
+      logger.info(`  ❌ ${testName} (${executionTime}ms) - ${errorMessage}`);
     }
   }
   
@@ -567,23 +568,23 @@ export class CommandProtectionTest {
    * @param suite - Test suite results
    */
   private static printTestResults(suite: TestSuite): void {
-    console.log('\n📊 Test Results Summary:');
-    console.log(`  Total Tests: ${suite.totalTests}`);
-    console.log(`  Passed: ${suite.passedTests} ✅`);
-    console.log(`  Failed: ${suite.failedTests} ❌`);
-    console.log(`  Success Rate: ${((suite.passedTests / suite.totalTests) * 100).toFixed(1)}%`);
-    console.log(`  Execution Time: ${suite.executionTime}ms`);
+    logger.info('\n📊 Test Results Summary:');
+    logger.info(`  Total Tests: ${suite.totalTests}`);
+    logger.info(`  Passed: ${suite.passedTests} ✅`);
+    logger.info(`  Failed: ${suite.failedTests} ❌`);
+    logger.info(`  Success Rate: ${((suite.passedTests / suite.totalTests) * 100).toFixed(1)}%`);
+    logger.info(`  Execution Time: ${suite.executionTime}ms`);
     
     if (suite.failedTests > 0) {
-      console.log('\n❌ Failed Tests:');
+      logger.info('\n❌ Failed Tests:');
       suite.results
         .filter(r => !r.passed)
         .forEach(r => {
-          console.log(`  - ${r.testName}: ${r.error}`);
+          logger.info(`  - ${r.testName}: ${r.error}`);
         });
     }
     
-    console.log('\n🎉 Command Protection System Tests Complete!');
+    logger.info('\n🎉 Command Protection System Tests Complete!');
   }
   
   /**

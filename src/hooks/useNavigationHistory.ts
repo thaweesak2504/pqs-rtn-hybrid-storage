@@ -6,7 +6,7 @@ export interface NavigationHistoryItem {
   path: string
   label: string
   timestamp: number
-  state?: any
+  state?: unknown
 }
 
 interface NavigationHistory {
@@ -41,10 +41,11 @@ export const useNavigationHistory = (): NavigationHistory => {
   // Get label for path
   const getPathLabel = useCallback((path: string): string => {
     const pathLabels: Record<string, string> = {
-      '/': 'Home',
-      '/home': 'Home',
-      '/history': 'History',
-      '/team': 'Team',
+      '/': 'Welcome',
+      '/welcome': 'Welcome',
+      '/home': 'Welcome',
+      '/history': 'Welcome',
+      '/team': 'Welcome',
       '/contact': 'Contact Us',
       '/signin': 'Sign In',
       '/register': 'Registration',
@@ -119,7 +120,7 @@ export const useNavigationHistory = (): NavigationHistory => {
       isNavigatingRef.current = true
       setCurrentIndex(index)
       const historyItem = history[index]
-      navigate(historyItem.path, { state: historyItem.state })
+      if (historyItem) navigate(historyItem.path, { state: historyItem.state })
     }
   }, [history, navigate])
 
@@ -188,6 +189,7 @@ export const useNavigationHistory = (): NavigationHistory => {
   // Handle browser back/forward buttons
   useEffect(() => {
     // 'event' parameter is required by popstate listener, but not used
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
     const handlePopState = (_event: PopStateEvent) => {
       if (!isNavigatingRef.current) {
         // Browser navigation occurred, update current index

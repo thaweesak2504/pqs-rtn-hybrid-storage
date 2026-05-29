@@ -1,5 +1,11 @@
-import React, { useState, type ReactNode } from 'react'
-import { BreadcrumbContext } from './breadcrumbContextObject'
+import React, { createContext, useState, type ReactNode } from 'react'
+
+export interface BreadcrumbContextType {
+  breadcrumb: string
+  setBreadcrumb: (breadcrumb: string) => void
+}
+
+export const BreadcrumbContext = createContext<BreadcrumbContextType | undefined>(undefined)
 
 interface BreadcrumbProviderProps {
   children: ReactNode

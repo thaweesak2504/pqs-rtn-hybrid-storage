@@ -32,7 +32,7 @@ export default [
     rules: {
       ...reactHooks.configs.recommended.rules,
       // This repo currently contains a lot of legacy/utility code; keep ESLint usable first.
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": "warn",
       "react-hooks/refs": "off",
       "react-hooks/set-state-in-effect": "off",

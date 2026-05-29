@@ -13,71 +13,16 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Button from '../ui/Button';
+import { logger } from '../../utils/logger';
 
-interface CareerBranchManagerModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: () => void;
-  userRole?: string;
-}
-
-interface OccupationBranch {
-  code: string;
-  name: string;
-}
-
-interface OccupationSubBranch {
-  code: string;
-  branch_code: string;
-  name: string;
-}
-
-interface OccupationSubQuestion {
-  id: number;
-  branch_code: string;
-  sub_branch_code: string;
-  code: string;
-  text: string;
-  always_checked: boolean;
-  sequence: number;
-}
-
-// Each tab maps to a 2-char code prefix: sCode + lCode
-// e.g. '2xx.2' → sCode='2', lCode='2' → prefix '22'
-const SECTION_SLOTS = [
-  { id: '2xx.2', label: '2xx.2 (ส่วนประกอบ)', type: '200', sCode: '2', lCode: '2' },
-  { id: '2xx.4', label: '2xx.4 (ข้อจำกัด)', type: '200', sCode: '2', lCode: '4' },
-  { id: '3xx.2', label: '3xx.2 (ปกติ)', type: '300', sCode: '3', lCode: '2' },
-  { id: '3xx.3', label: '3xx.3 (พิเศษ)', type: '300', sCode: '3', lCode: '3' },
-  { id: '3xx.4', label: '3xx.4 (ขัดข้อง)', type: '300', sCode: '3', lCode: '4' },
-  { id: '3xx.5', label: '3xx.5 (ฉุกเฉิน)', type: '300', sCode: '3', lCode: '5' },
-];
-
-const STANDARD_BRANCH_NAME = 'ต้นแบบมาตรฐาน';
-
-// Default mandatory (always_checked) last-item text per 300-series tab
-const MANDATORY_TEXTS: Record<string, string> = {
-  '3xx.2': 'เริ่มปฏิบัติ',
-  '3xx.3': 'เริ่มปฏิบัติจริงหรือสมมติเหตุการณ์พิเศษ',
-  '3xx.4': 'เริ่มปฏิบัติจริงหรือสมมติเหตุขัดข้องแล้วทำการแก้ไข',
-  '3xx.5': 'เริ่มปฏิบัติจริงหรือสมมติเหตุฉุกเฉินแล้วทำการแก้ไข',
-};
-
-/** Build the 2-char slot prefix from active tab, e.g. '22' for tab '2xx.2'. */
-function slotPrefix(tabId: string): string {
-  const slot = SECTION_SLOTS.find(s => s.id === tabId);
-  return slot ? `${slot.sCode}${slot.lCode}` : '';
-}
-
-/** Pad a branch code to 2 digits: 'STD' → '00', '1' → '01', '12' → '12'. */
-function padBC(code: string): string {
-  return code === 'STD' ? '00' : code.padStart(2, '0');
-}
-
-/** Build the 6-char code prefix for a specific branch+sub+slot, e.g. '220101'. */
-function fullPrefix(tabId: string, mainCode: string, subCode: string): string {
-  return `${slotPrefix(tabId)}${padBC(mainCode)}${padBC(subCode)}`;
-}
+import {
+  CareerBranchManagerModalProps,
+  OccupationBranch,
+  OccupationSubBranch,
+  OccupationSubQuestion
+} from './careerBranchManager/types';
+import { SECTION_SLOTS, STANDARD_BRANCH_NAME, MANDATORY_TEXTS } from './careerBranchManager/constants';
+import { slotPrefix, fullPrefix } from './careerBranchManager/utils';
 
 const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
   isOpen,
@@ -133,7 +78,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setEditorSubQuestions(data);
       setSavedSnapshot(JSON.stringify(data.map(q => ({ code: q.code, text: q.text, always_checked: q.always_checked, sequence: q.sequence }))));
     } catch (err) {
-      console.error('Failed to load sub-questions:', err);
+      logger.error('Failed to load sub-questions:', err);
     }
   }, []);
 
@@ -141,7 +86,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
     try {
       const list = await invoke<OccupationSubBranch[]>('get_occupation_sub_branches', { branchCode: mainCode });
       setSubBranches(list);
-      if (list.length > 0) {
+      if (list.length > 0 && list[0]) {
         setSelectedSub(list[0].code);
         loadEditorSubQuestions(mainCode);
       } else {
@@ -149,7 +94,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         setEditorSubQuestions([]);
       }
     } catch (err) {
-      console.error('Failed to load sub-branches:', err);
+      logger.error('Failed to load sub-branches:', err);
     }
   }, [loadEditorSubQuestions]);
 
@@ -169,7 +114,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         await loadSubBranches(firstRegular.code);
       }
     } catch (err) {
-      console.error('Failed to load branches:', err);
+      logger.error('Failed to load branches:', err);
       setErrorMsg('ไม่สามารถโหลดข้อมูลสาขาอาชีพได้');
     } finally {
       setIsLoading(false);
@@ -205,7 +150,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setSelectedSub('');
       loadSubBranches(nc);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
     setNewMainName(''); setIsAddingMain(false);
   };
 
@@ -216,7 +161,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setBranches(prev => prev.map(b => b.code === editingMainCode ? { ...b, name: editingMainName.trim() } : b));
       setEditingMainCode(null);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
   };
 
   const handleCreateSub = async () => {
@@ -227,7 +172,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setSubBranches(prev => [...prev, created]);
       setSelectedSub(nc);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
     setNewSubName(''); setIsAddingSub(false);
   };
 
@@ -238,7 +183,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setSubBranches(prev => prev.map(s => s.code === editingSubCode ? { ...s, name: editingSubName.trim() } : s));
       setEditingSubCode(null);
       onSuccess?.();
-    } catch (e) { console.error(e); }
+    } catch (e) { logger.error(e); }
   };
 
   const handleDeleteBranch = async (type: 'main' | 'sub', code: string, name: string, branchCode?: string) => {
@@ -249,7 +194,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
         : await invoke<{ is_used: boolean; document_count: number; document_names: string[] }>('check_sub_branch_usage_global', { branchCode: branchCode!, subCode: code });
       setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report } : null);
     } catch (err) {
-      console.error('Failed to check branch usage:', err);
+      logger.error('Failed to check branch usage:', err);
       setDeleteDialog(prev => prev ? { ...prev, isChecking: false, report: null } : null);
     }
   };
@@ -274,7 +219,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       setDeleteDialog(null);
       onSuccess?.();
     } catch (err) {
-      console.error('Failed to delete branch:', err);
+      logger.error('Failed to delete branch:', err);
       setDeleteDialog(null);
     }
   };
@@ -446,13 +391,18 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
 
     // Protection for 300-series mandatory item (must stay last)
     if (currentSlotType === '300') {
-      if (items[index].always_checked || items[newIndex].always_checked) {
+      if (items[index]?.always_checked || items[newIndex]?.always_checked) {
         return;
       }
     }
 
     const swapped = [...items];
-    [swapped[index], swapped[newIndex]] = [swapped[newIndex], swapped[index]];
+    const item1 = swapped[index];
+    const item2 = swapped[newIndex];
+    if (item1 && item2) {
+      swapped[index] = item2;
+      swapped[newIndex] = item1;
+    }
 
     const updatedItems = swapped.map((q, i) => ({ ...q, sequence: i + 1 }));
     const prefix = fullPrefix(activeTab, selectedMain, selectedSub);
@@ -505,7 +455,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       const newVal = await invoke<boolean>('toggle_slot_completion', { branchCode: selectedMain, subBranchCode: selectedSub, slotId: slotKey });
       setSlotCompletionMap(prev => ({ ...prev, [slotKey]: newVal }));
     } catch (err) {
-      console.error('Failed to toggle slot completion:', err);
+      logger.error('Failed to toggle slot completion:', err);
     }
   };
 
@@ -544,7 +494,7 @@ const CareerBranchManagerModal: React.FC<CareerBranchManagerModalProps> = ({
       onSuccess?.();
       setErrorMsg(null);
     } catch (err) {
-      console.error('Save failed:', err);
+      logger.error('Save failed:', err);
       setErrorMsg('บันทึกข้อมูลไม่สำเร็จ: ' + (err as string));
     } finally {
       setIsSaving(false);

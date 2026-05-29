@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNavigationState } from './useNavigationState'
+import { logger } from '../utils/logger';
 
 export interface ShortcutConfig {
   key: string
@@ -28,7 +29,7 @@ interface NavigationShortcuts {
  */
 export const useNavigationShortcuts = (): NavigationShortcuts => {
   const navigate = useNavigate()
-  const [navigationState, navigationActions] = useNavigationState()
+  const [, navigationActions] = useNavigationState()
   // navigationHandlers removed - using direct navigationActions instead
   
   const shortcutsRef = useRef<ShortcutConfig[]>([])
@@ -39,22 +40,8 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
     {
       key: 'h',
       ctrlKey: true,
-      action: () => navigate('/home'),
-      description: 'Go to Home',
-      category: 'navigation'
-    },
-    {
-      key: 't',
-      ctrlKey: true,
-      action: () => navigate('/team'),
-      description: 'Go to Team',
-      category: 'navigation'
-    },
-    {
-      key: 'y',
-      ctrlKey: true,
-      action: () => navigate('/history'),
-      description: 'Go to History',
+      action: () => navigate('/welcome'),
+      description: 'Go to Welcome',
       category: 'navigation'
     },
     {
@@ -79,21 +66,6 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
       category: 'navigation'
     },
     {
-      key: 'w',
-      ctrlKey: true,
-      action: () => {
-        // Toggle Welcome menu
-        const isExpanded = navigationState.expandedMenus.includes('welcome')
-        if (isExpanded) {
-          navigationActions.setExpandedMenus([])
-        } else {
-          navigationActions.setExpandedMenus(['welcome'])
-        }
-      },
-      description: 'Toggle Welcome Menu',
-      category: 'menu'
-    },
-    {
       key: 'Escape',
       action: () => {
         // Close all menus
@@ -115,6 +87,7 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
   // Initialize shortcuts
   useEffect(() => {
     shortcutsRef.current = [...defaultShortcuts]
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Add custom shortcut
@@ -163,7 +136,7 @@ export const useNavigationShortcuts = (): NavigationShortcuts => {
       try {
         matchingShortcut.action()
       } catch (error) {
-        console.error('Shortcut action error:', error)
+        logger.error('Shortcut action error:', error)
       }
     }
   }, [])

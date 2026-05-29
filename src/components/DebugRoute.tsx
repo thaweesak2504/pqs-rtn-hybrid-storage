@@ -8,7 +8,7 @@ const DebugRoute: React.FC = () => {
     // Debug route - redirect to home
   }, [location.pathname])
   
-  return <Navigate to="/home" replace />
+  return <Navigate to="/welcome" replace />
 }
 
 export default DebugRoute

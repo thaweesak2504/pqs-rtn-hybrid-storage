@@ -5,7 +5,7 @@ import type { User as UserType } from '../types/user'
 import { createUser, getAllUsers, updateUser, deleteUser } from '../services/userService'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../contexts/ToastContext'
-import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/avatarService'
+import { validateAvatarFile, fileToDataUrl, maybeDownscaleImage } from '../services/hybridAvatarService'
 import UserAvatar from './UserAvatar'
 import { logger } from '../utils/logger'
 import ConfirmModal from './modals/ConfirmModal'
@@ -38,6 +38,7 @@ const UserCRUDForm: React.FC = () => {
   // Load users on component mount
   useEffect(() => {
     loadUsers()
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Note: UserAvatar components listen to avatarUpdated events and refresh themselves
@@ -55,27 +56,7 @@ const UserCRUDForm: React.FC = () => {
         created_at: u.created_at || new Date().toISOString(),
         updated_at: u.updated_at || new Date().toISOString()
       })))
-      // In dev (http origin) file:// cannot be loaded; hydrate previews by reading avatars via IPC if available
-      try {
-        const origin = window.location.origin
-        const canRead = (window as any).api?.avatar?.read
-        if (!origin.startsWith('file://') && canRead) {
-          for (const u of userList) {
-            if (u.id && u.avatar_path) {
-              try {
-                const res = await (window as any).api.avatar.read(u.id)
-                if (res?.ok && res.dataUrl) {
-                  setAvatarPreviews(prev => ({ ...prev, [u.id as number]: res.dataUrl }))
-                }
-              } catch (error) {
-                logger.warn('Error:', error);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        logger.warn('Error:', error);
-      }
+      // Legacy Electron IPC check for avatars was here. In Tauri we use the asset protocol, so this is no longer needed.
 
       // Password loading removed for security
     } catch (error) {
@@ -97,6 +78,7 @@ const UserCRUDForm: React.FC = () => {
       try {
         const down = await maybeDownscaleImage(dataUrl, file.type)
         dataUrl = down.dataUrl
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e) {
         // If downscale fails for any reason, continue with original if within limits
       }
@@ -108,7 +90,7 @@ const UserCRUDForm: React.FC = () => {
         const fileData = new Uint8Array(arrayBuffer)
 
         // Get MIME type from data URL
-        const mimeType = dataUrl.split(';')[0].split(':')[1] || 'image/jpeg'
+        const mimeType = dataUrl.split(';')[0]?.split(':')[1] || 'image/jpeg'
 
         // Save avatar using Hybrid Avatar System
         const { invoke } = await import('@tauri-apps/api/tauri')
@@ -128,6 +110,7 @@ const UserCRUDForm: React.FC = () => {
         } : u))
 
         // Clear preview since avatar is saved
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
         setAvatarPreviews(prev => { const { [user.id as number]: _omit, ...rest } = prev; return rest })
 
         // Trigger global avatar refresh event for all components
@@ -186,17 +169,17 @@ const UserCRUDForm: React.FC = () => {
 
         logger.debug('Avatar deleted successfully for user:', user.id)
 
-      } catch (dbError: any) {
+      } catch (dbError: unknown) {
         logger.error('Hybrid avatar delete failed:', {
           error: dbError,
           userId: user.id,
-          message: dbError?.message || String(dbError)
+          message: dbError instanceof Error ? dbError.message : String(dbError)
         })
 
         // Show user-friendly error message
         const errorMessage = typeof dbError === 'string'
           ? dbError
-          : dbError?.message || 'ลบรูปไม่สำเร็จ - กรุณาลองอีกครั้ง'
+          : (dbError instanceof Error ? dbError.message : 'ลบรูปไม่สำเร็จ - กรุณาลองอีกครั้ง')
 
         showError(errorMessage)
         return
@@ -213,6 +196,7 @@ const UserCRUDForm: React.FC = () => {
 
       // Clear avatar preview safely
       setAvatarPreviews(prev => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { [user.id as number]: _omit, ...rest } = prev
         return rest
       })
@@ -227,13 +211,13 @@ const UserCRUDForm: React.FC = () => {
 
       showSuccess('ลบ Avatar สำเร็จ')
 
-    } catch (e: any) {
+    } catch (e: unknown) {
       logger.error('Remove avatar failed - outer catch:', {
         error: e,
-        stack: e?.stack,
+        stack: e instanceof Error ? e.stack : undefined,
         userId: user.id
       })
-      showError(`ลบล้มเหลว: ${e?.message || String(e)}`)
+      showError(`ลบล้มเหลว: ${e instanceof Error ? e.message : String(e)}`)
     } finally {
       // Always clear busy state
       setAvatarBusy(prev => ({ ...prev, [user.id as number]: false }))
@@ -562,7 +546,7 @@ const UserCRUDForm: React.FC = () => {
             {users.map((user) => (
               <div
                 key={user.id}
-                className="flex items-center justify-between p-4 border border-github-border-primary rounded-lg bg-github-bg-secondary hover:bg-github-bg-hover transition-colors"
+                className="flex flex-wrap items-center justify-between gap-3 p-4 border border-github-border-primary rounded-lg bg-github-bg-secondary hover:bg-github-bg-hover transition-colors"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-4">

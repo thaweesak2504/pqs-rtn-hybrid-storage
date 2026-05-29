@@ -45,6 +45,7 @@ const SearchBarDropdown: React.FC<SearchBarDropdownProps> = ({ onRightPanelOpen 
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
+    return undefined;
   }, [isDropdownOpen])
 
   // Keyboard shortcuts

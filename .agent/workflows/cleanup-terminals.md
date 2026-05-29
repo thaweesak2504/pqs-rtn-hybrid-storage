@@ -1,16 +1,17 @@
----
-description: ล้าง Terminal Background ทั้งหมด (Cleanup background processes)
----
+# Workflow: Cleanup Terminals
 
-workflow นี้จะปิด process ที่ค้างอยู่จาก Terminal (conhost.exe และ powershell.exe)
+This workflow cleans up all stuck terminal processes for the project.
 
-// turbo
-1. รันสคริปต์ Cleanup
-```powershell
-powershell -ExecutionPolicy Bypass -File d:\pqs-rtn-hybrid-storage\scripts\cleanup.ps1
-```
+## Steps
 
-2. ตรวจสอบหลังจากล้างเสร็จ
-```powershell
-Get-Process conhost -ErrorAction SilentlyContinue
-```
+1. **Kill running `npm start`**
+   // turbo
+   Find and kill the Node/NPM server.
+
+2. **Kill running `tauri dev`**
+   // turbo
+   Find and kill the Tauri Dev process.
+
+3. **Verify clean state**
+   // turbo
+   Check if the port 1420 is free.

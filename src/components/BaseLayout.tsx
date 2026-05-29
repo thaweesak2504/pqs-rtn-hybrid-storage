@@ -23,6 +23,7 @@ import { useAvatarSync } from '../hooks/useAvatarSync'
 import { useLayoutTypeSync } from '../hooks/useLayoutTypeSync'
 import { useRightPanelControl } from '../hooks/useRightPanelControl'
 import { useWindowVisibilityRefresh } from '../hooks/useWindowVisibilityRefresh'
+import { logger } from '../utils/logger';
 
 interface BaseLayoutProps {
   /** Layout type for context */
@@ -50,7 +51,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
   
   const [isLoading, setIsLoading] = useState(true)
 
-  const { isAuthenticated, user, handleAvatarLoadError } = useAuth() as any
+  const { isAuthenticated, user, handleAvatarLoadError } = useAuth()
   const navigate = useNavigate()
   const { 
     setLayoutType,
@@ -83,7 +84,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
 
   useEffect(() => {
     handleRefreshAvatar()
-  }, [user?.id, (user as any)?.avatar_updated_at, handleRefreshAvatar])
+  }, [user?.id, user?.avatar_updated_at, handleRefreshAvatar])
 
   // ✅ Phase 1.2: Avatar sync with custom hook (replaces complex useEffect)
   useAvatarSync(user?.id, handleRefreshAvatar)
@@ -109,14 +110,25 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
     if (onLogoClick) {
       onLogoClick()
     } else {
-      // Default behavior - always go to Hero (Home) page
-      navigate('/home')
-      setCurrentPage('home')
+      // Default behavior - always go to Welcome page
+      navigate('/welcome')
+      setCurrentPage('welcome')
     }
   }
 
-  // Desktop-first layout adjustments
-  const showFullHeader = true // Always show full header on desktop
+  // Desktop-first layout adjustments - responsive collapse
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Show full header only when window is wide enough (>= 900px)
+  const showFullHeader = windowWidth >= 900
+  // Show breadcrumb only when there's enough space (>= 800px minimum Tauri window)
+  const showBreadcrumb = windowWidth >= 800
 
   // Build container classes
   const containerClasses = [
@@ -149,6 +161,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               const { getCurrent } = await import('@tauri-apps/api/window')
               const currentWindow = getCurrent()
               await currentWindow.startDragging()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
             } catch (error) {
               // Ignore drag error
             }
@@ -182,9 +195,11 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
               </div>
 
               {/* Breadcrumb - ต่อจาก PQS RTN */}
+              {showBreadcrumb && (
               <div className="flex-shrink-0 ml-3" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
                 <Breadcrumb variant="default" />
               </div>
+              )}
 
               {showFullHeader && (
                 <>
@@ -222,12 +237,12 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
                       <span className="sr-only">User menu</span>
                       <Avatar
                         src={hybridAvatar || undefined}
-                        version={(user as any)?.avatar_updated_at || null}
+                        version={user?.avatar_updated_at || null}
                         name={user?.name}
                         size="sm"
                         className="hover:border-github-border-active transition-all duration-200"
                         onImageError={() => { try { handleAvatarLoadError?.() } catch (error) {
-                            console.warn('Error:', error);
+                            logger.warn('Error:', error);
                           } }}
                       />
                     </button>
@@ -261,7 +276,7 @@ const BaseLayout: React.FC<BaseLayoutProps> = ({
         {/* Content Area */}
         <div 
           id="main-content"
-          className="flex-1 min-h-0 flex flex-col"
+          className="flex-1 min-w-0 min-h-0 flex flex-col"
         >
           <RouteTransition>
             <Outlet />

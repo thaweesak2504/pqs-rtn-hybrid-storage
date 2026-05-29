@@ -44,7 +44,7 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
       name={user.full_name || user.username}
       size={size}
       className={className}
-      version={version || (user as any)?.avatar_updated_at || null}
+      version={version || user?.avatar_updated_at || null}
       onImageError={onImageError}
     />
   )

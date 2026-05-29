@@ -1,12 +1,35 @@
+/**
+ * @fileoverview Low-level Tauri IPC bridge.
+ *
+ * All communication with the Rust backend goes through {@link safeInvoke},
+ * which wraps `@tauri-apps/api/tauri.invoke` with error logging.
+ *
+ * Higher-level service modules (`userService`, `authService`, etc.) should
+ * call methods on the typed service objects exported here rather than calling
+ * `safeInvoke` directly — that keeps the IPC type-safety in one place.
+ *
+ * @module services/tauriService
+ */
 import { invoke } from '@tauri-apps/api/tauri';
+import { logger } from '../utils/logger';
 
-// Desktop App only — invoke() directly, no web fallback
-export const safeInvoke = async (command: string, args?: any) => {
+/**
+ * Invoke a Tauri command with automatic error logging.
+ *
+ * This is the **only** function that should call `invoke()` directly. All
+ * other callers should go through the typed service objects below.
+ *
+ * @param command - The Rust command name registered in `main.rs`.
+ * @param args    - Key/value arguments forwarded to the Rust handler.
+ * @returns The deserialized return value from the Rust side.
+ * @throws Re-throws the original error after logging.
+ */
+export const safeInvoke = async (command: string, args?: Record<string, unknown>) => {
   try {
     const result = await invoke(command, args);
     return result;
   } catch (error) {
-    console.error('Tauri invoke error:', error);
+    logger.error('Tauri invoke error:', error);
     throw error;
   }
 };
@@ -15,6 +38,11 @@ export interface TauriUser {
   id?: number;
   username: string;
   email: string;
+  /**
+   * @deprecated The backend still returns this for existing callers but the frontend
+   * must NEVER send it back. Use `createUser` / `updateUser` / `changePassword` which
+   * accept plaintext passwords and hash them server-side.
+   */
   password_hash: string;
   full_name: string;
   rank?: string;
@@ -26,6 +54,8 @@ export interface TauriUser {
   avatar_size?: number;
   created_at?: string;
   updated_at?: string;
+  /** True when the user must change their password before any other action (e.g. seeded default admin). */
+  must_change_password?: boolean;
 }
 
 export interface TauriAvatar {
@@ -45,7 +75,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('get_all_users') as TauriUser[];
     } catch (error) {
-      console.error('Error getting all users:', error);
+      logger.error('Error getting all users:', error);
       throw error;
     }
   },
@@ -55,7 +85,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('get_user_by_id', { id }) as TauriUser | null;
     } catch (error) {
-      console.error('Error getting user by ID:', error);
+      logger.error('Error getting user by ID:', error);
       throw error;
     }
   },
@@ -65,7 +95,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('get_user_by_email', { email }) as TauriUser | null;
     } catch (error) {
-      console.error('Error getting user by email:', error);
+      logger.error('Error getting user by email:', error);
       throw error;
     }
   },
@@ -82,25 +112,48 @@ export const tauriUserService = {
         role 
       }) as TauriUser;
     } catch (error) {
-      console.error('Error creating user:', error);
+      logger.error('Error creating user:', error);
       throw error;
     }
   },
 
-  // Update user
-  async updateUser(id: number, username: string, email: string, password_hash: string, full_name: string, rank: string | undefined, role: string): Promise<TauriUser> {
+  // Update user. Pass `password` as plaintext to change it (backend hashes + validates).
+  // Omit (or pass empty string) to keep the existing password hash.
+  async updateUser(
+    id: number,
+    username: string,
+    email: string,
+    password: string | null | undefined,
+    full_name: string,
+    rank: string | undefined,
+    role: string
+  ): Promise<TauriUser> {
     try {
-      return await safeInvoke('update_user', { 
-        id, 
-        username, 
-        email, 
-        passwordHash: password_hash, 
-        fullName: full_name, 
-        rank, 
-        role 
+      return await safeInvoke('update_user', {
+        id,
+        username,
+        email,
+        password: password && password.length > 0 ? password : null,
+        fullName: full_name,
+        rank,
+        role,
       }) as TauriUser;
     } catch (error) {
-      console.error('Error updating user:', error);
+      logger.error('Error updating user:', error);
+      throw error;
+    }
+  },
+
+  // Change password after verifying the old one. Backend validates strength.
+  async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<void> {
+    try {
+      await safeInvoke('change_password', {
+        userId,
+        oldPassword,
+        newPassword,
+      });
+    } catch (error) {
+      logger.error('Error changing password:', error);
       throw error;
     }
   },
@@ -110,7 +163,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('delete_user', { id }) as boolean;
     } catch (error) {
-      console.error('Error deleting user:', error);
+      logger.error('Error deleting user:', error);
       throw error;
     }
   },
@@ -120,7 +173,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('cleanup_orphaned_avatars', {}) as number;
     } catch (error) {
-      console.error('Error cleaning up orphaned avatars:', error);
+      logger.error('Error cleaning up orphaned avatars:', error);
       throw error;
     }
   },
@@ -130,7 +183,7 @@ export const tauriUserService = {
     try {
       return await safeInvoke('migrate_passwords', {}) as string;
     } catch (error) {
-      console.error('Error migrating passwords:', error);
+      logger.error('Error migrating passwords:', error);
       throw error;
     }
   },
@@ -146,20 +199,11 @@ export const tauriUserService = {
       
       return await safeInvoke('authenticate_user', params) as TauriUser | null;
     } catch (error) {
-      console.error('Error authenticating user:', error);
+      logger.error('Error authenticating user:', error);
       throw error;
     }
   },
 
-  // Hash password
-  async hashPassword(password: string): Promise<string> {
-    try {
-      return await safeInvoke('hash_password', { password }) as string;
-    } catch (error) {
-      console.error('Error hashing password:', error);
-      throw error;
-    }
-  }
 };
 
 // Avatar Management Service
@@ -169,7 +213,7 @@ export const tauriAvatarService = {
     try {
       return await safeInvoke('get_avatar_by_user_id', { userId: userId }) as TauriAvatar | null;
     } catch (error) {
-      console.error('Error getting avatar by user ID:', error);
+      logger.error('Error getting avatar by user ID:', error);
       throw error;
     }
   },
@@ -183,7 +227,7 @@ export const tauriAvatarService = {
         mimeType: mimeType 
       }) as TauriAvatar;
     } catch (error) {
-      console.error('Error saving avatar:', error);
+      logger.error('Error saving avatar:', error);
       throw error;
     }
   },
@@ -193,7 +237,7 @@ export const tauriAvatarService = {
     try {
       return await safeInvoke('delete_avatar', { userId: userId }) as boolean;
     } catch (error) {
-      console.error('Error deleting avatar:', error);
+      logger.error('Error deleting avatar:', error);
       throw error;
     }
   }
@@ -206,7 +250,7 @@ export const tauriDatabaseService = {
     try {
       return await safeInvoke('initialize_database') as string;
     } catch (error) {
-      console.error('Error initializing database:', error);
+      logger.error('Error initializing database:', error);
       throw error;
     }
   }

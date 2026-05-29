@@ -74,7 +74,7 @@ describe("Score Cascade - Group Score Updates", () => {
     expect(groupScore).toBe(30);
 
     // Simulate score update
-    parent.children[0].score = 20;
+    if (parent.children[0]) parent.children[0].score = 20;
 
     // Recalculate
     groupScore = parent.children.reduce((sum, c) => sum + (c.is_scored ? c.score : 0), 0);

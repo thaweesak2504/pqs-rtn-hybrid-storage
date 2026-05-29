@@ -15,12 +15,10 @@ import { logger } from './utils/logger';
 import ActiveDocumentPage from './components/pages/ActiveDocumentPage';
 import ContactPage from './components/pages/ContactPage';
 import EditorPage from './components/pages/EditorPage';
-import HistoryPage from './components/pages/HistoryPage';
 import PqsExamplePage from './components/pages/PqsExamplePage';
 import RegistrationPage from './components/pages/RegistrationPage';
 import SignInPage from './components/pages/SignInPage';
-import TeamPage from './components/pages/TeamPage';
-// import VisitorPage from './components/pages/VisitorPage'; // Retired
+import WelcomeLandingPage from './components/pages/WelcomeLandingPage';
 
 import DatabaseViewerPage from './components/pages/DatabaseViewerPage';
 ;
@@ -34,8 +32,8 @@ import UnifiedLayout from './components/UnifiedLayout';
 
 // Import components
 import DebugRoute from './components/DebugRoute';
+import ForceChangePasswordModal from './components/ForceChangePasswordModal';
 import GlobalRedirect from './components/GlobalRedirect';
-import HeroSection from './components/HeroSection';
 
 // Tauri commands are handled by individual components
 
@@ -77,17 +75,24 @@ function App() {
                   <SlideBarProvider>
                     <LayoutProvider>
                       <GlobalRedirect />
+                      {/* Globally-mounted gate: renders null unless the currently
+                          authenticated user has must_change_password=true, in which
+                          case it displays a non-dismissible modal that blocks the UI
+                          until a strong password is set (see Phase 1 security). */}
+                      <ForceChangePasswordModal />
                       <div className="min-h-screen bg-github-bg-primary transition-colors duration-200 overflow-y-auto">
                         <Routes>
                           {/* All routes with UnifiedLayout */}
                           <Route path="/" element={<UnifiedLayout />}>
-                            <Route index element={<Navigate to="/home" replace />} />
-                            <Route path="home" element={<HeroSection />} />
+                            <Route index element={<Navigate to="/welcome" replace />} />
+                            <Route path="welcome" element={<WelcomeLandingPage />} />
+                            {/* Backward compat: old routes redirect to landing page */}
+                            <Route path="home" element={<Navigate to="/welcome" replace />} />
+                            <Route path="history" element={<Navigate to="/welcome" replace />} />
+                            <Route path="team" element={<Navigate to="/welcome" replace />} />
                             <Route path="signin" element={<SignInPage />} />
                             <Route path="registration" element={<RegistrationPage />} />
                             <Route path="register" element={<RegistrationPage />} />
-                            <Route path="history" element={<HistoryPage />} />
-                            <Route path="team" element={<TeamPage />} />
                             <Route path="contact" element={<ContactPage />} />
 
                             {/* Editor and Visitor routes */}

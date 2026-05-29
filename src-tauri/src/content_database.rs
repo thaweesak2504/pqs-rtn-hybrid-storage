@@ -14,7 +14,7 @@ pub use types::{
     UpsertUserProgressArgs, UserAnswer, UserProgress,
 };
 pub mod connection;
-pub use connection::{get_content_connection, get_portable_data_dir};
+pub use connection::{get_content_connection, get_content_database_path, get_portable_data_dir};
 pub mod schema;
 #[cfg(test)]
 pub use schema::init_branch_protection_schema;
@@ -80,11 +80,12 @@ pub use section_links::{
 };
 pub mod media;
 pub use media::{
-    bundle_reference_file, delete_question_image, get_question_image_base64, get_reference_by_id,
-    resolve_image_path, upload_question_image,
+    bundle_reference_file, delete_question_image, delete_trainee_attachment,
+    get_question_image_base64, get_reference_by_id, resolve_image_path, upload_question_image,
+    upload_trainee_attachment, get_file_sha256, check_section_duplicate_file,
 };
 pub mod answers;
-pub use answers::{get_trainee_answers, save_qualifier_assessment, save_trainee_answer};
+pub use answers::{get_trainee_answers, save_qualifier_assessment, save_trainee_answer, delete_trainee_answer};
 pub mod helpers;
 pub use helpers::{
     add_question_reference_with_conn, ensure_section_300_policy_allows_question_action,

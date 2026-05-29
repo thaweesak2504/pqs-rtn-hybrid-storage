@@ -278,14 +278,13 @@
   font-weight: 700;
   background: rgba(0, 0, 0, 0.04);
 }
-@media (prefers-color-scheme: dark) {
-  .answer-key-markdown th,
-  .answer-key-markdown td {
-    border-color: #374151;
-  }
-  .answer-key-markdown th {
-    background: rgba(255, 255, 255, 0.05);
-  }
+/* answer-key-markdown dark mode - class-based (matches darkMode: 'class') */
+.dark .answer-key-markdown th,
+.dark .answer-key-markdown td {
+  border-color: #374151;
+}
+.dark .answer-key-markdown th {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 @layer utilities {
@@ -392,4 +391,5 @@
   .animate-spin {
     animation: spin 1s linear infinite;
   }
+
 }

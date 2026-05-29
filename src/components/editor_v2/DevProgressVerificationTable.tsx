@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { BarChart3, CheckCircle2, Database, RefreshCw } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
+import { logger } from '../../utils/logger';
 
 interface DevProgressVerificationTableProps {
   documentId: string;
@@ -47,7 +48,7 @@ const DevProgressVerificationTable: React.FC<DevProgressVerificationTableProps> 
           setMetrics(data);
         }
       } catch (err) {
-        console.error("Failed to fetch dev metrics:", err);
+        logger.error("Failed to fetch dev metrics:", err);
       } finally {
         if (isMounted) setLoading(false);
       }

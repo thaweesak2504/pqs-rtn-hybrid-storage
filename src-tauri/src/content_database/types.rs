@@ -1,3 +1,4 @@
+/// Arguments for creating a new PQS document via Tauri command.
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct CreateDocumentArgs {
     pub name: String,
@@ -7,6 +8,7 @@ pub struct CreateDocumentArgs {
     pub doc_type: String,   // "10" or "20"
     pub user_level: String, // "0", "1", or "2"
 }
+/// A military unit in the organisational hierarchy.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct OwnerUnit {
     pub unit_id: String,
@@ -15,6 +17,7 @@ pub struct OwnerUnit {
     pub parent_id: Option<String>,
     pub unit_level: Option<i32>,
 }
+/// A PQS document record (Personnel Qualification Standards).
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Document {
     pub id: String,
@@ -28,6 +31,7 @@ pub struct Document {
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
+/// Arguments for updating an existing PQS document.
 #[derive(serde::Deserialize)]
 pub struct UpdateDocumentArgs {
     pub id: String,
@@ -36,23 +40,27 @@ pub struct UpdateDocumentArgs {
     pub doc_type: String,
     pub user_level: String,
 }
+/// Career branch assignment for a document.
 #[derive(serde::Serialize)]
 pub struct DocumentBranch {
     pub occupation_branch_main: Option<String>,
     pub occupation_branch_sub: Option<String>,
 }
+/// Report on career branch conflicts when changing branches.
 #[derive(serde::Serialize)]
 pub struct CareerBranchUsageReport {
     pub has_conflict: bool,
     pub affected_question_count: i64,
     pub affected_section_groups: Vec<i32>,
 }
+/// Report on whether a branch/sub-branch is used across documents.
 #[derive(serde::Serialize)]
 pub struct BranchUsageReport {
     pub is_used: bool,
     pub document_count: i64,
     pub document_names: Vec<String>,
 }
+/// Summary of items deleted when resetting a career branch.
 #[derive(serde::Serialize)]
 pub struct CareerBranchResetReport {
     pub subq_links_deleted: usize,
@@ -60,11 +68,13 @@ pub struct CareerBranchResetReport {
     pub user_answers_deleted: usize,
     pub questions_reset: usize,
 }
+/// Aggregate statistics for documents (total count, draft count).
 #[derive(serde::Serialize)]
 pub struct DocumentStats {
     pub total_count: i64,
     pub draft_count: i64,
 }
+/// A PQS question record.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct Question {
     pub id: String, // UUID-like string
@@ -84,6 +94,7 @@ pub struct Question {
     pub is_group_header: Option<bool>,
     pub is_scored: Option<bool>,
 }
+/// A choice for a multiple-choice question.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct QuestionChoice {
     pub id: i32,
@@ -101,6 +112,7 @@ pub struct Reference {
     pub content: String,
     pub sequence: i32,
 }
+/// A document reference (regulation, manual, etc.) attached to PQS content.
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct DocumentReference {
     pub id: i64,
@@ -122,6 +134,7 @@ pub struct QuestionReference {
     pub location_text: Option<String>,
     pub display_order: i32,
 }
+/// Question reference with joined reference details for frontend display.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct QuestionReferenceDetail {
     pub id: i32,
@@ -131,6 +144,7 @@ pub struct QuestionReferenceDetail {
     pub display_order: i32,
     pub thai_letter: String,
 }
+/// Fully hydrated question with choices and references for frontend rendering.
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
 pub struct QuestionDetail {
     #[serde(flatten)]
@@ -170,11 +184,13 @@ pub struct UpdateQuestionArgs {
     pub is_group_header: Option<bool>,
     pub is_scored: Option<bool>,
 }
+/// Document with its full unit hierarchy path.
 #[derive(serde::Serialize)]
 pub struct DocumentHierarchy {
     pub document: Document,
     pub hierarchy: Vec<String>, // [L4 Name, L3 Name, L2 Name, L1 Name] (Ordered from Leaf to Root or vice versa, user asked for L4+L3+L2+L1)
 }
+/// A PQS section (100/200/300 series).
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct Section {
     pub id: i64,
@@ -291,6 +307,7 @@ pub struct BatchSubQuestionItem {
     pub always_checked: bool,
     pub sequence: i32,
 }
+/// User progress record tracking scores and completion for a section.
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct UserProgress {
     pub id: i64,
@@ -407,6 +424,7 @@ pub struct SaveTraineeAnswerArgs {
     pub document_id: String,
     pub sub_question_code: String,
     pub answer_text: String,
+    pub attachments: Option<String>, // Phase 5G: JSON array of file paths
 }
 #[derive(serde::Deserialize)]
 pub struct SaveQualifierAssessmentArgs {
@@ -418,6 +436,7 @@ pub struct SaveQualifierAssessmentArgs {
     pub feedback: Option<String>,
     pub qualifier_id: String,
 }
+/// Trainee answer record including qualifier assessment and attachments.
 #[derive(serde::Serialize, Clone)]
 pub struct UserAnswer {
     pub user_id: String,
@@ -431,6 +450,7 @@ pub struct UserAnswer {
     pub assessed_by: Option<String>,
     pub updated_at: String,
     pub answer_key: Option<String>,
+    pub attachments: Option<String>, // Phase 5G: JSON array of file paths
 }
 #[derive(Debug, Clone)]
 pub struct ComputedSectionProgress {
@@ -466,6 +486,7 @@ pub struct SubQuestionUsageResponse {
     pub usage_map: std::collections::HashMap<String, i64>,
     pub total_children: i64,
 }
+/// Answer key for a question (the expected correct answer).
 #[derive(serde::Serialize)]
 pub struct AnswerKey {
     pub id: i64,

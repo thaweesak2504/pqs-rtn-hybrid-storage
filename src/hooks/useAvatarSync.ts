@@ -7,7 +7,7 @@ import { useEffect, useRef } from 'react'
  * Phase 1.2: Extracted from BaseLayout to reduce useEffect complexity
  */
 export function useAvatarSync(
-  userId: number | undefined,
+  userId: string | number | undefined,
   onAvatarUpdate: () => void
 ) {
   // Use ref to maintain stable reference

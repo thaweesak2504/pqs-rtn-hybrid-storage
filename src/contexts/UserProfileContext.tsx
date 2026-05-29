@@ -1,7 +1,21 @@
-import React, { useState } from 'react'
-import { UserProfileContext } from './userProfileContextObject'
+import React, { createContext, useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import UserProfilePanel from '../components/UserProfilePanel'
+
+declare global {
+  interface Window {
+    openUserProfile?: () => void
+  }
+}
+
+export interface UserProfileContextType {
+  isProfileOpen: boolean
+  openProfile: () => void
+  closeProfile: () => void
+  toggleProfile: () => void
+}
+
+export const UserProfileContext = createContext<UserProfileContextType | undefined>(undefined)
 
 interface UserProfileProviderProps {
   children: React.ReactNode
@@ -19,6 +33,7 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
     setIsProfileOpen(false)
   }
 
+// eslint-disable-next-line react-hooks/exhaustive-deps
   const toggleProfile = () => {
     setIsProfileOpen(prev => !prev)
   }
@@ -26,7 +41,7 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
   // Expose toggleProfile to global scope for Avatar to use
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      (window as any).openUserProfile = toggleProfile
+      window.openUserProfile = toggleProfile
     }
   }, [toggleProfile])
 
@@ -48,3 +63,4 @@ export const UserProfileProvider: React.FC<UserProfileProviderProps> = ({ childr
     </UserProfileContext.Provider>
   )
 }
+

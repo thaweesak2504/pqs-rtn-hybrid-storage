@@ -25,10 +25,10 @@ const Modal: React.FC<ModalProps> = ({
   className = ''
 }) => {
   const sizeClasses = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
+    sm: 'max-w-sm hd:max-w-md',
+    md: 'max-w-md hd:max-w-lg',
+    lg: 'max-w-lg hd:max-w-xl 2k:max-w-2xl',
+    xl: 'max-w-xl hd:max-w-2xl 2k:max-w-3xl',
     full: 'max-w-full mx-4'
   }
 

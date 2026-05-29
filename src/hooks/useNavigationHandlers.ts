@@ -4,6 +4,7 @@ import { useSlideBar } from './useSlideBar'
 import { useAuth } from './useAuth'
 import { getRouteForItem, isStandaloneItem } from '../config/navigationConfig'
 import type { NavigationState, NavigationStateActions } from './useNavigationState'
+import { logger } from '../utils/logger';
 
 interface NavigationHandlers {
   handleMenuClick: (itemId: string) => void
@@ -28,9 +29,9 @@ export const useNavigationHandlers = (
       if (itemId === 'signout') {
         // Handle Sign Out specifically
         signOut()
-        navigate('/home')
+        navigate('/welcome')
       } else if (isStandaloneItem(itemId)) {
-        // Handle standalone menu items (Contact, Sign In)
+        // Handle standalone menu items (Contact, Sign In, Welcome)
         const route = getRouteForItem(itemId)
         if (route) {
           actions.updateState({ 
@@ -45,23 +46,18 @@ export const useNavigationHandlers = (
           }
         }
       } else {
-        // Handle menu items with submenus (Welcome)
+        // Handle menu items with submenus (Admin)
         actions.updateState({ 
           activeItem: itemId, 
           expandedMenus: [itemId] 
         })
-        
-        // Navigate to first submenu item
-        if (itemId === 'welcome') {
-          navigate('/home')
-        }
       }
     } catch (error) {
-      console.error('Navigation error in handleMenuClick:', error)
-      // Fallback to home
-      navigate('/home')
+      logger.error('Navigation error in handleMenuClick:', error)
+      // Fallback to welcome
+      navigate('/welcome')
       actions.updateState({ 
-        activeItem: 'home', 
+        activeItem: 'welcome', 
         expandedMenus: [] 
       })
     }
@@ -84,28 +80,29 @@ export const useNavigationHandlers = (
         }
       }
     } catch (error) {
-      console.error('Navigation error in handleSubItemClick:', error)
-      // Fallback to home
-      navigate('/home')
+      logger.error('Navigation error in handleSubItemClick:', error)
+      // Fallback to welcome
+      navigate('/welcome')
       actions.updateState({ 
-        activeItem: 'home', 
+        activeItem: 'welcome', 
         expandedMenus: [] 
       })
     }
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, actions, closeSlideBar, signOut])
 
   const handleSignOut = useCallback(() => {
     try {
       // This will be handled by the auth system
-      // Just navigate to home after sign out
-      navigate('/home')
+      // Just navigate to welcome after sign out
+      navigate('/welcome')
       actions.updateState({ 
-        activeItem: 'home', 
+        activeItem: 'welcome', 
         expandedMenus: [] 
       })
     } catch (error) {
-      console.error('Navigation error in handleSignOut:', error)
-      navigate('/home')
+      logger.error('Navigation error in handleSignOut:', error)
+      navigate('/welcome')
     }
   }, [navigate, actions])
 

@@ -2,11 +2,12 @@ import { invoke } from "@tauri-apps/api/tauri";
 import { Save, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { QuestionDetail, QuestionReferenceDetail } from "../../types/content";
-import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
+import { buildPrefix, buildPrefix200_300, buildFullPrefix } from "../../utils/thaiNumbering";
 import Button from "../ui/Button";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
 import QuestionFormCard from "./QuestionFormCard";
+import { logger } from '../../utils/logger';
 
 // ============ Types ============
 interface SubQuestionItem {
@@ -24,6 +25,7 @@ interface QuestionTreeNodeProps {
   sectionNumber?: number;
   sectionGroup?: 100 | 200 | 300;
   parentSequence?: number | null;
+  parentFullPrefix?: string | null;
   readOnly: boolean;
   editingId: string | null;
   isCreating: boolean;
@@ -43,7 +45,6 @@ interface QuestionTreeNodeProps {
   isLast: boolean;
   documentId: string;
   sectionId?: number;
-  onImageClick?: (src: string) => void;
   onAlert?: (msg: string, type?: "warning" | "danger") => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
@@ -59,6 +60,7 @@ interface QuestionTreeNodeProps {
   viewMode?: ViewMode;
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
+  isInsidePrerequisiteDoc?: boolean;
 }
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question,
@@ -90,7 +92,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   isLast,
   documentId,
   sectionId,
-  onImageClick,
   onAlert,
   parentLayout = "list",
   isParentDefault300L1 = false,
@@ -101,6 +102,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   viewMode = 'edit',
   traineeAnswer,
   answerMap,
+  isInsidePrerequisiteDoc = false,
+  parentFullPrefix,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -122,6 +125,11 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
     : is200or300
       ? buildPrefix200_300(level, question.sequence as number, sectionNumber, parentSequence)
       : buildPrefix(level, question.sequence as number, sectionNumber);
+
+  const fullPrefix = useMemo(() => {
+    return buildFullPrefix(level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup);
+  }, [level, question.sequence, sectionNumber, parentFullPrefix, sectionGroup]);
+
   const hasChildren = question.children && question.children.length > 0;
 
   // Convert sequence to number for comparisons
@@ -149,6 +157,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   const isDefault300L1 = is300 && level === 0;
   const isDefaultL1 = isDefault200L1 || isDefault300L1;
   const isDefault300L2 = is300 && level === 1 && isParentDefault300L1;
+
+  const isPrerequisiteDocSelf = is300 && level === 1 && (qSeqNum === 1 || qSeqNum === 2) && isParentDefault300L1;
+  const effectiveIsInsidePrerequisiteDoc = isInsidePrerequisiteDoc || isPrerequisiteDocSelf;
 
   const [childLayout, setChildLayout] = useState<"list" | "grid">("list");
 
@@ -184,7 +195,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         .filter(sq => activeCodes.length === 0 || activeCodes.includes(sq.code) || sq.always_checked)
         .map(sq => ({ code: sq.code, text: sq.text, alwaysChecked: sq.always_checked }));
       setOwnSubQuestionList(filtered);
-    }).catch((err) => { console.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
+    }).catch((err) => { logger.error('[ownSubQuestionList] invoke error:', err); setOwnSubQuestionList([]); });
+// eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parsedQuestionMeta, is300, question.sequence]);
 
   const effectiveChildSubQuestionList = questionUsesOwnSubQuestions
@@ -228,7 +240,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           }
         });
       } catch (err) {
-        console.error('Failed to save required_instance score:', err);
+        logger.error('Failed to save required_instance score:', err);
       }
       onCancel();
       if (onRefresh) onRefresh();
@@ -290,6 +302,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
       <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
         <QuestionFormCard
           prefix={prefix}
+          fullPrefix={fullPrefix}
           level={level}
           sectionGroup={sectionGroup}
           isDefaultL1={isDefaultL1}
@@ -299,7 +312,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           initialImage={initialImage}
           initialMetadata={question.metadata}
           onSave={async (data) => {
-            let metaObj: any = {};
+            let metaObj: Record<string, unknown> = {};
             if (data.metadata) {
               try {
                 metaObj = JSON.parse(data.metadata);
@@ -308,11 +321,9 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             // Save childLayout for L0 (100/300) or L0+L1 (200)
             const shouldSaveChildLayout = is200 ? (level === 0 || level === 1) : (level === 0);
             if (shouldSaveChildLayout) metaObj.childLayout = data.childLayout || childLayout;
-            if (data.image) {
-              metaObj.image = data.image;
-            } else {
-              delete metaObj.image;
-            }
+            // Phase 5G: attachments are stored inside metadata by QuestionFormCard
+            // Remove legacy single-image field
+            delete metaObj.image;
             // Always send metadata string so backend can clear SubQ fields;
             // use '{}' instead of null to prevent optimistic-update fallback
             const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : '{}';
@@ -345,6 +356,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           currentSectionNumber={sectionNumber}
           usageRefreshKey={usageRefreshKey}
           subQUsageParentId={effectiveSubQUsageParentId}
+          isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
         />
       </div>
     );
@@ -356,6 +368,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         question={question}
         viewMode={viewMode}
         prefix={prefix}
+        fullPrefix={fullPrefix}
         level={level}
         sectionGroup={sectionGroup}
         readOnly={readOnly}
@@ -374,7 +387,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onInsertAfter={() => onStartInsertAfter(question.id)}
         onMoveUp={() => onMoveUp(question.id, siblings)}
         onMoveDown={() => onMoveDown(question.id, siblings)}
-        onImageClick={onImageClick}
         parentLayout={parentLayout}
         parentSubQuestionList={parentSubQuestionList}
         traineeAnswer={traineeAnswer}
@@ -383,6 +395,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         onRefresh={onRefresh}
         usageRefreshKey={usageRefreshKey}
         sectionSelectedBranch={sectionSelectedBranch}
+        isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
       />
 
       {/* Insert After Form */}
@@ -390,6 +403,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <div className={level > 0 && parentLayout !== "grid" ? "ml-12" : ""}>
           <QuestionFormCard
             prefix={is200or300 ? buildPrefix200_300(level, qSeqNum + 1, sectionNumber, parentSequence) : buildPrefix(level, qSeqNum + 1, sectionNumber)}
+            fullPrefix={buildFullPrefix(level, qSeqNum + 1, sectionNumber, parentFullPrefix, sectionGroup)}
             level={level}
             sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.parent_id || null, question.id)}
@@ -405,6 +419,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             currentSectionNumber={sectionNumber}
             usageRefreshKey={usageRefreshKey}
             subQUsageParentId={effectiveSubQUsageParentId}
+            isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
           />
         </div>
       )}
@@ -424,6 +439,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 parentSequence={question.sequence as number}
+                parentFullPrefix={fullPrefix}
                 parentSubQuestionList={effectiveChildSubQuestionList}
                 collapsedIds={collapsedIds}
                 onToggleCollapse={onToggleCollapse}
@@ -447,7 +463,6 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 isLast={idx === question.children!.length - 1}
                 documentId={documentId}
                 sectionId={sectionId}
-                onImageClick={onImageClick}
                 onAlert={onAlert}
                 parentLayout={childLayout}
                 sectionOccupationBranches={sectionOccupationBranches}
@@ -458,6 +473,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
                 subQUsageParentId={effectiveSubQUsageParentId}
                 traineeAnswer={answerMap?.get(`${child.id}:`)}
                 answerMap={answerMap}
+                isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
               />
             ))}
           </div>
@@ -469,6 +485,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         <div className={childLayout === "grid" ? "m-1" : "ml-12 mt-1 mb-1"}>
           <QuestionFormCard
             prefix={is200or300 ? buildPrefix200_300(level + 1, (question.children?.length || 0) + 1, sectionNumber, qSeqNum) : buildPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber)}
+            fullPrefix={buildFullPrefix(level + 1, (question.children?.length || 0) + 1, sectionNumber, fullPrefix, sectionGroup)}
             level={level + 1}
             sectionGroup={sectionGroup}
             onSave={(data) => onCreate(data, question.id, null)}
@@ -484,6 +501,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             currentSectionNumber={sectionNumber}
             usageRefreshKey={usageRefreshKey}
             subQUsageParentId={effectiveSubQUsageParentId}
+            isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
           />
         </div>
       )}

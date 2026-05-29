@@ -437,6 +437,49 @@ pub fn delete_question(id: String) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| e.to_string())?;
 
     let tx = conn.transaction().map_err(|e| e.to_string())?;
+    
+    // Phase 5G Cleanup: Find media to delete from disk
+    let (metadata_str,): (Option<String>,) = tx.query_row(
+        "SELECT metadata FROM Questions WHERE id = ?1",
+        params![id],
+        |row| Ok((row.get(0)?,)),
+    ).map_err(|e| format!("Failed to read question metadata for cleanup: {}", e))?;
+
+    if let Some(meta_str) = metadata_str {
+        if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&meta_str) {
+            // Delete question attachments
+            if let Some(attachments) = meta.get("attachments").and_then(|v| v.as_array()) {
+                for path_val in attachments {
+                    if let Some(path) = path_val.as_str() {
+                        let _ = super::media::delete_question_image(path.to_string());
+                    }
+                }
+            }
+            // Delete legacy image
+            if let Some(path) = meta.get("image").and_then(|v| v.as_str()) {
+                let _ = super::media::delete_question_image(path.to_string());
+            }
+        }
+    }
+
+    {
+        // Delete Trainee Answer Attachments
+        let mut stmt = tx.prepare("SELECT attachments FROM UserAnswers WHERE question_id = ?1").map_err(|e| e.to_string())?;
+        let attachment_rows = stmt.query_map(params![id], |row| {
+            let atts: Option<String> = row.get(0)?;
+            Ok(atts)
+        }).map_err(|e| e.to_string())?;
+
+        for row in attachment_rows {
+            if let Ok(Some(atts_str)) = row {
+                if let Ok(atts_vec) = serde_json::from_str::<Vec<String>>(&atts_str) {
+                    for path in atts_vec {
+                        let _ = super::media::delete_trainee_attachment(path);
+                    }
+                }
+            }
+        }
+    }
 
     // 1. Get info before delete to handle re-indexing (context for siblings)
     let (document_id, section_id, parent_id, sequence): (String, Option<i64>, Option<String>, i32) =
