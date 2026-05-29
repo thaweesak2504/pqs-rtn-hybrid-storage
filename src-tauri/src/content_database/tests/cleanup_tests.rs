@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests {
-    
-    
-    
+
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
     use rusqlite::params;

@@ -18,7 +18,9 @@ pub fn generate_document_id_preview(
 }
 
 #[tauri::command]
-pub fn get_owner_units(parent_id: Option<String>) -> Result<Vec<content_database::OwnerUnit>, String> {
+pub fn get_owner_units(
+    parent_id: Option<String>,
+) -> Result<Vec<content_database::OwnerUnit>, String> {
     content_database::get_owner_units(parent_id)
 }
 
@@ -55,7 +57,9 @@ pub fn get_document_questions_with_details(
 }
 
 #[tauri::command]
-pub fn get_document_with_hierarchy(id: String) -> Result<content_database::DocumentHierarchy, String> {
+pub fn get_document_with_hierarchy(
+    id: String,
+) -> Result<content_database::DocumentHierarchy, String> {
     content_database::get_document_with_hierarchy(id)
 }
 
@@ -89,7 +93,9 @@ pub fn create_section(
 }
 
 #[tauri::command]
-pub fn get_sections_by_document(document_id: String) -> Result<Vec<content_database::Section>, String> {
+pub fn get_sections_by_document(
+    document_id: String,
+) -> Result<Vec<content_database::Section>, String> {
     content_database::get_sections_by_document(document_id)
 }
 
@@ -121,7 +127,9 @@ pub fn calculate_section_total_score(section_id: i64) -> Result<i32, String> {
 }
 
 #[tauri::command]
-pub fn batch_recalculate_section_group_scores(section_id: i64) -> Result<Vec<(String, i32)>, String> {
+pub fn batch_recalculate_section_group_scores(
+    section_id: i64,
+) -> Result<Vec<(String, i32)>, String> {
     content_database::batch_recalculate_section_group_scores(section_id)
 }
 
@@ -146,7 +154,9 @@ pub fn calculate_group_score(parent_id: String) -> Result<i32, String> {
 }
 
 #[tauri::command]
-pub fn update_question_score(args: content_database::UpdateQuestionScoreArgs) -> Result<(), String> {
+pub fn update_question_score(
+    args: content_database::UpdateQuestionScoreArgs,
+) -> Result<(), String> {
     content_database::update_question_score(args)
 }
 
@@ -532,7 +542,8 @@ pub fn get_slot_completion_map(
 }
 
 #[tauri::command]
-pub fn get_all_completed_branch_pairs() -> Result<Vec<content_database::CompletedBranchPair>, String> {
+pub fn get_all_completed_branch_pairs() -> Result<Vec<content_database::CompletedBranchPair>, String>
+{
     content_database::get_all_completed_branch_pairs()
 }
 
@@ -573,7 +584,13 @@ pub fn upload_trainee_attachment(
     user_id: String,
     friendly_prefix: Option<String>,
 ) -> Result<String, String> {
-    content_database::upload_trainee_attachment(source_path, document_id, question_id, user_id, friendly_prefix)
+    content_database::upload_trainee_attachment(
+        source_path,
+        document_id,
+        question_id,
+        user_id,
+        friendly_prefix,
+    )
 }
 
 #[tauri::command]
@@ -598,7 +615,9 @@ pub fn check_section_duplicate_file(
 // ===== Trainee Answer Commands =====
 
 #[tauri::command]
-pub fn save_trainee_answer(args: content_database::SaveTraineeAnswerArgs) -> Result<String, String> {
+pub fn save_trainee_answer(
+    args: content_database::SaveTraineeAnswerArgs,
+) -> Result<String, String> {
     content_database::save_trainee_answer(args)
 }
 
@@ -609,7 +628,12 @@ pub fn delete_trainee_answer(
     document_id: String,
     sub_question_code: String,
 ) -> Result<String, String> {
-    content_database::delete_trainee_answer(&user_id, &question_id, &document_id, &sub_question_code)
+    content_database::delete_trainee_answer(
+        &user_id,
+        &question_id,
+        &document_id,
+        &sub_question_code,
+    )
 }
 
 #[tauri::command]

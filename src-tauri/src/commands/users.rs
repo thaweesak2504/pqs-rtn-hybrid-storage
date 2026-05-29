@@ -66,7 +66,11 @@ pub fn update_user(
 }
 
 #[tauri::command]
-pub fn change_password(user_id: i32, old_password: String, new_password: String) -> Result<(), String> {
+pub fn change_password(
+    user_id: i32,
+    old_password: String,
+    new_password: String,
+) -> Result<(), String> {
     auth::change_password(user_id, &old_password, &new_password)
 }
 
@@ -76,7 +80,10 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn authenticate_user(username_or_email: String, password: String) -> Result<Option<User>, String> {
+pub fn authenticate_user(
+    username_or_email: String,
+    password: String,
+) -> Result<Option<User>, String> {
     auth::authenticate_user(&username_or_email, &password)
 }
 

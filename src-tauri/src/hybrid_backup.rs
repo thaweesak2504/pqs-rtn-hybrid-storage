@@ -133,8 +133,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         logger::debug("Adding data directory to backup");
 
         for entry in WalkDir::new(&data_dir).into_iter() {
-            let entry =
-                entry.map_err(|e| format!("Failed to read data directory entry: {}", e))?;
+            let entry = entry.map_err(|e| format!("Failed to read data directory entry: {}", e))?;
 
             if entry.file_type().is_file() {
                 let file_path = entry.path();
@@ -161,10 +160,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
                 total_files += 1;
             }
         }
-        logger::debug(format!(
-            "Data files added: {} bytes",
-            data_size
-        ));
+        logger::debug(format!("Data files added: {} bytes", data_size));
     } else {
         logger::warn("Data directory not found, skipping data backup");
     }
@@ -265,7 +261,7 @@ pub fn discover_available_backups() -> Result<Vec<BackupInfo>, String> {
     }
 
     // Sort by timestamp (newest first)
-    backups.sort_by(|a, b| b.manifest.timestamp.cmp(&a.manifest.timestamp));
+    backups.sort_by_key(|b| std::cmp::Reverse(b.manifest.timestamp));
 
     Ok(backups)
 }
@@ -513,8 +509,7 @@ pub struct SystemStateInfo {
 
 /// Check system state and backups for initialization decision
 pub fn check_system_state_for_initialization() -> Result<SystemStateInfo, String> {
-    let database_exists_and_valid =
-        crate::auth::check_database_exists_and_valid().unwrap_or(false);
+    let database_exists_and_valid = crate::auth::check_database_exists_and_valid().unwrap_or(false);
     // Check media state (without creating directories)
     let media_exists_and_valid =
         crate::file_manager::FileManager::check_media_exists_and_valid_no_create().unwrap_or(false);

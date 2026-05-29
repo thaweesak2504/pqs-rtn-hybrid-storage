@@ -3,8 +3,7 @@ mod tests {
     use crate::content_database::answers::{
         replace_question_answer_keys_with_conn, update_answer_key_with_conn,
     };
-    
-    
+
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
     use rusqlite::params;
@@ -647,5 +646,4 @@ mod tests {
         );
         assert!(metadata.contains("\"keep\":\"yes\""));
     }
-
 }

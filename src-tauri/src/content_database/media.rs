@@ -186,9 +186,15 @@ pub fn delete_question_image(relative_path: String) -> Result<(), String> {
     if ref_count <= 1 {
         let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
         delete_question_image_in_dir(&data_dir, &relative_path)?;
-        logger::debug(format!("Deleted physical question image: {}", relative_path));
+        logger::debug(format!(
+            "Deleted physical question image: {}",
+            relative_path
+        ));
     } else {
-        logger::debug(format!("Skipped physical deletion of question image (referenced elsewhere): {}", relative_path));
+        logger::debug(format!(
+            "Skipped physical deletion of question image (referenced elsewhere): {}",
+            relative_path
+        ));
     }
     Ok(())
 }
@@ -255,14 +261,15 @@ pub fn get_file_sha256(path_str: String) -> Result<String, String> {
         return Err(format!("File not found: {}", abs_path_str));
     }
 
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
-    
+    let mut file = std::fs::File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
+
     let mut hasher = Sha256::new();
     let mut buffer = [0; 8192];
 
     loop {
-        let count = file.read(&mut buffer).map_err(|e| format!("Read error: {}", e))?;
+        let count = file
+            .read(&mut buffer)
+            .map_err(|e| format!("Read error: {}", e))?;
         if count == 0 {
             break;
         }
@@ -273,7 +280,6 @@ pub fn get_file_sha256(path_str: String) -> Result<String, String> {
     Ok(format!("{:x}", result))
 }
 
-
 // ============================================================
 // Phase 5G: Trainee Attachments
 // ============================================================
@@ -281,12 +287,9 @@ pub fn get_file_sha256(path_str: String) -> Result<String, String> {
 /// Allowed file extensions for trainee attachments
 const ALLOWED_ATTACHMENT_EXTENSIONS: &[&str] = &[
     // Images
-    "jpg", "jpeg", "png", "webp",
-    // Documents
-    "pdf",
-    // Videos
-    "mp4", "webm",
-    // Audio
+    "jpg", "jpeg", "png", "webp", // Documents
+    "pdf", // Videos
+    "mp4", "webm", // Audio
     "mp3", "wav", "m4a", "ogg",
 ];
 
@@ -345,11 +348,18 @@ pub fn upload_trainee_attachment(
     }
 
     let short_uuid = generate_uuid().chars().take(8).collect::<String>();
-    
+
     let filename = if let Some(prefix) = friendly_prefix {
         let safe_prefix = prefix.replace("/", "-").replace("\\", "-");
-        let original_stem = source.file_stem().and_then(|s| s.to_str()).unwrap_or("attachment").replace(" ", "_");
-        format!("{}_{}_{}_{}.{}", safe_prefix, original_stem, user_id, short_uuid, extension)
+        let original_stem = source
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("attachment")
+            .replace(" ", "_");
+        format!(
+            "{}_{}_{}_{}.{}",
+            safe_prefix, original_stem, user_id, short_uuid, extension
+        )
     } else {
         format!("{}_{}_{}.{}", question_id, user_id, short_uuid, extension)
     };
@@ -381,16 +391,24 @@ pub fn delete_trainee_attachment(relative_path: String) -> Result<(), String> {
 
     if ref_count <= 1 {
         let data_dir = get_portable_data_dir().map_err(|e| e.to_string())?;
-        let suffix = relative_path.strip_prefix("data/").unwrap_or(&relative_path);
+        let suffix = relative_path
+            .strip_prefix("data/")
+            .unwrap_or(&relative_path);
         let target_path = data_dir.join(suffix);
 
         if target_path.exists() {
             std::fs::remove_file(&target_path)
                 .map_err(|e| format!("Failed to delete attachment file: {}", e))?;
-            logger::debug(format!("Deleted physical trainee attachment: {}", relative_path));
+            logger::debug(format!(
+                "Deleted physical trainee attachment: {}",
+                relative_path
+            ));
         }
     } else {
-        logger::debug(format!("Skipped physical deletion of trainee attachment (referenced elsewhere): {}", relative_path));
+        logger::debug(format!(
+            "Skipped physical deletion of trainee attachment (referenced elsewhere): {}",
+            relative_path
+        ));
     }
 
     Ok(())
@@ -399,17 +417,21 @@ pub fn delete_trainee_attachment(relative_path: String) -> Result<(), String> {
 fn count_database_references(conn: &Connection, relative_path: &str) -> Result<usize, String> {
     let pattern = format!("%\"{}\"%", relative_path);
 
-    let answers_count: usize = conn.query_row(
-        "SELECT COUNT(*) FROM UserAnswers WHERE attachments LIKE ?1",
-        params![pattern],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let answers_count: usize = conn
+        .query_row(
+            "SELECT COUNT(*) FROM UserAnswers WHERE attachments LIKE ?1",
+            params![pattern],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
-    let questions_count: usize = conn.query_row(
-        "SELECT COUNT(*) FROM Questions WHERE metadata LIKE ?1",
-        params![pattern],
-        |row| row.get(0)
-    ).map_err(|e| e.to_string())?;
+    let questions_count: usize = conn
+        .query_row(
+            "SELECT COUNT(*) FROM Questions WHERE metadata LIKE ?1",
+            params![pattern],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
 
     Ok(answers_count + questions_count)
 }
@@ -438,9 +460,7 @@ pub fn check_section_duplicate_file(
 
     // 1. Scan Questions in this section
     let mut stmt = conn
-        .prepare(
-            "SELECT metadata FROM Questions WHERE document_id = ?1 AND section_id = ?2",
-        )
+        .prepare("SELECT metadata FROM Questions WHERE document_id = ?1 AND section_id = ?2")
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
@@ -458,8 +478,12 @@ pub fn check_section_duplicate_file(
                         if let Some(path_str) = att.as_str() {
                             if let Ok(existing_hash) = get_file_sha256(path_str.to_string()) {
                                 if existing_hash == file_hash {
-                                    if let Some(filename) = std::path::Path::new(path_str).file_name().and_then(|f| f.to_str()) {
-                                        let prefix = filename.split('_').next().unwrap_or("").to_string();
+                                    if let Some(filename) = std::path::Path::new(path_str)
+                                        .file_name()
+                                        .and_then(|f| f.to_str())
+                                    {
+                                        let prefix =
+                                            filename.split('_').next().unwrap_or("").to_string();
                                         if !prefix.is_empty() {
                                             return Ok(Some(prefix));
                                         }
@@ -472,7 +496,10 @@ pub fn check_section_duplicate_file(
                 } else if let Some(image_str) = meta_json.get("image").and_then(|i| i.as_str()) {
                     if let Ok(existing_hash) = get_file_sha256(image_str.to_string()) {
                         if existing_hash == file_hash {
-                            if let Some(filename) = std::path::Path::new(image_str).file_name().and_then(|f| f.to_str()) {
+                            if let Some(filename) = std::path::Path::new(image_str)
+                                .file_name()
+                                .and_then(|f| f.to_str())
+                            {
                                 let prefix = filename.split('_').next().unwrap_or("").to_string();
                                 if !prefix.is_empty() {
                                     return Ok(Some(prefix));
@@ -511,8 +538,12 @@ pub fn check_section_duplicate_file(
                         if let Some(path_str) = att.as_str() {
                             if let Ok(existing_hash) = get_file_sha256(path_str.to_string()) {
                                 if existing_hash == file_hash {
-                                    if let Some(filename) = std::path::Path::new(path_str).file_name().and_then(|f| f.to_str()) {
-                                        let prefix = filename.split('_').next().unwrap_or("").to_string();
+                                    if let Some(filename) = std::path::Path::new(path_str)
+                                        .file_name()
+                                        .and_then(|f| f.to_str())
+                                    {
+                                        let prefix =
+                                            filename.split('_').next().unwrap_or("").to_string();
                                         if !prefix.is_empty() {
                                             return Ok(Some(prefix));
                                         }

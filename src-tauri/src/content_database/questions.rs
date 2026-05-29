@@ -437,13 +437,15 @@ pub fn delete_question(id: String) -> Result<(), String> {
     let mut conn = get_content_connection().map_err(|e| e.to_string())?;
 
     let tx = conn.transaction().map_err(|e| e.to_string())?;
-    
+
     // Phase 5G Cleanup: Find media to delete from disk
-    let (metadata_str,): (Option<String>,) = tx.query_row(
-        "SELECT metadata FROM Questions WHERE id = ?1",
-        params![id],
-        |row| Ok((row.get(0)?,)),
-    ).map_err(|e| format!("Failed to read question metadata for cleanup: {}", e))?;
+    let (metadata_str,): (Option<String>,) = tx
+        .query_row(
+            "SELECT metadata FROM Questions WHERE id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?,)),
+        )
+        .map_err(|e| format!("Failed to read question metadata for cleanup: {}", e))?;
 
     if let Some(meta_str) = metadata_str {
         if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&meta_str) {
@@ -464,11 +466,15 @@ pub fn delete_question(id: String) -> Result<(), String> {
 
     {
         // Delete Trainee Answer Attachments
-        let mut stmt = tx.prepare("SELECT attachments FROM UserAnswers WHERE question_id = ?1").map_err(|e| e.to_string())?;
-        let attachment_rows = stmt.query_map(params![id], |row| {
-            let atts: Option<String> = row.get(0)?;
-            Ok(atts)
-        }).map_err(|e| e.to_string())?;
+        let mut stmt = tx
+            .prepare("SELECT attachments FROM UserAnswers WHERE question_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let attachment_rows = stmt
+            .query_map(params![id], |row| {
+                let atts: Option<String> = row.get(0)?;
+                Ok(atts)
+            })
+            .map_err(|e| e.to_string())?;
 
         for row in attachment_rows {
             if let Ok(Some(atts_str)) = row {

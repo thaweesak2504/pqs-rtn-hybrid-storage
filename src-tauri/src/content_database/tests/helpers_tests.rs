@@ -1,13 +1,11 @@
 #[cfg(test)]
 mod tests {
-    
-    
+
     use crate::content_database::media::{
         bundle_reference_file_in_dir, delete_question_image_in_dir, resolve_image_path_in_dir,
     };
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
-    
 
     // Helper Function Tests
     // ========================================================================

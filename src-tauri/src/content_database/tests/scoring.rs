@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod tests {
-    
-    
-    
+
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
     use rusqlite::params;
@@ -161,5 +159,4 @@ mod tests {
             "L1 should only count non-exempted child (40), not exempted child"
         );
     }
-
 }

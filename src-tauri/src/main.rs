@@ -13,12 +13,11 @@
 use tauri::Manager;
 
 #[cfg(target_os = "windows")]
-use webview2_com::Microsoft::Web::WebView2::Win32::{
-    ICoreWebView2Controller2, COREWEBVIEW2_COLOR,
-};
+use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Controller2, COREWEBVIEW2_COLOR};
 
 // Database module
 mod auth;
+mod commands;
 mod content_database; // Separate content database
 mod database_export;
 mod file_manager;
@@ -28,8 +27,7 @@ mod hybrid_high_rank_avatar;
 mod logger; // Logger system for conditional debug output
 mod migration_helper;
 mod migrations; // Phase 2: versioned schema migration framework
-mod universal_sqlite_backup; // Database migration utilities
-mod commands; // Extracted command modules (Phase 5B)
+mod universal_sqlite_backup; // Database migration utilities // Extracted command modules (Phase 5B)
 
 #[cfg(test)]
 mod test_helpers; // Test helper utilities

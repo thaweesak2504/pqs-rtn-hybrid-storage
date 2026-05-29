@@ -1,12 +1,10 @@
 #[cfg(test)]
 mod tests {
-    
+
     use crate::content_database::documents::generate_document_id_with_conn;
-    
-    
+
     use crate::test_helpers::helpers::*;
     use rusqlite::params;
-
 
     // Database Function Tests
     // ========================================================================
@@ -129,5 +127,4 @@ mod tests {
         assert_eq!(next_same_prefix, "UNIT1XYZ003");
         assert_eq!(first_other_prefix, "UNIT1XYQ001");
     }
-
 }

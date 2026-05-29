@@ -135,10 +135,14 @@ pub fn delete_trainee_answer(
         "SELECT attachments FROM UserAnswers WHERE user_id = ?1 AND question_id = ?2 AND document_id = ?3 AND sub_question_code = ?4"
     ).map_err(|e| e.to_string())?;
 
-    let attachments_opt: Option<String> = stmt.query_row(
-        params![user_id, question_id, document_id, sub_question_code],
-        |row| row.get(0)
-    ).optional().map_err(|e| e.to_string())?.flatten();
+    let attachments_opt: Option<String> = stmt
+        .query_row(
+            params![user_id, question_id, document_id, sub_question_code],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+        .flatten();
 
     if let Some(attachments_str) = attachments_opt {
         if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&attachments_str) {
@@ -155,7 +159,10 @@ pub fn delete_trainee_answer(
 
     // Recalculate progress for this section after delete
     if let Err(e) = recalculate_section_progress(user_id.to_string(), document_id.to_string()) {
-        logger::warn(format!("delete_trainee_answer completed but progress recalculation failed: {}", e));
+        logger::warn(format!(
+            "delete_trainee_answer completed but progress recalculation failed: {}",
+            e
+        ));
     }
 
     Ok("Answer deleted successfully".to_string())
@@ -174,9 +181,15 @@ pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
                     let attachments_dir = doc_path.join("trainee-attachments");
                     if attachments_dir.exists() {
                         if let Err(e) = std::fs::remove_dir_all(&attachments_dir) {
-                            logger::warn(format!("Failed to delete trainee-attachments dir {:?}: {}", attachments_dir, e));
+                            logger::warn(format!(
+                                "Failed to delete trainee-attachments dir {:?}: {}",
+                                attachments_dir, e
+                            ));
                         } else {
-                            logger::info(format!("Cleared trainee-attachments dir: {:?}", attachments_dir));
+                            logger::info(format!(
+                                "Cleared trainee-attachments dir: {:?}",
+                                attachments_dir
+                            ));
                         }
                     }
                 }
@@ -195,8 +208,6 @@ pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
             logger::error(format!("Failed to clear UserProgress: {}", e));
             e.to_string()
         })?;
-
-
 
     logger::info("Successfully cleared all records from UserAnswers and UserProgress tables, and cleaned up trainee attachments.");
     Ok(())

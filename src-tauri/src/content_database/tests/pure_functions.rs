@@ -1,11 +1,7 @@
 #[cfg(test)]
 mod tests {
-    
-    
-    
+
     use crate::content_database::*;
-    
-    
 
     // ========================================================================
     // Pure Function Tests
@@ -24,5 +20,4 @@ mod tests {
         assert_eq!(to_thai_digit(8), "๘");
         assert_eq!(to_thai_digit(9), "๙");
     }
-
 }
