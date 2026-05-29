@@ -19,22 +19,41 @@ pub const DEFAULT_ADMIN_USERNAME: &str = "admin";
 pub const DEFAULT_ADMIN_PASSWORD: &str = "admin";
 pub const DEFAULT_ADMIN_EMAIL: &str = "admin@pqs-rtn.local";
 
-// User and Avatar structs
+/// A registered user in the PQS system.
+///
+/// Serialized and returned to the frontend via Tauri commands. The
+/// `password_hash` field is included in the serialized output but the
+/// frontend must **never** send it back — use the `change_password` or
+/// `update_user` APIs instead (both accept plaintext and hash server-side).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
+    /// Database primary key (`AUTOINCREMENT`). `None` only before insertion.
     pub id: Option<i32>,
+    /// Unique login name.
     pub username: String,
+    /// Unique email address.
     pub email: String,
+    /// bcrypt hash of the password. **Never expose or accept from the frontend.**
     pub password_hash: String,
+    /// Display name (Thai or English).
     pub full_name: String,
+    /// Military rank abbreviation, e.g. `"ร.ต."`.
     pub rank: Option<String>,
+    /// Role: `"admin"`, `"editor"`, or `"visitor"`.
     pub role: String,
+    /// Whether the account is enabled.
     pub is_active: bool,
+    /// Relative path to the avatar image file (hybrid storage).
     pub avatar_path: Option<String>,
+    /// ISO-8601 timestamp of the last avatar update.
     pub avatar_updated_at: Option<String>,
+    /// MIME type of the avatar image, e.g. `"image/png"`.
     pub avatar_mime: Option<String>,
+    /// Avatar file size in bytes.
     pub avatar_size: Option<i32>,
+    /// ISO-8601 timestamp when the user was created.
     pub created_at: Option<String>,
+    /// ISO-8601 timestamp of the last profile update.
     pub updated_at: Option<String>,
     /// When true, the user must change their password before the UI allows
     /// any other operation. Set to 1 for the seeded default admin.
@@ -733,15 +752,22 @@ pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Opti
     }
 }
 
-// High Ranking Officers structs and functions
+/// A high-ranking naval officer displayed on the cover page.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HighRankingOfficer {
+    /// Database primary key.
     pub id: Option<i32>,
+    /// Full name in Thai, e.g. `"พลเรือเอก จิรพล ว่องวิทย์"`.
     pub thai_name: String,
+    /// Position title in Thai.
     pub position_thai: String,
+    /// Position title in English.
     pub position_english: String,
+    /// Display order (1 = Commander-in-Chief, 2 = Deputy, …).
     pub order_index: i32,
+    /// ISO-8601 creation timestamp.
     pub created_at: String,
+    /// ISO-8601 last-update timestamp.
     pub updated_at: String,
 }
 

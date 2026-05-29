@@ -1,5 +1,13 @@
+//! PQS RTN Hybrid Storage — Desktop application backend.
+//!
+//! Tauri-based backend providing user management, PQS document CRUD,
+//! scoring, career branch management, and hybrid storage (SQLite + filesystem).
+
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+// Phase 7.6: warn on missing docs for public API surface.
+// Use `warn` (not `deny`) to allow incremental improvement without blocking builds.
+#![warn(missing_docs)]
 
 // Removed unused imports
 use tauri::Manager;

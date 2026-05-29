@@ -1,7 +1,29 @@
+/**
+ * @fileoverview Low-level Tauri IPC bridge.
+ *
+ * All communication with the Rust backend goes through {@link safeInvoke},
+ * which wraps `@tauri-apps/api/tauri.invoke` with error logging.
+ *
+ * Higher-level service modules (`userService`, `authService`, etc.) should
+ * call methods on the typed service objects exported here rather than calling
+ * `safeInvoke` directly — that keeps the IPC type-safety in one place.
+ *
+ * @module services/tauriService
+ */
 import { invoke } from '@tauri-apps/api/tauri';
 import { logger } from '../utils/logger';
 
-// Desktop App only — invoke() directly, no web fallback
+/**
+ * Invoke a Tauri command with automatic error logging.
+ *
+ * This is the **only** function that should call `invoke()` directly. All
+ * other callers should go through the typed service objects below.
+ *
+ * @param command - The Rust command name registered in `main.rs`.
+ * @param args    - Key/value arguments forwarded to the Rust handler.
+ * @returns The deserialized return value from the Rust side.
+ * @throws Re-throws the original error after logging.
+ */
 export const safeInvoke = async (command: string, args?: Record<string, unknown>) => {
   try {
     const result = await invoke(command, args);

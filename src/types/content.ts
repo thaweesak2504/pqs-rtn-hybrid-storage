@@ -1,4 +1,19 @@
+/**
+ * @fileoverview Frontend-specific content types for PQS documents.
+ *
+ * These types are used by React components for rendering question trees,
+ * answer forms, and reference displays. They may differ slightly from the
+ * backend types in `backend.ts` (e.g. `section_id` is `number | null` here
+ * but `i64` in Rust).
+ *
+ * @module types/content
+ */
 
+/**
+ * A PQS question as stored in the database.
+ *
+ * @see BackendQuestion in `backend.ts` for the exact Rust mirror.
+ */
 export interface Question {
   id: string;
   document_id: string;
@@ -8,16 +23,20 @@ export interface Question {
   content: string;
   is_header: boolean;
   description: string | null;
-  answer_type: string | null; // 'text', 'choice', 'none'
+  /** `'text'` | `'choice'` | `'none'` */
+  answer_type: string | null;
   metadata: string | null;
   score: number | null;
-  question_type: string | null;   // 'normal', 'performance', 'exempted'
+  /** `'normal'` | `'performance'` | `'exempted'` */
+  question_type: string | null;
   group_score: number | null;
-  display_text: string | null;    // e.g. "(ไม่ต้องปฏิบัติ)"
+  /** e.g. `"(ไม่ต้องปฏิบัติ)"` */
+  display_text: string | null;
   is_group_header: boolean | null;
   is_scored: boolean | null;
 }
 
+/** A choice option for a multiple-choice question. */
 export interface QuestionChoice {
   id: number;
   question_id: string;
@@ -27,21 +46,28 @@ export interface QuestionChoice {
   sequence: number;
 }
 
+/** A link between a question and a document reference. */
 export interface QuestionReference {
   id: number;
   question_id: string;
   reference_id: number;
-  location_text: string | null; // e.g. "35"
+  /** Page/section location text, e.g. `"35"` */
+  location_text: string | null;
   display_order: number;
 }
 
-// Full hydrated object for frontend
+/**
+ * Fully hydrated question with children, choices, and references
+ * for recursive frontend rendering.
+ */
 export interface QuestionDetail extends Question {
   choices: QuestionChoice[];
   references: QuestionReferenceDetail[];
-  children?: QuestionDetail[]; // For recursive rendering
+  /** Child questions for recursive rendering. */
+  children?: QuestionDetail[];
 }
 
+/** Question reference with joined reference details. */
 export interface QuestionReferenceDetail extends QuestionReference {
   reference: {
     id: number;
@@ -52,9 +78,11 @@ export interface QuestionReferenceDetail extends QuestionReference {
     resource_type: string | null;
     file_path: string | null;
   };
-  thai_letter: string; // Calculated field for display (ก., ข.)
+  /** Calculated Thai letter for display, e.g. `"ก."` */
+  thai_letter: string;
 }
 
+/** A user's answer to a question (frontend representation). */
 export interface UserAnswer {
   id: number;
   user_id: string;
@@ -66,6 +94,7 @@ export interface UserAnswer {
   updated_at: string;
 }
 
+/** Section reference with joined reference details and usage info. */
 export interface SectionReferenceDetail {
   id: number;
   section_id: number;
@@ -79,6 +108,9 @@ export interface SectionReferenceDetail {
     file_path: string | null;
   };
   display_order: number;
+  /** Calculated Thai letter for display, e.g. `"ก."` */
   thai_letter: string;
+  /** How many questions reference this in the section. */
   usage_count: number;
 }
+

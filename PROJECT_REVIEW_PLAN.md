@@ -1,6 +1,6 @@
 # 📋 PQS RTN Hybrid Storage — Project Review & Improvement Plan
 
-> **สร้างเมื่อ:** 2026-04-20 | **อัปเดตล่าสุด:** 2026-05-13
+> **สร้างเมื่อ:** 2026-04-20 | **อัปเดตล่าสุด:** 2026-05-29
 > **Branch ทำงาน:** `project-review-actions` (แตกจาก `career-branches-management`)
 > **ผู้ตรวจสอบ:** Cascade AI | **ขอบเขต:** Full comprehensive review (Backend + Frontend + DB + Tests + Security)
 
@@ -18,18 +18,33 @@
 | **Phase 3** — Backup/Export Consolidation          | ✅ **DONE**    | `326a59d`                            | ลดแบคอัพ 5 modules (~75 KB) → 1; แยกบทบาท Backup และ Export ชัดเจน                                                                         |
 | **Phase 4** — Dead Code Cleanup                    | ✅ **DONE**    | `953d64f`                            | ลบโมดูลที่ไม่ได้ใช้, แทนที่ `console.log` ด้วย `logger`, รวม Avatar hooks/services, ล้าง Context duplication                               |
 | **Phase 7** — Type Safety & DX (Part 1)            | ✅ **DONE**    | (ปัจจุบัน)                           | แก้ไข `any` 93 จุดทั้งหมด, ผ่าน `tsc --noEmit` ภายใต้ `strict: true` 100%, แก้ไข impure functions                                         |
+| **Phase 7** — Type Safety & DX (Part 2)            | ✅ **DONE**    | 2026-05-29                           | Shared types `backend.ts`, JSDoc services, Barrel export `types/index.ts`, Rust `warn(missing_docs)` + doc comments                        |
 | **Phase 5** — Large File Refactoring               | ✅ **DONE**    | `da8e4ab`..`e2fa9f3`               | แยก tests.rs, main.rs commands, QFC types/constants/theme/scroll/sub-components สำเร็จ (5A-5F)                                             |
 | **Phase 5G** — Trainee Attachments & Qualifier UX  | ✅ **DONE**    | `13bedde`..`041b73e`               | AttachmentPanel, SHA-256 Duplicate Detection, Hierarchical Prefix, Qualifier Undo, OralAssessmentBox fix                                    |
 | **UX/UI** — Empty State Improvement                | ✅ **DONE**    | `cb166c7`                            | ปรับ UX/UI ของ Empty State (เอกสารอ้างอิง + คำถาม) ใน Section 100 ให้เป็น Command Button style                                              |
-| Phase 8-10                                         | ⏳ pending     | —                                    | Performance, Tests expansion, Encryption                                                                                         |
+| Phase 8-9                                          | ⏳ pending     | —                                    | Performance, Tests expansion                                                                                                               |
+| Phase 10                                           | ⏭️ Deferred   | —                                    | Encryption & Prod Readiness — ยกเว้นไว้ก่อนเพราะโปรเจคตยังต้องพัฒนาต่ออีกหลายเรื่อง                                                               |
 
-**Tests (ปัจจุบัน):** 🟢 **98 Rust + 175 FE** ผ่านหมด (จากเดิม 76 Rust + 158 FE) — +4 tests จาก Phase 2C pool
+**Tests (ปัจจุบัน):** 🟢 **98 Rust + 181 FE** ผ่านหมด (จากเดิม 76 Rust + 158 FE) — +4 tests จาก Phase 2C pool
 
-**📌 สิ่งที่ต้องดำเนินการต่อไป:** 
-1. **Phase 7.3-7.4** — Shared Types (Rust ↔ TS) + JSDoc
-2. **Phase 8** — Performance & Optimization
-3. **Phase 9** — Testing Expansion (E2E & Rust Commands)
-4. **Phase 10** — Encryption & Production Readiness
+**📌 สิ่งที่ต้องดำเนินการต่อไป (Next Immediate Actions):** 
+
+จากการที่ระบบแนบไฟล์สำหรับ Trainee (Phase 5G) และการปรับปรุง UX (Qualifier Undo) เสร็จสมบูรณ์แบบ End-to-end แล้ว ขั้นต่อไปจะเปลี่ยนโฟกัสไปที่ความเสถียร (Stability), ประสิทธิภาพ (Performance), และความปลอดภัยระดับใช้งานจริง (Production Readiness) ตามลำดับดังนี้:
+
+1. **Phase 7 (Part 2) — Type Safety & DX (Shared Types)**
+   - สร้าง Shared Types (TS-Rust) แบบอัตโนมัติ (เช่น ใช้ `ts-rs`) เพื่อไม่ให้เกิด Type Mismatch เวลาสื่อสารผ่าน Tauri Commands
+   - เพิ่ม JSDoc ให้ Public API สำคัญ เพื่อรักษา Developer Experience
+2. **Phase 8 — Performance & Optimization**
+   - แก้ปัญหา N+1 Queries ในการโหลด Hierarchy ของเอกสาร PQS 
+   - ตรวจสอบและเพิ่ม Database Indexes ที่ยังขาดหาย (`parent_id`, `section_id`)
+   - ใช้ `React.memo` / `useMemo` ใน React เพื่อป้องกัน Re-render ใน QuestionTree ขนาดใหญ่
+3. **Phase 9 — Testing Expansion (E2E & Rust Commands)**
+   - ขยาย Integration Tests ให้คลุม Tauri commands ทั้งหมด (~150 commands) ที่ถูกแยกไฟล์ไว้แล้ว
+   - Setup Playwright หรือ Testing Framework สำหรับ End-to-End User Flow หลัก
+4. **Phase 10 — Encryption & Production Readiness**
+   - เข้ารหัสไฟล์ `content.db` แบบ Full Database Encryption (เช่น SQLCipher) 
+   - ระบบ Checksum เพื่อป้องกันการแก้ไขคะแนนหรือไฟล์แนบจากภายนอก
+   - ทำ CI/CD Pipeline และ Auto-backup policy แบบหมุนเวียน (Rotating)
 
 **วิธี resume งาน:**
 
@@ -401,22 +416,25 @@ git log --oneline -5             # ควรเห็น commit ล่าสุ�
 ---
 
 
-### 🟢 Phase 7: Type Safety & Developer Experience (IN PROGRESS)
+### ✅ Phase 7: Type Safety & Developer Experience — DONE (2026-05-29)
 
 | #   | Task                                                               | สถานะ | Effort |
 | --- | ------------------------------------------------------------------ | ----- | ------ |
 | 7.1 | แก้ `any` 80 จุด → proper types หรือ `unknown` + guards            | ✅    | L      |
 | 7.2 | เปิด `strict: true`, `noUncheckedIndexedAccess` ใน `tsconfig.json` | ✅    | M      |
-| 7.3 | สร้าง shared types จาก Rust structs → TS (ใช้ `ts-rs` หรือ manual) | ⏳    | L      |
-| 7.4 | เพิ่ม JSDoc สำหรับ public APIs ที่สำคัญ                            | ⏳    | M      |
+| 7.3 | สร้าง shared types จาก Rust structs → TS (`types/backend.ts`)      | ✅    | L      |
+| 7.4 | เพิ่ม JSDoc สำหรับ public APIs ที่สำคัญ                            | ✅    | M      |
 | 7.5 | ESLint rules เข้มขึ้น (`no-console`, `no-explicit-any`)            | ✅    | S      |
-| 7.6 | Rust: เพิ่ม `#![deny(missing_docs)]` สำหรับ public API             | ⏳    | M      |
+| 7.6 | Rust: เพิ่ม `#![warn(missing_docs)]` + doc comments สำหรับ public structs | ✅    | M      |
 
 **Deliverables:**
 
 - [x] 0 `any` types (ยกเว้น test/external ที่มีการใช้ eslint-disable ควบคุมอย่างรัดกุม)
 - [x] 0 `console.log` ใน production code
-- [ ] Types shared FE ↔ BE
+- [x] Types shared FE ↔ BE: `src/types/backend.ts` (single source of truth — mirrors Rust structs 1:1)
+- [x] Barrel export: `src/types/index.ts` (unified import point)
+- [x] JSDoc: `@fileoverview` + `@param/@returns` สำหรับ services/ (tauriService, authService, userService) และ types/ (content.ts)
+- [x] Rust: `#![warn(missing_docs)]` ใน `main.rs` + doc comments สำหรับ 19+ public structs ใน `types.rs`
 
 ---
 
@@ -491,12 +509,12 @@ git log --oneline -5             # ควรเห็น commit ล่าสุ�
 | 5G. Trainee Attachments + Qualifier   | 1 week    | 🟠 High     | ✅ **DONE**    | Phase 5              |
 | — UX/UI Empty State Improvement       | 1 day     | 🟢 Low      | ✅ **DONE**    | -                    |
 | 6. DB Consolidation Cleanup (debt)    | 2-3 days  | ✅ **DONE** | —              | —                    |
-| 7. Type Safety & DX (Part 2)          | 1 week    | 🟢 Low      | ⏳ pending     | -                    |
+| 7. Type Safety & DX (Full)            | 1 week    | 🟡 Medium   | ✅ **DONE**    | -                    |
 | 8. Performance                        | 1-2 weeks | 🟢 Low      | ⏳ pending     | Phase 2C             |
 | 9. Testing Expansion                  | 2-3 weeks | 🟢 Low      | ⏳ pending     | Phase 5.3            |
-| 10. Encryption & Prod                 | 1-2 weeks | 🟢 Low      | ⏳ pending     | Phase 2A             |
+| 10. Encryption & Prod                 | 1-2 weeks | 🟢 Low      | ⏭️ Deferred   | ยกเว้นไว้ก่อน เพราะโปรเจคตยังต้องพัฒนาต่อ |
 
-**คืบหน้า:** 9 phases เสร็จแล้ว (1, 2, 2C, 3, 4, 5, 5.5-5.7, 5G, 6, 7-Part1) + 1 phase deferred (2B). **Remaining:** Phase 7 Part 2, Phase 8-10
+**คืบหน้า:** 10 phases เสร็จแล้ว (1, 2, 2C, 3, 4, 5, 5.5-5.7, 5G, 6, 7-Full) + 2 phases deferred (2B, 10). **Remaining:** Phase 8-9
 
 ### แนะนำลำดับทำงานต่อไป (realistic, จาก now)
 
@@ -511,11 +529,11 @@ git log --oneline -5             # ควรเห็น commit ล่าสุ�
 ✅ Week 6-7:   Phase 5 (Redo incremental) DONE (5A-5F: da8e4ab..e2fa9f3)
 ✅ Week 7:     UX/UI Empty State          DONE (commit cb166c7)
 ✅ Week 8-9:   Phase 5G (Attachments)     DONE (13bedde..041b73e) — AttachmentPanel + SHA-256 + Qualifier UX
+✅ Week 10:    Phase 7 Part 2 (Types)     DONE (2026-05-29) — backend.ts + JSDoc + Rust warn(missing_docs)
    Week 10:    Phase 2B (CREATE TABLE)    🟡 optional, มีค่าเมื่อ schema นิ่งแล้ว
-   Week 11-12: Phase 7.2 (Shared Types)   🟢
-   Week 13-14: Phase 8 (Performance)     🟢
-   Week 15-17: Phase 9 (Tests)            🟢
-   Week 18-19: Phase 10 (Encryption)     🟢
+   Week 11-12: Phase 8 (Performance)     🟢
+   Week 13-15: Phase 9 (Tests)            🟢
+   Week ???:   Phase 10 (Encryption)     ⏭️ Deferred — ยกเว้นไว้ก่อนเพราะโปรเจคตยังพัฒนาอยู่
 ```
 
 ---

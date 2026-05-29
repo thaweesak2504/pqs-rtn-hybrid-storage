@@ -1,11 +1,14 @@
+/**
+ * @fileoverview User management service — CRUD operations for user accounts.
+ *
+ * Wraps `tauriUserService` with consistent error handling.
+ * All password operations pass plaintext; the Rust backend hashes via bcrypt.
+ *
+ * @module services/userService
+ */
 import { TauriUser, tauriUserService } from './tauriService';
 import { logger } from '../utils/logger';
 
-// Phase 1 security: frontend never hashes passwords. Backend is the single source
-// of truth. All password operations pass plaintext over the Tauri IPC boundary
-// (which never leaves the local process).
-
-// User management service functions
 export const getAllUsers = async (): Promise<TauriUser[]> => {
   try {
     return await tauriUserService.getAllUsers();
