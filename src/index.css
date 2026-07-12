@@ -392,4 +392,69 @@
     animation: spin 1s linear infinite;
   }
 
+  /* ─── Welcome Page: Animated Shimmer Border ──────────────────────── */
+  .welcome-card-shimmer {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid transparent;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .welcome-card-shimmer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      rgba(245, 158, 11, 0.0) 0%,
+      rgba(245, 158, 11, 0.0) 40%,
+      rgba(251, 191, 36, 0.0) 50%,
+      rgba(245, 158, 11, 0.0) 60%,
+      rgba(245, 158, 11, 0.0) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#fff 0 0) content-box,
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .welcome-card-shimmer:hover {
+    border-color: transparent;
+    box-shadow:
+      0 0 20px rgba(245, 158, 11, 0.12),
+      0 0 40px rgba(245, 158, 11, 0.06),
+      0 8px 32px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .welcome-card-shimmer:hover::before {
+    background: linear-gradient(
+      135deg,
+      rgba(245, 158, 11, 0.6) 0%,
+      rgba(252, 211, 77, 0.9) 25%,
+      rgba(245, 158, 11, 0.6) 50%,
+      rgba(252, 211, 77, 0.9) 75%,
+      rgba(245, 158, 11, 0.6) 100%
+    );
+    background-size: 300% 300%;
+    animation: shimmer-border 3s linear infinite;
+  }
+
+  @keyframes shimmer-border {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    100% {
+      background-position: 0% 0%;
+    }
+  }
+
 }

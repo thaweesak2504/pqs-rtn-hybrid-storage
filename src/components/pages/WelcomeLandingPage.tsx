@@ -518,6 +518,7 @@ const WelcomeLandingPage: React.FC = () => {
                   icon={<ArrowRight className="w-4 h-4" />}
                   iconPosition="right"
                   onClick={handleLearnMore}
+                  className="!border-amber-500 !text-amber-500 hover:!bg-amber-500/10"
                 >
                   เรียนรู้เพิ่มเติม
                 </Button>
@@ -532,27 +533,27 @@ const WelcomeLandingPage: React.FC = () => {
                   className="mb-6"
                 />
                 <div className="space-y-4">
-                  <Card variant="glass" hover>
+                  <Card className="welcome-card-shimmer" variant="glass" hover={false}>
                     <div className="flex items-start space-x-4">
-                      <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
+                      <Award className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                       <div>
                         <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติหน้าที่ในตำแหน่ง</h3>
                         <p className="text-sm sm:text-base font-normal text-github-text-secondary">Specific watch station</p>
                       </div>
                     </div>
                   </Card>
-                  <Card variant="glass" hover>
+                  <Card className="welcome-card-shimmer" variant="glass" hover={false}>
                     <div className="flex items-start space-x-4">
-                      <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
+                      <Award className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                       <div>
                         <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การดำรงสภาพของยุทโธปกรณ์</h3>
                         <p className="text-sm sm:text-base font-normal text-github-text-secondary">Maintain specific equipment</p>
                       </div>
                     </div>
                   </Card>
-                  <Card variant="glass" hover>
+                  <Card className="welcome-card-shimmer" variant="glass" hover={false}>
                     <div className="flex items-start space-x-4">
-                      <Award className="w-5 h-5 text-github-accent-primary mt-0.5 flex-shrink-0" />
+                      <Award className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                       <div>
                         <h3 className="text-lg sm:text-xl font-medium text-github-text-primary mb-1">การปฏิบัติร่วมเป็นกลุ่มหรือทีม</h3>
                         <p className="text-sm sm:text-base font-normal text-github-text-secondary">Perform as a team member within unit</p>
@@ -574,16 +575,16 @@ const WelcomeLandingPage: React.FC = () => {
                 className="mb-8"
               />
               <Grid cols={2} gap="medium">
-                <Card title="การเตรียมความพร้อม" subtitle="Combat Readiness" icon={<Mail className="w-6 h-6 text-github-accent-info" />} variant="glass" hover>
+                <Card className="welcome-card-shimmer" title="การเตรียมความพร้อม" subtitle="Combat Readiness" icon={<Mail className="w-6 h-6 text-amber-500" />} variant="glass" hover={false}>
                   ระบบประเมินความพร้อมรบด้านกำลังพล ตรวจสอบสมรรถนะ ความรู้ ทักษะ และขีดความสามารถ เพื่อให้กองทัพเรือมีศักยภาพสูงสุดในทุก สถานการณ์
                 </Card>
-                <Card title="ระบบความปลอดภัย" subtitle="Safety System" icon={<ShieldCheck className="w-6 h-6 text-github-accent-success" />} variant="glass" hover>
+                <Card className="welcome-card-shimmer" title="ระบบความปลอดภัย" subtitle="Safety System" icon={<ShieldCheck className="w-6 h-6 text-amber-500" />} variant="glass" hover={false}>
                   มาตรฐานความปลอดภัยระดับทหาร ตรวจสอบขั้นตอนการปฏิบัติงาน การใช้อุปกรณ์ และมาตรการ ป้องกันเพื่อปกป้องบุคลากรและยุทโธปกรณ์
                 </Card>
-                <Card title="การทำงานเป็นทีม" subtitle="Team Coordination" icon={<Users className="w-6 h-6 text-github-accent-purple" />} variant="glass" hover>
+                <Card className="welcome-card-shimmer" title="การทำงานเป็นทีม" subtitle="Team Coordination" icon={<Users className="w-6 h-6 text-amber-500" />} variant="glass" hover={false}>
                   ระบบประสานงานหน่วยต่างๆ การสื่อสารภายใน ทีม การมอบหมายงาน การรายงานผล และการ ทำงานร่วมกันอย่างมีประสิทธิภาพ ตามหลักการ บังคับบัญชา
                 </Card>
-                <Card title="การบูรณาการระบบ" subtitle="System Integration" icon={<GitMerge className="w-6 h-6 text-github-accent-orange" />} variant="glass" hover>
+                <Card className="welcome-card-shimmer" title="การบูรณาการระบบ" subtitle="System Integration" icon={<GitMerge className="w-6 h-6 text-amber-500" />} variant="glass" hover={false}>
                   เชื่อมต่อกับระบบงานต่างๆ ด้านกำลังพลใน กองทัพเรือ ระบบฐานข้อมูล ระบบบริหารจัดการ และระบบรายงานผลได้อย่างลื่นไหลและมี ประสิทธิภาพ
                 </Card>
               </Grid>
@@ -641,6 +642,7 @@ const WelcomeLandingPage: React.FC = () => {
                   <div className="flex items-center space-x-4">
                     <Button
                       variant={language === 'en' ? 'primary' : 'outline'}
+                      className={language === 'en' ? '!bg-amber-500 !text-white !border-amber-500 hover:!bg-amber-600' : '!border-amber-500 !text-amber-500 hover:!bg-amber-500/10'}
                       size="small"
                       onClick={() => setLanguage('en')}
                     >
@@ -648,6 +650,7 @@ const WelcomeLandingPage: React.FC = () => {
                     </Button>
                     <Button
                       variant={language === 'th' ? 'primary' : 'outline'}
+                      className={language === 'th' ? '!bg-amber-500 !text-white !border-amber-500 hover:!bg-amber-600' : '!border-amber-500 !text-amber-500 hover:!bg-amber-500/10'}
                       size="small"
                       onClick={() => setLanguage('th')}
                     >
@@ -661,6 +664,7 @@ const WelcomeLandingPage: React.FC = () => {
                       size="small"
                       onClick={handlePodcastToggle}
                       icon={<Headphones className="w-4 h-4" />}
+                      className={isPlaying ? '!bg-amber-500 !text-white !border-amber-500 hover:!bg-amber-600' : '!border-amber-500 !text-amber-500 hover:!bg-amber-500/10'}
                     >
                       {isPlaying ? 'กำลังเล่น Podcast' : 'ฟัง Podcast'}
                     </Button>
@@ -671,21 +675,21 @@ const WelcomeLandingPage: React.FC = () => {
               {/* List of Key Points */}
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-github-accent-success mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="font-medium text-github-text-primary">Minimum knowledge : </span>
                     <span className="text-github-text-secondary font-light">ความรู้ขั้นต่ำ</span>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-github-accent-success mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="font-medium text-github-text-primary">Minimum skills : </span>
                     <span className="text-github-text-secondary font-light">ความชำนาญขั้นต่ำ</span>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
-                  <CheckCircle className="w-5 h-5 text-github-accent-success mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                   <div>
                     <span className="font-medium text-github-text-primary">Safety for All : </span>
                     <span className="text-github-text-secondary font-light">สำคัญที่สุด บุคลากร และยุทโธปกรณ์ ปลอดภัย</span>
@@ -707,24 +711,27 @@ const WelcomeLandingPage: React.FC = () => {
               {/* Three Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                 <Card
+                  className="welcome-card-shimmer"
                   title={content[language].cards[0]?.title || ''}
                   subtitle={content[language].cards[0]?.description || ''}
-                  icon={<BookOpen className="w-8 h-8 text-github-accent-info" />}
-                  hover={true}
+                  icon={<BookOpen className="w-8 h-8 text-amber-500" />}
+                  hover={false}
                   size="medium"
                 />
                 <Card
+                  className="welcome-card-shimmer"
                   title={content[language].cards[1]?.title || ''}
                   subtitle={content[language].cards[1]?.description || ''}
-                  icon={<Target className="w-8 h-8 text-github-accent-orange" />}
-                  hover={true}
+                  icon={<Target className="w-8 h-8 text-amber-500" />}
+                  hover={false}
                   size="medium"
                 />
                 <Card
+                  className="welcome-card-shimmer"
                   title={content[language].cards[2]?.title || ''}
                   subtitle={content[language].cards[2]?.description || ''}
-                  icon={<Shield className="w-8 h-8 text-github-accent-success" />}
-                  hover={true}
+                  icon={<Shield className="w-8 h-8 text-amber-500" />}
+                  hover={false}
                   size="medium"
                 />
               </div>
@@ -807,12 +814,12 @@ const WelcomeLandingPage: React.FC = () => {
                         subtitle="Loading..."
                         icon={
                           <div className="flex justify-center mb-4">
-                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-github-bg-tertiary animate-pulse border-2 border-github-accent-warning"></div>
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-github-bg-tertiary animate-pulse border-2 border-amber-500"></div>
                           </div>
                         }
                         hover={false}
                         size="medium"
-                        className="max-w-sm mx-auto w-full text-center"
+                        className="max-w-sm mx-auto w-full text-center welcome-card-shimmer"
                       >
                         Loading...
                       </Card>
@@ -829,13 +836,13 @@ const WelcomeLandingPage: React.FC = () => {
                           <img
                             src={getOfficerImage(officer.id)}
                             alt={officer.thai_name}
-                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover object-top border-2 border-github-accent-warning"
+                            className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover object-top border-2 border-amber-500"
                           />
                         </div>
                       }
-                      hover={true}
+                      hover={false}
                       size="medium"
-                      className="max-w-sm mx-auto w-full text-center"
+                      className="max-w-sm mx-auto w-full text-center welcome-card-shimmer"
                     >
                       {officer.position_english}
                     </Card>
@@ -863,13 +870,13 @@ const WelcomeLandingPage: React.FC = () => {
                   icon={
                     <div className="flex mb-3">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 text-github-accent-warning fill-current" />
+                        <Star key={i} className="w-4 h-4 text-amber-500 fill-current" />
                       ))}
                     </div>
                   }
-                  hover={true}
+                  hover={false}
                   size="medium"
-                  className="max-w-sm mx-auto w-full"
+                  className="max-w-sm mx-auto w-full welcome-card-shimmer"
                 >
                   <div className="space-y-4">
                     <p>"ระบบ PQS ช่วยให้การพัฒนาบุคลากรเป็นไปอย่างเป็นระบบและมีประสิทธิภาพ"</p>
@@ -878,7 +885,7 @@ const WelcomeLandingPage: React.FC = () => {
                         <p className="font-medium">น.อ.ทวีศักดิ์ ทองนาค</p>
                         <p className="text-sm text-github-text-secondary">นายทหารแผนงานไฟฟ้าอาวุธฯ</p>
                       </div>
-                      <img src={twt} alt="น.อ.ทวีศักดิ์ ทองนาค" className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4" />
+                      <img src={twt} alt="น.อ.ทวีศักดิ์ ทองนาค" className="h-12 w-12 rounded-full object-cover object-top border border-amber-500 flex-shrink-0 ml-4" />
                     </div>
                   </div>
                 </Card>
@@ -890,13 +897,13 @@ const WelcomeLandingPage: React.FC = () => {
                   icon={
                     <div className="flex mb-3">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 text-github-accent-warning fill-current" />
+                        <Star key={i} className="w-4 h-4 text-amber-500 fill-current" />
                       ))}
                     </div>
                   }
-                  hover={true}
+                  hover={false}
                   size="medium"
-                  className="max-w-sm mx-auto w-full"
+                  className="max-w-sm mx-auto w-full welcome-card-shimmer"
                 >
                   <div className="space-y-4">
                     <p>"การใช้งานง่าย สะดวก และช่วยให้การทำงานมีประสิทธิภาพมากขึ้น"</p>
@@ -905,7 +912,7 @@ const WelcomeLandingPage: React.FC = () => {
                         <p className="font-medium">น.อ.บุญชนะ นิยมวัน</p>
                         <p className="text-sm text-github-text-secondary">นายช่างไฟฟ้าอาวุธฯ</p>
                       </div>
-                      <img src={boonchana} alt="น.อ.บุญชนะ นิยมวัน" className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4" />
+                      <img src={boonchana} alt="น.อ.บุญชนะ นิยมวัน" className="h-12 w-12 rounded-full object-cover object-top border border-amber-500 flex-shrink-0 ml-4" />
                     </div>
                   </div>
                 </Card>
@@ -917,13 +924,13 @@ const WelcomeLandingPage: React.FC = () => {
                   icon={
                     <div className="flex mb-3">
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 text-github-accent-warning fill-current" />
+                        <Star key={i} className="w-4 h-4 text-amber-500 fill-current" />
                       ))}
                     </div>
                   }
-                  hover={true}
+                  hover={false}
                   size="medium"
-                  className="max-w-sm mx-auto w-full"
+                  className="max-w-sm mx-auto w-full welcome-card-shimmer"
                 >
                   <div className="space-y-4">
                     <p>"ระบบช่วยให้การฝึกอบรมและการประเมินผลเป็นไปอย่างมีมาตรฐาน"</p>
@@ -932,7 +939,7 @@ const WelcomeLandingPage: React.FC = () => {
                         <p className="font-medium">น.ท.เกียรติศักดิ์ จอกนาค</p>
                         <p className="text-sm text-github-text-secondary">ครูวิชาการปืนฯ</p>
                       </div>
-                      <img src={kittisak} alt="น.ท.เกียรติศักดิ์ จอกนาค" className="h-12 w-12 rounded-full object-cover object-top border border-github-accent-warning flex-shrink-0 ml-4" />
+                      <img src={kittisak} alt="น.ท.เกียรติศักดิ์ จอกนาค" className="h-12 w-12 rounded-full object-cover object-top border border-amber-500 flex-shrink-0 ml-4" />
                     </div>
                   </div>
                 </Card>
