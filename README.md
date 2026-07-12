@@ -1,276 +1,298 @@
-# PQS RTN Hybrid Storage
+# PQS RTN — Personnel Qualification Standard (Royal Thai Navy)
 
-PQS RTN Desktop Application with Hybrid Storage System - แก้ไขปัญหา BLOB storage และ async issues
+> **Desktop Application สำหรับจัดทำชุดเอกสารมาตรฐานกำลังพล (PQS) ของกองทัพเรือ**
+> สร้าง แก้ไข พรีวิว และส่งออกเอกสาร PQS ครบวงจร — ทั้ง Trainee Edition และ Qualifier Edition
 
-## 🎯 **วัตถุประสงค์:**
+| Stack       | Technology                                         |
+| ----------- | -------------------------------------------------- |
+| **Frontend**| React 18 · TypeScript · Tailwind CSS · Lucide Icons|
+| **Backend** | Rust (Tauri v1) · rusqlite                         |
+| **Database**| SQLite (`content.db` — single source of truth)     |
+| **Testing** | Vitest + Testing Library (Frontend) · cargo test (Rust) |
+| **CI/CD**   | GitHub Actions (`rust-tests.yml`, `frontend-tests.yml`) |
 
-### **ปัญหาที่แก้ไข:**
+---
 
-- ❌ **BLOB Storage Issues** - ฐานข้อมูลใหญ่, ช้า, ใช้ RAM มาก
-- ❌ **Async Problems** - Race conditions, Memory leaks, UI blocking
-- ❌ **Export/Import Issues** - JSON/CSV ไม่เหมาะกับ BLOB
-
-### **โซลูชัน:**
-
-- ✅ **Hybrid Storage System** - BLOB + File-based storage
-- ✅ **File-based Media** - รูปภาพเก็บในไฟล์ระบบ
-- ✅ **ZIP Export/Import** - ส่งออก/นำเข้าทั้งฐานข้อมูลและไฟล์สื่อ
-- ✅ **Backward Compatibility** - ระบบเดิมยังใช้งานได้
-
-## 🏗️ **Architecture:**
-
-### **Phase 1: Current System (BLOB)**
+## 🏗️ Architecture
 
 ```
-Database (SQLite)
-├── users table
-├── avatars (BLOB) ← ปัญหาตรงนี้
-└── other data
+┌──────────────────────────────────────────────────────────┐
+│  React (TypeScript)           Tauri invoke()             │
+│  ┌────────────────┐           ┌────────────────────────┐ │
+│  │  Pages          │──invoke──▶│  commands/             │ │
+│  │  Components     │◀─result──│    content.rs           │ │
+│  │  Editor v2      │           │    avatars.rs           │ │
+│  │  Hooks/Services │           │    backup.rs · users.rs │ │
+│  └────────────────┘           └──────────┬─────────────┘ │
+│                                          │               │
+│                                ┌─────────▼───────────┐   │
+│                                │  content_database/   │   │
+│                                │  ├── schema.rs       │   │
+│                                │  ├── documents.rs    │   │
+│                                │  ├── questions.rs    │   │
+│                                │  ├── sections.rs     │   │
+│                                │  ├── references.rs   │   │
+│                                │  ├── answers.rs      │   │
+│                                │  ├── scoring.rs      │   │
+│                                │  ├── branches.rs     │   │
+│                                │  ├── media.rs        │   │
+│                                │  └── migrations.rs   │   │
+│                                └──────────┬──────────┘   │
+│                                           │              │
+│                                    ┌──────▼──────┐       │
+│                                    │ content.db  │       │
+│                                    │  (SQLite)   │       │
+│                                    └─────────────┘       │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### **Phase 2: Hybrid System**
+**Design Philosophy:**
+- **Rust as the Engine** — ทุก file I/O, database CRUD, heavy data lifting อยู่ใน `src-tauri/src/`
+- **React as the View** — frontend เรียก Rust ผ่าน `@tauri-apps/api` invoke เท่านั้น
+- **Single Source of Truth** — `content.db` (SQLite) เป็นตัวหลัก, UI state ทำ optimistic update แล้ว sync กลับ
 
-```
-Database (SQLite)          File System
-├── users table            ├── media/
-├── media_files table      │   ├── avatars/
-├── documents table        │   ├── documents/
-└── metadata only          │   └── exports/
-```
+---
 
-## 🚀 **Features:**
-
-### **✅ Current Features (จากโปรเจคเดิม):**
-
-- User Management
-- Authentication
-- Database Operations
-- Export/Import (JSON, CSV, SQL)
-
-### **🆕 New Features (Hybrid Storage):**
-
-- File-based Media Storage
-- ZIP Export/Import
-- Document Management (อนาคต)
-- Performance Optimization
-
-## 📁 **Project Structure:**
+## 📁 Project Structure
 
 ```
 pqs-rtn-hybrid-storage/
-├── src-tauri/src/
-│   ├── database.rs              # ระบบเดิม (BLOB)
-│   ├── hybrid_storage.rs        # ระบบผสม
-│   ├── file_storage.rs          # File-based storage
-│   ├── media_manager.rs         # จัดการไฟล์สื่อ
-│   ├── migration.rs             # Migration tools
-│   └── export_import.rs         # Enhanced export/import
-├── src/components/
-│   ├── pages/
-│   │   ├── UserManagementPage.tsx    # หน้าจัดการผู้ใช้
-│   │   ├── HybridStoragePage.tsx     # หน้าจัดการ Hybrid Storage
-│   │   └── MigrationPage.tsx         # หน้า Migration
-│   └── components/
-│       ├── MediaUploader.tsx         # อัปโหลดไฟล์สื่อ
-│       └── HybridExporter.tsx       # ส่งออก Hybrid
-├── media/                        # ไฟล์สื่อ
-│   ├── avatars/                  # รูปโปรไฟล์
-│   ├── documents/               # เอกสาร
-│   └── exports/                  # ไฟล์ส่งออก
-└── exports/                      # ไฟล์ส่งออก
+│
+├── .agent/                          # 🤖 Agent Skills & Workflows
+│   ├── skills/                      #    ⬅ AGENT: อ่านก่อนเขียนโค้ดทุกครั้ง
+│   │   ├── skill-01-architecture.md #    Tech Stack, Philosophy, File Layout
+│   │   ├── skill-02-frontend-react.md   UI Design System, Tailwind, Fonts
+│   │   ├── skill-03-backend-rust.md #    Tauri Commands, SQLite Rules
+│   │   └── skill-04-domain-logic.md #    PQS Section 100/200/300 Rules
+│   └── workflows/
+│       ├── agent-onboarding.md      #    Onboarding checklist
+│       └── cleanup-terminals.md     #    Kill stuck processes
+│
+├── src/                             # ⚛️ React Frontend
+│   ├── App.tsx                      #    Root component + Router
+│   ├── main.tsx                     #    Entry point
+│   ├── index.css                    #    Global CSS (github-bg-* vars)
+│   ├── components/
+│   │   ├── pages/                   #    Route pages (SignIn, Dashboard, Editor, ...)
+│   │   ├── editor_v2/               #    ⭐ Core PQS editor (Question/Section/Preview)
+│   │   ├── ui/                      #    Reusable UI (Button, Modal, Tooltip, Grid)
+│   │   ├── forms/                   #    Form components
+│   │   ├── modals/                  #    Modal dialogs
+│   │   ├── search/                  #    Search functionality
+│   │   ├── views/                   #    View-specific components
+│   │   └── common/                  #    Shared components
+│   ├── hooks/                       #    Custom React hooks (26 hooks)
+│   ├── services/                    #    Tauri invoke wrappers
+│   ├── types/                       #    TypeScript interfaces (maps to Rust structs)
+│   ├── utils/                       #    Utilities (thaiNumbering, logger, sanitizer)
+│   ├── contexts/                    #    React Context providers
+│   ├── config/                      #    App configuration
+│   ├── styles/                      #    Additional stylesheets
+│   ├── test/                        #    Test files (unit + integration)
+│   └── assets/                      #    Static assets (images, fonts)
+│       └── fonts/                   #    Kanit + TH Sarabun (woff2)
+│
+├── src-tauri/                       # 🦀 Rust Backend (Tauri)
+│   ├── src/
+│   │   ├── main.rs                  #    Tauri entry + command registration
+│   │   ├── commands/                #    Tauri invoke handlers
+│   │   │   ├── content.rs           #    PQS content CRUD
+│   │   │   ├── avatars.rs           #    Avatar management
+│   │   │   ├── backup.rs            #    Database backup/restore
+│   │   │   ├── users.rs             #    User operations
+│   │   │   ├── officers.rs          #    Officer data
+│   │   │   ├── system.rs            #    System commands
+│   │   │   └── zoom.rs              #    Zoom level persistence
+│   │   ├── content_database/        #    ⭐ Core SQLite logic (15 modules)
+│   │   │   ├── schema.rs            #    Table definitions & creation
+│   │   │   ├── documents.rs         #    Document CRUD
+│   │   │   ├── questions.rs         #    Question CRUD (hierarchical)
+│   │   │   ├── sections.rs          #    Section management (100/200/300)
+│   │   │   ├── references.rs        #    Reference system (usage_count)
+│   │   │   ├── answers.rs           #    Trainee answers
+│   │   │   ├── scoring.rs           #    Score calculation
+│   │   │   ├── branches.rs          #    Career branch logic
+│   │   │   ├── media.rs             #    Media/image management
+│   │   │   ├── section_links.rs     #    Section linking
+│   │   │   ├── migrations.rs        #    DB version migrations
+│   │   │   ├── connection.rs        #    Connection management
+│   │   │   ├── types.rs             #    Rust struct definitions
+│   │   │   ├── helpers.rs           #    Query helpers
+│   │   │   └── utils.rs             #    Utility functions
+│   │   ├── auth.rs                  #    Authentication
+│   │   ├── database_export.rs       #    Export/Import logic
+│   │   ├── hybrid_avatar.rs         #    File-based avatar storage
+│   │   ├── hybrid_backup.rs         #    Hybrid backup system
+│   │   ├── file_manager.rs          #    File system operations
+│   │   ├── migrations.rs            #    Schema migrations
+│   │   └── test_helpers.rs          #    Test utilities
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+│
+├── docs/                            # 📚 Documentation
+│   ├── system_specifications.md     #    Business rules & data formats
+│   ├── refactoring-plan.md          #    Refactoring strategy
+│   └── ...                          #    Analysis, plans, guides
+│
+├── scripts/                         # 🔧 Automation Scripts (22 scripts)
+│   ├── run-rust-tests.ps1           #    Rust test runner
+│   ├── run-frontend-tests.ps1       #    Frontend test runner
+│   ├── clean-processes.ps1          #    Process cleanup
+│   └── ...                          #    Utility scripts
+│
+├── .github/workflows/               # 🔄 CI/CD
+│   ├── rust-tests.yml               #    Rust CI pipeline
+│   └── frontend-tests.yml           #    Frontend CI pipeline
+│
+├── package.json                     #    npm scripts & dependencies
+├── vite.config.ts                   #    Vite bundler config (port 1420)
+├── tailwind.config.js               #    Tailwind + github-* custom palette
+├── tsconfig.json                    #    TypeScript configuration
+└── vitest.config.ts                 #    Vitest test configuration
 ```
 
-## 🧪 **Testing Infrastructure:**
+---
 
-### **Phase B & C1: Frontend Testing (✅ Complete)**
+## 🎯 PQS Domain Overview
 
-- **Unit Tests**: 14 tests (utility functions, component helpers)
-- **Component Tests**: 8 tests (Button, Modal, UI interactions)
-- **Integration Tests**: 25 tests (zoom, avatar, desktop, Tauri services)
-- **Total Coverage**: **47 passing tests** across 8 test files
-- **Coverage Metrics**: 64.72% lines, 62.5% functions (exceeds 50% threshold)
+ระบบ PQS มี 3 Sections หลัก แต่ละ Section มีสี theme และ logic ต่างกัน:
 
-**Run Tests:**
+| Section | ชื่อ | Theme Color | ลักษณะพิเศษ |
+|---------|------|-------------|-------------|
+| **100** | Fundamentals (ความรู้พื้นฐาน) | 🟢 Green | คำถามแบบข้อเขียน, recursive children 3 ระดับ |
+| **200** | Systems (ระบบ) | 🟠 Orange | ใช้ `OccupationSubQuestions` + `selectedSubQCodes` |
+| **300** | Watchstations (การปฏิบัติหน้าที่) | 🟣 Purple | Trainee Attachments, Score calculation bottom-up |
 
-```bash
-npm run test:run          # Run all tests
-npm run test:integration # Run integration tests only
-npm run test:coverage   # Generate coverage report
-npm run test:ui         # Interactive test UI
+> 📖 **รายละเอียดเพิ่มเติม:** อ่าน `.agent/skills/skill-04-domain-logic.md`
+
+### User Roles
+1. **Creator** — สร้าง/แก้ไข PQS content, จัดการ Reference Database
+2. **Qualifier** — กรรมการผู้ทดสอบ (ดูเฉลย)
+3. **Trainee** — ผู้รับการทดสอบ
+
+### Output Formats
+- **Trainee Edition** — เล่มคำถาม (ไม่มีเฉลย)
+- **Qualifier Edition** — เล่มเฉลย/คู่มือกรรมการ
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+```powershell
+node --version    # Node.js (LTS recommended)
+cargo --version   # Rust toolchain
 ```
 
-## 🛠️ **Development:**
+### Installation
 
-### **Installation:**
-
-```bash
-# Install dependencies
+```powershell
+# อยู่ที่ project root เสมอ: D:\pqs-rtn-hybrid-storage
 npm install
-
-# Install Rust dependencies
-cd src-tauri
-cargo build
 ```
 
-### **Development:**
+### Development
 
-```bash
-# Start development server
-npm run tauri
+```powershell
+# เปิด Desktop App (Tauri dev mode)
+npm run tauri           # หรือ npm start / npm run app / npm run desktop
 
-# หรือใช้คำสั่งอื่นๆ
-npm run start
-npm run app
-npm run desktop
-```
+# Frontend only (Vite dev server, port 1420)
+npm run dev
 
-### **Build:**
-
-```bash
-# Build for production
+# Build production
 npm run tauri:build
 ```
 
-### **Testing:**
+> ⚠️ **สำคัญ:** ต้องรัน commands จาก **project root** (`D:\pqs-rtn-hybrid-storage`) เสมอ
+> ดูรายละเอียดเพิ่มเติมที่ `HOW_TO_RUN_PROJECT.md`
 
-#### **Rust Tests**
+---
+
+## 🧪 Testing
+
+### Frontend Tests (Vitest)
 
 ```powershell
-# Run all Rust tests
-cd src-tauri
-cargo test
+npm run test:run          # Run all tests
+npm run test:integration  # Integration tests only
+npm run test:coverage     # Coverage report
+npm run test:ui           # Interactive test UI
+npm test                  # Watch mode
+```
 
-# Or use the automation script
+### Rust Tests
+
+```powershell
+cd src-tauri && cargo test && cd ..
+
+# หรือใช้ automation script
 .\scripts\run-rust-tests.ps1
-
-# Run tests with coverage
 .\scripts\run-rust-tests.ps1 -Coverage
-
-# Run specific module tests
-.\scripts\run-rust-tests.ps1 -Filter "database_export::tests"
 ```
 
-**Test Status:**
+### CI/CD
+- `.github/workflows/rust-tests.yml` — Rust test pipeline
+- `.github/workflows/frontend-tests.yml` — Frontend test pipeline
 
-- ✅ **37 Unit Tests** (100% pass rate)
-- ✅ **14.46% Line Coverage** (baseline established)
-- ✅ **GitHub Actions CI/CD** (automated testing)
-- 📊 **Coverage Report**: `coverage/rust/html/index.html`
+---
 
-**Coverage by Module:**
+## 🤖 Agent Instructions
 
-- `test_helpers.rs`: 98.72% (test utilities)
+> **สำหรับ AI Agent ที่เข้ามาทำงานกับโปรเจคนี้**
 
-#### **Frontend Tests (Vitest)**
+### ขั้นตอนแรก (Onboarding)
 
-```powershell
-# Run all frontend tests
-npm run test:run
+1. **อ่าน skills ทั้ง 4 ไฟล์** ใน `.agent/skills/` ก่อนเขียนหรือแก้ไขโค้ดใดๆ:
+   - `skill-01-architecture.md` — Tech Stack, Philosophy, File Layout
+   - `skill-02-frontend-react.md` — UI Design System, Tailwind (github-bg-*), A4 Paper, Typography
+   - `skill-03-backend-rust.md` — Tauri Command patterns, SQLite rules, Type synchronization
+   - `skill-04-domain-logic.md` — PQS Section 100/200/300 rules, `usage_count`, Attachments
 
-# Run integration tests only
-npm run test:integration
+2. **ทำตาม workflow** ใน `.agent/workflows/agent-onboarding.md`
 
-# Run in watch mode
-npm test
+### กฎที่ต้องปฏิบัติ
 
-# Run coverage report
-npm run test:coverage
+| หมวด | กฎ |
+|------|-----|
+| **UI Colors** | ใช้ `github-bg-*` CSS variables เท่านั้น ห้ามสร้างสีใหม่ |
+| **Section Colors** | 100=Green, 200=Orange, 300=Purple (ดู `themeColors.ts`) |
+| **Icons** | ใช้ `lucide-react` เท่านั้น |
+| **Fonts** | `font-kanit` (UI) + `font-th-sarabun` (print/documents) |
+| **Tauri Commands** | Return `Result<T, String>` — ห้าม `.unwrap()` ใน production |
+| **SQLite** | ใช้ prepared statements + parameter binding เสมอ |
+| **Types** | Rust structs ต้อง sync กับ `src/types/content.ts` |
+| **Components** | ใช้ `src/components/ui/` ที่มีอยู่ ไม่สร้างใหม่ซ้ำ |
+| **Error Handling** | ใช้ `logger` + `onAlert(msg, 'danger')` |
 
-# Or use automation script
-.\scripts\run-frontend-tests.ps1
-```
+---
 
-**Frontend Test Status:**
+## 📚 Documentation Index
 
-- ✅ **33 Frontend Tests** (Unit + Integration)
-- ✅ **Vitest + Testing Library** configured
-- ✅ **GitHub Actions frontend workflow** configured
-- 📊 **Coverage Report**: `coverage/frontend/index.html`
+### คู่มือการใช้งาน
+- [`HOW_TO_RUN_PROJECT.md`](HOW_TO_RUN_PROJECT.md) — วิธีรันโปรเจค (ละเอียด)
+- [`GIT_WORKFLOW_GUIDE.md`](GIT_WORKFLOW_GUIDE.md) — Git branching strategy
+- [`FIX_WHITE_FLASH_STARTUP.md`](FIX_WHITE_FLASH_STARTUP.md) — แก้ปัญหาจอขาว startup
 
-**Frontend Coverage Snapshot:**
+### Business Logic & Specifications
+- [`docs/system_specifications.md`](docs/system_specifications.md) — Document ID generation, Section rules, Business rules
+- [`project_goals.md`](project_goals.md) — Project vision & objectives
 
-- `src/components/ui/Button.tsx`: 98.18%
-- `src/components/ui/Modal.tsx`: 100%
-- `src/utils/resolveAvatarSource.ts`: 100%
-- `src/utils/commandSanitizer.ts`: 87.71%
+### Plans & Refactoring
+- [`PHASE5_REFACTORING_PLAN.md`](PHASE5_REFACTORING_PLAN.md)
+- [`PHASE5G_TRAINEE_ATTACHMENTS_PLAN.md`](PHASE5G_TRAINEE_ATTACHMENTS_PLAN.md)
+- [`300-template-plan.md`](300-template-plan.md)
+- [`career_branch_management_plan.md`](career_branch_management_plan.md)
+- [`PROJECT_REVIEW_PLAN.md`](PROJECT_REVIEW_PLAN.md)
 
-## 📊 **Performance Comparison:**
 
-| Aspect            | BLOB Storage    | Hybrid Storage |
-| ----------------- | --------------- | -------------- |
-| **Database Size** | ใหญ่ขึ้นเรื่อยๆ | คงที่          |
-| **Memory Usage**  | สูง             | ต่ำ            |
-| **Query Speed**   | ช้า             | เร็ว           |
-| **Export/Import** | ช้า             | เร็ว           |
-| **Backup**        | ช้า             | เร็ว           |
-| **Concurrency**   | ปัญหา           | ดี             |
+### Analysis
 
-## 🔄 **Migration Strategy:**
+- [`docs/refactoring-plan.md`](docs/refactoring-plan.md) — Comprehensive refactoring plan
 
-### **Step 1: Create Hybrid System**
+---
 
-- สร้าง FileStorageManager
-- สร้าง database schema ใหม่
-- สร้าง migration tools
+## 📄 License
 
-### **Step 2: Parallel Systems**
-
-- ระบบเดิมยังใช้งานได้
-- ระบบใหม่สำหรับข้อมูลใหม่
-- Auto-detect ระบบไหน
-
-### **Step 3: Gradual Migration**
-
-- Migrate ทีละส่วน
-- Validate data integrity
-- Rollback capability
-
-## 🎯 **Roadmap:**
-
-### **Week 1-2: Foundation**
-
-- [x] Create new repository
-- [x] Copy existing code
-- [x] Update project configuration
-- [ ] Create FileStorageManager
-- [ ] Create MediaManager
-
-### **Week 3-4: Hybrid System**
-
-- [ ] Create hybrid database schema
-- [ ] Create migration tools
-- [ ] Create export/import system
-- [ ] Create UI components
-
-### **Week 5-6: Testing & Migration**
-
-- [ ] Test hybrid system
-- [ ] Create migration interface
-- [ ] Performance testing
-- [ ] Documentation
-
-## 🛡️ **Safety Measures:**
-
-- **Backward Compatibility** - ระบบเดิมยังใช้งานได้
-- **Rollback Capability** - สามารถ rollback ได้
-- **Data Validation** - ตรวจสอบความถูกต้อง
-- **Parallel Testing** - ทดสอบทั้งสองระบบ
-
-## 📝 **Notes:**
-
-- โปรเจคนี้สร้างจาก `pqs-rtn-tauri` เพื่อความปลอดภัย
-- ระบบเดิมยังใช้งานได้ปกติ
-- ระบบใหม่จะทำงานควบคู่กัน
-- Migration จะทำทีละส่วนเพื่อความปลอดภัย
-
-## 🤝 **Contributing:**
-
-1. Fork the repository
-2. Create feature branch
-3. Commit changes
-4. Push to branch
-5. Create Pull Request
-
-## 📄 **License:**
-
-MIT License - ดู LICENSE file สำหรับรายละเอียด
+MIT License
