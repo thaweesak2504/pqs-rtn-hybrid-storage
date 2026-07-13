@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Edit, Trash2, Save, X, User, Mail, Star, Eye, EyeOff, Key } from 'lucide-react'
+import { Edit, Trash2, Save, X, User, Mail, Star, Key } from 'lucide-react'
 import { Button, Card, CustomSelect } from './ui'
+import { FormInput, FormActions } from './ui/Form'
 import type { User as UserType } from '../types/user'
 import { createUser, getAllUsers, updateUser, deleteUser } from '../services/userService'
 import { useAuth } from '../hooks/useAuth'
@@ -375,91 +376,54 @@ const UserCRUDForm: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Full Name */}
-            <div>
-              <label htmlFor="full_name" className="block text-sm font-medium text-github-text-primary mb-1">
-                Full Name *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-github-text-tertiary" />
-                <input
-                  type="text"
-                  id="full_name"
-                  name="full_name"
-                  value={formData.full_name}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full pl-9 pr-3 py-2 border border-github-border-primary rounded-lg bg-github-bg-secondary text-github-text-primary placeholder-github-text-tertiary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm"
-                  placeholder="Enter full name"
-                />
-              </div>
-            </div>
+            <FormInput
+              type="text"
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleInputChange}
+              label="Full Name"
+              icon={User}
+              required
+              placeholder="Enter full name"
+            />
 
             {/* Username */}
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-github-text-primary mb-1">
-                Username *
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-github-text-tertiary" />
-                <input
-                  type="text"
-                  id="username"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full pl-9 pr-3 py-2 border border-github-border-primary rounded-lg bg-github-bg-secondary text-github-text-primary placeholder-github-text-tertiary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm"
-                  placeholder="Enter username"
-                />
-              </div>
-            </div>
+            <FormInput
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              label="Username"
+              icon={User}
+              required
+              placeholder="Enter username"
+            />
 
             {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-github-text-primary mb-1">
-                Email *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-github-text-tertiary" />
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full pl-9 pr-3 py-2 border border-github-border-primary rounded-lg bg-github-bg-secondary text-github-text-primary placeholder-github-text-tertiary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm"
-                  placeholder="Enter email address"
-                />
-              </div>
-            </div>
+            <FormInput
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              label="Email"
+              icon={Mail}
+              required
+              placeholder="Enter email address"
+            />
 
             {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-github-text-primary mb-1">
-                Password *
-              </label>
-              <div className="relative">
-                <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-github-text-tertiary" />
-                <input
-                  type={showFormPassword ? "text" : "password"}
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full pl-9 pr-12 py-2 border border-github-border-primary rounded-lg bg-github-bg-secondary text-github-text-primary placeholder-github-text-tertiary focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm"
-                  placeholder="Enter password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowFormPassword(!showFormPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-github-text-tertiary hover:text-github-text-secondary transition-colors"
-                >
-                  {showFormPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+            <FormInput
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              label="Password"
+              icon={Key}
+              required
+              placeholder="Enter password"
+              showPassword={showFormPassword}
+              onTogglePassword={() => setShowFormPassword(!showFormPassword)}
+            />
 
             {/* Rank */}
             <CustomSelect
@@ -502,7 +466,7 @@ const UserCRUDForm: React.FC = () => {
           </div>
 
           {/* Form Actions */}
-          <div className="flex gap-2 pt-4">
+          <FormActions>
             <Button
               type="submit"
               variant="primary"
@@ -522,7 +486,7 @@ const UserCRUDForm: React.FC = () => {
                 Cancel
               </Button>
             )}
-          </div>
+          </FormActions>
         </form>
       </Card>
 
