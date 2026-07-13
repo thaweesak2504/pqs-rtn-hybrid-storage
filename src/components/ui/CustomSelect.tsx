@@ -129,7 +129,7 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
   const selectedOption = options.find(option => option.value === value)
   const displayValue = selectedOption ? selectedOption.label : placeholder || ''
 
-  const baseClasses = "w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-github-bg-secondary text-github-text-secondary hover:border-blue-500 dark:hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-github-bg-secondary transition-colors text-sm"
+  const baseClasses = "w-full px-3 py-2 border border-gray-300 dark:border-github-border-primary rounded-lg bg-github-bg-secondary text-github-text-secondary hover:border-blue-500 dark:hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-github-bg-secondary transition-colors text-sm"
   const errorClasses = error ? 'border-github-accent-danger' : ''
   const iconClasses = Icon ? 'pl-9 pr-8' : 'pr-8'
   const disabledClasses = disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
