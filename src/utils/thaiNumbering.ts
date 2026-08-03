@@ -113,3 +113,22 @@ export const buildFullPrefix = (
     return parent + '.' + formatNumberByMode(sequence, digitMode);
   }
 };
+
+export const formatMarkdownWithThaiLists = (text: string): string => {
+  if (!text) return '';
+  const lines = text.split('\n');
+  const processedLines = lines.map((line) => {
+    // Match Thai list item: ก. , ข. , ค. , etc.
+    const thaiMatch = line.match(/^(\s*)([ก-ฮ]\.)\s+(.*)$/);
+    if (thaiMatch) {
+      const indent = thaiMatch[1] || '';
+      const label = thaiMatch[2];
+      const content = thaiMatch[3];
+      // Surround with blank lines to ensure ReactMarkdown treats it as a block
+      return `\n${indent}<div class="thai-list-item"><span class="thai-list-label">${label}</span><div class="thai-list-content">${content}</div></div>\n`;
+    }
+    return line;
+  });
+  // Normal '\n' allows ReactMarkdown to properly separate blocks.
+  return processedLines.join('\n');
+};

@@ -240,6 +240,12 @@
   margin: 0.25rem 0;
   padding-left: 1.5rem;
 }
+
+/* Align 1.2.3. numbers with the text of ก.ข.ค. when they are used together */
+.thai-list-item ~ ol,
+.thai-list-item ~ ul {
+  padding-left: 2rem;
+}
 .answer-key-markdown ol:not(.thai-num):not(.thai-alpha) {
   list-style-type: decimal;
 }
@@ -258,6 +264,24 @@
 }
 .answer-key-markdown li {
   margin: 0;
+  padding-left: 0.25rem;
+  white-space: pre-wrap;
+}
+
+/* Thai List Item Flex Layout for Hanging Indent */
+.thai-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1ch;
+  margin: 0.2rem 0;
+}
+.thai-list-label {
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.thai-list-content {
+  flex: 1;
+  min-width: 0;
 }
 .answer-key-markdown strong {
   font-weight: 700;

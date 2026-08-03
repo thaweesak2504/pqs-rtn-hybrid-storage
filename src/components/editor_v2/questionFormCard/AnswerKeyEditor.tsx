@@ -3,13 +3,10 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 // ============ Thai Helpers ============
 
 const THAI_ALPHA = ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ซ", "ฌ", "ญ", "ฎ", "ฏ", "ฐ", "ฑ", "ฒ", "ณ", "ด", "ต", "ถ", "ท", "ธ", "น", "บ", "ป", "ผ", "ฝ", "พ", "ฟ", "ภ", "ม", "ย", "ร", "ล", "ว", "ศ", "ษ", "ส", "ห", "ฬ", "อ", "ฮ"];
-const THAI_DIGITS = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
 
-const toThaiDigit = (n: number): string => {
-  return n.toString().split("").map(d => THAI_DIGITS[parseInt(d)] || d).join("");
-};
 
-type ToolbarAction = "bold" | "italic" | "ol" | "ul" | "thai_alpha" | "thai_num" | "table";
+
+type ToolbarAction = "bold" | "italic" | "ol" | "ul" | "thai_alpha" | "table";
 
 // ============ Component ============
 
@@ -102,11 +99,7 @@ const AnswerKeyEditor: React.FC<AnswerKeyEditorProps> = ({
         replaceSelection(`\n${items}\n`);
         return;
       }
-      if (action === "thai_num") {
-        const items = Array.from({ length: 10 }, (_, i) => i + 1).map((n) => `${toThaiDigit(n)}. รายการที่ ${n}`).join("\n");
-        replaceSelection(`\n${items}\n`);
-        return;
-      }
+
       if (action === "table") {
         const table = `\n| หัวข้อ 1 | หัวข้อ 2 | หัวข้อ 3 | หัวข้อ 4 |\n| --- | --- | --- | --- |\n| ข้อมูล | ข้อมูล | ข้อมูล | ข้อมูล |\n| ข้อมูล | ข้อมูล | ข้อมูล | ข้อมูล |\n`;
         replaceSelection(table);
@@ -154,7 +147,7 @@ const AnswerKeyEditor: React.FC<AnswerKeyEditorProps> = ({
           onClick={() => applyAction("ol")}
           className="h-6 px-2 text-xs rounded border border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
         >
-          1.
+          1.2.3.
         </button>
         <button
           type="button"
@@ -172,14 +165,7 @@ const AnswerKeyEditor: React.FC<AnswerKeyEditorProps> = ({
         >
           ก.ข.ค.
         </button>
-        <button
-          type="button"
-          title="ลำดับเลขไทย (๑. ๒. ๓. ...)"
-          onClick={() => applyAction("thai_num")}
-          className="h-6 px-2 text-xs font-semibold rounded border border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
-        >
-          ๑.๒.๓.
-        </button>
+
         <button
           type="button"
           title="แทรกตาราง (Table)"

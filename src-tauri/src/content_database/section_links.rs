@@ -581,17 +581,5 @@ pub fn update_section_ref_score(question_id: String, score: i32) -> Result<(), S
 // ============================================================
 
 pub fn thai_number(n: i32) -> String {
-    match n {
-        0 => "๐".to_string(),
-        1 => "๑".to_string(),
-        2 => "๒".to_string(),
-        3 => "๓".to_string(),
-        4 => "๔".to_string(),
-        5 => "๕".to_string(),
-        6 => "๖".to_string(),
-        7 => "๗".to_string(),
-        8 => "๘".to_string(),
-        9 => "๙".to_string(),
-        _ => n.to_string(),
-    }
+    n.to_string()
 }

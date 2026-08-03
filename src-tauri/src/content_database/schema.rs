@@ -1146,6 +1146,13 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
         "delete residual UserAnswers.main rows",
     );
 
+    // Migration: Convert all existing Thai numerals in Questions table to Arabic numerals
+    execute_best_effort(
+        conn,
+        "UPDATE Questions SET content = REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(content, '๑', '1'), '๒', '2'), '๓', '3'), '๔', '4'), '๕', '5'), '๖', '6'), '๗', '7'), '๘', '8'), '๙', '9'), '๐', '0') WHERE content GLOB '*[๐-๙]*'",
+        "migrate_thai_numerals_to_arabic_in_questions",
+    );
+
     Ok(())
 }
 /// Migrate existing QuestionSectionLinks → L3 section_ref Questions

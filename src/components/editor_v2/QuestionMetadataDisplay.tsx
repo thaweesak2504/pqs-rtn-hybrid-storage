@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { UserAnswer } from "./PqsQuestionSection";
 import TraineeAnswerBox from "./TraineeAnswerBox";
 import AttachmentPanel from "./AttachmentPanel";
+import { formatMarkdownWithThaiLists } from "../../utils/thaiNumbering";
 
 // ============ Types ============
 interface SubQuestionItem {
@@ -212,7 +213,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                           <span className="text-slate-900 dark:text-slate-100 shrink-0">เฉลย: {label && <span className="text-amber-600 dark:text-amber-400">{label}.</span>}</span>
                           <div className="answer-key-markdown min-w-0 flex-1">
                             <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                              {formatAnswerKeyForDisplay(keys[code] || '').replace(/\n/g, "  \n")}
+                              {formatMarkdownWithThaiLists(formatAnswerKeyForDisplay(keys[code] || ''))}
                             </ReactMarkdown>
                           </div>
                         </div>
@@ -249,7 +250,7 @@ const QuestionMetadataDisplay: React.FC<QuestionMetadataDisplayProps> = ({
                         remarkPlugins={[remarkGfm]}
                         rehypePlugins={[rehypeRaw]}
                       >
-                        {formatAnswerKeyForDisplay(singleAnswerKey).replace(/\n/g, "  \n")}
+                        {formatMarkdownWithThaiLists(formatAnswerKeyForDisplay(singleAnswerKey))}
                       </ReactMarkdown>
                     </div>
                   </div>

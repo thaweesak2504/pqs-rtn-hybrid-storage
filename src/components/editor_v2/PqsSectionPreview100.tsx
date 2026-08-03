@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+import { formatMarkdownWithThaiLists } from '../../utils/thaiNumbering';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './reference/types';
 import { logger } from '../../utils/logger';
@@ -344,7 +345,7 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
                 remarkPlugins={[remarkGfm]}
                 rehypePlugins={[rehypeRaw]}
               >
-                {formatAnswerKeyForDisplay(answerKey).replace(/\n/g, "  \n")}
+                {formatMarkdownWithThaiLists(formatAnswerKeyForDisplay(answerKey))}
               </ReactMarkdown>
             </div>
           </div>

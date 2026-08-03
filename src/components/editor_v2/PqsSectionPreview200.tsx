@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
+import { formatMarkdownWithThaiLists } from '../../utils/thaiNumbering';
 import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
 import { ReferenceDoc } from './reference/types';
@@ -498,7 +499,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
               <span className="text-slate-900 dark:text-slate-100 shrink-0 font-semibold">เฉลย:</span>
               <div className="answer-key-markdown min-w-0 flex-1">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                  {formatAnswerKeyForDisplay(answerKey).replace(/\n/g, "  \n")}
+                  {formatMarkdownWithThaiLists(formatAnswerKeyForDisplay(answerKey))}
                 </ReactMarkdown>
               </div>
             </div>
@@ -547,7 +548,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                         <span className="shrink-0 font-semibold">เฉลย: <span className="text-black dark:text-white">{label}</span></span>
                         <div className="answer-key-markdown min-w-0 flex-1">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                            {formatAnswerKeyForDisplay(text).replace(/\n/g, "  \n")}
+                            {formatMarkdownWithThaiLists(formatAnswerKeyForDisplay(text))}
                           </ReactMarkdown>
                         </div>
                       </div>

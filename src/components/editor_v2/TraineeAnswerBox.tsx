@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
+import { formatMarkdownWithThaiLists } from '../../utils/thaiNumbering';
 import ConfirmModal from "../modals/ConfirmModal";
 import { UserAnswer } from "./PqsQuestionSection";
 import { logger } from '../../utils/logger';
@@ -16,15 +17,11 @@ const MOCK_QUALIFIER_ID = "Q-001";
 
 // Thai Helpers
 const THAI_ALPHA = ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ซ", "ฌ", "ญ", "ฎ", "ฏ", "ฐ", "ฑ", "ฒ", "ณ", "ด", "ต", "ถ", "ท", "ธ", "น", "บ", "ป", "ผ", "ฝ", "พ", "ฟ", "ภ", "ม", "ย", "ร", "ล", "ว", "ศ", "ษ", "ส", "ห", "ฬ", "อ", "ฮ"];
-const THAI_DIGITS = ["๐", "๑", "๒", "๓", "๔", "๕", "๖", "๗", "๘", "๙"];
 
-const toThaiDigit = (n: number): string => {
-  return n.toString().split("").map(d => THAI_DIGITS[parseInt(d)] || d).join("");
-};
 
 export type AssessmentStatus = "pending" | "passed" | "needs_improvement";
 
-type ToolbarAction = "bold" | "italic" | "ol" | "ul" | "thai_alpha" | "thai_num" | "table";
+type ToolbarAction = "bold" | "italic" | "ol" | "ul" | "thai_alpha" | "table";
 
 interface TraineeAnswerBoxProps {
   questionId: string;
@@ -327,11 +324,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         replaceSelection(`\n${items}\n`);
         return;
       }
-      if (action === "thai_num") {
-        const items = Array.from({ length: 10 }, (_, i) => i + 1).map((n) => `${toThaiDigit(n)}. รายการที่ ${n}`).join("\n");
-        replaceSelection(`\n${items}\n`);
-        return;
-      }
+
       if (action === "table") {
         const table = `\n| หัวข้อ 1 | หัวข้อ 2 | หัวข้อ 3 | หัวข้อ 4 |\n| --- | --- | --- | --- |\n| ข้อมูล | ข้อมูล | ข้อมูล | ข้อมูล |\n| ข้อมูล | ข้อมูล | ข้อมูล | ข้อมูล |\n`;
         replaceSelection(table);
@@ -476,7 +469,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                       {cleanValue ? (
                         <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                            {cleanValue.replace(/\n/g, "  \n")}
+                            {formatMarkdownWithThaiLists(cleanValue)}
                           </ReactMarkdown>
                         </div>
                       ) : (
@@ -708,11 +701,11 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
               </button>
               <button
                 type="button"
-                title="ลำดับเลขไทย (๑. ๒. ๓. ...)"
-                onClick={(e) => { e.stopPropagation(); applyAction("thai_num"); }}
+                title="ลำดับตัวเลข (1. 2. 3. ...)"
+                onClick={(e) => { e.stopPropagation(); applyAction("ol"); }}
                 className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                ๑.๒.๓.
+                1.2.3.
               </button>
               <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
               <button
