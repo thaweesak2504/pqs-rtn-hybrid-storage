@@ -5,23 +5,20 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
 import { formatMarkdownWithThaiLists } from '../../utils/thaiNumbering';
+import TiptapEditor from './TiptapEditor';
 import ConfirmModal from "../modals/ConfirmModal";
 import { UserAnswer } from "./PqsQuestionSection";
 import { logger } from '../../utils/logger';
 import AttachmentPanel from "./AttachmentPanel";
 import Tooltip from "../ui/Tooltip";
+import { useEditorLock } from "../../hooks/useEditorLock";
 
 // Simulation Constants
 const MOCK_TRAINEE_ID = "T-001";
 const MOCK_QUALIFIER_ID = "Q-001";
 
-// Thai Helpers
-const THAI_ALPHA = ["ก", "ข", "ค", "ง", "จ", "ฉ", "ช", "ซ", "ฌ", "ญ", "ฎ", "ฏ", "ฐ", "ฑ", "ฒ", "ณ", "ด", "ต", "ถ", "ท", "ธ", "น", "บ", "ป", "ผ", "ฝ", "พ", "ฟ", "ภ", "ม", "ย", "ร", "ล", "ว", "ศ", "ษ", "ส", "ห", "ฬ", "อ", "ฮ"];
-
 
 export type AssessmentStatus = "pending" | "passed" | "needs_improvement";
-
-type ToolbarAction = "bold" | "italic" | "ol" | "ul" | "thai_alpha" | "table";
 
 interface TraineeAnswerBoxProps {
   questionId: string;
@@ -63,6 +60,9 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
+  const { activeId, lock, unlock } = useEditorLock();
+  const boxId = useMemo(() => `box-${questionId}-${documentId}-${subQuestionCode || ""}`, [questionId, documentId, subQuestionCode]);
+
   // Phase 5G: Attachments
   const [attachments, setAttachments] = useState<string[]>([]);
   // Track original values for change detection (anti-fake-save)
@@ -74,7 +74,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     message: "",
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // textareaRef removed — TiptapEditor manages its own ref
   const containerRef = useRef<HTMLDivElement>(null);
   const is300 = questionPrefix ? (questionPrefix.startsWith("3") || questionPrefix.startsWith("๓")) : false;
 
@@ -161,6 +161,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setOriginalValue(value);
       setOriginalAttachments([...attachments]);
       setIsEditing(false);
+      unlock(boxId);
       onAnswerSaved?.();
     } catch (error) {
       logger.error("Failed to save answer:", error);
@@ -187,8 +188,9 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }
     
     setValue(originalValue);
-    setAttachments(originalAttachments);
+    setAttachments([...originalAttachments]);
     setIsEditing(false);
+    unlock(boxId);
   };
 
   const hasSavedAnswer = originalValue.trim().length > 0 || originalAttachments.length > 0;
@@ -286,94 +288,27 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }
   };
 
-  const applyAction = useCallback(
-    (action: ToolbarAction) => {
-      const el = textareaRef.current;
-      if (!el) return;
+  // applyAction and handlePaste removed — TiptapEditor handles formatting internally
 
-      const selectionStart = el.selectionStart ?? 0;
-      const selectionEnd = el.selectionEnd ?? 0;
-      const selectedText = el.value.slice(selectionStart, selectionEnd);
-
-      const replaceSelection = (next: string) => {
-        el.setRangeText(next, selectionStart, selectionEnd, "end");
-        setValue(el.value);
-        el.focus();
-      };
-
-      if (action === "bold") {
-        replaceSelection(`**${selectedText || "ข้อความ"}**`);
-        return;
-      }
-      if (action === "italic") {
-        replaceSelection(`*${selectedText || "ข้อความ"}*`);
-        return;
-      }
-      if (action === "ul") {
-        const lines = (selectedText || "รายการ").split("\n").map((l) => `- ${l || ""}`);
-        replaceSelection(lines.join("\n"));
-        return;
-      }
-      if (action === "ol") {
-        const lines = Array.from({ length: 10 }, (_, i) => `${i + 1}. รายการที่ ${i + 1}`);
-        replaceSelection(`\n${lines.join("\n")}\n`);
-        return;
-      }
-      if (action === "thai_alpha") {
-        const items = THAI_ALPHA.slice(0, 10).map((ch, i) => `${ch}. รายการที่ ${i + 1}`).join("\n");
-        replaceSelection(`\n${items}\n`);
-        return;
-      }
-
-      if (action === "table") {
-        const table = `\n| หัวข้อ 1 | หัวข้อ 2 | หัวข้อ 3 | หัวข้อ 4 |\n| --- | --- | --- | --- |\n| ข้อมูล | ข้อมูล | ข้อมูล | ข้อมูล |\n| ข้อมูล | ข้อมูล | ข้อมูล | ข้อมูล |\n`;
-        replaceSelection(table);
-      }
-    },
-    []
-  );
-
-  const handlePaste = useCallback(
-    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-      e.preventDefault();
-      const pastedText = e.clipboardData.getData("text");
-      const trimmedText = pastedText.trim();
-
-      const el = textareaRef.current;
-      if (!el) return;
-
-      const selectionStart = el.selectionStart ?? 0;
-      const selectionEnd = el.selectionEnd ?? 0;
-      const currentValue = el.value;
-
-      const newValue = currentValue.substring(0, selectionStart) + trimmedText + currentValue.substring(selectionEnd);
-      setValue(newValue);
-
-      requestAnimationFrame(() => {
-        el.selectionStart = el.selectionEnd = selectionStart + trimmedText.length;
-      });
-    },
-    []
-  );
-
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el || !isEditing) return;
-    el.style.height = "0px";
-    el.style.height = `${Math.max(el.scrollHeight, 90)}px`;
-  }, [value, isEditing]);
+  // auto-resize effect removed — TiptapEditor grows naturally
 
   const handleEditStart = (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation(); // Prevent parent toggle
-    // Allow 'trainee' or 'edit' mode to edit the answer (edit mode only if not locked)
+    if (e) e.stopPropagation();
+
+    // Enforce single active editor
+    if (activeId && activeId !== boxId) {
+      setAlertModal({
+        isOpen: true,
+        message: "กรุณาบันทึกหรือยกเลิกคำตอบที่กำลังแก้ไขอยู่ก่อน",
+      });
+      return;
+    }
+
     const canEdit = mode === "trainee" || (mode === "edit" && !readOnly);
     if (readOnly || !canEdit || localStatus === "passed") return;
+    
+    lock(boxId);
     setIsEditing(true);
-    setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    }, 10);
   };
 
   const handleAttachmentsChange = (newAttachments: string[]) => {
@@ -429,6 +364,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   // View Mode
   if (!isEditing) {
     return (
+      <>
       <div className="flex flex-col gap-1.5 w-full">
         {/* Feedback Display for Trainee */}
         {localStatus === "needs_improvement" && localFeedback && (
@@ -652,6 +588,16 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           })()}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ isOpen: false, message: "" })}
+        onConfirm={() => setAlertModal({ isOpen: false, message: "" })}
+        title="แจ้งเตือน"
+        message={alertModal.message}
+        variant="warning"
+      />
+      </>
     );
   }
 
@@ -672,52 +618,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
               {isPrerequisiteDoc ? 'เอกสารหลักฐาน:' : 'คำตอบ:'} <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span>
             </span>
           </div>
-          {!isPrerequisiteDoc && (
-            <>
-              <button
-                type="button"
-                title="ตัวหนา (Bold)"
-                onClick={(e) => { e.stopPropagation(); applyAction("bold"); }}
-                className="h-6 px-2 text-xs font-bold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                B
-              </button>
-              <button
-                type="button"
-                title="ตัวเอียง (Italic)"
-                onClick={(e) => { e.stopPropagation(); applyAction("italic"); }}
-                className="h-6 px-2 text-xs italic rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                I
-              </button>
-              <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-              <button
-                type="button"
-                title="ลำดับอักษรไทย (ก. ข. ค. ง. ...)"
-                onClick={(e) => { e.stopPropagation(); applyAction("thai_alpha"); }}
-                className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                ก.ข.ค.
-              </button>
-              <button
-                type="button"
-                title="ลำดับตัวเลข (1. 2. 3. ...)"
-                onClick={(e) => { e.stopPropagation(); applyAction("ol"); }}
-                className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                1.2.3.
-              </button>
-              <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-              <button
-                type="button"
-                title="แทรกตาราง (Table)"
-                onClick={(e) => { e.stopPropagation(); applyAction("table"); }}
-                className="h-6 px-2 text-xs font-semibold rounded border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                Table
-              </button>
-            </>
-          )}
+          {/* Toolbar buttons removed — TiptapEditor provides its own toolbar */}
         </div>
         <div className="flex items-center gap-1.5">
           {hasSavedAnswer && (
@@ -766,14 +667,15 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         </div>
       </div>
       {!isPrerequisiteDoc && (
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onPaste={handlePaste}
-          placeholder="ระบุคำตอบของคุณที่นี่..."
-          className="w-full p-3 text-sm font-normal resize-none overflow-hidden leading-relaxed font-['Kanit',sans-serif] bg-transparent text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none min-h-[120px]"
-        />
+        <div className="px-1 pb-1">
+          <TiptapEditor
+            initialContent={value}
+            onChange={(md) => setValue(md)}
+            placeholder="ระบุคำตอบของคุณที่นี่..."
+            variant="default"
+            minHeight="120px"
+          />
+        </div>
       )}
       {isPrerequisiteDoc && (
         <div className="p-4 text-center">

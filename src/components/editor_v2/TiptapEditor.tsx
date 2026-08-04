@@ -1,0 +1,302 @@
+import React, { useEffect } from "react";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { Markdown } from "tiptap-markdown";
+import { Color } from "@tiptap/extension-color";
+import { TextStyle } from "@tiptap/extension-text-style";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { Bold, Italic, ListOrdered, List, Eraser, Table as TableIcon, Trash, GripHorizontal, GripVertical } from "lucide-react";
+import Tooltip from "../ui/Tooltip";
+
+// ============ Types ============
+
+interface TiptapEditorProps {
+  /** Initial content as Markdown string */
+  initialContent: string;
+  /** Called whenever content changes — provides Markdown string */
+  onChange: (markdown: string) => void;
+  /** Placeholder text when editor is empty */
+  placeholder?: string;
+  /** Color variant for the toolbar/border */
+  variant?: "default" | "emerald";
+  /** Minimum height of the editor area */
+  minHeight?: string;
+  /** Auto-focus when mounted */
+  autoFocus?: boolean;
+}
+
+const TOOLBAR_BTN_BASE = "h-6 px-2 flex items-center justify-center text-xs rounded border transition-colors";
+const TOOLBAR_BTN_VARIANTS = {
+  default: {
+    normal: "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800",
+    active: "border-blue-400 dark:border-blue-600 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
+  },
+  emerald: {
+    normal: "border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-100 dark:hover:bg-emerald-900/30",
+    active: "border-emerald-500 dark:border-emerald-500 bg-emerald-200 dark:bg-emerald-800/50 text-emerald-900 dark:text-emerald-100",
+  },
+};
+
+// ============ Toolbar Button ============
+
+interface ToolbarButtonProps {
+  onClick: () => void;
+  isActive?: boolean;
+  title: string;
+  children: React.ReactNode;
+  variant: "default" | "emerald";
+}
+
+const ToolbarButton: React.FC<ToolbarButtonProps> = ({
+  onClick,
+  isActive = false,
+  title,
+  children,
+  variant,
+}) => {
+  const v = TOOLBAR_BTN_VARIANTS[variant];
+  return (
+    <Tooltip content={title} position="top">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onClick();
+        }}
+        className={`${TOOLBAR_BTN_BASE} ${isActive ? v.active : v.normal}`}
+      >
+        {children}
+      </button>
+    </Tooltip>
+  );
+};
+
+// ============ Toolbar ============
+
+interface EditorToolbarProps {
+  editor: ReturnType<typeof useEditor>;
+  variant: "default" | "emerald";
+}
+
+const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
+  if (!editor) return null;
+
+  const toolbarBg =
+    variant === "emerald"
+      ? "bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-100 dark:border-emerald-900/30"
+      : "bg-slate-50 dark:bg-slate-900/30 border-b border-slate-200 dark:border-slate-700";
+
+  return (
+    <div className={`flex flex-wrap items-center gap-1 px-2 py-1 ${toolbarBg}`}>
+      {/* Text Colors */}
+      <div className="flex items-center gap-0.5 mr-2">
+        <ToolbarButton
+          variant={variant}
+          title="สีเหลืองส้ม (Warning)"
+          onClick={() => editor.chain().focus().setColor('var(--color-warning)').run()}
+          isActive={editor.isActive('textStyle', { color: 'var(--color-warning)' })}
+        >
+          <div className="w-3.5 h-3.5 rounded-full bg-amber-500 dark:bg-amber-400" />
+        </ToolbarButton>
+        <ToolbarButton
+          variant={variant}
+          title="สีแดงสว่าง (Danger)"
+          onClick={() => editor.chain().focus().setColor('var(--color-danger)').run()}
+          isActive={editor.isActive('textStyle', { color: 'var(--color-danger)' })}
+        >
+          <div className="w-3.5 h-3.5 rounded-full bg-red-500 dark:bg-red-400" />
+        </ToolbarButton>
+        <ToolbarButton
+          variant={variant}
+          title="ล้างสี (Clear)"
+          onClick={() => editor.chain().focus().unsetColor().run()}
+        >
+          <Eraser className="w-3.5 h-3.5" />
+        </ToolbarButton>
+      </div>
+
+      <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
+
+      {/* Basic Formatting */}
+      <ToolbarButton
+        variant={variant}
+        title="ตัวหนา (Bold)"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        isActive={editor.isActive("bold")}
+      >
+        <Bold className="w-3.5 h-3.5" />
+      </ToolbarButton>
+
+      <ToolbarButton
+        variant={variant}
+        title="ตัวเอียง (Italic)"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        isActive={editor.isActive("italic")}
+      >
+        <Italic className="w-3.5 h-3.5" />
+      </ToolbarButton>
+
+      <ToolbarButton
+        variant={variant}
+        title="ลิสต์หลัก (ก.ข.ค.), กด Tab เพิ่มลิสต์รอง (1.2.3.), กด Shift + Tab เพื่อย้อนกลับ"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        isActive={editor.isActive("orderedList")}
+      >
+        <ListOrdered className="w-3.5 h-3.5" />
+      </ToolbarButton>
+
+      <ToolbarButton
+        variant={variant}
+        title="ลิสต์จุด (- )"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        isActive={editor.isActive("bulletList")}
+      >
+        <List className="w-3.5 h-3.5" />
+      </ToolbarButton>
+
+      <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
+
+      {/* Table Formatting */}
+      <ToolbarButton
+        variant={variant}
+        title="แทรกตาราง (3x3)"
+        onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+      >
+        <TableIcon className="w-3.5 h-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        variant={variant}
+        title="เพิ่มแถว (Row)"
+        onClick={() => editor.chain().focus().addRowAfter().run()}
+      >
+        <GripHorizontal className="w-3.5 h-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        variant={variant}
+        title="เพิ่มคอลัมน์ (Column)"
+        onClick={() => editor.chain().focus().addColumnAfter().run()}
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </ToolbarButton>
+      <ToolbarButton
+        variant={variant}
+        title="ลบแถว (Delete Row)"
+        onClick={() => editor.chain().focus().deleteRow().run()}
+      >
+        <GripHorizontal className="w-3.5 h-3.5 text-red-400" />
+      </ToolbarButton>
+      <ToolbarButton
+        variant={variant}
+        title="ลบคอลัมน์ (Delete Column)"
+        onClick={() => editor.chain().focus().deleteColumn().run()}
+      >
+        <GripVertical className="w-3.5 h-3.5 text-red-400" />
+      </ToolbarButton>
+      <ToolbarButton
+        variant={variant}
+        title="ลบตาราง (Delete Table)"
+        onClick={() => editor.chain().focus().deleteTable().run()}
+      >
+        <Trash className="w-3.5 h-3.5 text-red-500" />
+      </ToolbarButton>
+    </div>
+  );
+};
+
+// ============ Main Component ============
+
+const TiptapEditor: React.FC<TiptapEditorProps> = ({
+  initialContent,
+  onChange,
+  placeholder = "พิมพ์ข้อความที่นี่...",
+  variant = "default",
+  minHeight = "120px",
+  autoFocus = true,
+}) => {
+  const [, setSelectionUpdate] = React.useState(0);
+  
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TextStyle,
+      Color,
+      Table.configure({
+        resizable: true,
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Markdown.configure({
+        html: true,
+        transformPastedText: true,
+        transformCopiedText: true,
+      }),
+    ],
+    content: initialContent,
+    editorProps: {
+      attributes: {
+        class: `prose prose-sm max-w-none dark:prose-invert focus:outline-none px-3 py-2 font-['Kanit',sans-serif] text-sm leading-relaxed`,
+        style: `min-height: ${minHeight}`,
+        "data-placeholder": placeholder,
+      },
+    },
+    onUpdate: ({ editor: ed }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const md = (ed.storage as any).markdown?.getMarkdown?.() ?? ed.getHTML();
+      onChange(md);
+    },
+    onSelectionUpdate: () => {
+      // Force re-render to update toolbar button active states
+      setSelectionUpdate((prev) => prev + 1);
+    },
+    onTransaction: () => {
+      setSelectionUpdate((prev) => prev + 1);
+    }
+  });
+
+  // Auto-focus on mount
+  useEffect(() => {
+    if (autoFocus && editor) {
+      const timer = setTimeout(() => {
+        editor.commands.focus("end");
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [editor, autoFocus]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      editor?.destroy();
+    };
+  }, [editor]);
+
+  const borderClass =
+    variant === "emerald"
+      ? "border-emerald-200 dark:border-emerald-800/50"
+      : "border-slate-200 dark:border-slate-700";
+
+  const bgClass =
+    variant === "emerald"
+      ? "bg-emerald-50/50 dark:bg-emerald-900/20"
+      : "bg-transparent";
+
+  return (
+    <div
+      className={`rounded-md overflow-hidden border ${borderClass}`}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <EditorToolbar editor={editor} variant={variant} />
+      <div className={bgClass}>
+        <EditorContent editor={editor} />
+      </div>
+    </div>
+  );
+};
+
+export default TiptapEditor;

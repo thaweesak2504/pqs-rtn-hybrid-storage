@@ -653,6 +653,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [draftPageErrors, setDraftPageErrors] = useState<Record<string, string>>({});
   const [answerKey, setAnswerKey] = useState<string>("");
   const [answerKeys, setAnswerKeys] = useState<Record<string, string>>({});
+  const [isAnswerKeyLoaded, setIsAnswerKeyLoaded] = useState<boolean>(!existingId);
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
@@ -676,6 +677,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (!existingId) {
       setAnswerKey("");
       setAnswerKeys({});
+      setIsAnswerKeyLoaded(true);
       return;
     }
 
@@ -691,10 +693,12 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           }, {});
         setAnswerKey(single?.answer_key_text || '');
         setAnswerKeys(multi);
+        setIsAnswerKeyLoaded(true);
       })
       .catch(() => {
         setAnswerKey('');
         setAnswerKeys({});
+        setIsAnswerKeyLoaded(true);
       });
   }, [existingId]);
 
@@ -1529,14 +1533,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
                         เฉลย: {label}. {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
                       </label>
-                      <AnswerKeyEditor
-                        value={answerKeys[code] || ""}
-                        onChange={(val: string) => {
-                          setAnswerKeys(prev => ({ ...prev, [code]: val }));
-                          if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
-                        }}
-                        hasError={hasErr}
-                      />
+                      {isAnswerKeyLoaded ? (
+                        <AnswerKeyEditor
+                          value={answerKeys[code] || ""}
+                          onChange={(val: string) => {
+                            setAnswerKeys(prev => ({ ...prev, [code]: val }));
+                            if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
+                          }}
+                          hasError={hasErr}
+                        />
+                      ) : (
+                        <div className="h-[90px] w-full animate-pulse bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700" />
+                      )}
                     </div>
                   );
                 })
@@ -1546,14 +1554,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
                     เฉลย (Answer Key)
                   </label>
-                  <AnswerKeyEditor
-                    value={answerKey}
-                    onChange={(val: string) => {
-                      setAnswerKey(val);
-                      if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
-                    }}
-                    hasError={!!errors.answerKey}
-                  />
+                  {isAnswerKeyLoaded ? (
+                    <AnswerKeyEditor
+                      value={answerKey}
+                      onChange={(val: string) => {
+                        setAnswerKey(val);
+                        if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
+                      }}
+                      hasError={!!errors.answerKey}
+                    />
+                  ) : (
+                    <div className="h-[90px] w-full animate-pulse bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700" />
+                  )}
                 </div>
               )}
             </div>
