@@ -475,14 +475,32 @@ const WelcomeLandingPage: React.FC = () => {
         ref={(el) => { sectionRefs.current.hero = el }}
         className="relative overflow-hidden"
       >
-        {/* Background Image with CSS Gradient Overlay */}
+        {/* Background Image — Vivid Top, Smooth Blend Bottom */}
         <div className="absolute inset-0 z-0 pointer-events-none">
+          {/* Layer 1: Main image — higher opacity for vibrancy */}
           <div 
-            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-40 dark:opacity-30"
-            style={{ 
-              backgroundImage: `url(${heroBg})`,
-              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)',
-              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%)'
+            className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-75 dark:opacity-55"
+            style={{ backgroundImage: `url(${heroBg})` }}
+          />
+          {/* Layer 2: Warm sunset tint — enhances golden-hour atmosphere */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(245,158,11,0.08) 0%, rgba(217,119,6,0.05) 40%, transparent 70%)'
+            }}
+          />
+          {/* Layer 3: Top scrim — ensures text readability over bright sky */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.05) 30%, transparent 50%)'
+            }}
+          />
+          {/* Layer 4: Bottom blend — fades into page bg for seamless History transition */}
+          <div 
+            className="absolute inset-0"
+            style={{
+              background: 'linear-gradient(180deg, transparent 55%, var(--github-bg-primary) 100%)'
             }}
           />
         </div>

@@ -321,13 +321,21 @@
   vertical-align: top;
 }
 .answer-key-markdown table th, .tiptap table th {
-  background-color: var(--github-bg-secondary);
+  background-color: rgba(0, 0, 0, 0.08);
   font-weight: bold;
   text-align: left;
 }
+.dark .answer-key-markdown table th, .dark .tiptap table th {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
 .answer-key-markdown table tbody tr:nth-child(even),
 .tiptap table tbody tr:nth-child(even) {
-  background-color: var(--github-bg-secondary);
+  background-color: rgba(0, 0, 0, 0.03);
+}
+.dark .answer-key-markdown table tbody tr:nth-child(even),
+.dark .tiptap table tbody tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.03);
 }
 
 /* Align 1.2.3. numbers with the text of ก.ข.ค. when they are used together */

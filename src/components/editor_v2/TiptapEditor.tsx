@@ -8,7 +8,7 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
-import { Bold, Italic, ListOrdered, List, Eraser, Table as TableIcon, Trash, GripHorizontal, GripVertical } from "lucide-react";
+import { Bold, Italic, ListOrdered, List, Eraser, Table as TableIcon, Trash, GripHorizontal, GripVertical, Palette, ChevronDown, Plus, Minus } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
 
 // ============ Types ============
@@ -75,6 +75,73 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
   );
 };
 
+// ============ Dropdown Menu ============
+
+interface DropdownMenuProps {
+  trigger: React.ReactNode;
+  children: React.ReactNode;
+  variant: "default" | "emerald";
+}
+
+const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, children, variant }) => {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+
+  // Close on click outside
+  React.useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const v = TOOLBAR_BTN_VARIANTS[variant];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}
+        className={`${TOOLBAR_BTN_BASE} gap-0.5 ${open ? v.active : v.normal}`}
+      >
+        {trigger}
+        <ChevronDown className={`w-2.5 h-2.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg py-1">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ============ Dropdown Item ============
+
+interface DropdownItemProps {
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  danger?: boolean;
+}
+
+const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, icon, label, danger }) => (
+  <button
+    type="button"
+    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
+    className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors
+      ${danger
+        ? "text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+        : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+      }`}
+  >
+    {icon}
+    <span>{label}</span>
+  </button>
+);
+
 // ============ Toolbar ============
 
 interface EditorToolbarProps {
@@ -92,36 +159,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
 
   return (
     <div className={`flex flex-wrap items-center gap-1 px-2 py-1 ${toolbarBg}`}>
-      {/* Text Colors */}
-      <div className="flex items-center gap-0.5 mr-2">
-        <ToolbarButton
-          variant={variant}
-          title="สีเหลืองส้ม (Warning)"
-          onClick={() => editor.chain().focus().setColor('var(--color-warning)').run()}
-          isActive={editor.isActive('textStyle', { color: 'var(--color-warning)' })}
-        >
-          <div className="w-3.5 h-3.5 rounded-full bg-amber-500 dark:bg-amber-400" />
-        </ToolbarButton>
-        <ToolbarButton
-          variant={variant}
-          title="สีแดงสว่าง (Danger)"
-          onClick={() => editor.chain().focus().setColor('var(--color-danger)').run()}
-          isActive={editor.isActive('textStyle', { color: 'var(--color-danger)' })}
-        >
-          <div className="w-3.5 h-3.5 rounded-full bg-red-500 dark:bg-red-400" />
-        </ToolbarButton>
-        <ToolbarButton
-          variant={variant}
-          title="ล้างสี (Clear)"
-          onClick={() => editor.chain().focus().unsetColor().run()}
-        >
-          <Eraser className="w-3.5 h-3.5" />
-        </ToolbarButton>
-      </div>
-
-      <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
-
-      {/* Basic Formatting */}
+      {/* 1. Basic Formatting (most used) */}
       <ToolbarButton
         variant={variant}
         title="ตัวหนา (Bold)"
@@ -158,51 +196,72 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
         <List className="w-3.5 h-3.5" />
       </ToolbarButton>
 
+      {/* 2. Text Color Dropdown */}
+      <DropdownMenu
+        variant={variant}
+        trigger={<Palette className="w-3.5 h-3.5" />}
+      >
+        <DropdownItem
+          onClick={() => editor.chain().focus().setColor('var(--color-warning)').run()}
+          icon={<div className="w-3 h-3 rounded-full bg-amber-500 dark:bg-amber-400 shrink-0" />}
+          label="สีเหลืองส้ม (Warning)"
+        />
+        <DropdownItem
+          onClick={() => editor.chain().focus().setColor('var(--color-danger)').run()}
+          icon={<div className="w-3 h-3 rounded-full bg-red-500 dark:bg-red-400 shrink-0" />}
+          label="สีแดงสว่าง (Danger)"
+        />
+        <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+        <DropdownItem
+          onClick={() => editor.chain().focus().unsetColor().run()}
+          icon={<Eraser className="w-3 h-3 shrink-0" />}
+          label="ล้างสี (Clear)"
+        />
+      </DropdownMenu>
+
       <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1" />
 
-      {/* Table Formatting */}
-      <ToolbarButton
+      {/* 3. Table Dropdown */}
+      <DropdownMenu
         variant={variant}
-        title="แทรกตาราง (3x3)"
-        onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+        trigger={<TableIcon className="w-3.5 h-3.5" />}
       >
-        <TableIcon className="w-3.5 h-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        variant={variant}
-        title="เพิ่มแถว (Row)"
-        onClick={() => editor.chain().focus().addRowAfter().run()}
-      >
-        <GripHorizontal className="w-3.5 h-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        variant={variant}
-        title="เพิ่มคอลัมน์ (Column)"
-        onClick={() => editor.chain().focus().addColumnAfter().run()}
-      >
-        <GripVertical className="w-3.5 h-3.5" />
-      </ToolbarButton>
-      <ToolbarButton
-        variant={variant}
-        title="ลบแถว (Delete Row)"
-        onClick={() => editor.chain().focus().deleteRow().run()}
-      >
-        <GripHorizontal className="w-3.5 h-3.5 text-red-400" />
-      </ToolbarButton>
-      <ToolbarButton
-        variant={variant}
-        title="ลบคอลัมน์ (Delete Column)"
-        onClick={() => editor.chain().focus().deleteColumn().run()}
-      >
-        <GripVertical className="w-3.5 h-3.5 text-red-400" />
-      </ToolbarButton>
-      <ToolbarButton
-        variant={variant}
-        title="ลบตาราง (Delete Table)"
-        onClick={() => editor.chain().focus().deleteTable().run()}
-      >
-        <Trash className="w-3.5 h-3.5 text-red-500" />
-      </ToolbarButton>
+        <DropdownItem
+          onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          icon={<Plus className="w-3 h-3 shrink-0" />}
+          label="แทรกตาราง (3×3)"
+        />
+        <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+        <DropdownItem
+          onClick={() => editor.chain().focus().addRowAfter().run()}
+          icon={<GripHorizontal className="w-3 h-3 shrink-0" />}
+          label="เพิ่มแถว (Row)"
+        />
+        <DropdownItem
+          onClick={() => editor.chain().focus().addColumnAfter().run()}
+          icon={<GripVertical className="w-3 h-3 shrink-0" />}
+          label="เพิ่มคอลัมน์ (Column)"
+        />
+        <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
+        <DropdownItem
+          onClick={() => editor.chain().focus().deleteRow().run()}
+          icon={<Minus className="w-3 h-3 shrink-0" />}
+          label="ลบแถว (Row)"
+          danger
+        />
+        <DropdownItem
+          onClick={() => editor.chain().focus().deleteColumn().run()}
+          icon={<Minus className="w-3 h-3 shrink-0" />}
+          label="ลบคอลัมน์ (Column)"
+          danger
+        />
+        <DropdownItem
+          onClick={() => editor.chain().focus().deleteTable().run()}
+          icon={<Trash className="w-3 h-3 shrink-0" />}
+          label="ลบตาราง (Table)"
+          danger
+        />
+      </DropdownMenu>
     </div>
   );
 };
