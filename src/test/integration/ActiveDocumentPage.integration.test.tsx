@@ -62,6 +62,19 @@ describe("ActiveDocumentPage integration", () => {
         created_at: "",
         updated_at: null,
       },
+      {
+        id: 102,
+        document_id: "DOC-DEL-101",
+        section_group: 100,
+        section_number: 102,
+        title: "",
+        title_th: "Section 102",
+        menu_label: "102 User Section",
+        display_order: 2,
+        is_system_defined: false,
+        created_at: "",
+        updated_at: null,
+      },
     ];
 
     vi.mocked(invoke).mockReset();
@@ -101,45 +114,69 @@ describe("ActiveDocumentPage integration", () => {
     });
   });
 
-  it("allows deleting section 101 and refreshes sidebar", async () => {
-    render(
-      <AuthContext.Provider value={mockAuthValue}>
-        <ToastProvider>
-          <MemoryRouter initialEntries={["/editor/DOC-DEL-101"]}>
-            <Routes>
-              <Route path="/editor/:docId" element={<ActiveDocumentPage />} />
-            </Routes>
-          </MemoryRouter>
-        </ToastProvider>
-      </AuthContext.Provider>,
-    );
+  const renderPage = () => render(
+    <AuthContext.Provider value={mockAuthValue}>
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/editor/DOC-DEL-101"]}>
+          <Routes>
+            <Route path="/editor/:docId" element={<ActiveDocumentPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    </AuthContext.Provider>,
+  );
+
+  it("protects section 101 and other system-defined sections in edit mode", async () => {
+    renderPage();
 
     const section101Button = await screen.findByRole("button", { name: /101 Precautions/i });
     const section201Button = await screen.findByRole("button", { name: /201 System/i });
+    const section102Button = await screen.findByRole("button", { name: /102 User Section/i });
 
-    // Section 101 is deletable now, so lock icon should not appear for this item.
-    expect(section101Button).not.toHaveTextContent("🔒");
-    // Other system-defined sections remain locked.
-    expect(section201Button).toHaveTextContent("🔒");
+    expect(section101Button.querySelector('[aria-label="Protected section"]')).toBeTruthy();
+    expect(section201Button.querySelector('[aria-label="Protected section"]')).toBeTruthy();
+    expect(section101Button.parentElement?.querySelector('button[title="Delete section"]')).toBeNull();
+    expect(section201Button.parentElement?.querySelector('button[title="Delete section"]')).toBeNull();
 
-    const row = section101Button.parentElement;
-    const deleteButton = row?.querySelector('button[title="Delete section"]') as HTMLButtonElement | null;
+    const deleteButton = section102Button.parentElement?.querySelector('button[title="Delete section"]') as HTMLButtonElement | null;
     expect(deleteButton).toBeTruthy();
-
     fireEvent.click(deleteButton!);
-
-    expect(await screen.findByText("ยืนยันการลบส่วน (Section)")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "ลบส่วนนี้" }));
+    fireEvent.click(await screen.findByRole("button", { name: "ลบส่วนนี้" }));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith("delete_section", { id: 101 });
+      expect(invoke).toHaveBeenCalledWith("delete_section", { id: 102 });
     });
+    expect(invoke).not.toHaveBeenCalledWith("delete_section", { id: 101 });
+  });
+
+  it("hides delete controls outside edit mode", async () => {
+    renderPage();
+
+    const section102Button = await screen.findByRole("button", { name: /102 User Section/i });
+    expect(section102Button.parentElement?.querySelector('button[title="Delete section"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /View As/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Visitor (Questions Only)" }));
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: /101 Precautions/i })).not.toBeInTheDocument();
+      expect(section102Button.parentElement?.querySelector('button[title="Delete section"]')).toBeNull();
     });
+  });
 
-    expect(screen.getByRole("button", { name: /201 System/i })).toBeInTheDocument();
+  it("clears answers only for the active document", async () => {
+    renderPage();
+
+    await screen.findByRole("button", { name: /101 Precautions/i });
+    fireEvent.click(screen.getByRole("button", { name: /View As/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Clear Answers (Current Document)" }));
+
+    expect(await screen.findByText("ยืนยันการลบคำตอบ")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "ลบคำตอบของเล่มนี้" }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("clear_document_trainee_answers", {
+        documentId: "DOC-DEL-101",
+      });
+    });
   });
 });

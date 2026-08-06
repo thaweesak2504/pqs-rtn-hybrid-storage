@@ -198,3 +198,17 @@ CREATE INDEX idx_sections_document ON sections(document_id);
 CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 ```
 
+## 7. Development Status & Pending Work
+
+### 7.1 Clear Answers (Under Testing)
+
+- `Clear Answers` ต้องลบเฉพาะ `UserAnswers`, `UserProgress` และไฟล์ใน `trainee-attachments/` ของเอกสารเล่มที่กำลังเปิดอยู่เท่านั้น
+- ข้อมูลคำตอบและไฟล์แนบของเอกสารเล่มอื่นต้องไม่ได้รับผลกระทบ
+- Workflow นี้ยังอยู่ระหว่างการทดสอบร่วมกับโหมดจำลอง Trainee และ Qualifier ก่อนเชื่อมกับผู้ใช้ที่ Login จริง
+
+### 7.2 Print Layout & A4 Pagination (Pending)
+
+- Print Layout ปัจจุบันใช้สำหรับดูเอกสารแบบหน้าต่อเนื่อง โดยแยก `Question only` สำหรับ Trainee และ `Question with answer key` สำหรับ Qualifier
+- การสั่งพิมพ์จริงแบบแบ่งหน้า A4 ยังเป็นงานค้าง เพราะ page break และการตัดบรรทัดของเนื้อหาที่มีความยาวไม่คงที่ยังไม่ถูกต้อง
+- ห้ามถือว่า Continuous Print Layout ปัจจุบันเป็นผลลัพธ์ PDF/A4 ขั้นสุดท้ายจนกว่างาน pagination จะแล้วเสร็จ
+

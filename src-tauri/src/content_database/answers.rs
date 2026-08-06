@@ -1,5 +1,6 @@
 use crate::logger;
 use rusqlite::{params, Connection, OptionalExtension};
+use std::path::Path;
 
 use super::*;
 
@@ -168,48 +169,61 @@ pub fn delete_trainee_answer(
     Ok("Answer deleted successfully".to_string())
 }
 
-/// Clear all trainee answers and progress
-pub fn clear_all_trainee_answers_inner() -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+/// Clear trainee answers, progress, and attachments for one document.
+pub fn clear_document_trainee_answers_inner(document_id: &str) -> Result<(), String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let data_dir = get_portable_data_dir().ok();
+    clear_document_trainee_answers_with_conn(&mut conn, document_id, data_dir.as_deref())
+}
 
-    // Wipe all trainee-attachments directories directly from the file system to clean up orphaned files
-    if let Ok(data_dir) = get_portable_data_dir() {
-        if let Ok(entries) = std::fs::read_dir(&data_dir) {
-            for entry in entries.flatten() {
-                let doc_path = entry.path();
-                if doc_path.is_dir() {
-                    let attachments_dir = doc_path.join("trainee-attachments");
-                    if attachments_dir.exists() {
-                        if let Err(e) = std::fs::remove_dir_all(&attachments_dir) {
-                            logger::warn(format!(
-                                "Failed to delete trainee-attachments dir {:?}: {}",
-                                attachments_dir, e
-                            ));
-                        } else {
-                            logger::info(format!(
-                                "Cleared trainee-attachments dir: {:?}",
-                                attachments_dir
-                            ));
-                        }
-                    }
-                }
+pub(crate) fn clear_document_trainee_answers_with_conn(
+    conn: &mut Connection,
+    document_id: &str,
+    data_dir: Option<&Path>,
+) -> Result<(), String> {
+    if document_id.is_empty()
+        || !document_id
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '-' || ch == '_')
+    {
+        return Err("Invalid document ID".to_string());
+    }
+
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start clear-answers transaction: {}", e))?;
+
+    tx.execute(
+        "DELETE FROM UserAnswers WHERE document_id = ?1",
+        params![document_id],
+    )
+    .map_err(|e| format!("Failed to clear UserAnswers for document: {}", e))?;
+
+    tx.execute(
+        "DELETE FROM UserProgress WHERE document_id = ?1",
+        params![document_id],
+    )
+    .map_err(|e| format!("Failed to clear UserProgress for document: {}", e))?;
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit clear-answers transaction: {}", e))?;
+
+    if let Some(data_dir) = data_dir {
+        let attachments_dir = data_dir.join(document_id).join("trainee-attachments");
+        if attachments_dir.exists() {
+            if let Err(e) = std::fs::remove_dir_all(&attachments_dir) {
+                logger::warn(format!(
+                    "Failed to clear trainee attachments for document {}: {}",
+                    document_id, e
+                ));
             }
         }
     }
 
-    conn.execute("DELETE FROM UserAnswers", rusqlite::params![])
-        .map_err(|e| {
-            logger::error(format!("Failed to clear UserAnswers: {}", e));
-            e.to_string()
-        })?;
-
-    conn.execute("DELETE FROM UserProgress", rusqlite::params![])
-        .map_err(|e| {
-            logger::error(format!("Failed to clear UserProgress: {}", e));
-            e.to_string()
-        })?;
-
-    logger::info("Successfully cleared all records from UserAnswers and UserProgress tables, and cleaned up trainee attachments.");
+    logger::info(format!(
+        "Cleared trainee answers and progress for document {}",
+        document_id
+    ));
     Ok(())
 }
 

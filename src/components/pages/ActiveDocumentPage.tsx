@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Edit3, Eye, EyeOff, FileText, Menu, Plus, Printer, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Edit3, Eye, EyeOff, FileText, Lock, Menu, Plus, Printer, Trash2, UserCircle, Users, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
@@ -113,11 +113,16 @@ const ActiveDocumentPage: React.FC = () => {
   };
 
   const handleDeleteClick = (section: Section) => {
+    if (section.section_number === 101 || section.is_system_defined) return;
     setSectionToDelete(section);
   };
 
   const confirmDeleteSection = async () => {
     if (!sectionToDelete) return;
+    if (sectionToDelete.section_number === 101 || sectionToDelete.is_system_defined) {
+      setSectionToDelete(null);
+      return;
+    }
     try {
       const deletedGroup = sectionToDelete.section_group;
       await invoke('delete_section', { id: sectionToDelete.id });
@@ -137,8 +142,9 @@ const ActiveDocumentPage: React.FC = () => {
   };
 
   const confirmClearAnswers = async () => {
+    if (!docId) return;
     try {
-      await invoke('clear_all_trainee_answers');
+      await invoke('clear_document_trainee_answers', { documentId: docId });
       setClearConfirmModal(false);
       setClearSuccessModal(true);
       setRefreshKey(prev => prev + 1);
@@ -207,7 +213,7 @@ const ActiveDocumentPage: React.FC = () => {
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
                   sectionNumber={section.section_number}
-                  onDelete={() => handleDeleteClick(section)}
+                  onDelete={isEditMode && !section.is_system_defined && section.section_number !== 101 ? () => handleDeleteClick(section) : undefined}
                 />
               ))
             }
@@ -227,7 +233,7 @@ const ActiveDocumentPage: React.FC = () => {
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
                   sectionNumber={section.section_number}
-                  onDelete={() => handleDeleteClick(section)}
+                  onDelete={isEditMode && !section.is_system_defined ? () => handleDeleteClick(section) : undefined}
                 />
               ))
             }
@@ -247,7 +253,7 @@ const ActiveDocumentPage: React.FC = () => {
                   isActive={activeSection === `${section.section_number}`}
                   isSystemDefined={section.is_system_defined}
                   sectionNumber={section.section_number}
-                  onDelete={() => handleDeleteClick(section)}
+                  onDelete={isEditMode && !section.is_system_defined ? () => handleDeleteClick(section) : undefined}
                 />
               ))
             }
@@ -310,7 +316,7 @@ const ActiveDocumentPage: React.FC = () => {
                       { label: 'Trainee (Answer Only)', icon: <Users />, onClick: () => setViewMode('trainee') },
                       { label: 'Visitor (Questions Only)', icon: <EyeOff />, onClick: () => setViewMode('visitor') },
                       { separator: true, label: '', onClick: () => { } },
-                      { label: 'Clear Answers (DB)', icon: <Trash2 className="text-red-500" />, onClick: handleClearAnswers }
+                      { label: 'Clear Answers (Current Document)', icon: <Trash2 className="text-red-500" />, onClick: handleClearAnswers }
                     ]}
                   />
 
@@ -487,8 +493,8 @@ const ActiveDocumentPage: React.FC = () => {
         onClose={() => setClearConfirmModal(false)}
         onConfirm={confirmClearAnswers}
         title="ยืนยันการลบคำตอบ"
-        message="คำเตือน: คุณต้องการลบคำตอบทั้งหมดใช่หรือไม่?"
-        confirmText="ลบทั้งหมด"
+        message="คำเตือน: คุณต้องการลบคำตอบ คะแนนความคืบหน้า และไฟล์แนบของเอกสารเล่มนี้ใช่หรือไม่? ข้อมูลของเอกสารเล่มอื่นจะไม่ถูกลบ"
+        confirmText="ลบคำตอบของเล่มนี้"
         variant="danger"
       />
 
@@ -497,7 +503,7 @@ const ActiveDocumentPage: React.FC = () => {
         onClose={() => setClearSuccessModal(false)}
         onConfirm={() => setClearSuccessModal(false)}
         title="สำเร็จ"
-        message="ลบข้อมูลสำเร้จ"
+        message="ลบคำตอบของเอกสารเล่มนี้สำเร็จ"
         confirmText="ตกลง"
         variant="info"
       />
@@ -532,9 +538,9 @@ const SectionItem: React.FC<{ title: string; onClick?: () => void; isActive?: bo
   <div className="flex items-center group">
     <button onClick={onClick} className={`flex-1 text-left px-2 py-1.5 text-sm rounded transition-colors truncate ${isActive ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200' : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-gray-800'}`}>
       {title}
-      {isSystemDefined && sectionNumber !== 101 && <span className="ml-2 text-xs text-gray-400">🔒</span>}
+      {(isSystemDefined || sectionNumber === 101) && <Lock aria-label="Protected section" className="inline-block ml-2 h-3 w-3 text-gray-400" />}
     </button>
-    {onDelete && <button onClick={onDelete} title="Delete section" className="ml-1 opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 transition-opacity"><X className="w-3 h-3" /></button>}
+    {onDelete && !isSystemDefined && sectionNumber !== 101 && <button onClick={onDelete} title="Delete section" className="ml-1 opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-700 transition-opacity"><X className="w-3 h-3" /></button>}
   </div>
 );
 

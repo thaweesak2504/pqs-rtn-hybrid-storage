@@ -1,12 +1,14 @@
 #[cfg(test)]
 mod tests {
     use crate::content_database::answers::{
-        replace_question_answer_keys_with_conn, update_answer_key_with_conn,
+        clear_document_trainee_answers_with_conn, replace_question_answer_keys_with_conn,
+        update_answer_key_with_conn,
     };
 
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
     use rusqlite::params;
+    use std::fs;
 
     // Phase D Policy Hardening Tests
     // ========================================================================
@@ -441,7 +443,7 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_allows_section_101_but_blocks_other_system_defined() {
+    fn test_delete_blocks_section_101_and_other_system_defined_sections() {
         let conn = create_test_db();
         init_content_schema(&conn).expect("Failed to init schema");
 
@@ -477,7 +479,8 @@ mod tests {
         .expect("Failed to create section 201");
 
         let del_101 = delete_section_with_conn(&conn, 10101);
-        assert!(del_101.is_ok(), "Section 101 should be deletable");
+        assert!(del_101.is_err(), "Section 101 must not be deletable");
+        assert!(del_101.unwrap_err().contains("Section 101 is mandatory"));
 
         let exists_101: bool = conn
             .query_row(
@@ -486,7 +489,7 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("Failed to check section 101 existence");
-        assert!(!exists_101, "Section 101 should be deleted");
+        assert!(exists_101, "Section 101 must remain in the document");
 
         let del_201 = delete_section_with_conn(&conn, 20101);
         assert!(
@@ -496,6 +499,81 @@ mod tests {
         assert!(del_201
             .unwrap_err()
             .contains("Cannot delete system-defined section"));
+    }
+
+    #[test]
+    fn test_clear_answers_only_affects_requested_document() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        crate::content_database::schema::initialize_question_tables(&conn)
+            .expect("Failed to initialize answer and progress tables");
+
+        conn.execute_batch(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-CLEAR-A', 'Doc A', '2272420', '22724', 'Test', '20', '1'),
+                    ('DOC-CLEAR-B', 'Doc B', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
+             VALUES (8101, 'DOC-CLEAR-A', 100, 101, 'A', 'A', 1),
+                    (8102, 'DOC-CLEAR-B', 100, 101, 'B', 'B', 1);
+             INSERT INTO Questions (id, document_id, section_id, sequence, content)
+             VALUES ('Q-CLEAR-A', 'DOC-CLEAR-A', 8101, 1, 'Question A'),
+                    ('Q-CLEAR-B', 'DOC-CLEAR-B', 8102, 1, 'Question B');
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+             VALUES ('Q-CLEAR-A', '', 'Key A', 1, 0),
+                    ('Q-CLEAR-B', '', 'Key B', 1, 0);
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text)
+             VALUES ('T-001', 'Q-CLEAR-A', 'DOC-CLEAR-A', '', 'Answer A'),
+                    ('T-001', 'Q-CLEAR-B', 'DOC-CLEAR-B', '', 'Answer B');
+             INSERT INTO UserProgress (user_id, document_id, section_id)
+             VALUES ('T-001', 'DOC-CLEAR-A', 8101),
+                    ('T-001', 'DOC-CLEAR-B', 8102);",
+        )
+        .expect("Failed to seed clear-answer test data");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let doc_a_attachments = temp_dir
+            .path()
+            .join("DOC-CLEAR-A")
+            .join("trainee-attachments");
+        let doc_b_attachments = temp_dir
+            .path()
+            .join("DOC-CLEAR-B")
+            .join("trainee-attachments");
+        fs::create_dir_all(&doc_a_attachments).expect("Failed to create Doc A attachments");
+        fs::create_dir_all(&doc_b_attachments).expect("Failed to create Doc B attachments");
+        fs::write(doc_a_attachments.join("a.pdf"), b"a").expect("Failed to write Doc A attachment");
+        fs::write(doc_b_attachments.join("b.pdf"), b"b").expect("Failed to write Doc B attachment");
+
+        clear_document_trainee_answers_with_conn(&mut conn, "DOC-CLEAR-A", Some(temp_dir.path()))
+            .expect("Failed to clear Doc A answers");
+
+        for table in ["UserAnswers", "UserProgress"] {
+            let doc_a_count: i64 = conn
+                .query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM {} WHERE document_id = 'DOC-CLEAR-A'",
+                        table
+                    ),
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("Failed to count Doc A rows");
+            let doc_b_count: i64 = conn
+                .query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM {} WHERE document_id = 'DOC-CLEAR-B'",
+                        table
+                    ),
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("Failed to count Doc B rows");
+            assert_eq!(doc_a_count, 0, "{} rows for Doc A should be cleared", table);
+            assert_eq!(doc_b_count, 1, "{} rows for Doc B must remain", table);
+        }
+
+        assert!(!doc_a_attachments.exists());
+        assert!(doc_b_attachments.join("b.pdf").exists());
     }
 
     #[test]

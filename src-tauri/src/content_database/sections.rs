@@ -633,16 +633,19 @@ pub fn delete_section(id: i64) -> Result<(), String> {
 }
 
 pub fn delete_section_with_conn(conn: &Connection, id: i64) -> Result<(), String> {
-    // Check if system-defined. Exception: Section 101 is allowed to be deleted.
-    let (is_system, section_number): (bool, i32) = conn
+    let (is_system, section_group, section_number): (bool, i32, i32) = conn
         .query_row(
-            "SELECT is_system_defined, section_number FROM Sections WHERE id = ?1",
+            "SELECT is_system_defined, section_group, section_number FROM Sections WHERE id = ?1",
             params![id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|e| e.to_string())?;
 
-    if is_system && section_number != 101 {
+    if section_group == 100 && section_number == 101 {
+        return Err("Section 101 is mandatory and cannot be deleted".to_string());
+    }
+
+    if is_system {
         return Err("Cannot delete system-defined section".to_string());
     }
 

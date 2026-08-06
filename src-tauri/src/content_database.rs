@@ -124,8 +124,8 @@ pub fn get_section_dev_metrics(
 }
 
 #[tauri::command]
-pub fn clear_all_trainee_answers() -> Result<(), String> {
-    answers::clear_all_trainee_answers_inner()
+pub fn clear_document_trainee_answers(document_id: String) -> Result<(), String> {
+    answers::clear_document_trainee_answers_inner(&document_id)
 }
 
 #[tauri::command]

@@ -10,6 +10,28 @@ vi.mock('@tauri-apps/api/tauri', () => ({
   convertFileSrc: (path: string) => path,
 }));
 
+vi.mock('../../components/editor_v2/TiptapEditor', () => ({
+  default: ({
+    initialContent,
+    onChange,
+    placeholder,
+  }: {
+    initialContent: string;
+    onChange: (markdown: string) => void;
+    placeholder?: string;
+  }) => (
+    <div
+      role="textbox"
+      aria-label={placeholder}
+      contentEditable
+      suppressContentEditableWarning
+      onInput={(event) => onChange(event.currentTarget.textContent || '')}
+    >
+      {initialContent}
+    </div>
+  ),
+}));
+
 // Mock ConfirmModal to simplify testing the callback triggers
 vi.mock('../../components/modals/ConfirmModal', () => ({
   default: ({
@@ -89,12 +111,13 @@ describe('TraineeAnswerBox Integration', () => {
     expect(answerBlock).toBeDefined();
     fireEvent.click(answerBlock!);
 
-    // Now in edit mode, find textarea and buttons
-    const textarea = screen.getByPlaceholderText('ระบุคำตอบของคุณที่นี่...') as HTMLTextAreaElement;
-    expect(textarea.value).toBe('Original Answer Text');
+    // Tiptap exposes its ProseMirror surface as a contenteditable textbox.
+    const editor = screen.getByRole('textbox', { name: 'ระบุคำตอบของคุณที่นี่...' });
+    expect(editor).toHaveTextContent('Original Answer Text');
 
     // Change value to empty
-    fireEvent.change(textarea, { target: { value: '   ' } });
+    editor.textContent = '';
+    fireEvent.input(editor);
     
     // Save button should be disabled because the text is empty
     const saveButton = screen.getByRole('button', { name: /บันทึก/i });
@@ -115,16 +138,18 @@ describe('TraineeAnswerBox Integration', () => {
     const answerBlock = screen.getByText('Original Answer Text').closest('div');
     fireEvent.click(answerBlock!);
 
-    const textarea = screen.getByPlaceholderText('ระบุคำตอบของคุณที่นี่...') as HTMLTextAreaElement;
-    fireEvent.change(textarea, { target: { value: 'Modified Answer Text' } });
+    const editor = screen.getByRole('textbox', { name: 'ระบุคำตอบของคุณที่นี่...' });
+    editor.textContent = 'Modified Answer Text';
+    fireEvent.input(editor);
+    expect(editor).toHaveTextContent('Modified Answer Text');
 
     // Cancel edit
     const cancelButton = screen.getByRole('button', { name: /ยกเลิก/i });
     fireEvent.click(cancelButton);
 
-    // Textarea should be gone, back to view mode showing original text
+    // Editor should be gone, back to view mode showing original text
     expect(screen.getByText('Original Answer Text')).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText('ระบุคำตอบของคุณที่นี่...')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 
   it('triggers delete_trainee_answer command when "ล้างคำตอบ" is clicked and confirmed', async () => {

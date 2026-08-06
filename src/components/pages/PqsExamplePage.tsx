@@ -1,4 +1,4 @@
-import { ArrowLeft, ChevronDown, ChevronRight, Eye, Menu } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Eye, Lock, Menu } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -369,7 +369,7 @@ const SectionItem: React.FC<{
       }`}
   >
     {title}
-    {isSystemDefined && sectionNumber !== 101 && <span className="ml-2 text-xs text-gray-400">🔒</span>}
+    {(isSystemDefined || sectionNumber === 101) && <Lock aria-label="Protected section" className="inline-block ml-2 h-3 w-3 text-gray-400" />}
   </button>
 );
 
