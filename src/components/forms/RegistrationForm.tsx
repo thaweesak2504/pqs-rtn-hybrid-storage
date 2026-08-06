@@ -175,8 +175,8 @@ const RegistrationForm: React.FC = () => {
         
         if (loginResult.success) {
           // Redirect based on user role
-          const redirectPath = result.user.role === 'admin' ? '/dashboard' : 
-                              result.user.role === 'editor' ? '/editor' : '/visitor'
+          const redirectPath = result.user.role === 'admin' ? '/dashboard' :
+                              result.user.role === 'editor' ? '/editor' : '/welcome'
           navigate(redirectPath)
         } else {
           setError('ลงทะเบียนสำเร็จ แต่เข้าสู่ระบบไม่ได้ กรุณาลองเข้าสู่ระบบด้วยตนเอง')

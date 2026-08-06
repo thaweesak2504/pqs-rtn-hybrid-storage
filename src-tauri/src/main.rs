@@ -56,6 +56,8 @@ fn main() {
             commands::users::update_user,
             commands::users::delete_user,
             commands::users::authenticate_user,
+            commands::users::validate_auth_session,
+            commands::users::revoke_auth_session,
             commands::users::migrate_passwords,
             commands::users::change_password,
             // ===== Zoom =====

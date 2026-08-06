@@ -39,6 +39,5 @@ export interface LoginCredentials {
 export interface AuthResult {
   success: boolean
   user?: User
-  token?: string
   error?: string
 }

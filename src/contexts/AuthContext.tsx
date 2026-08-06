@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { tauriUserService } from '../services/tauriService'
+import { tauriUserService, type TauriUser } from '../services/tauriService'
 import { logger } from '../utils/logger';
 
 export interface User {
@@ -26,7 +26,7 @@ export interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  signIn: (credentials: { username_or_email: string; password: string }) => Promise<{ success: boolean; user?: User; token?: string }>
+  signIn: (credentials: { username_or_email: string; password: string }) => Promise<{ success: boolean; user?: User }>
   signOut: () => void
   checkAuthStatus: () => void
   updateAvatar: (avatar: string | null) => Promise<void> | void
@@ -45,27 +45,74 @@ interface AuthProviderProps {
   children: ReactNode
 }
 
+const hydrateContextUser = async (tauriUser: TauriUser): Promise<User> => {
+  const contextUser: User = {
+    id: tauriUser.id?.toString() || '',
+    username: tauriUser.username,
+    email: tauriUser.email,
+    name: tauriUser.full_name,
+    role: tauriUser.role,
+    full_name: tauriUser.full_name,
+    rank: tauriUser.rank,
+    is_active: tauriUser.is_active,
+    must_change_password: tauriUser.must_change_password,
+    avatar_path: tauriUser.avatar_path || null,
+    avatar_updated_at: tauriUser.avatar_updated_at || null,
+    avatar_mime: tauriUser.avatar_mime,
+    avatar_size: tauriUser.avatar_size,
+    created_at: tauriUser.created_at || '',
+    updated_at: tauriUser.updated_at || ''
+  }
+
+  if (tauriUser.id) {
+    try {
+      const { hybridAvatarService } = await import('../services/hybridAvatarService')
+      const avatarInfo = await hybridAvatarService.getAvatarInfo(tauriUser.id)
+      if (avatarInfo.avatar_path && avatarInfo.file_exists) {
+        contextUser.avatar = await hybridAvatarService.getAvatarBase64(avatarInfo.avatar_path)
+      }
+    } catch (error) {
+      logger.warn('Error loading hybrid avatar:', error)
+    }
+  }
+
+  return contextUser
+}
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const hasChecked = useRef(false)
 
+  const clearAuthData = useCallback(() => {
+    localStorage.removeItem('pqs_user')
+    localStorage.removeItem('pqs_token')
+    setUser(null)
+  }, [])
+
   const checkAuthStatus = useCallback(async () => {
     setIsLoading(true)
     
     try {
-      // Just check for existing session in localStorage
-      const savedUser = localStorage.getItem('pqs_user')
       const savedToken = localStorage.getItem('pqs_token')
-      
-      if (savedUser && savedToken) {
+
+      if (savedToken) {
         try {
-          const user = JSON.parse(savedUser)
-          setUser(user)
+          const backendUser = await tauriUserService.validateAuthSession(savedToken)
+          if (!backendUser?.is_active) {
+            clearAuthData()
+            return
+          }
+
+          const verifiedUser = await hydrateContextUser(backendUser)
+          localStorage.setItem('pqs_user', JSON.stringify(verifiedUser))
+          setUser(verifiedUser)
         } catch (error) {
           logger.warn('Failed to restore user session:', error)
           clearAuthData()
         }
+      } else {
+        clearAuthData()
       }
 
     } catch (error) {
@@ -74,7 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       setIsLoading(false)
     }
-  }, []) // Empty dependency array to prevent re-creation
+  }, [clearAuthData])
 
   // Check if user is authenticated on app load
   useEffect(() => {
@@ -87,60 +134,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuthStatus()
   }, [checkAuthStatus])
 
-  const clearAuthData = () => {
-    localStorage.removeItem('pqs_user')
-    localStorage.removeItem('pqs_token')
-    setUser(null)
-  }
-
-  const signIn = async (credentials: { username_or_email: string; password: string }): Promise<{ success: boolean; user?: User; token?: string }> => {
+  const signIn = async (credentials: { username_or_email: string; password: string }): Promise<{ success: boolean; user?: User }> => {
     setIsLoading(true)
     
     try {
       // Use Tauri authentication service
-      const tauriUser = await tauriUserService.authenticateUser(credentials.username_or_email, credentials.password)
+      const session = await tauriUserService.authenticateUser(credentials.username_or_email, credentials.password)
       
-      if (tauriUser) {
-        // Convert Tauri user to context user format
-        const contextUser: User = {
-          id: tauriUser.id?.toString() || '1',
-          username: tauriUser.username,
-          email: tauriUser.email,
-          name: tauriUser.full_name,
-          role: tauriUser.role,
-          full_name: tauriUser.full_name,
-          rank: tauriUser.rank,
-          is_active: tauriUser.is_active,
-          must_change_password: tauriUser.must_change_password,
-          avatar: undefined,
-          avatar_path: tauriUser.avatar_path || null,
-          avatar_updated_at: tauriUser.avatar_updated_at || null,
-          avatar_mime: tauriUser.avatar_mime,
-          avatar_size: tauriUser.avatar_size,
-          created_at: tauriUser.created_at || '',
-          updated_at: tauriUser.updated_at || ''
-        }
+      if (session) {
+        const contextUser = await hydrateContextUser(session.user)
         
-        // Load avatar from Hybrid Avatar System if available
-        try {
-          if (tauriUser.id) {
-            const { hybridAvatarService } = await import('../services/hybridAvatarService')
-            const avatarInfo = await hybridAvatarService.getAvatarInfo(tauriUser.id)
-            if (avatarInfo.avatar_path && avatarInfo.file_exists) {
-              const base64Data = await hybridAvatarService.getAvatarBase64(avatarInfo.avatar_path)
-              contextUser.avatar = base64Data
-            }
-          }
-        } catch (error) {
-          logger.warn('Error loading hybrid avatar:', error)
-        }
-        
-        // Save to localStorage
         localStorage.setItem('pqs_user', JSON.stringify(contextUser))
-        localStorage.setItem('pqs_token', 'tauri_token_' + Date.now())
-        
+        localStorage.setItem('pqs_token', session.token)
         setUser(contextUser)
-        return { success: true, user: contextUser, token: 'tauri_token_' + Date.now() }
+        return { success: true, user: contextUser }
       }
       
       return { success: false }
@@ -156,10 +163,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   const signOut = () => {
+    const token = localStorage.getItem('pqs_token')
+    if (token) {
+      void tauriUserService.revokeAuthSession(token).catch(error => {
+        logger.warn('Failed to revoke backend session:', error)
+      })
+    }
     clearAuthData()
-    setIsLoading(false) // Reset loading state
-    // Navigate to welcome page after sign out
-    window.location.href = '/welcome'
+    setIsLoading(false)
+    window.location.hash = '/welcome'
   }
 
   // Update avatar using Tauri

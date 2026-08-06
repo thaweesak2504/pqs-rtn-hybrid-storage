@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     safeInvoke,
     tauriAvatarService,
@@ -26,6 +26,10 @@ const setTauriAvailable = () => {
 };
 
 describe("tauriService integration", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it("safeInvoke calls invoke directly in desktop-only mode", async () => {
     setTauriUnavailable();
     vi.mocked(invoke).mockResolvedValueOnce([{ id: 1 }]);
@@ -65,6 +69,7 @@ describe("tauriService integration", () => {
       fullName: "Admin User",
       rank: "CAPT",
       role: "admin",
+      sessionToken: null,
     });
   });
 
@@ -122,6 +127,7 @@ describe("tauriService integration", () => {
       userId: 42,
       oldPassword: "old-secret",
       newPassword: "new-strong-pass",
+      sessionToken: null,
     });
   });
 
@@ -139,6 +145,7 @@ describe("tauriService integration", () => {
       fullName: "Jane Doe",
       rank: "LT",
       role: "editor",
+      sessionToken: null,
     });
   });
 
@@ -156,6 +163,24 @@ describe("tauriService integration", () => {
       fullName: "Jane Doe",
       rank: "LT",
       role: "editor",
+      sessionToken: null,
+    });
+  });
+
+  it("maps session validation and revocation payloads", async () => {
+    setTauriAvailable();
+    vi.mocked(invoke)
+      .mockResolvedValueOnce({ id: 1, username: "admin" })
+      .mockResolvedValueOnce(undefined);
+
+    await tauriUserService.validateAuthSession("opaque-token");
+    await tauriUserService.revokeAuthSession("opaque-token");
+
+    expect(invoke).toHaveBeenNthCalledWith(1, "validate_auth_session", {
+      token: "opaque-token",
+    });
+    expect(invoke).toHaveBeenNthCalledWith(2, "revoke_auth_session", {
+      token: "opaque-token",
     });
   });
 

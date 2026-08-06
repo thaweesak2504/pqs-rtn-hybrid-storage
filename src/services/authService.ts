@@ -7,7 +7,7 @@
  *
  * @module services/authService
  */
-import { TauriUser, tauriUserService } from './tauriService';
+import { TauriAuthSession, TauriUser, tauriUserService } from './tauriService';
 import { logger } from '../utils/logger';
 
 /**
@@ -44,7 +44,7 @@ export const createUserAccount = async (userData: {
 export const authenticateUser = async (
   username_or_email: string,
   password: string
-): Promise<TauriUser | null> => {
+): Promise<TauriAuthSession | null> => {
   try {
     return await tauriUserService.authenticateUser(username_or_email, password);
   } catch (error) {
@@ -82,4 +82,3 @@ export const getUserById = async (id: number): Promise<TauriUser | null> => {
     throw error;
   }
 };
-

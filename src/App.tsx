@@ -33,7 +33,7 @@ import UnifiedLayout from './components/UnifiedLayout';
 // Import components
 import DebugRoute from './components/DebugRoute';
 import ForceChangePasswordModal from './components/ForceChangePasswordModal';
-import GlobalRedirect from './components/GlobalRedirect';
+import RouteGuard from './components/auth/RouteGuard';
 
 // Tauri commands are handled by individual components
 
@@ -74,7 +74,6 @@ function App() {
                 <BreadcrumbProvider>
                   <SlideBarProvider>
                     <LayoutProvider>
-                      <GlobalRedirect />
                       {/* Globally-mounted gate: renders null unless the currently
                           authenticated user has must_change_password=true, in which
                           case it displays a non-dismissible modal that blocks the UI
@@ -95,17 +94,22 @@ function App() {
                             <Route path="register" element={<RegistrationPage />} />
                             <Route path="contact" element={<ContactPage />} />
 
-                            {/* Editor and Visitor routes */}
-                            <Route path="editor" element={<EditorPage />} />
                             <Route path="example" element={<PqsExamplePage />} />
-                            <Route path="pqs/:docId" element={<ActiveDocumentPage />} />
 
-                            {/* Admin Dashboard routes */}
-                            <Route path="dashboard" element={<DashboardPage />} />
-                            <Route path="dashboard/database" element={<DatabaseViewerPage />} />
+                            <Route element={<RouteGuard />}>
+                              <Route path="pqs/:docId" element={<ActiveDocumentPage />} />
+                            </Route>
 
-                            <Route path="dashboard/highranks" element={<HighRanksPage />} />
-                            <Route path="dashboard/management" element={<DatabaseManagementPage />} />
+                            <Route element={<RouteGuard allowedRoles={['admin', 'editor']} />}>
+                              <Route path="editor" element={<EditorPage />} />
+                            </Route>
+
+                            <Route element={<RouteGuard allowedRoles={['admin']} />}>
+                              <Route path="dashboard" element={<DashboardPage />} />
+                              <Route path="dashboard/database" element={<DatabaseViewerPage />} />
+                              <Route path="dashboard/highranks" element={<HighRanksPage />} />
+                              <Route path="dashboard/management" element={<DatabaseManagementPage />} />
+                            </Route>
 
                             {/* Catch all - redirect to home */}
                             <Route path="*" element={<DebugRoute />} />

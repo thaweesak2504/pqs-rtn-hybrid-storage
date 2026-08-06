@@ -38,12 +38,6 @@ export interface TauriUser {
   id?: number;
   username: string;
   email: string;
-  /**
-   * @deprecated The backend still returns this for existing callers but the frontend
-   * must NEVER send it back. Use `createUser` / `updateUser` / `changePassword` which
-   * accept plaintext passwords and hash them server-side.
-   */
-  password_hash: string;
   full_name: string;
   rank?: string;
   role: string;
@@ -57,6 +51,13 @@ export interface TauriUser {
   /** True when the user must change their password before any other action (e.g. seeded default admin). */
   must_change_password?: boolean;
 }
+
+export interface TauriAuthSession {
+  user: TauriUser;
+  token: string;
+}
+
+const currentSessionToken = (): string | null => localStorage.getItem('pqs_token');
 
 export interface TauriAvatar {
   id?: number;
@@ -73,7 +74,7 @@ export const tauriUserService = {
   // Get all users
   async getAllUsers(): Promise<TauriUser[]> {
     try {
-      return await safeInvoke('get_all_users') as TauriUser[];
+      return await safeInvoke('get_all_users', { sessionToken: currentSessionToken() }) as TauriUser[];
     } catch (error) {
       logger.error('Error getting all users:', error);
       throw error;
@@ -83,7 +84,7 @@ export const tauriUserService = {
   // Get user by ID
   async getUserById(id: number): Promise<TauriUser | null> {
     try {
-      return await safeInvoke('get_user_by_id', { id }) as TauriUser | null;
+      return await safeInvoke('get_user_by_id', { id, sessionToken: currentSessionToken() }) as TauriUser | null;
     } catch (error) {
       logger.error('Error getting user by ID:', error);
       throw error;
@@ -93,7 +94,7 @@ export const tauriUserService = {
   // Get user by email
   async getUserByEmail(email: string): Promise<TauriUser | null> {
     try {
-      return await safeInvoke('get_user_by_email', { email }) as TauriUser | null;
+      return await safeInvoke('get_user_by_email', { email, sessionToken: currentSessionToken() }) as TauriUser | null;
     } catch (error) {
       logger.error('Error getting user by email:', error);
       throw error;
@@ -109,7 +110,8 @@ export const tauriUserService = {
         password: password, 
         fullName: full_name, 
         rank, 
-        role 
+        role,
+        sessionToken: currentSessionToken(),
       }) as TauriUser;
     } catch (error) {
       logger.error('Error creating user:', error);
@@ -137,6 +139,7 @@ export const tauriUserService = {
         fullName: full_name,
         rank,
         role,
+        sessionToken: currentSessionToken(),
       }) as TauriUser;
     } catch (error) {
       logger.error('Error updating user:', error);
@@ -151,6 +154,7 @@ export const tauriUserService = {
         userId,
         oldPassword,
         newPassword,
+        sessionToken: currentSessionToken(),
       });
     } catch (error) {
       logger.error('Error changing password:', error);
@@ -161,7 +165,7 @@ export const tauriUserService = {
   // Delete user
   async deleteUser(id: number): Promise<boolean> {
     try {
-      return await safeInvoke('delete_user', { id }) as boolean;
+      return await safeInvoke('delete_user', { id, sessionToken: currentSessionToken() }) as boolean;
     } catch (error) {
       logger.error('Error deleting user:', error);
       throw error;
@@ -181,7 +185,7 @@ export const tauriUserService = {
   // Migrate plain text passwords to hashed passwords
   async migratePasswords(): Promise<string> {
     try {
-      return await safeInvoke('migrate_passwords', {}) as string;
+      return await safeInvoke('migrate_passwords', { sessionToken: currentSessionToken() }) as string;
     } catch (error) {
       logger.error('Error migrating passwords:', error);
       throw error;
@@ -190,18 +194,26 @@ export const tauriUserService = {
 
 
   // Authenticate user
-  async authenticateUser(username_or_email: string, password: string): Promise<TauriUser | null> {
+  async authenticateUser(username_or_email: string, password: string): Promise<TauriAuthSession | null> {
     try {
       const params = { 
         usernameOrEmail: username_or_email, 
         password: password 
       };
       
-      return await safeInvoke('authenticate_user', params) as TauriUser | null;
+      return await safeInvoke('authenticate_user', params) as TauriAuthSession | null;
     } catch (error) {
       logger.error('Error authenticating user:', error);
       throw error;
     }
+  },
+
+  async validateAuthSession(token: string): Promise<TauriUser | null> {
+    return await safeInvoke('validate_auth_session', { token }) as TauriUser | null;
+  },
+
+  async revokeAuthSession(token: string): Promise<void> {
+    await safeInvoke('revoke_auth_session', { token });
   },
 
 };

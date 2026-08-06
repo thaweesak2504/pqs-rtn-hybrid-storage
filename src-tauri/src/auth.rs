@@ -1,8 +1,13 @@
 use crate::content_database::connection::{self as db_conn, DbConn};
 use crate::content_database::get_content_database_path;
 use crate::logger;
-use rusqlite::{params, Connection, Result as SqlResult};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use rand::{rngs::OsRng, RngCore};
+use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult, Row};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 // use crate::database_logger::{DB_LOGGER, DatabaseOperation}; // DISABLED - logging removed
 
 // Global flag to prevent multiple database initialization
@@ -18,13 +23,63 @@ use serde::{Deserialize, Serialize};
 pub const DEFAULT_ADMIN_USERNAME: &str = "admin";
 pub const DEFAULT_ADMIN_PASSWORD: &str = "admin";
 pub const DEFAULT_ADMIN_EMAIL: &str = "admin@pqs-rtn.local";
+const AUTH_SESSION_TTL_SECONDS: u64 = 12 * 60 * 60;
 
-/// A registered user in the PQS system.
-///
-/// Serialized and returned to the frontend via Tauri commands. The
-/// `password_hash` field is included in the serialized output but the
-/// frontend must **never** send it back — use the `change_password` or
-/// `update_user` APIs instead (both accept plaintext and hash server-side).
+#[derive(Debug, Serialize, Clone)]
+/// Public authenticated identity paired with an opaque, process-local token.
+pub struct AuthSession {
+    /// Current public user data.
+    pub user: User,
+    /// Cryptographically random token used to validate the frontend session.
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SessionRecord {
+    user_id: i32,
+    expires_at: u64,
+}
+
+static AUTH_SESSIONS: OnceLock<Mutex<HashMap<String, SessionRecord>>> = OnceLock::new();
+
+fn auth_sessions() -> &'static Mutex<HashMap<String, SessionRecord>> {
+    AUTH_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn unix_timestamp() -> Result<u64, String> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .map_err(|e| format!("System clock error: {}", e))
+}
+
+fn issue_auth_session(user: User) -> Result<AuthSession, String> {
+    let user_id = user
+        .id
+        .ok_or_else(|| "Authenticated user has no ID".to_string())?;
+    let mut token_bytes = [0u8; 32];
+    OsRng.fill_bytes(&mut token_bytes);
+    let token = URL_SAFE_NO_PAD.encode(token_bytes);
+    let expires_at = unix_timestamp()?
+        .checked_add(AUTH_SESSION_TTL_SECONDS)
+        .ok_or_else(|| "Session expiration overflow".to_string())?;
+
+    auth_sessions()
+        .lock()
+        .map_err(|_| "Authentication session store is unavailable".to_string())?
+        .insert(
+            token.clone(),
+            SessionRecord {
+                user_id,
+                expires_at,
+            },
+        );
+
+    Ok(AuthSession { user, token })
+}
+
+/// Public user data returned to the frontend via Tauri commands.
+/// Credential material is intentionally absent from this DTO.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct User {
     /// Database primary key (`AUTOINCREMENT`). `None` only before insertion.
@@ -33,8 +88,6 @@ pub struct User {
     pub username: String,
     /// Unique email address.
     pub email: String,
-    /// bcrypt hash of the password. **Never expose or accept from the frontend.**
-    pub password_hash: String,
     /// Display name (Thai or English).
     pub full_name: String,
     /// Military rank abbreviation, e.g. `"ร.ต."`.
@@ -59,6 +112,53 @@ pub struct User {
     /// any other operation. Set to 1 for the seeded default admin.
     #[serde(default)]
     pub must_change_password: bool,
+}
+
+#[derive(Debug)]
+struct CredentialUser {
+    password_hash: String,
+    user: User,
+}
+
+fn public_user_from_row(row: &Row<'_>) -> rusqlite::Result<User> {
+    Ok(User {
+        id: Some(row.get(0)?),
+        username: row.get(1)?,
+        email: row.get(2)?,
+        full_name: row.get(3)?,
+        rank: row.get(4)?,
+        role: row.get(5)?,
+        is_active: row.get(6)?,
+        avatar_path: row.get(7)?,
+        avatar_updated_at: row.get(8)?,
+        avatar_mime: row.get(9)?,
+        avatar_size: row.get(10)?,
+        created_at: row.get(11)?,
+        updated_at: row.get(12)?,
+        must_change_password: row.get::<_, Option<bool>>(13)?.unwrap_or(false),
+    })
+}
+
+fn credential_user_from_row(row: &Row<'_>) -> rusqlite::Result<CredentialUser> {
+    Ok(CredentialUser {
+        password_hash: row.get(0)?,
+        user: User {
+            id: Some(row.get(1)?),
+            username: row.get(2)?,
+            email: row.get(3)?,
+            full_name: row.get(4)?,
+            rank: row.get(5)?,
+            role: row.get(6)?,
+            is_active: row.get(7)?,
+            avatar_path: row.get(8)?,
+            avatar_updated_at: row.get(9)?,
+            avatar_mime: row.get(10)?,
+            avatar_size: row.get(11)?,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
+            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
+        },
+    })
 }
 
 /// Validate password strength. Returns Ok(()) if acceptable.
@@ -95,6 +195,14 @@ pub fn validate_password_strength(password: &str, username: Option<&str>) -> Res
     }
 
     Ok(())
+}
+
+fn validate_user_role(role: &str) -> Result<(), String> {
+    if matches!(role, "admin" | "editor" | "visitor") {
+        Ok(())
+    } else {
+        Err("Invalid user role".to_string())
+    }
 }
 
 // NOTE: the former `ensure_user_schema_migrations` helper has been replaced by
@@ -460,29 +568,11 @@ pub fn migrate_plain_text_passwords(conn: &rusqlite::Connection) -> Result<(), S
 pub fn get_all_users() -> Result<Vec<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users")
+    let mut stmt = conn.prepare("SELECT id, username, email, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
     let user_iter = stmt
-        .query_map([], |row| {
-            Ok(User {
-                id: Some(row.get(0)?),
-                username: row.get(1)?,
-                email: row.get(2)?,
-                password_hash: row.get(3)?,
-                full_name: row.get(4)?,
-                rank: row.get(5)?,
-                role: row.get(6)?,
-                is_active: row.get(7)?,
-                avatar_path: row.get(8)?,
-                avatar_updated_at: row.get(9)?,
-                avatar_mime: row.get(10)?,
-                avatar_size: row.get(11)?,
-                created_at: row.get(12)?,
-                updated_at: row.get(13)?,
-                must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
-            })
-        })
+        .query_map([], public_user_from_row)
         .map_err(|e| format!("Failed to query users: {}", e))?;
 
     let mut users = Vec::new();
@@ -496,28 +586,10 @@ pub fn get_all_users() -> Result<Vec<User>, String> {
 pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE id = ?")
+    let mut stmt = conn.prepare("SELECT id, username, email, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE id = ?")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
-    let user = stmt.query_row(params![id], |row| {
-        Ok(User {
-            id: Some(row.get(0)?),
-            username: row.get(1)?,
-            email: row.get(2)?,
-            password_hash: row.get(3)?,
-            full_name: row.get(4)?,
-            rank: row.get(5)?,
-            role: row.get(6)?,
-            is_active: row.get(7)?,
-            avatar_path: row.get(8)?,
-            avatar_updated_at: row.get(9)?,
-            avatar_mime: row.get(10)?,
-            avatar_size: row.get(11)?,
-            created_at: row.get(12)?,
-            updated_at: row.get(13)?,
-            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
-        })
-    });
+    let user = stmt.query_row(params![id], public_user_from_row);
 
     match user {
         Ok(user) => Ok(Some(user)),
@@ -529,28 +601,10 @@ pub fn get_user_by_id(id: i32) -> Result<Option<User>, String> {
 pub fn get_user_by_email(email: &str) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE email = ?")
+    let mut stmt = conn.prepare("SELECT id, username, email, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE email = ?")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
-    let user = stmt.query_row(params![email], |row| {
-        Ok(User {
-            id: Some(row.get(0)?),
-            username: row.get(1)?,
-            email: row.get(2)?,
-            password_hash: row.get(3)?,
-            full_name: row.get(4)?,
-            rank: row.get(5)?,
-            role: row.get(6)?,
-            is_active: row.get(7)?,
-            avatar_path: row.get(8)?,
-            avatar_updated_at: row.get(9)?,
-            avatar_mime: row.get(10)?,
-            avatar_size: row.get(11)?,
-            created_at: row.get(12)?,
-            updated_at: row.get(13)?,
-            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
-        })
-    });
+    let user = stmt.query_row(params![email], public_user_from_row);
 
     match user {
         Ok(user) => Ok(Some(user)),
@@ -571,6 +625,7 @@ pub fn create_user(
     rank: Option<&str>,
     role: &str,
 ) -> Result<User, String> {
+    validate_user_role(role)?;
     // Enforce password strength at the boundary. Admin seeding bypasses this
     // via `create_user_bypass_strength` — regular API calls must meet the bar.
     validate_password_strength(password, Some(username))?;
@@ -606,6 +661,7 @@ pub fn update_user(
     rank: Option<&str>,
     role: &str,
 ) -> Result<User, String> {
+    validate_user_role(role)?;
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
 
@@ -642,21 +698,30 @@ pub fn change_password(user_id: i32, old_password: &str, new_password: &str) -> 
         return Err("New password must be different from the current password".to_string());
     }
 
-    let user = get_user_by_id(user_id)?.ok_or_else(|| "User not found".to_string())?;
+    let conn =
+        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
+    let credentials: Option<(String, String)> = conn
+        .query_row(
+            "SELECT username, password_hash FROM users WHERE id = ?1 AND is_active = 1",
+            params![user_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(|e| format!("Failed to query user credentials: {}", e))?;
+    let (username, password_hash) =
+        credentials.ok_or_else(|| "User not found or inactive".to_string())?;
 
-    let ok = bcrypt::verify(old_password, &user.password_hash)
+    let ok = bcrypt::verify(old_password, &password_hash)
         .map_err(|e| format!("Password verification failed: {}", e))?;
     if !ok {
         return Err("Current password is incorrect".to_string());
     }
 
-    validate_password_strength(new_password, Some(&user.username))?;
+    validate_password_strength(new_password, Some(&username))?;
 
     let new_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)
         .map_err(|e| format!("Failed to hash password: {}", e))?;
 
-    let conn =
-        get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     conn.execute(
         "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         params![new_hash, user_id],
@@ -713,36 +778,21 @@ pub fn delete_user(id: i32) -> Result<bool, String> {
 pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Option<User>, String> {
     let conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
-    let mut stmt = conn.prepare("SELECT id, username, email, password_hash, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE (email = ? OR username = ?) AND is_active = 1")
+    let mut stmt = conn.prepare("SELECT password_hash, id, username, email, full_name, rank, role, is_active, avatar_path, avatar_updated_at, avatar_mime, avatar_size, created_at, updated_at, must_change_password FROM users WHERE (email = ? OR username = ?) AND is_active = 1")
         .map_err(|e| format!("Failed to prepare statement: {}", e))?;
 
-    let user = stmt.query_row(params![username_or_email, username_or_email], |row| {
-        Ok(User {
-            id: Some(row.get(0)?),
-            username: row.get(1)?,
-            email: row.get(2)?,
-            password_hash: row.get(3)?,
-            full_name: row.get(4)?,
-            rank: row.get(5)?,
-            role: row.get(6)?,
-            is_active: row.get(7)?,
-            avatar_path: row.get(8)?,
-            avatar_updated_at: row.get(9)?,
-            avatar_mime: row.get(10)?,
-            avatar_size: row.get(11)?,
-            created_at: row.get(12)?,
-            updated_at: row.get(13)?,
-            must_change_password: row.get::<_, Option<bool>>(14)?.unwrap_or(false),
-        })
-    });
+    let user = stmt.query_row(
+        params![username_or_email, username_or_email],
+        credential_user_from_row,
+    );
 
     match user {
-        Ok(user) => {
+        Ok(credentials) => {
             // Verify the provided password against the stored hash
-            if bcrypt::verify(password, &user.password_hash)
+            if bcrypt::verify(password, &credentials.password_hash)
                 .map_err(|e| format!("Password verification failed: {}", e))?
             {
-                Ok(Some(user))
+                Ok(Some(credentials.user))
             } else {
                 Ok(None) // Password does not match
             }
@@ -750,6 +800,71 @@ pub fn authenticate_user(username_or_email: &str, password: &str) -> Result<Opti
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None), // User not found
         Err(e) => Err(format!("Failed to query user: {}", e)),
     }
+}
+
+/// Verify credentials and create a time-limited backend session.
+pub fn authenticate_user_session(
+    username_or_email: &str,
+    password: &str,
+) -> Result<Option<AuthSession>, String> {
+    authenticate_user(username_or_email, password)?
+        .map(issue_auth_session)
+        .transpose()
+}
+
+/// Validate a backend-issued token and refresh the user from SQLite.
+pub fn validate_auth_session(token: &str) -> Result<Option<User>, String> {
+    if token.len() < 32 {
+        return Ok(None);
+    }
+
+    let now = unix_timestamp()?;
+    let record = {
+        let mut sessions = auth_sessions()
+            .lock()
+            .map_err(|_| "Authentication session store is unavailable".to_string())?;
+        sessions.retain(|_, session| session.expires_at > now);
+        sessions.get(token).copied()
+    };
+
+    let Some(record) = record else {
+        return Ok(None);
+    };
+
+    let user = get_user_by_id(record.user_id)?;
+    if user.as_ref().is_some_and(|value| value.is_active) {
+        Ok(user)
+    } else {
+        revoke_auth_session(token)?;
+        Ok(None)
+    }
+}
+
+/// Return the authenticated user or a stable authorization error.
+pub fn require_auth_session(token: &str) -> Result<User, String> {
+    validate_auth_session(token)?.ok_or_else(|| "Authentication required".to_string())
+}
+
+/// Require an authenticated user whose role is in `allowed_roles`.
+pub fn require_role(token: &str, allowed_roles: &[&str]) -> Result<User, String> {
+    let user = require_auth_session(token)?;
+    if user.must_change_password {
+        return Err("Password change required before this action".to_string());
+    }
+    if allowed_roles.contains(&user.role.as_str()) {
+        Ok(user)
+    } else {
+        Err("You do not have permission to perform this action".to_string())
+    }
+}
+
+/// Revoke a backend-issued authentication token.
+pub fn revoke_auth_session(token: &str) -> Result<(), String> {
+    auth_sessions()
+        .lock()
+        .map_err(|_| "Authentication session store is unavailable".to_string())?
+        .remove(token);
+    Ok(())
 }
 
 /// A high-ranking naval officer displayed on the cover page.
@@ -954,5 +1069,67 @@ mod tests {
         assert_eq!(DEFAULT_ADMIN_USERNAME, "admin");
         assert_eq!(DEFAULT_ADMIN_PASSWORD, "admin");
         assert!(DEFAULT_ADMIN_EMAIL.ends_with("@pqs-rtn.local"));
+    }
+
+    #[test]
+    fn public_user_serialization_never_contains_password_hash() {
+        let user = User {
+            id: Some(7),
+            username: "tester".to_string(),
+            email: "tester@example.test".to_string(),
+            full_name: "Test User".to_string(),
+            rank: None,
+            role: "visitor".to_string(),
+            is_active: true,
+            avatar_path: None,
+            avatar_updated_at: None,
+            avatar_mime: None,
+            avatar_size: None,
+            created_at: None,
+            updated_at: None,
+            must_change_password: false,
+        };
+
+        let serialized = serde_json::to_value(user).expect("user should serialize");
+        assert!(serialized.get("password_hash").is_none());
+    }
+
+    #[test]
+    fn issued_session_uses_opaque_token_and_can_be_revoked() {
+        let user = User {
+            id: Some(42),
+            username: "session-user".to_string(),
+            email: "session@example.test".to_string(),
+            full_name: "Session User".to_string(),
+            rank: None,
+            role: "visitor".to_string(),
+            is_active: true,
+            avatar_path: None,
+            avatar_updated_at: None,
+            avatar_mime: None,
+            avatar_size: None,
+            created_at: None,
+            updated_at: None,
+            must_change_password: false,
+        };
+
+        let session = issue_auth_session(user).expect("session should be issued");
+        assert_eq!(session.token.len(), 43);
+        assert!(session
+            .token
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric()
+                || character == '-'
+                || character == '_'));
+        assert!(auth_sessions()
+            .lock()
+            .expect("session store should lock")
+            .contains_key(&session.token));
+
+        revoke_auth_session(&session.token).expect("session should be revoked");
+        assert!(!auth_sessions()
+            .lock()
+            .expect("session store should lock")
+            .contains_key(&session.token));
     }
 }

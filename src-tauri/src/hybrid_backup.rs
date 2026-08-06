@@ -1,10 +1,13 @@
-use crate::content_database::{get_content_database_path, get_portable_data_dir};
+use crate::content_database::{
+    get_content_connection, get_content_database_path, get_portable_data_dir,
+};
 use crate::logger;
+use rusqlite::{backup, Connection, DatabaseName};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::api::path::app_data_dir;
 use tauri::Config;
@@ -21,7 +24,163 @@ pub struct BackupManifest {
     pub media_size: u64,
     pub total_files: u64,
     pub backup_type: String,
+    /// SHA-256 of the SQLite snapshot stored in the archive.
     pub checksum: String,
+}
+
+const MAX_BACKUP_ENTRIES: usize = 50_000;
+const MAX_BACKUP_UNCOMPRESSED_BYTES: u64 = 20 * 1024 * 1024 * 1024;
+
+struct CleanupPath(PathBuf);
+
+impl Drop for CleanupPath {
+    fn drop(&mut self) {
+        if self.0.is_dir() {
+            let _ = fs::remove_dir_all(&self.0);
+        } else if self.0.exists() {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+}
+
+fn hash_file(path: &Path) -> Result<String, String> {
+    let mut file =
+        fs::File::open(path).map_err(|e| format!("Failed to open file for checksum: {}", e))?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let bytes_read = file
+            .read(&mut buffer)
+            .map_err(|e| format!("Failed to read file for checksum: {}", e))?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn create_database_snapshot(conn: &Connection, snapshot_path: &Path) -> Result<(), String> {
+    if snapshot_path.exists() {
+        fs::remove_file(snapshot_path)
+            .map_err(|e| format!("Failed to replace old database snapshot: {}", e))?;
+    }
+
+    conn.backup(DatabaseName::Main, snapshot_path, None)
+        .map_err(|e| format!("Failed to create consistent database snapshot: {}", e))
+}
+
+fn safe_archive_path(name: &str) -> Result<PathBuf, String> {
+    let path = Path::new(name);
+    if path.as_os_str().is_empty() || path.is_absolute() {
+        return Err(format!("Unsafe backup entry path: {}", name));
+    }
+
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) | Component::CurDir
+        )
+    }) {
+        return Err(format!("Unsafe backup entry path: {}", name));
+    }
+
+    let first = path
+        .components()
+        .next()
+        .and_then(|component| match component {
+            Component::Normal(value) => value.to_str(),
+            _ => None,
+        })
+        .ok_or_else(|| format!("Invalid backup entry path: {}", name))?;
+
+    if !matches!(
+        first,
+        "content.db" | "database.db" | "manifest.json" | "media" | "data"
+    ) {
+        return Err(format!("Unexpected backup entry: {}", name));
+    }
+    if matches!(first, "content.db" | "database.db" | "manifest.json")
+        && path.components().count() != 1
+    {
+        return Err(format!("Invalid file entry path: {}", name));
+    }
+
+    Ok(path.to_path_buf())
+}
+
+fn validate_backup_filename(filename: &str) -> Result<(), String> {
+    let path = Path::new(filename);
+    if path.components().count() != 1
+        || path.file_name().and_then(|value| value.to_str()) != Some(filename)
+        || !filename.starts_with("hybrid_backup_")
+        || !filename.ends_with(".zip")
+    {
+        return Err("Invalid hybrid backup filename".to_string());
+    }
+    Ok(())
+}
+
+fn validate_extracted_database(path: &Path, expected_checksum: &str) -> Result<(), String> {
+    if !expected_checksum.is_empty() {
+        let actual_checksum = hash_file(path)?;
+        if !actual_checksum.eq_ignore_ascii_case(expected_checksum) {
+            return Err("Database checksum does not match the backup manifest".to_string());
+        }
+    } else {
+        logger::warn(
+            "Legacy backup has no database checksum; integrity is limited to SQLite checks",
+        );
+    }
+
+    let conn =
+        Connection::open(path).map_err(|e| format!("Failed to open extracted database: {}", e))?;
+    let integrity: String = conn
+        .query_row("PRAGMA quick_check", [], |row| row.get(0))
+        .map_err(|e| format!("Failed to validate extracted database: {}", e))?;
+    if integrity != "ok" {
+        return Err(format!(
+            "Extracted database failed integrity check: {}",
+            integrity
+        ));
+    }
+
+    Ok(())
+}
+
+fn replace_directory_from_staging(src: &Path, dst: &Path) -> Result<(), String> {
+    let name = dst
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| format!("Invalid restore directory: {}", dst.display()))?;
+    let backup = dst.with_file_name(format!("{}.restore-backup", name));
+
+    if backup.exists() {
+        fs::remove_dir_all(&backup)
+            .map_err(|e| format!("Failed to clear prior restore backup: {}", e))?;
+    }
+    if dst.exists() {
+        fs::rename(dst, &backup)
+            .map_err(|e| format!("Failed to stage current directory for restore: {}", e))?;
+    }
+
+    if let Err(error) = copy_dir_recursive(src, dst) {
+        if dst.exists() {
+            let _ = fs::remove_dir_all(dst);
+        }
+        if backup.exists() {
+            let _ = fs::rename(&backup, dst);
+        }
+        return Err(error);
+    }
+
+    if backup.exists() {
+        fs::remove_dir_all(&backup)
+            .map_err(|e| format!("Restore succeeded but old directory cleanup failed: {}", e))?;
+    }
+    Ok(())
 }
 
 /// Hybrid backup that includes both database and media files in a compressed zip
@@ -32,7 +191,20 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         .as_secs();
 
     let backup_filename = format!("hybrid_backup_{}.zip", timestamp);
-    let backup_path = get_backup_directory()?.join(&backup_filename);
+    let backup_dir = get_backup_directory()?;
+    let backup_path = backup_dir.join(&backup_filename);
+    let snapshot_path = backup_dir.join(format!(".content_snapshot_{}.db", timestamp));
+    let _snapshot_cleanup = CleanupPath(snapshot_path.clone());
+
+    let db_path = get_content_database_path()?;
+    if !db_path.exists() {
+        return Err("Database file not found; backup was not created".to_string());
+    }
+
+    let conn = get_content_connection()?;
+    create_database_snapshot(&conn, &snapshot_path)?;
+    drop(conn);
+    let database_checksum = hash_file(&snapshot_path)?;
 
     logger::info(format!(
         "Starting hybrid backup creation: {}",
@@ -50,38 +222,22 @@ pub fn create_hybrid_backup() -> Result<String, String> {
 
     let mut total_files = 0u64;
     let mut media_size = 0u64;
-    let mut database_size = 0u64;
 
-    // 1. Add database file
-    let db_path = get_content_database_path()?;
-    if db_path.exists() {
-        logger::debug("Adding database file to backup");
-        let db_filename = db_path
-            .file_name()
-            .ok_or("Invalid database filename")?
-            .to_string_lossy()
-            .to_string();
-
-        zip.start_file(&db_filename, options)
-            .map_err(|e| format!("Failed to start database file in zip: {}", e))?;
-
-        let mut db_file =
-            fs::File::open(&db_path).map_err(|e| format!("Failed to open database file: {}", e))?;
-
-        let mut buffer = Vec::new();
-        db_file
-            .read_to_end(&mut buffer)
-            .map_err(|e| format!("Failed to read database file: {}", e))?;
-
-        database_size = buffer.len() as u64;
-        zip.write_all(&buffer)
-            .map_err(|e| format!("Failed to write database to zip: {}", e))?;
-
-        total_files += 1;
-        logger::debug(format!("Database file added: {} bytes", database_size));
-    } else {
-        logger::warn("Database file not found, skipping database backup");
-    }
+    // 1. Add a consistent SQLite snapshot. Copying the live WAL database file
+    // directly can omit committed pages that have not been checkpointed yet.
+    logger::debug("Adding database snapshot to backup");
+    zip.start_file("content.db", options)
+        .map_err(|e| format!("Failed to start database file in zip: {}", e))?;
+    let mut db_file = fs::File::open(&snapshot_path)
+        .map_err(|e| format!("Failed to open database snapshot: {}", e))?;
+    let database_size = db_file
+        .metadata()
+        .map_err(|e| format!("Failed to inspect database snapshot: {}", e))?
+        .len();
+    std::io::copy(&mut db_file, &mut zip)
+        .map_err(|e| format!("Failed to write database snapshot to zip: {}", e))?;
+    total_files += 1;
+    logger::debug(format!("Database snapshot added: {} bytes", database_size));
 
     // 2. Add media directory
     let media_dir = get_media_directory()?;
@@ -106,12 +262,11 @@ pub fn create_hybrid_backup() -> Result<String, String> {
                 let mut file = fs::File::open(file_path)
                     .map_err(|e| format!("Failed to open media file: {}", e))?;
 
-                let mut buffer = Vec::new();
-                file.read_to_end(&mut buffer)
-                    .map_err(|e| format!("Failed to read media file: {}", e))?;
-
-                media_size += buffer.len() as u64;
-                zip.write_all(&buffer)
+                media_size += file
+                    .metadata()
+                    .map_err(|e| format!("Failed to inspect media file: {}", e))?
+                    .len();
+                std::io::copy(&mut file, &mut zip)
                     .map_err(|e| format!("Failed to write media file to zip: {}", e))?;
 
                 total_files += 1;
@@ -149,12 +304,11 @@ pub fn create_hybrid_backup() -> Result<String, String> {
                 let mut file = fs::File::open(file_path)
                     .map_err(|e| format!("Failed to open data file: {}", e))?;
 
-                let mut buffer = Vec::new();
-                file.read_to_end(&mut buffer)
-                    .map_err(|e| format!("Failed to read data file: {}", e))?;
-
-                data_size += buffer.len() as u64;
-                zip.write_all(&buffer)
+                data_size += file
+                    .metadata()
+                    .map_err(|e| format!("Failed to inspect data file: {}", e))?
+                    .len();
+                std::io::copy(&mut file, &mut zip)
                     .map_err(|e| format!("Failed to write data file to zip: {}", e))?;
 
                 total_files += 1;
@@ -173,7 +327,7 @@ pub fn create_hybrid_backup() -> Result<String, String> {
         media_size: media_size + data_size,
         total_files,
         backup_type: "hybrid".to_string(),
-        checksum: "".to_string(), // Will be calculated after zip is complete
+        checksum: database_checksum,
     };
 
     let manifest_json = serde_json::to_string_pretty(&manifest)
@@ -188,43 +342,29 @@ pub fn create_hybrid_backup() -> Result<String, String> {
     // Finish zip
     zip.finish()
         .map_err(|e| format!("Failed to finish zip file: {}", e))?;
-
-    // Calculate checksum of the complete zip file
-    let mut zip_file = fs::File::open(&backup_path)
-        .map_err(|e| format!("Failed to open zip for checksum: {}", e))?;
-
-    let mut hasher = Sha256::new();
-    let mut buffer = [0; 8192];
-    loop {
-        let bytes_read = zip_file
-            .read(&mut buffer)
-            .map_err(|e| format!("Failed to read zip for checksum: {}", e))?;
-
-        if bytes_read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..bytes_read]);
+    if let Err(error) = fs::remove_file(&snapshot_path) {
+        logger::warn(format!(
+            "Failed to remove temporary database snapshot: {}",
+            error
+        ));
     }
-
-    let _checksum = format!("{:x}", hasher.finalize());
-
-    // Update manifest with checksum (this is a simplified approach)
-    // In production, you might want to recalculate or store checksum separately
 
     logger::info(format!(
         "Hybrid backup created successfully: {}",
         backup_filename
     ));
     logger::info(format!(
-        "Total files: {}, Database: {} bytes, Media: {} bytes",
-        total_files, database_size, media_size
+        "Total files: {}, Database: {} bytes, Media/data: {} bytes",
+        total_files,
+        database_size,
+        media_size + data_size
     ));
 
     Ok(format!(
         "Hybrid backup created: {} (Files: {}, Size: {} bytes)",
         backup_filename,
         total_files,
-        database_size + media_size
+        database_size + media_size + data_size
     ))
 }
 
@@ -281,14 +421,18 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
 
     // Validate manifest first
     let manifest = read_backup_manifest(zip_path)?;
+    if manifest.backup_type != "hybrid" {
+        return Err("Unsupported backup type".to_string());
+    }
 
     // Create temporary directory for extraction
-    let temp_dir = get_backup_directory()?.join("temp_import");
-    if temp_dir.exists() {
-        fs::remove_dir_all(&temp_dir)
-            .map_err(|e| format!("Failed to clean temp directory: {}", e))?;
-    }
+    let import_timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|e| format!("System clock error: {}", e))?
+        .as_nanos();
+    let temp_dir = get_backup_directory()?.join(format!("temp_import_{}", import_timestamp));
     fs::create_dir_all(&temp_dir).map_err(|e| format!("Failed to create temp directory: {}", e))?;
+    let _temp_cleanup = CleanupPath(temp_dir.clone());
 
     // Extract zip
     let zip_file =
@@ -296,13 +440,28 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
 
     let mut archive =
         zip::ZipArchive::new(zip_file).map_err(|e| format!("Failed to read zip archive: {}", e))?;
+    if archive.len() > MAX_BACKUP_ENTRIES {
+        return Err(format!(
+            "Backup contains too many entries: {} (maximum {})",
+            archive.len(),
+            MAX_BACKUP_ENTRIES
+        ));
+    }
 
+    let mut uncompressed_bytes = 0u64;
     for i in 0..archive.len() {
         let mut file = archive
             .by_index(i)
             .map_err(|e| format!("Failed to read zip entry {}: {}", i, e))?;
+        uncompressed_bytes = uncompressed_bytes
+            .checked_add(file.size())
+            .ok_or_else(|| "Backup uncompressed size overflow".to_string())?;
+        if uncompressed_bytes > MAX_BACKUP_UNCOMPRESSED_BYTES {
+            return Err("Backup exceeds the maximum uncompressed size".to_string());
+        }
 
-        let outpath = temp_dir.join(file.name());
+        let relative_path = safe_archive_path(file.name())?;
+        let outpath = temp_dir.join(relative_path);
 
         if file.name().ends_with('/') {
             // Directory
@@ -338,44 +497,40 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
     if !extracted_db.exists() {
         return Err("Database file not found in backup".to_string());
     }
+    validate_extracted_database(&extracted_db, &manifest.checksum)?;
 
     // Replace current files
     let current_db = get_content_database_path()?;
     let current_media = get_media_directory()?;
     let current_data = get_portable_data_dir().map_err(|e| e.to_string())?;
 
-    // Backup current files (if they exist) - simple approach
-    if current_db.exists() {
-        let backup_current = current_db.with_extension("db.backup");
-        fs::copy(&current_db, &backup_current)
-            .map_err(|e| format!("Failed to backup current database: {}", e))?;
+    // Use SQLite's online backup API in both directions so WAL state and live
+    // pooled connections remain coherent throughout restore.
+    let backup_current = current_db.with_extension("db.backup");
+    let mut conn = get_content_connection()?;
+    conn.backup(DatabaseName::Main, &backup_current, None)
+        .map_err(|e| format!("Failed to preserve current database: {}", e))?;
+    if let Err(error) = conn.restore(
+        DatabaseName::Main,
+        &extracted_db,
+        None::<fn(backup::Progress)>,
+    ) {
+        let _ = conn.restore(
+            DatabaseName::Main,
+            &backup_current,
+            None::<fn(backup::Progress)>,
+        );
+        return Err(format!("Failed to restore database: {}", error));
     }
-
-    // Copy new files
-    fs::copy(&extracted_db, &current_db)
-        .map_err(|e| format!("Failed to restore database: {}", e))?;
+    drop(conn);
 
     if extracted_media.exists() {
-        // Remove current media directory if exists
-        if current_media.exists() {
-            fs::remove_dir_all(&current_media)
-                .map_err(|e| format!("Failed to remove current media directory: {}", e))?;
-        }
-
-        // Copy new media directory
-        copy_dir_recursive(&extracted_media, &current_media)
+        replace_directory_from_staging(&extracted_media, &current_media)
             .map_err(|e| format!("Failed to restore media files: {}", e))?;
     }
 
     if extracted_data.exists() {
-        // Remove current data directory if exists
-        if current_data.exists() {
-            fs::remove_dir_all(&current_data)
-                .map_err(|e| format!("Failed to remove current data directory: {}", e))?;
-        }
-
-        // Copy new data directory
-        copy_dir_recursive(&extracted_data, &current_data)
+        replace_directory_from_staging(&extracted_data, &current_data)
             .map_err(|e| format!("Failed to restore data files: {}", e))?;
     }
 
@@ -392,16 +547,12 @@ pub fn import_backup(zip_path: &str) -> Result<String, String> {
 
 /// Delete a hybrid backup file
 pub fn delete_hybrid_backup(filename: &str) -> Result<String, String> {
+    validate_backup_filename(filename)?;
     let backup_dir = get_backup_directory()?;
     let backup_path = backup_dir.join(filename);
 
     if !backup_path.exists() {
         return Err(format!("Backup file '{}' not found", filename));
-    }
-
-    // Validate that it's actually a hybrid backup file
-    if !filename.starts_with("hybrid_backup_") || !filename.ends_with(".zip") {
-        return Err("Invalid hybrid backup filename".to_string());
     }
 
     fs::remove_file(&backup_path).map_err(|e| format!("Failed to delete backup file: {}", e))?;
@@ -422,6 +573,9 @@ fn read_backup_manifest(zip_path: &Path) -> Result<BackupManifest, String> {
     let mut manifest_file = archive
         .by_name("manifest.json")
         .map_err(|e| format!("Manifest not found in backup: {}", e))?;
+    if manifest_file.size() > 1024 * 1024 {
+        return Err("Backup manifest is too large".to_string());
+    }
 
     let mut manifest_content = String::new();
     manifest_file
@@ -430,6 +584,18 @@ fn read_backup_manifest(zip_path: &Path) -> Result<BackupManifest, String> {
 
     let manifest: BackupManifest = serde_json::from_str(&manifest_content)
         .map_err(|e| format!("Failed to parse manifest: {}", e))?;
+    if manifest.total_files as usize > MAX_BACKUP_ENTRIES {
+        return Err("Backup manifest declares too many files".to_string());
+    }
+    if !manifest.checksum.is_empty()
+        && (manifest.checksum.len() != 64
+            || !manifest
+                .checksum
+                .chars()
+                .all(|value| value.is_ascii_hexdigit()))
+    {
+        return Err("Backup manifest contains an invalid checksum".to_string());
+    }
 
     Ok(manifest)
 }
@@ -563,7 +729,7 @@ mod tests {
             media_size: 20,
             total_files: 2,
             backup_type: "hybrid".to_string(),
-            checksum: "abc".to_string(),
+            checksum: "a".repeat(64),
         };
 
         let content = serde_json::to_string(&manifest).expect("Manifest should serialize");
@@ -624,5 +790,62 @@ mod tests {
 
         assert_eq!(root_content, "root-content");
         assert_eq!(child_content, "child-content");
+    }
+
+    #[test]
+    fn safe_archive_path_rejects_traversal_and_unexpected_roots() {
+        assert!(safe_archive_path("data/DOC/file.pdf").is_ok());
+        assert!(safe_archive_path("content.db").is_ok());
+        assert!(safe_archive_path("../content.db").is_err());
+        assert!(safe_archive_path("data/../../outside.txt").is_err());
+        assert!(safe_archive_path("content.db/extra").is_err());
+        assert!(safe_archive_path("other/file.txt").is_err());
+    }
+
+    #[test]
+    fn backup_filename_validation_rejects_path_components() {
+        assert!(validate_backup_filename("hybrid_backup_123.zip").is_ok());
+        assert!(validate_backup_filename("../hybrid_backup_123.zip").is_err());
+        assert!(validate_backup_filename("folder/hybrid_backup_123.zip").is_err());
+        assert!(validate_backup_filename("notes.zip").is_err());
+    }
+
+    #[test]
+    fn database_snapshot_contains_committed_wal_data() {
+        let temp_dir = TempDir::new().expect("Temp dir should be created");
+        let source_path = temp_dir.path().join("source.db");
+        let snapshot_path = temp_dir.path().join("snapshot.db");
+        let source = Connection::open(&source_path).expect("Source database should open");
+        source
+            .execute_batch(
+                "PRAGMA journal_mode=WAL;
+                 CREATE TABLE sample (value TEXT NOT NULL);
+                 INSERT INTO sample VALUES ('committed');",
+            )
+            .expect("Source data should be committed");
+
+        create_database_snapshot(&source, &snapshot_path).expect("Snapshot should succeed");
+
+        let snapshot = Connection::open(snapshot_path).expect("Snapshot database should open");
+        let value: String = snapshot
+            .query_row("SELECT value FROM sample", [], |row| row.get(0))
+            .expect("Snapshot should contain source data");
+        assert_eq!(value, "committed");
+    }
+
+    #[test]
+    fn extracted_database_checksum_detects_tampering() {
+        let temp_dir = TempDir::new().expect("Temp dir should be created");
+        let db_path = temp_dir.path().join("content.db");
+        let conn = Connection::open(&db_path).expect("Database should open");
+        conn.execute("CREATE TABLE sample (value INTEGER)", [])
+            .expect("Schema should be created");
+        drop(conn);
+
+        let checksum = hash_file(&db_path).expect("Checksum should be generated");
+        validate_extracted_database(&db_path, &checksum).expect("Valid database should pass");
+
+        fs::write(&db_path, b"tampered").expect("Database should be overwritten for test");
+        assert!(validate_extracted_database(&db_path, &checksum).is_err());
     }
 }

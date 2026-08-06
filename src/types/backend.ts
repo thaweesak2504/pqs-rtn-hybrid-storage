@@ -27,16 +27,12 @@ export type UserRole = 'admin' | 'editor' | 'visitor';
  *
  * **Rust source:** `auth::User`
  *
- * @remarks `password_hash` is returned by the backend but MUST NEVER be sent
- *          back from the frontend. Use `changePassword` / `updateUser` APIs
- *          which accept plaintext and hash server-side.
+ * Credential fields are intentionally excluded from the IPC response.
  */
 export interface BackendUser {
   id: number | null;
   username: string;
   email: string;
-  /** @deprecated Backend returns this but FE must never write it back. */
-  password_hash: string;
   full_name: string;
   rank: string | null;
   role: string;
