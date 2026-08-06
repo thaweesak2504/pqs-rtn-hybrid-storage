@@ -1,6 +1,8 @@
 import React, { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { OrderedList } from "@tiptap/extension-list";
 import { Markdown } from "tiptap-markdown";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -12,6 +14,19 @@ import { Bold, Italic, ListOrdered, List, Eraser, Table as TableIcon, Trash, Gri
 import Tooltip from "../ui/Tooltip";
 
 // ============ Types ============
+
+const NUMBERED_HIERARCHY_STYLE = "numbered-hierarchy";
+const NUMBERED_HIERARCHY_MARKER_CLASS = "pqs-numbered-hierarchy-marker";
+
+interface MarkdownListSerializerState {
+  write: (content: string) => void;
+  repeat: (content: string, count: number) => string;
+  renderList: (
+    node: ProseMirrorNode,
+    space: string,
+    renderMarker: (index: number) => string,
+  ) => void;
+}
 
 interface TiptapEditorProps {
   /** Initial content as Markdown string */
@@ -40,6 +55,89 @@ const TOOLBAR_BTN_VARIANTS = {
   },
 };
 
+const findIndexOfAdjacentNode = (
+  node: ProseMirrorNode,
+  parent: ProseMirrorNode | null | undefined,
+  index: number,
+) => {
+  if (!parent) return 0;
+
+  let i = 0;
+  for (; index - i > 0; i++) {
+    if (parent.child(index - i - 1).type.name !== node.type.name) {
+      break;
+    }
+  }
+  return i;
+};
+
+const StyledOrderedList = OrderedList.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      listStyle: {
+        default: null,
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute("data-list-style") === NUMBERED_HIERARCHY_STYLE ||
+          element.classList.contains("numbered-hierarchy-list")
+            ? NUMBERED_HIERARCHY_STYLE
+            : null,
+        renderHTML: (attributes: { listStyle?: string | null }) =>
+          attributes.listStyle === NUMBERED_HIERARCHY_STYLE
+            ? {
+                "data-list-style": NUMBERED_HIERARCHY_STYLE,
+                class: "numbered-hierarchy-list",
+              }
+            : {},
+      },
+    };
+  },
+  addStorage() {
+    return {
+      markdown: {
+        serialize(
+          state: MarkdownListSerializerState,
+          node: ProseMirrorNode,
+          parent: ProseMirrorNode | null | undefined,
+          index: number,
+        ) {
+          if (
+            node.attrs.listStyle === NUMBERED_HIERARCHY_STYLE &&
+            parent?.type?.name !== "listItem"
+          ) {
+            state.write(`<div class="${NUMBERED_HIERARCHY_MARKER_CLASS}"></div>\n\n`);
+          }
+
+          const start = node.attrs.start || 1;
+          const maxW = String(start + node.childCount - 1).length;
+          const space = state.repeat(" ", maxW + 2);
+          const adjacentIndex = findIndexOfAdjacentNode(node, parent, index);
+          const separator = adjacentIndex % 2 ? ") " : ". ";
+
+          state.renderList(node, space, (i: number) => {
+            const nStr = String(start + i);
+            return state.repeat(" ", maxW - nStr.length) + nStr + separator;
+          });
+        },
+        parse: {
+          updateDOM(element: HTMLElement) {
+            element
+              .querySelectorAll(`.${NUMBERED_HIERARCHY_MARKER_CLASS}`)
+              .forEach((marker) => {
+                const next = marker.nextElementSibling;
+                if (next?.tagName.toLowerCase() === "ol") {
+                  next.setAttribute("data-list-style", NUMBERED_HIERARCHY_STYLE);
+                  next.classList.add("numbered-hierarchy-list");
+                }
+                marker.remove();
+              });
+          },
+        },
+      },
+    };
+  },
+});
+
 // ============ Toolbar Button ============
 
 interface ToolbarButtonProps {
@@ -62,6 +160,7 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
     <Tooltip content={title} position="top">
       <button
         type="button"
+        aria-label={title}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -144,6 +243,23 @@ const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, icon, label, dange
 
 // ============ Toolbar ============
 
+const setOrderedListStyle = (
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+  listStyle: string | null,
+) => {
+  if (editor.isActive("orderedList", { listStyle })) {
+    editor.chain().focus().liftListItem("listItem").run();
+    return;
+  }
+
+  if (editor.isActive("orderedList")) {
+    editor.chain().focus().updateAttributes("orderedList", { listStyle }).run();
+    return;
+  }
+
+  editor.chain().focus().toggleList("orderedList", "listItem", false, { listStyle }).run();
+};
+
 interface EditorToolbarProps {
   editor: ReturnType<typeof useEditor>;
   variant: "default" | "emerald";
@@ -181,10 +297,20 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
       <ToolbarButton
         variant={variant}
         title="ลิสต์หลัก (ก.ข.ค.), กด Tab เพิ่มลิสต์รอง (1.2.3.), กด Shift + Tab เพื่อย้อนกลับ"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        isActive={editor.isActive("orderedList")}
+        onClick={() => setOrderedListStyle(editor, null)}
+        isActive={editor.isActive("orderedList", { listStyle: null })}
       >
         <ListOrdered className="w-3.5 h-3.5" />
+      </ToolbarButton>
+
+      <ToolbarButton
+        variant={variant}
+        title="ลิสต์เลขลำดับชั้น (1., 1.1, 1.2), กด Tab เพิ่มระดับย่อย"
+        onClick={() => setOrderedListStyle(editor, NUMBERED_HIERARCHY_STYLE)}
+        isActive={editor.isActive("orderedList", { listStyle: NUMBERED_HIERARCHY_STYLE })}
+      >
+        <ListOrdered className="w-3.5 h-3.5" />
+        <span className="ml-1 text-[10px] font-semibold leading-none">1.1</span>
       </ToolbarButton>
 
       <ToolbarButton
@@ -280,7 +406,10 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
   
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        orderedList: false,
+      }),
+      StyledOrderedList,
       TextStyle,
       Color,
       Table.configure({

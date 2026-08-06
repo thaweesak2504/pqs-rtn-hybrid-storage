@@ -362,6 +362,66 @@
   list-style: thai-alpha !important;
   list-style-position: outside;
 }
+
+.pqs-numbered-hierarchy-marker {
+  display: none;
+}
+
+.tiptap ol.numbered-hierarchy-list,
+.answer-key-markdown ol.numbered-hierarchy-list,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol {
+  counter-reset: pqs-numbered-list;
+  list-style-position: outside;
+  list-style-type: none !important;
+  padding-left: 1.5rem;
+}
+
+.tiptap ol.numbered-hierarchy-list ol,
+.answer-key-markdown ol.numbered-hierarchy-list ol,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol ol {
+  counter-reset: pqs-numbered-list;
+  list-style-position: outside;
+  list-style-type: none !important;
+  padding-left: 1.5rem;
+}
+
+.answer-key-markdown ol.numbered-hierarchy-list:not(.thai-num):not(.thai-alpha) ol,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol:not(.thai-num):not(.thai-alpha) ol {
+  list-style-type: none !important;
+}
+
+.tiptap ol.numbered-hierarchy-list > li,
+.tiptap ol.numbered-hierarchy-list ol > li,
+.answer-key-markdown ol.numbered-hierarchy-list > li,
+.answer-key-markdown ol.numbered-hierarchy-list ol > li,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol > li,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol ol > li {
+  counter-increment: pqs-numbered-list;
+  padding-left: 0.25rem !important;
+}
+
+.tiptap ol.numbered-hierarchy-list > li::marker,
+.answer-key-markdown ol.numbered-hierarchy-list > li::marker,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol > li::marker {
+  content: counter(pqs-numbered-list) ". ";
+  font-variant-numeric: tabular-nums;
+}
+
+.tiptap ol.numbered-hierarchy-list ol > li::marker,
+.answer-key-markdown ol.numbered-hierarchy-list ol > li::marker,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol ol > li::marker {
+  content: counters(pqs-numbered-list, ".") " ";
+  font-variant-numeric: tabular-nums;
+}
+
+.tiptap ol.numbered-hierarchy-list > li > p,
+.tiptap ol.numbered-hierarchy-list ol > li > p,
+.answer-key-markdown ol.numbered-hierarchy-list > li > p,
+.answer-key-markdown ol.numbered-hierarchy-list ol > li > p,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol > li > p,
+.answer-key-markdown .pqs-numbered-hierarchy-marker + ol ol > li > p {
+  margin: 0;
+}
 .answer-key-markdown li {
   margin: 0;
   padding-left: 0.25rem;
