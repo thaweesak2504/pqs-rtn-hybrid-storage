@@ -26,7 +26,7 @@ npm start
 npm run dev
 ```
 
-`npm start` remains the normal project command and runs `tauri dev`. The aliases `npm run tauri:dev`, `npm run tauri`, `npm run app`, and `npm run desktop` are retained for compatibility, but are not required for everyday use.
+`npm start` remains the normal project command and runs `tauri dev`. It also ensures that the ignored `dist/` directory exists so Tauri and rust-analyzer can expand the application macro. The aliases `npm run tauri:dev`, `npm run tauri`, `npm run app`, and `npm run desktop` are retained for compatibility, but are not required for everyday use.
 
 If port 1420 is occupied by a previous project process:
 
@@ -87,4 +87,4 @@ The supported wrapper is:
 - Missing `package.json`: return to the repository root before running npm.
 - Port 1420 already in use: run `npm run clean`, then retry.
 - Rust linker/build-tool errors: install the Windows C++ build tools required by Tauri v1.
-- Stale generated output: remove `dist/` or `src-tauri/target/`; never delete source data or AppData as part of a build cleanup.
+- Stale generated output: remove `dist/` or `src-tauri/target/`; `npm start` recreates the required `dist/` directory. Never delete source data or AppData as part of a build cleanup.
