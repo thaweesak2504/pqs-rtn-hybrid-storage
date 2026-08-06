@@ -311,16 +311,42 @@ fn mig_001_baseline_check(conn: &Connection) -> rusqlite::Result<bool> {
     Ok(false)
 }
 
+fn mig_002_up_add_persistent_auth_sessions(tx: &Transaction) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "CREATE TABLE IF NOT EXISTS auth_sessions (
+            token_hash TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            created_at INTEGER NOT NULL,
+            last_used_at INTEGER NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+         );
+         CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id
+             ON auth_sessions(user_id);
+         CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at
+             ON auth_sessions(expires_at);",
+    )?;
+    Ok(())
+}
+
 /// All migrations known to the app, in definition order (runner sorts by version).
 ///
 /// Append-only: NEVER edit a migration after it has shipped. Add a new one instead.
 pub fn all_migrations() -> Vec<Migration> {
-    vec![Migration {
-        version: 1,
-        name: "add_must_change_password_to_users",
-        up: mig_001_up_add_must_change_password,
-        baseline_check: Some(mig_001_baseline_check),
-    }]
+    vec![
+        Migration {
+            version: 1,
+            name: "add_must_change_password_to_users",
+            up: mig_001_up_add_must_change_password,
+            baseline_check: Some(mig_001_baseline_check),
+        },
+        Migration {
+            version: 2,
+            name: "add_persistent_auth_sessions",
+            up: mig_002_up_add_persistent_auth_sessions,
+            baseline_check: None,
+        },
+    ]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -407,7 +433,7 @@ mod tests {
         create_users_table_pre_phase1(&conn);
 
         let report = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
-        assert_eq!(report.applied, vec![1]);
+        assert_eq!(report.applied, vec![1, 2]);
         assert!(report.baselined.is_empty());
         assert!(report.skipped.is_empty());
 
@@ -416,10 +442,21 @@ mod tests {
 
         // Recorded in tracking table
         let applied = list_applied(&conn).unwrap();
-        assert_eq!(applied.len(), 1);
+        assert_eq!(applied.len(), 2);
         assert_eq!(applied[0].version, 1);
         assert_eq!(applied[0].name, "add_must_change_password_to_users");
         assert!(!applied[0].baselined);
+        assert_eq!(applied[1].version, 2);
+        assert_eq!(applied[1].name, "add_persistent_auth_sessions");
+
+        let sessions_table_exists: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='auth_sessions'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(sessions_table_exists, 1);
     }
 
     // ── baseline (legacy DB already patched) flow ───────────────────────
@@ -432,14 +469,15 @@ mod tests {
         create_users_table_with_flag(&conn);
 
         let report = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
-        assert!(report.applied.is_empty());
+        assert_eq!(report.applied, vec![2]);
         assert_eq!(report.baselined, vec![1]);
 
         let applied = list_applied(&conn).unwrap();
-        assert_eq!(applied.len(), 1);
+        assert_eq!(applied.len(), 2);
         assert_eq!(applied[0].version, 1);
         assert!(applied[0].baselined);
         assert_eq!(applied[0].duration_ms, 0);
+        assert_eq!(applied[1].version, 2);
     }
 
     // ── idempotency / re-run ────────────────────────────────────────────
@@ -450,16 +488,16 @@ mod tests {
         create_users_table_pre_phase1(&conn);
 
         let r1 = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
-        assert_eq!(r1.applied, vec![1]);
+        assert_eq!(r1.applied, vec![1, 2]);
 
         let r2 = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
         assert!(r2.applied.is_empty());
         assert!(r2.baselined.is_empty());
-        assert_eq!(r2.skipped, vec![1]);
+        assert_eq!(r2.skipped, vec![1, 2]);
 
-        // Still only one row in the tracking table
+        // Still exactly one row per known migration in the tracking table
         let applied = list_applied(&conn).unwrap();
-        assert_eq!(applied.len(), 1);
+        assert_eq!(applied.len(), 2);
     }
 
     // ── failure / rollback ──────────────────────────────────────────────

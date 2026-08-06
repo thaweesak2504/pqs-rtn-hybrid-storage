@@ -90,7 +90,7 @@ pub fn change_password(
     if requester.id != Some(user_id) {
         return Err("You may only change your own password".to_string());
     }
-    auth::change_password(user_id, &old_password, &new_password)
+    auth::change_password(user_id, &old_password, &new_password, &session_token)
 }
 
 #[tauri::command]

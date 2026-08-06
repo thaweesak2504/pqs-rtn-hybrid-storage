@@ -5,8 +5,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use rand::{rngs::OsRng, RngCore};
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult, Row};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::sync::{Mutex, OnceLock};
+use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 // use crate::database_logger::{DB_LOGGER, DatabaseOperation}; // DISABLED - logging removed
 
@@ -23,27 +22,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub const DEFAULT_ADMIN_USERNAME: &str = "admin";
 pub const DEFAULT_ADMIN_PASSWORD: &str = "admin";
 pub const DEFAULT_ADMIN_EMAIL: &str = "admin@pqs-rtn.local";
-const AUTH_SESSION_TTL_SECONDS: u64 = 12 * 60 * 60;
+const AUTH_SESSION_INACTIVITY_TTL_SECONDS: u64 = 30 * 24 * 60 * 60;
 
 #[derive(Debug, Serialize, Clone)]
-/// Public authenticated identity paired with an opaque, process-local token.
+/// Public authenticated identity paired with an opaque persistent token.
 pub struct AuthSession {
     /// Current public user data.
     pub user: User,
     /// Cryptographically random token used to validate the frontend session.
     pub token: String,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct SessionRecord {
-    user_id: i32,
-    expires_at: u64,
-}
-
-static AUTH_SESSIONS: OnceLock<Mutex<HashMap<String, SessionRecord>>> = OnceLock::new();
-
-fn auth_sessions() -> &'static Mutex<HashMap<String, SessionRecord>> {
-    AUTH_SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 fn unix_timestamp() -> Result<u64, String> {
@@ -53,29 +40,120 @@ fn unix_timestamp() -> Result<u64, String> {
         .map_err(|e| format!("System clock error: {}", e))
 }
 
-fn issue_auth_session(user: User) -> Result<AuthSession, String> {
+fn hash_auth_token(token: &str) -> String {
+    URL_SAFE_NO_PAD.encode(Sha256::digest(token.as_bytes()))
+}
+
+fn session_expiration(now: u64) -> Result<u64, String> {
+    now.checked_add(AUTH_SESSION_INACTIVITY_TTL_SECONDS)
+        .ok_or_else(|| "Session expiration overflow".to_string())
+}
+
+fn issue_auth_session_with_conn(
+    conn: &Connection,
+    user: User,
+    now: u64,
+) -> Result<AuthSession, String> {
     let user_id = user
         .id
         .ok_or_else(|| "Authenticated user has no ID".to_string())?;
     let mut token_bytes = [0u8; 32];
     OsRng.fill_bytes(&mut token_bytes);
     let token = URL_SAFE_NO_PAD.encode(token_bytes);
-    let expires_at = unix_timestamp()?
-        .checked_add(AUTH_SESSION_TTL_SECONDS)
-        .ok_or_else(|| "Session expiration overflow".to_string())?;
+    let token_hash = hash_auth_token(&token);
+    let expires_at = session_expiration(now)?;
 
-    auth_sessions()
-        .lock()
-        .map_err(|_| "Authentication session store is unavailable".to_string())?
-        .insert(
-            token.clone(),
-            SessionRecord {
-                user_id,
-                expires_at,
-            },
-        );
+    conn.execute(
+        "DELETE FROM auth_sessions WHERE expires_at <= ?1",
+        params![now],
+    )
+    .map_err(|error| format!("Failed to clean expired authentication sessions: {}", error))?;
+    conn.execute(
+        "INSERT INTO auth_sessions (token_hash, user_id, expires_at, created_at, last_used_at)
+         VALUES (?1, ?2, ?3, ?4, ?4)",
+        params![token_hash, user_id, expires_at, now],
+    )
+    .map_err(|error| format!("Failed to persist authentication session: {}", error))?;
 
     Ok(AuthSession { user, token })
+}
+
+fn issue_auth_session(user: User) -> Result<AuthSession, String> {
+    let conn = get_connection_safe()
+        .map_err(|error| format!("Failed to connect to database: {}", error))?;
+    issue_auth_session_with_conn(&conn, user, unix_timestamp()?)
+}
+
+fn validate_auth_session_with_conn(
+    conn: &Connection,
+    token: &str,
+    now: u64,
+) -> Result<Option<i32>, String> {
+    if token.len() < 32 {
+        return Ok(None);
+    }
+
+    let token_hash = hash_auth_token(token);
+    conn.execute(
+        "DELETE FROM auth_sessions WHERE expires_at <= ?1",
+        params![now],
+    )
+    .map_err(|error| format!("Failed to clean expired authentication sessions: {}", error))?;
+
+    let user_id = conn
+        .query_row(
+            "SELECT session.user_id
+             FROM auth_sessions session
+             JOIN users user ON user.id = session.user_id
+             WHERE session.token_hash = ?1
+               AND session.expires_at > ?2
+               AND user.is_active = 1",
+            params![token_hash, now],
+            |row| row.get::<_, i32>(0),
+        )
+        .optional()
+        .map_err(|error| format!("Failed to validate authentication session: {}", error))?;
+
+    let Some(user_id) = user_id else {
+        conn.execute(
+            "DELETE FROM auth_sessions WHERE token_hash = ?1",
+            params![token_hash],
+        )
+        .map_err(|error| format!("Failed to revoke invalid authentication session: {}", error))?;
+        return Ok(None);
+    };
+
+    conn.execute(
+        "UPDATE auth_sessions
+         SET expires_at = ?1, last_used_at = ?2
+         WHERE token_hash = ?3",
+        params![session_expiration(now)?, now, token_hash],
+    )
+    .map_err(|error| format!("Failed to refresh authentication session: {}", error))?;
+
+    Ok(Some(user_id))
+}
+
+fn revoke_auth_session_with_conn(conn: &Connection, token: &str) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM auth_sessions WHERE token_hash = ?1",
+        params![hash_auth_token(token)],
+    )
+    .map_err(|error| format!("Failed to revoke authentication session: {}", error))?;
+    Ok(())
+}
+
+fn revoke_other_auth_sessions_with_conn(
+    conn: &Connection,
+    user_id: i32,
+    current_token: &str,
+) -> Result<(), String> {
+    conn.execute(
+        "DELETE FROM auth_sessions WHERE user_id = ?1 AND token_hash != ?2",
+        params![user_id, hash_auth_token(current_token)],
+    )
+    .map_err(|error| format!("Failed to revoke other authentication sessions: {}", error))?;
+    Ok(())
 }
 
 /// Public user data returned to the frontend via Tauri commands.
@@ -693,12 +771,17 @@ pub fn update_user(
 /// - Validates `new_password` strength (see `validate_password_strength`)
 /// - Rejects new_password equal to old_password
 /// - Clears `must_change_password` flag on success
-pub fn change_password(user_id: i32, old_password: &str, new_password: &str) -> Result<(), String> {
+pub fn change_password(
+    user_id: i32,
+    old_password: &str,
+    new_password: &str,
+    current_session_token: &str,
+) -> Result<(), String> {
     if old_password == new_password {
         return Err("New password must be different from the current password".to_string());
     }
 
-    let conn =
+    let mut conn =
         get_connection_safe().map_err(|e| format!("Failed to connect to database: {}", e))?;
     let credentials: Option<(String, String)> = conn
         .query_row(
@@ -722,11 +805,18 @@ pub fn change_password(user_id: i32, old_password: &str, new_password: &str) -> 
     let new_hash = bcrypt::hash(new_password, bcrypt::DEFAULT_COST)
         .map_err(|e| format!("Failed to hash password: {}", e))?;
 
-    conn.execute(
+    let transaction = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start password change: {}", e))?;
+    transaction.execute(
         "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         params![new_hash, user_id],
     )
     .map_err(|e| format!("Failed to update password: {}", e))?;
+    revoke_other_auth_sessions_with_conn(&transaction, user_id, current_session_token)?;
+    transaction
+        .commit()
+        .map_err(|e| format!("Failed to commit password change: {}", e))?;
 
     Ok(())
 }
@@ -814,24 +904,14 @@ pub fn authenticate_user_session(
 
 /// Validate a backend-issued token and refresh the user from SQLite.
 pub fn validate_auth_session(token: &str) -> Result<Option<User>, String> {
-    if token.len() < 32 {
-        return Ok(None);
-    }
-
-    let now = unix_timestamp()?;
-    let record = {
-        let mut sessions = auth_sessions()
-            .lock()
-            .map_err(|_| "Authentication session store is unavailable".to_string())?;
-        sessions.retain(|_, session| session.expires_at > now);
-        sessions.get(token).copied()
-    };
-
-    let Some(record) = record else {
+    let conn = get_connection_safe()
+        .map_err(|error| format!("Failed to connect to database: {}", error))?;
+    let Some(user_id) = validate_auth_session_with_conn(&conn, token, unix_timestamp()?)? else {
         return Ok(None);
     };
+    drop(conn);
 
-    let user = get_user_by_id(record.user_id)?;
+    let user = get_user_by_id(user_id)?;
     if user.as_ref().is_some_and(|value| value.is_active) {
         Ok(user)
     } else {
@@ -860,11 +940,9 @@ pub fn require_role(token: &str, allowed_roles: &[&str]) -> Result<User, String>
 
 /// Revoke a backend-issued authentication token.
 pub fn revoke_auth_session(token: &str) -> Result<(), String> {
-    auth_sessions()
-        .lock()
-        .map_err(|_| "Authentication session store is unavailable".to_string())?
-        .remove(token);
-    Ok(())
+    let conn = get_connection_safe()
+        .map_err(|error| format!("Failed to connect to database: {}", error))?;
+    revoke_auth_session_with_conn(&conn, token)
 }
 
 /// A high-ranking naval officer displayed on the cover page.
@@ -1094,9 +1172,31 @@ mod tests {
         assert!(serialized.get("password_hash").is_none());
     }
 
-    #[test]
-    fn issued_session_uses_opaque_token_and_can_be_revoked() {
-        let user = User {
+    fn create_session_test_database() -> Connection {
+        let conn = Connection::open_in_memory().expect("session test database should open");
+        conn.execute_batch(
+            "PRAGMA foreign_keys = ON;
+             CREATE TABLE users (
+                id INTEGER PRIMARY KEY,
+                username TEXT NOT NULL,
+                is_active BOOLEAN NOT NULL
+             );
+             CREATE TABLE auth_sessions (
+                token_hash TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL,
+                created_at INTEGER NOT NULL,
+                last_used_at INTEGER NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+             );
+             INSERT INTO users (id, username, is_active) VALUES (42, 'session-user', 1);",
+        )
+        .expect("session test schema should initialize");
+        conn
+    }
+
+    fn session_test_user() -> User {
+        User {
             id: Some(42),
             username: "session-user".to_string(),
             email: "session@example.test".to_string(),
@@ -1111,9 +1211,16 @@ mod tests {
             created_at: None,
             updated_at: None,
             must_change_password: false,
-        };
+        }
+    }
 
-        let session = issue_auth_session(user).expect("session should be issued");
+    #[test]
+    fn persistent_session_stores_only_token_hash_and_survives_restart_boundary() {
+        let conn = create_session_test_database();
+        let now = 1_700_000_000;
+        let session = issue_auth_session_with_conn(&conn, session_test_user(), now)
+            .expect("session should be issued");
+
         assert_eq!(session.token.len(), 43);
         assert!(session
             .token
@@ -1121,15 +1228,95 @@ mod tests {
             .all(|character| character.is_ascii_alphanumeric()
                 || character == '-'
                 || character == '_'));
-        assert!(auth_sessions()
-            .lock()
-            .expect("session store should lock")
-            .contains_key(&session.token));
 
-        revoke_auth_session(&session.token).expect("session should be revoked");
-        assert!(!auth_sessions()
-            .lock()
-            .expect("session store should lock")
-            .contains_key(&session.token));
+        let stored_hash: String = conn
+            .query_row("SELECT token_hash FROM auth_sessions", [], |row| row.get(0))
+            .expect("stored token hash should exist");
+        assert_eq!(stored_hash, hash_auth_token(&session.token));
+        assert_ne!(stored_hash, session.token);
+
+        let restored_user_id = validate_auth_session_with_conn(&conn, &session.token, now + 60)
+            .expect("persisted session should validate");
+        assert_eq!(restored_user_id, Some(42));
+
+        let refreshed_expiration: u64 = conn
+            .query_row("SELECT expires_at FROM auth_sessions", [], |row| row.get(0))
+            .expect("refreshed expiration should exist");
+        assert_eq!(
+            refreshed_expiration,
+            now + 60 + AUTH_SESSION_INACTIVITY_TTL_SECONDS
+        );
+
+        revoke_auth_session_with_conn(&conn, &session.token).expect("session should be revoked");
+        assert_eq!(
+            validate_auth_session_with_conn(&conn, &session.token, now + 120)
+                .expect("revoked token validation should succeed"),
+            None
+        );
+    }
+
+    #[test]
+    fn persistent_session_expires_after_inactivity_window() {
+        let conn = create_session_test_database();
+        let now = 1_700_000_000;
+        let session = issue_auth_session_with_conn(&conn, session_test_user(), now)
+            .expect("session should be issued");
+
+        let result = validate_auth_session_with_conn(
+            &conn,
+            &session.token,
+            now + AUTH_SESSION_INACTIVITY_TTL_SECONDS + 1,
+        )
+        .expect("expired token validation should succeed");
+
+        assert_eq!(result, None);
+        let stored_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM auth_sessions", [], |row| row.get(0))
+            .expect("session count should be readable");
+        assert_eq!(stored_count, 0);
+    }
+
+    #[test]
+    fn persistent_session_rejects_inactive_users() {
+        let conn = create_session_test_database();
+        let now = 1_700_000_000;
+        let session = issue_auth_session_with_conn(&conn, session_test_user(), now)
+            .expect("session should be issued");
+        conn.execute("UPDATE users SET is_active = 0 WHERE id = 42", [])
+            .expect("user should be disabled");
+
+        assert_eq!(
+            validate_auth_session_with_conn(&conn, &session.token, now + 1)
+                .expect("inactive-user token validation should succeed"),
+            None
+        );
+        let stored_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM auth_sessions", [], |row| row.get(0))
+            .expect("session count should be readable");
+        assert_eq!(stored_count, 0);
+    }
+
+    #[test]
+    fn password_change_policy_keeps_current_session_and_revokes_others() {
+        let conn = create_session_test_database();
+        let now = 1_700_000_000;
+        let current = issue_auth_session_with_conn(&conn, session_test_user(), now)
+            .expect("current session should be issued");
+        let other = issue_auth_session_with_conn(&conn, session_test_user(), now)
+            .expect("other session should be issued");
+
+        revoke_other_auth_sessions_with_conn(&conn, 42, &current.token)
+            .expect("other sessions should be revoked");
+
+        assert_eq!(
+            validate_auth_session_with_conn(&conn, &current.token, now + 1)
+                .expect("current token validation should succeed"),
+            Some(42)
+        );
+        assert_eq!(
+            validate_auth_session_with_conn(&conn, &other.token, now + 1)
+                .expect("other token validation should succeed"),
+            None
+        );
     }
 }

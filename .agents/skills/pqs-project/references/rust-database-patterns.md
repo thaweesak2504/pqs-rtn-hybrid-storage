@@ -22,7 +22,7 @@ Schema creation currently combines versioned migrations with compatibility-orien
 
 Create public DTOs that contain only fields the UI needs. Password hashes, stored credential data, filesystem secrets, and internal diagnostics must never derive into a serialized response. Authentication should query private credential records and convert successful results into a public user DTO plus a backend-issued opaque session token.
 
-User-management commands must validate that token in Rust and enforce the required role or self-access there. Frontend route guards improve navigation but are not an authorization boundary. Sessions are process-local and expire after 12 hours, so a token left in browser storage after an application restart must fail closed and be cleared.
+User-management commands must validate that token in Rust and enforce the required role or self-access there. Frontend route guards improve navigation but are not an authorization boundary. Sessions persist as SHA-256 token hashes in SQLite and use a rolling 30-day inactivity window. The raw token stays in frontend storage, while every restore refreshes user status and role from SQLite. Logout, expiry, deletion, or deactivation must prevent further use.
 
 ## Files
 

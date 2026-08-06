@@ -215,8 +215,9 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 ### 7.3 Authentication & Backup Hardening
 
 - Public User DTO ที่ส่งผ่าน Tauri IPC ต้องไม่มี `password_hash` หรือข้อมูล credential ภายใน
-- การ Login ต้องได้รับ opaque session token ที่ backend สุ่มให้และมีอายุ 12 ชั่วโมง; `localStorage` เก็บได้เฉพาะ token ห้ามเก็บ role เพื่อใช้เป็นหลักฐานสิทธิ์
-- การ Restore session ต้องส่ง token ให้ backend ตรวจสอบ แล้วอ่าน user, active status และ role ล่าสุดจาก SQLite; token จะใช้ต่อไม่ได้หลังปิดและเปิดแอปใหม่
+- การ Login ต้องได้รับ opaque session token ที่ backend สุ่มให้ โดย SQLite เก็บเฉพาะ SHA-256 hash ของ token; `localStorage` เก็บ raw token ได้ แต่ห้ามใช้ role ที่เก็บฝั่ง frontend เป็นหลักฐานสิทธิ์
+- การ Restore session ต้องส่ง token ให้ backend ตรวจสอบ แล้วอ่าน user, active status และ role ล่าสุดจาก SQLite; session ใช้งานข้ามการปิดและเปิด Desktop ได้ และหมดอายุเมื่อไม่มีการใช้งานเกิน 30 วัน
+- เมื่อเปลี่ยนรหัสผ่าน ระบบต้องคง session ปัจจุบันไว้เพื่อใช้งานต่อ แต่เพิกถอน session อื่นของผู้ใช้เดียวกัน; Logout, session หมดอายุ, บัญชีถูกปิดใช้งานหรือถูกลบต้องทำให้ token ใช้งานต่อไม่ได้
 - Private routes ต้องตรวจ authentication และหน้า Dashboard Management ต้องจำกัดสิทธิ์ Admin โดยไม่กระทบ Role/View Simulation ภายในเอกสาร
 - คำสั่งจัดการผู้ใช้ผ่าน Tauri ต้องตรวจ session ที่ backend และตรวจ Admin/self ตามประเภทคำสั่ง ไม่พึ่ง route guard เพียงอย่างเดียว
 - Hybrid Backup ต้องสร้าง SQLite snapshot ที่สอดคล้องกับ WAL, บันทึก checksum ของฐานข้อมูล และปฏิเสธ ZIP entry ที่ออกนอก staging directory

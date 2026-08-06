@@ -19,6 +19,7 @@ Complete and refine the document UX/UI and validate PQS structure across Edit, Q
 - Hardened hybrid backup with SQLite snapshots, database checksums, bounded safe ZIP extraction, and SQLite restore APIs.
 - Reorganized agent Skills, documentation, scripts, and generated artifacts.
 - Preserved global reference files in `data/COMMON/references` before deleting a document-owned data folder.
+- Added hashed persistent authentication sessions with rolling 30-day inactivity expiry for offline desktop use.
 
 ## Engineering Follow-ups
 
