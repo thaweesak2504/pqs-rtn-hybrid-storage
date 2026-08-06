@@ -577,6 +577,142 @@ mod tests {
     }
 
     #[test]
+    fn test_delete_document_preserves_global_reference_file_in_common_storage() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        conn.execute_batch(
+            "CREATE TABLE DocumentReferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                category TEXT,
+                classification TEXT,
+                resource_type TEXT,
+                file_path TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+             );
+             CREATE TABLE SectionReferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                section_id INTEGER NOT NULL,
+                reference_id INTEGER NOT NULL,
+                display_order INTEGER NOT NULL,
+                FOREIGN KEY(section_id) REFERENCES Sections(id) ON DELETE CASCADE,
+                FOREIGN KEY(reference_id) REFERENCES DocumentReferences(id) ON DELETE RESTRICT
+             );
+             INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-REF-A', 'Doc A', '2272420', '22724', 'Test', '20', '1'),
+                    ('DOC-REF-B', 'Doc B', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label)
+             VALUES (9101, 'DOC-REF-A', 100, 101, 'A', 'A'),
+                    (9102, 'DOC-REF-B', 100, 101, 'B', 'B');
+             INSERT INTO DocumentReferences (id, code, title, category, classification, resource_type, file_path)
+             VALUES (1, 'REF-001', 'Shared reference', 'MANUAL', 'Unclassified', 'DOCUMENT',
+                     'data/DOC-REF-A/references/MANUAL/REF-001_shared.pdf');
+             INSERT INTO SectionReferences (section_id, reference_id, display_order)
+             VALUES (9101, 1, 1), (9102, 1, 1);",
+        )
+        .expect("Failed to seed shared reference test data");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let old_file = temp_dir
+            .path()
+            .join("DOC-REF-A")
+            .join("references")
+            .join("MANUAL")
+            .join("REF-001_shared.pdf");
+        fs::create_dir_all(old_file.parent().expect("Reference parent should exist"))
+            .expect("Failed to create reference directory");
+        fs::write(&old_file, b"shared-reference-content")
+            .expect("Failed to write shared reference");
+        fs::write(
+            temp_dir.path().join("DOC-REF-A").join("obsolete.tmp"),
+            b"delete-with-document",
+        )
+        .expect("Failed to write document-owned file");
+
+        delete_document_with_conn_and_data_dir(&mut conn, "DOC-REF-A", temp_dir.path())
+            .expect("Document deletion should preserve its global reference file");
+
+        let document_a_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Documents WHERE id = 'DOC-REF-A'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count deleted document");
+        let document_b_link_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM SectionReferences WHERE section_id = 9102 AND reference_id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count surviving reference link");
+        let new_relative_path: String = conn
+            .query_row(
+                "SELECT file_path FROM DocumentReferences WHERE id = 1",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to read transferred reference path");
+        let new_file = temp_dir.path().join(
+            new_relative_path
+                .strip_prefix("data/")
+                .expect("Managed path expected"),
+        );
+
+        assert_eq!(document_a_count, 0);
+        assert_eq!(document_b_link_count, 1);
+        assert!(new_relative_path.starts_with("data/COMMON/references/MANUAL/"));
+        assert_eq!(
+            fs::read(new_file).expect("Preserved reference should remain readable"),
+            b"shared-reference-content"
+        );
+        assert!(!temp_dir.path().join("DOC-REF-A").exists());
+    }
+
+    #[test]
+    fn test_delete_document_stops_when_managed_reference_cannot_be_preserved() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        conn.execute_batch(
+            "CREATE TABLE DocumentReferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                file_path TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+             );
+             INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-MISSING', 'Doc', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO DocumentReferences (code, title, file_path)
+             VALUES ('REF-MISSING', 'Missing reference',
+                     'data/DOC-MISSING/references/MANUAL/missing.pdf');",
+        )
+        .expect("Failed to seed missing reference test data");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let result =
+            delete_document_with_conn_and_data_dir(&mut conn, "DOC-MISSING", temp_dir.path());
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("managed reference file is missing"));
+        let document_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Documents WHERE id = 'DOC-MISSING'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count protected document");
+        assert_eq!(
+            document_count, 1,
+            "Document must remain after preservation failure"
+        );
+    }
+
+    #[test]
     fn test_migrate_answer_keys_inserts_placeholder_for_require_answer_key_metadata() {
         let conn = create_test_db();
         init_content_schema(&conn).expect("Failed to init schema");

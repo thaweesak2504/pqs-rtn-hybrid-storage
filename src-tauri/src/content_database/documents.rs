@@ -1,6 +1,10 @@
 use super::*;
 use crate::logger;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 /// Generate new Document ID
 pub(crate) fn generate_document_id_with_conn(
@@ -236,26 +240,242 @@ pub fn search_documents(
     Ok(docs)
 }
 const PROTECTED_DOCUMENT_IDS: &[&str] = &["22724201001"];
-/// Delete a document by ID.
-///
-/// This performs a full cleanup:
-/// 1. Deletes the document row from `Documents` (CASCADE handles child tables:
-///    Sections, Questions, QuestionChoices, QuestionReferences, SectionReferences,
-///    QuestionSectionLinks, UserAnswers, UserProgress).
-/// 2. Removes the document's data folder on disk (`data/{doc_id}/`) which may
-///    contain `question-images/`, `references/`, and `trainee-attachments/`.
-pub fn delete_document(id: String) -> Result<String, String> {
-    // Guard: built-in example documents are protected from deletion.
-    if PROTECTED_DOCUMENT_IDS.contains(&id.as_str()) {
+
+#[derive(Debug)]
+struct PreservedReferenceFile {
+    old_relative_path: String,
+    new_relative_path: String,
+    copied_path: PathBuf,
+}
+
+fn validate_document_path_segment(id: &str) -> Result<(), String> {
+    if id.is_empty() || id == "." || id == ".." || id.contains(['/', '\\']) {
+        return Err(format!(
+            "Invalid document ID for filesystem cleanup: {}",
+            id
+        ));
+    }
+    Ok(())
+}
+
+fn managed_reference_tail(relative_path: &str, document_id: &str) -> Option<String> {
+    let normalized = relative_path.replace('\\', "/");
+    let prefix = format!("data/{}/references/", document_id);
+    let tail = normalized.strip_prefix(&prefix)?;
+
+    if tail.is_empty()
+        || tail
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == ".." || part.contains(':'))
+    {
+        return None;
+    }
+
+    Some(tail.to_string())
+}
+
+fn absolute_managed_path(data_dir: &Path, relative_path: &str) -> Result<PathBuf, String> {
+    let normalized = relative_path.replace('\\', "/");
+    let suffix = normalized.strip_prefix("data/").ok_or_else(|| {
+        format!(
+            "Reference path is not managed by the application: {}",
+            relative_path
+        )
+    })?;
+
+    let mut absolute = data_dir.to_path_buf();
+    for part in suffix.split('/') {
+        if part.is_empty() || part == "." || part == ".." || part.contains(':') {
+            return Err(format!("Unsafe managed reference path: {}", relative_path));
+        }
+        absolute.push(part);
+    }
+
+    Ok(absolute)
+}
+
+fn common_reference_destination(
+    data_dir: &Path,
+    tail: &str,
+    occupied_paths: &mut HashSet<String>,
+) -> Result<(String, PathBuf), String> {
+    let tail_path = Path::new(tail);
+    let file_stem = tail_path
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| format!("Invalid reference file name: {}", tail))?;
+    let extension = tail_path.extension().and_then(|value| value.to_str());
+    let parent = tail_path.parent().and_then(|value| value.to_str());
+
+    for collision_index in 0..=10_000 {
+        let file_name = if collision_index == 0 {
+            tail_path
+                .file_name()
+                .and_then(|value| value.to_str())
+                .ok_or_else(|| format!("Invalid reference file name: {}", tail))?
+                .to_string()
+        } else if let Some(extension) = extension {
+            format!("{}_{}.{}", file_stem, collision_index, extension)
+        } else {
+            format!("{}_{}", file_stem, collision_index)
+        };
+
+        let destination_tail = match parent {
+            Some(parent) if !parent.is_empty() => {
+                format!("{}/{}", parent.replace('\\', "/"), file_name)
+            }
+            _ => file_name,
+        };
+        let relative_path = format!("data/COMMON/references/{}", destination_tail);
+        let absolute_path = absolute_managed_path(data_dir, &relative_path)?;
+
+        if !occupied_paths.contains(&relative_path) && !absolute_path.exists() {
+            occupied_paths.insert(relative_path.clone());
+            return Ok((relative_path, absolute_path));
+        }
+    }
+
+    Err(format!(
+        "Unable to allocate a safe COMMON path for reference file: {}",
+        tail
+    ))
+}
+
+fn cleanup_preserved_copies(files: &[PreservedReferenceFile]) {
+    for file in files {
+        if let Err(error) = std::fs::remove_file(&file.copied_path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                logger::warn(format!(
+                    "Failed to clean up copied reference file {}: {}",
+                    file.copied_path.display(),
+                    error
+                ));
+            }
+        }
+    }
+}
+
+fn preserve_document_reference_files(
+    conn: &Connection,
+    document_id: &str,
+    data_dir: &Path,
+) -> Result<Vec<PreservedReferenceFile>, String> {
+    let all_paths = {
+        let mut statement = conn
+            .prepare(
+                "SELECT DISTINCT file_path FROM DocumentReferences WHERE file_path IS NOT NULL",
+            )
+            .map_err(|error| format!("Failed to inspect reference file ownership: {}", error))?;
+
+        let paths = statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|error| format!("Failed to read reference file ownership: {}", error))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| format!("Failed to collect reference file ownership: {}", error))?;
+        paths
+    };
+
+    let mut occupied_paths: HashSet<String> = all_paths
+        .iter()
+        .map(|path| path.replace('\\', "/"))
+        .collect();
+    let mut copied_files = Vec::new();
+
+    for old_relative_path in all_paths {
+        let Some(tail) = managed_reference_tail(&old_relative_path, document_id) else {
+            continue;
+        };
+        let source_path = match absolute_managed_path(data_dir, &old_relative_path) {
+            Ok(path) => path,
+            Err(error) => {
+                cleanup_preserved_copies(&copied_files);
+                return Err(error);
+            }
+        };
+
+        if !source_path.is_file() {
+            cleanup_preserved_copies(&copied_files);
+            return Err(format!(
+                "Cannot delete document {} because managed reference file is missing: {}",
+                document_id, old_relative_path
+            ));
+        }
+
+        let (new_relative_path, copied_path) =
+            match common_reference_destination(data_dir, &tail, &mut occupied_paths) {
+                Ok(destination) => destination,
+                Err(error) => {
+                    cleanup_preserved_copies(&copied_files);
+                    return Err(error);
+                }
+            };
+        if let Some(parent) = copied_path.parent() {
+            if let Err(error) = std::fs::create_dir_all(parent) {
+                cleanup_preserved_copies(&copied_files);
+                return Err(format!(
+                    "Failed to create COMMON reference directory {}: {}",
+                    parent.display(),
+                    error
+                ));
+            }
+        }
+
+        let expected_size = match source_path.metadata() {
+            Ok(metadata) => metadata.len(),
+            Err(error) => {
+                cleanup_preserved_copies(&copied_files);
+                return Err(format!(
+                    "Failed to inspect reference file {}: {}",
+                    source_path.display(),
+                    error
+                ));
+            }
+        };
+        let copied_size = match std::fs::copy(&source_path, &copied_path) {
+            Ok(size) => size,
+            Err(error) => {
+                let _ = std::fs::remove_file(&copied_path);
+                cleanup_preserved_copies(&copied_files);
+                return Err(format!(
+                    "Failed to preserve reference file {}: {}",
+                    source_path.display(),
+                    error
+                ));
+            }
+        };
+
+        if copied_size != expected_size {
+            let _ = std::fs::remove_file(&copied_path);
+            cleanup_preserved_copies(&copied_files);
+            return Err(format!(
+                "Reference copy size mismatch for {}",
+                source_path.display()
+            ));
+        }
+
+        copied_files.push(PreservedReferenceFile {
+            old_relative_path,
+            new_relative_path,
+            copied_path,
+        });
+    }
+
+    Ok(copied_files)
+}
+
+pub(crate) fn delete_document_with_conn_and_data_dir(
+    conn: &mut Connection,
+    id: &str,
+    data_dir: &Path,
+) -> Result<String, String> {
+    if PROTECTED_DOCUMENT_IDS.contains(&id) {
         return Err(format!(
             "เอกสาร {} เป็นเอกสารตัวอย่างที่ติดมากับแอปพลิเคชัน ไม่อนุญาตให้ลบ",
             id
         ));
     }
+    validate_document_path_segment(id)?;
 
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-
-    // Check if document exists first
     let exists: bool = conn
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
@@ -268,31 +488,71 @@ pub fn delete_document(id: String) -> Result<String, String> {
         return Err(format!("Document with ID {} not found", id));
     }
 
-    // Perform database delete (CASCADE handles all child tables)
-    conn.execute("DELETE FROM Documents WHERE id = ?1", params![id])
-        .map_err(|e| format!("Failed to delete document: {}", e))?;
+    let preserved_files = preserve_document_reference_files(conn, id, data_dir)?;
+    let database_result = (|| -> Result<(), String> {
+        let transaction = conn
+            .transaction()
+            .map_err(|error| format!("Failed to start document deletion: {}", error))?;
 
-    // Cleanup filesystem: remove the document's data folder
-    // Contains: question-images/, references/, trainee-attachments/
-    if let Ok(data_dir) = get_portable_data_dir() {
-        let doc_folder = data_dir.join(&id);
-        if doc_folder.exists() && doc_folder.is_dir() {
-            if let Err(e) = std::fs::remove_dir_all(&doc_folder) {
-                // Log but don't fail — DB delete already succeeded
-                logger::warn(format!(
-                    "Document {} deleted from DB, but failed to remove data folder {:?}: {}",
-                    id, doc_folder, e
-                ));
-            } else {
-                logger::info(format!(
-                    "Document {} data folder cleaned up: {:?}",
-                    id, doc_folder
-                ));
-            }
+        for file in &preserved_files {
+            transaction
+                .execute(
+                    "UPDATE DocumentReferences SET file_path = ?1, updated_at = CURRENT_TIMESTAMP WHERE file_path = ?2",
+                    params![file.new_relative_path, file.old_relative_path],
+                )
+                .map_err(|error| format!("Failed to transfer reference file ownership: {}", error))?;
+        }
+
+        transaction
+            .execute("DELETE FROM Documents WHERE id = ?1", params![id])
+            .map_err(|error| format!("Failed to delete document: {}", error))?;
+        transaction
+            .commit()
+            .map_err(|error| format!("Failed to commit document deletion: {}", error))?;
+        Ok(())
+    })();
+
+    if let Err(error) = database_result {
+        cleanup_preserved_copies(&preserved_files);
+        return Err(error);
+    }
+
+    let doc_folder = data_dir.join(id);
+    if doc_folder.exists() && doc_folder.is_dir() {
+        if let Err(error) = std::fs::remove_dir_all(&doc_folder) {
+            logger::warn(format!(
+                "Document {} deleted from DB, but failed to remove data folder {:?}: {}",
+                id, doc_folder, error
+            ));
+        } else {
+            logger::info(format!(
+                "Document {} data folder cleaned up after preserving {} reference file(s): {:?}",
+                id,
+                preserved_files.len(),
+                doc_folder
+            ));
         }
     }
 
     Ok(format!("Document {} deleted successfully", id))
+}
+
+/// Delete a document by ID.
+///
+/// This performs a full cleanup:
+/// 1. Copies global reference files owned by the document folder to
+///    `data/COMMON/references/` and updates their master paths.
+/// 2. Deletes the document row from `Documents` (CASCADE handles child tables:
+///    Sections, Questions, QuestionChoices, QuestionReferences, SectionReferences,
+///    QuestionSectionLinks, UserAnswers, UserProgress).
+/// 3. Removes the document's data folder on disk (`data/{doc_id}/`) which may
+///    contain `question-images/`, `references/`, and `trainee-attachments/`.
+pub fn delete_document(id: String) -> Result<String, String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let data_dir = get_portable_data_dir()
+        .map_err(|error| format!("Failed to resolve portable data directory: {}", error))?;
+
+    delete_document_with_conn_and_data_dir(&mut conn, &id, &data_dir)
 }
 /// Update an existing document
 pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {

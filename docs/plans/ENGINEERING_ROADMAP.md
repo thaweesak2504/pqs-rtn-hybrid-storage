@@ -18,12 +18,12 @@ Complete and refine the document UX/UI and validate PQS structure across Edit, Q
 - Added backend-issued opaque sessions, protected user-management commands, refreshed identity/role from SQLite, and added private/admin route guards.
 - Hardened hybrid backup with SQLite snapshots, database checksums, bounded safe ZIP extraction, and SQLite restore APIs.
 - Reorganized agent Skills, documentation, scripts, and generated artifacts.
+- Preserved global reference files in `data/COMMON/references` before deleting a document-owned data folder.
 
 ## Engineering Follow-ups
 
 ### High Priority
 
-- Add ownership guards/tests for global reference files stored under a document-specific folder before deleting that document.
 - Tighten the Tauri CSP and reduce broad asset filesystem scope without breaking managed media previews.
 - Inventory and authorize the remaining sensitive raw IPC commands before role simulation is mapped to real users; user-management commands are already protected at the backend.
 - Forward-test backup/restore with realistic databases and large media sets on packaged Windows builds.
@@ -36,6 +36,7 @@ Complete and refine the document UX/UI and validate PQS structure across Edit, Q
 - Move remaining best-effort schema changes into versioned migrations.
 - Refactor oversized files in behavior-preserving, test-backed slices.
 - Review bundle splitting; the main editor chunk remains large.
+- Upgrade the audited frontend dependency chain without `--force`; prioritize React Router/PostCSS runtime exposure and the Vite/Vitest development toolchain.
 
 ## Deliberately Deferred
 

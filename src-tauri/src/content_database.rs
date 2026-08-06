@@ -45,13 +45,15 @@ pub use branches::{
     CompletedBranchPair,
 };
 pub mod documents;
-#[cfg(test)]
-pub use documents::update_document_branch_with_conn;
 pub use documents::{
     check_branch_usage_global, check_career_branch_usage, check_sub_branch_usage_global,
     create_document, delete_document, generate_document_id, get_document_branch,
     get_document_stats, get_owner_units, reset_and_update_career_branch, search_documents,
     seed_content_database_from_file, update_document, update_document_branch,
+};
+#[cfg(test)]
+pub(crate) use documents::{
+    delete_document_with_conn_and_data_dir, update_document_branch_with_conn,
 };
 pub mod questions;
 pub use questions::{
