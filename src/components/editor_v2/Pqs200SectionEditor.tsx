@@ -294,7 +294,7 @@ const Pqs200SectionEditor: React.FC<Pqs200SectionEditorProps> = ({
           onAdd={handleAddRef}
           onEdit={handleEditRef}
           onDelete={handleDeleteRef}
-          readOnly={readOnly}
+          readOnly={viewMode !== 'edit'}
           compact={isCompact}
           sectionId={sectionId}
           onRefresh={() => {
