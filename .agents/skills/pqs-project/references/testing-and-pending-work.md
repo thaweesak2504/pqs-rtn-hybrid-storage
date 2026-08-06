@@ -29,8 +29,8 @@ Expected non-failing test noise currently includes intentional logger errors, js
 ### Engineering Follow-ups
 
 - Continue migrating direct frontend `invoke` calls into typed service boundaries.
-- Expand frontend CI to run TypeScript, ESLint, and production build.
 - Expand coverage beyond the selected-file threshold and add end-to-end coverage for critical document workflows.
+- Upgrade the frontend toolchain without `--force`: resolve the audited Vite/Vitest dependency chain and retest desktop startup, build, and coverage behavior.
 - Reduce oversized editor/database modules only through behavior-preserving, test-backed slices.
 - Complete versioned migration ownership for legacy best-effort schema changes.
 
