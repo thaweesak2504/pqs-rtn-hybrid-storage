@@ -35,7 +35,6 @@ Thumbs.db
 
 # Tauri specific
 src-tauri/target/
-src-tauri/Cargo.lock
 
 # Logs
 *.log
@@ -101,6 +100,11 @@ jspm_packages/
 # Temporary folders
 tmp/
 temp/
+scratch/
+
+# Generated diagnostic reports
+eslint_report.json
+src-tauri/check_output.json
 
 # Database files
 *.db

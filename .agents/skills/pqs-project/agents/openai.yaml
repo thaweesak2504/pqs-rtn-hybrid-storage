@@ -1,0 +1,4 @@
+interface:
+  display_name: "PQS RTN Project"
+  short_description: "Build and maintain the PQS RTN desktop application"
+  default_prompt: "Use $pqs-project to inspect and update this PQS RTN project safely."

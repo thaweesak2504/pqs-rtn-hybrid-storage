@@ -1,6 +1,6 @@
 > # ✅ ARCHIVED — Completed 2026-04-21
 >
-> **Status:** Fully implemented. Both `database.db` and `content.db` have been consolidated into a single `content.db`. See `PROJECT_REVIEW_PLAN.md` Phase 6 for follow-up cleanup tasks (all completed in branch `project-review-actions`).
+> **Status:** Fully implemented. Both `database.db` and `content.db` have been consolidated into a single `content.db`. See `PROJECT_REVIEW_PLAN.md` in this archive for the original Phase 6 tracker.
 >
 > Kept for historical reference.
 
