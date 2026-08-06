@@ -55,10 +55,10 @@ Requirements: Node.js 20 or later, npm, the stable Rust toolchain, and Windows b
 
 ```powershell
 npm ci
-npm run tauri:dev
+npm start
 ```
 
-Run commands from the repository root. See [How to run the project](docs/guides/HOW_TO_RUN_PROJECT.md) for build and troubleshooting commands.
+After the first install, normal development only needs `npm start`. Run commands from the repository root. See [How to run the project](docs/guides/HOW_TO_RUN_PROJECT.md) for build and troubleshooting commands.
 
 ## Verification
 

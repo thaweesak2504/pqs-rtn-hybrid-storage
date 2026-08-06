@@ -20,11 +20,13 @@ npm ci
 
 ```powershell
 # Full desktop application
-npm run tauri:dev
+npm start
 
 # Frontend-only Vite server on port 1420
 npm run dev
 ```
+
+`npm start` remains the normal project command and runs `tauri dev`. The aliases `npm run tauri:dev`, `npm run tauri`, `npm run app`, and `npm run desktop` are retained for compatibility, but are not required for everyday use.
 
 If port 1420 is occupied by a previous project process:
 
