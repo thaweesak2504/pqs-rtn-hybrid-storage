@@ -14,6 +14,20 @@ SQLite content.db + managed filesystem data
 
 Rust owns persistence, filesystem access, validation, and structural policy. React owns interaction and rendering. SQLite is the persistent authority; component state is temporary.
 
+## Canonical Product Artifacts And Terminology
+
+Do not collapse these three artifacts into one meaning of "Template":
+
+1. **Application Template/Skeleton** is the empty guided authoring format used when creating a new PQS document. It may seed required Sections, fixed headings, structural slots, and navigation, but it contains no authored Questions, Answer Keys, Trainee Answers, assessments, progress, or trainee attachments.
+2. **Sample/Source Document** is the completed permanent example `22724201001`. It contains realistic Questions, Answer Keys, References, and Section structure, stays with the project, and is the source document used to develop and demonstrate the workflows.
+3. **Trainee Test Copy** is an isolated issued snapshot/copy for one Trainee. Development IDs currently use `<source-id>-SIM-<sequence>`. It owns its answers, assessment events, progress, and trainee attachments independently from the source document and every other copy.
+
+The current `TEMPLATE` badge on an authored source document is a test-stage UI label and must not redefine the empty Application Template/Skeleton. Before product release, document lifecycle terminology should distinguish Draft/Published Source Document, Sample Document, and Trainee Test Copy.
+
+During development, the application intentionally exposes Creator, Trainee, and Qualifier views around the permanent sample document so the developer can validate all three workflows. Those views are capabilities of the Developer/Simulation workspace; they are not three kinds of data embedded in the Skeleton.
+
+The clean release seed must retain system/master configuration, the empty Skeleton rules, and the permanent sample document. It must not ship development SIM instances, mock `T-001`/`Q-001` work, answers, assessments, progress, trainee attachments, sessions, or other test residue. Creating real documents after installation naturally adds local content; "one sample document" describes the clean initial seed, not a permanent one-document database limit.
+
 ## Frontend Entry And Routes
 
 - `src/main.tsx`: React entry.
@@ -60,3 +74,5 @@ Document deletion removes relational children through foreign-key cascades and t
 ## Backup
 
 Hybrid backups include a consistent SQLite snapshot, `media/`, `data/`, and a manifest. Import must reject unsafe ZIP paths, validate the manifest/checksum, stage extraction, and avoid replacing live files until validation succeeds.
+
+Full-system Hybrid Backup/Restore is an administrator disaster-recovery operation and replaces the local system state. It is not the future Trainee portability workflow. A Trainee Portable Package must export/import only one issued test copy and its authorized work into an existing installation without replacing the destination `content.db` or unrelated documents.
