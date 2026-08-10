@@ -18,9 +18,14 @@ interface FormInputProps {
   // Password Toggle
   showPassword?: boolean
   onTogglePassword?: () => void
+  autoComplete?: string
+  autoFocus?: boolean
+  autoCapitalize?: string
+  autoCorrect?: string
+  spellCheck?: boolean
 }
 
-export const FormInput: React.FC<FormInputProps> = ({
+export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(({
   type = 'text',
   name,
   value,
@@ -34,8 +39,13 @@ export const FormInput: React.FC<FormInputProps> = ({
   error,
   className = '',
   showPassword,
-  onTogglePassword
-}) => {
+  onTogglePassword,
+  autoComplete,
+  autoFocus = false,
+  autoCapitalize,
+  autoCorrect,
+  spellCheck,
+}, ref) => {
   const baseClasses = "w-full px-3 py-2 border border-gray-300 dark:border-github-border-primary rounded-lg bg-github-bg-secondary text-github-text-secondary placeholder-github-text-tertiary hover:border-blue-500 dark:hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:bg-github-bg-secondary transition-colors text-sm"
   const errorClasses = error ? 'border-github-accent-danger' : ''
   const iconClasses = Icon ? 'pl-9' : ''
@@ -56,9 +66,10 @@ export const FormInput: React.FC<FormInputProps> = ({
       )}
       <div className="relative">
         {Icon && (
-          <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-github-text-tertiary" />
+          <Icon aria-hidden="true" className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-github-text-tertiary" />
         )}
         <input
+          ref={ref}
           type={inputType}
           id={name}
           name={name}
@@ -68,6 +79,13 @@ export const FormInput: React.FC<FormInputProps> = ({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
+          autoComplete={autoComplete}
+          autoFocus={autoFocus}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          spellCheck={spellCheck}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${name}-error` : undefined}
           className={`${baseClasses} ${errorClasses} ${iconClasses} ${rightPadding} ${disabledClasses}`}
         />
         {hasPasswordToggle && (
@@ -76,17 +94,21 @@ export const FormInput: React.FC<FormInputProps> = ({
             onClick={onTogglePassword}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-github-text-tertiary hover:text-github-text-secondary transition-colors"
             disabled={disabled}
+            aria-label={showPassword ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+            aria-pressed={Boolean(showPassword)}
           >
             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
           </button>
         )}
       </div>
       {error && (
-        <p className="text-sm text-github-accent-danger">{error}</p>
+        <p id={`${name}-error`} className="text-sm text-github-accent-danger">{error}</p>
       )}
     </div>
   )
-}
+})
+
+FormInput.displayName = 'FormInput'
 
 // Form Textarea Component
 interface FormTextareaProps {

@@ -32,6 +32,13 @@ const renderGuard = (context: AuthContextType, allowedRoles?: Array<'admin' | 'e
 }
 
 describe('RouteGuard', () => {
+  it('shows a non-verbal waiting state while checking the session', () => {
+    renderGuard(buildContext({ isLoading: true }))
+    expect(screen.getByRole('status', { name: 'กำลังตรวจสอบสิทธิ์ผู้ใช้' })).toBeInTheDocument()
+    expect(screen.getByText('กำลังตรวจสอบสิทธิ์ผู้ใช้')).toHaveClass('sr-only')
+    expect(screen.queryByText('Sign in page')).not.toBeInTheDocument()
+  })
+
   it('redirects unauthenticated users to sign in', () => {
     renderGuard(buildContext())
     expect(screen.getByText('Sign in page')).toBeInTheDocument()

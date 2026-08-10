@@ -242,6 +242,20 @@
 .tiptap {
   outline: none;
 }
+
+/* Keep applied rich-text colors visible while text remains selected. */
+.tiptap::selection,
+.tiptap *::selection {
+  color: currentColor;
+  background-color: rgba(37, 99, 235, 0.38);
+  text-shadow: none;
+}
+
+.dark .tiptap::selection,
+.dark .tiptap *::selection {
+  background-color: rgba(59, 130, 246, 0.42);
+}
+
 .tiptap p {
   margin: 0.15rem 0;
 }
@@ -573,6 +587,31 @@
 
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  /* Keep very fast session restoration visually quiet. */
+  @keyframes session-loading-reveal {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .session-loading-motion {
+    animation: session-loading-reveal 0.18s ease-out 0.12s both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .session-loading-motion {
+      animation: none;
+    }
+
+    .session-loading-motion .animate-spin {
+      animation: none;
+    }
   }
 
   /* ─── Welcome Page: Animated Shimmer Border ──────────────────────── */

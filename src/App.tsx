@@ -34,6 +34,7 @@ import UnifiedLayout from './components/UnifiedLayout';
 import DebugRoute from './components/DebugRoute';
 import ForceChangePasswordModal from './components/ForceChangePasswordModal';
 import RouteGuard from './components/auth/RouteGuard';
+import GuestRoute from './components/auth/GuestRoute';
 
 // Tauri commands are handled by individual components
 
@@ -89,9 +90,11 @@ function App() {
                             <Route path="home" element={<Navigate to="/welcome" replace />} />
                             <Route path="history" element={<Navigate to="/welcome" replace />} />
                             <Route path="team" element={<Navigate to="/welcome" replace />} />
-                            <Route path="signin" element={<SignInPage />} />
-                            <Route path="registration" element={<RegistrationPage />} />
-                            <Route path="register" element={<RegistrationPage />} />
+                            <Route element={<GuestRoute />}>
+                              <Route path="signin" element={<SignInPage />} />
+                              <Route path="registration" element={<RegistrationPage />} />
+                              <Route path="register" element={<RegistrationPage />} />
+                            </Route>
                             <Route path="contact" element={<ContactPage />} />
 
                             <Route path="example" element={<PqsExamplePage />} />

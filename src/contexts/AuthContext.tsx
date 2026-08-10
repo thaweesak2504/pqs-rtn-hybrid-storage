@@ -26,7 +26,7 @@ export interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
   isLoading: boolean
-  signIn: (credentials: { username_or_email: string; password: string }) => Promise<{ success: boolean; user?: User }>
+  signIn: (credentials: { username_or_email: string; password: string }) => Promise<SignInResult>
   signOut: () => void
   checkAuthStatus: () => void
   updateAvatar: (avatar: string | null) => Promise<void> | void
@@ -38,6 +38,12 @@ export interface AuthContextType {
    */
   markPasswordChanged: () => void
 }
+
+export type SignInResult =
+  | { success: true; user: User }
+  | { success: false; reason: 'invalid_credentials' | 'system_error' }
+
+export const LAST_SIGNED_IN_IDENTIFIER_KEY = 'pqs_last_sign_in_identifier'
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -126,7 +132,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check if user is authenticated on app load
   useEffect(() => {
     if (hasChecked.current) {
-      setIsLoading(false)
+      // React Strict Mode replays effects in development. The first check is
+      // still in flight, so do not expose a transient signed-out state here.
       return
     }
     
@@ -134,9 +141,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuthStatus()
   }, [checkAuthStatus])
 
-  const signIn = async (credentials: { username_or_email: string; password: string }): Promise<{ success: boolean; user?: User }> => {
-    setIsLoading(true)
-    
+  const signIn = async (credentials: { username_or_email: string; password: string }): Promise<SignInResult> => {
     try {
       // Use Tauri authentication service
       const session = await tauriUserService.authenticateUser(credentials.username_or_email, credentials.password)
@@ -146,17 +151,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         localStorage.setItem('pqs_user', JSON.stringify(contextUser))
         localStorage.setItem('pqs_token', session.token)
+        localStorage.setItem(LAST_SIGNED_IN_IDENTIFIER_KEY, credentials.username_or_email.trim())
         setUser(contextUser)
         return { success: true, user: contextUser }
       }
       
-      return { success: false }
+      return { success: false, reason: 'invalid_credentials' }
       
     } catch (error) {
       logger.error('🔐 AuthContext: Sign in error:', error)
-      return { success: false }
-    } finally {
-      setIsLoading(false)
+      return { success: false, reason: 'system_error' }
     }
   }
 

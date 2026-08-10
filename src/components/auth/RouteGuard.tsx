@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import SessionLoadingState from './SessionLoadingState'
 
 type AppRole = 'admin' | 'editor' | 'visitor'
 
@@ -12,11 +13,7 @@ const RouteGuard = ({ allowedRoles }: RouteGuardProps) => {
   const location = useLocation()
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-github-text-secondary">
-        กำลังตรวจสอบสิทธิ์...
-      </div>
-    )
+    return <SessionLoadingState label="กำลังตรวจสอบสิทธิ์ผู้ใช้" />
   }
 
   if (!isAuthenticated || !user) {
