@@ -2,9 +2,433 @@ use super::*;
 use crate::logger;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
+
+#[derive(Debug)]
+struct SourceQuestion {
+    id: String,
+    section_id: i64,
+    parent_id: Option<String>,
+    sequence: i32,
+    content: String,
+    is_header: bool,
+    description: Option<String>,
+    answer_type: Option<String>,
+    metadata: Option<String>,
+    score: i32,
+    question_type: String,
+    group_score: i32,
+    display_text: Option<String>,
+    is_group_header: bool,
+    is_scored: bool,
+}
+
+#[derive(Debug)]
+struct SourceDocument {
+    name: String,
+    applied_to: Option<String>,
+    unit_owner_id: Option<String>,
+    unit_code: Option<String>,
+    doc_type: Option<String>,
+    user_level: Option<String>,
+    occupation_branch_main: Option<String>,
+    occupation_branch_sub: Option<String>,
+}
+
+/// Create an isolated document copy for the current Trainee/Qualifier simulation.
+/// The source template remains untouched; answers, progress, and trainee attachments
+/// are deliberately not copied.
+pub fn clone_document_for_simulation(
+    template_document_id: String,
+    trainee_id: String,
+) -> Result<SimulationDocumentInfo, String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    if trainee_id.trim().is_empty() {
+        return Err("Trainee ID is required".to_string());
+    }
+
+    let source: SourceDocument = conn
+        .query_row(
+            "SELECT name, applied_to, unit_owner_id, unit_code, doc_type, user_level, occupation_branch_main, occupation_branch_sub FROM Documents WHERE id = ?1",
+            params![template_document_id],
+            |row| Ok(SourceDocument {
+                name: row.get(0)?,
+                applied_to: row.get(1)?,
+                unit_owner_id: row.get(2)?,
+                unit_code: row.get(3)?,
+                doc_type: row.get(4)?,
+                user_level: row.get(5)?,
+                occupation_branch_main: row.get(6)?,
+                occupation_branch_sub: row.get(7)?,
+            }),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Template document not found".to_string())?;
+
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start simulation clone: {}", e))?;
+
+    tx.execute(
+        "INSERT OR IGNORE INTO TemplateSimulationCounters (template_document_id, next_sequence)
+         VALUES (?1, 1)",
+        params![template_document_id],
+    )
+    .map_err(|e| format!("Failed to initialize simulation counter: {}", e))?;
+    let mut simulation_sequence: i64 = tx
+        .query_row(
+            "SELECT next_sequence FROM TemplateSimulationCounters WHERE template_document_id = ?1",
+            params![template_document_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to read simulation counter: {}", e))?;
+    let simulation_document_id = loop {
+        let candidate = format!("{}-SIM-{:03}", template_document_id, simulation_sequence);
+        let already_exists: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
+                params![candidate],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to check simulation ID: {}", e))?;
+        if !already_exists {
+            break candidate;
+        }
+        simulation_sequence += 1;
+    };
+    tx.execute(
+        "UPDATE TemplateSimulationCounters SET next_sequence = ?1 WHERE template_document_id = ?2",
+        params![simulation_sequence + 1, template_document_id],
+    )
+    .map_err(|e| format!("Failed to advance simulation counter: {}", e))?;
+
+    tx.execute(
+        "INSERT INTO Documents (id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, sequence, status, occupation_branch_main, occupation_branch_sub, is_template)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'simulation', ?9, ?10, 0)",
+        params![simulation_document_id, format!("{} [Simulation: {}]", source.name, trainee_id.trim()), source.applied_to, source.unit_owner_id, source.unit_code, source.doc_type, source.user_level, Option::<i32>::None, source.occupation_branch_main, source.occupation_branch_sub],
+    ).map_err(|e| format!("Failed to create simulation document: {}", e))?;
+
+    let mut section_map = HashMap::new();
+    let mut section_stmt = tx.prepare("SELECT id, section_group, section_number, title_th, menu_label, display_order, is_system_defined, duration_value, duration_unit, total_score FROM Sections WHERE document_id = ?1 ORDER BY display_order, id").map_err(|e| e.to_string())?;
+    let source_sections = section_stmt
+        .query_map(params![template_document_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, i32>(1)?,
+                row.get::<_, i32>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i32>(5)?,
+                row.get::<_, bool>(6)?,
+                row.get::<_, Option<i32>>(7)?,
+                row.get::<_, Option<String>>(8)?,
+                row.get::<_, Option<i32>>(9)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?;
+    for section in source_sections {
+        let (old_id, group, number, title, label, order, system, duration, unit, total) =
+            section.map_err(|e| e.to_string())?;
+        tx.execute("INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined, duration_value, duration_unit, total_score, is_template) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 0)", params![simulation_document_id, group, number, title, label, order, system, duration, unit, total]).map_err(|e| e.to_string())?;
+        section_map.insert(old_id, tx.last_insert_rowid());
+    }
+    drop(section_stmt);
+
+    let mut question_stmt = tx.prepare("SELECT id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored FROM Questions WHERE document_id = ?1 ORDER BY section_id, sequence, id").map_err(|e| e.to_string())?;
+    let questions = question_stmt
+        .query_map(params![template_document_id], |row| {
+            Ok(SourceQuestion {
+                id: row.get(0)?,
+                section_id: row.get(1)?,
+                parent_id: row.get(2)?,
+                sequence: row.get(3)?,
+                content: row.get(4)?,
+                is_header: row.get(5)?,
+                description: row.get(6)?,
+                answer_type: row.get(7)?,
+                metadata: row.get(8)?,
+                score: row.get(9)?,
+                question_type: row.get(10)?,
+                group_score: row.get(11)?,
+                display_text: row.get(12)?,
+                is_group_header: row.get(13)?,
+                is_scored: row.get(14)?,
+            })
+        })
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(question_stmt);
+    let mut question_map: HashMap<String, String> = HashMap::new();
+    let mut pending = questions;
+    while !pending.is_empty() {
+        let mut next = Vec::new();
+        let mut inserted = 0usize;
+        for q in pending {
+            let new_parent = match q.parent_id.as_ref() {
+                Some(parent) => match question_map.get(parent) {
+                    Some(id) => Some(id.clone()),
+                    None => {
+                        next.push(q);
+                        continue;
+                    }
+                },
+                None => None,
+            };
+            let new_id = generate_uuid();
+            // Group introduction questions use legacy virtual section IDs 100/200/300
+            // rather than a row in Sections. Preserve those IDs; remap all real sections.
+            let new_section = match section_map.get(&q.section_id) {
+                Some(section_id) => *section_id,
+                None if matches!(q.section_id, 100 | 200 | 300) => q.section_id,
+                None => {
+                    return Err(format!(
+                        "Template question {} references unknown section {}",
+                        q.id, q.section_id
+                    ))
+                }
+            };
+            tx.execute("INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored, is_template) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0)", params![new_id, simulation_document_id, new_section, new_parent, q.sequence, q.content, q.is_header, q.description, q.answer_type, q.metadata, q.score, q.question_type, q.group_score, q.display_text, q.is_group_header, q.is_scored]).map_err(|e| e.to_string())?;
+            question_map.insert(q.id, new_id);
+            inserted += 1;
+        }
+        if inserted == 0 {
+            return Err("Template has invalid question parent hierarchy".to_string());
+        }
+        pending = next;
+    }
+
+    for (old_question, new_question) in &question_map {
+        tx.execute("INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index) SELECT ?1, sub_question_code, answer_key_text, is_required, order_index FROM QuestionAnswerKeys WHERE question_id = ?2", params![new_question, old_question]).map_err(|e| e.to_string())?;
+        tx.execute("INSERT INTO QuestionSubQuestionLinks (question_id, sub_question_code) SELECT ?1, sub_question_code FROM QuestionSubQuestionLinks WHERE question_id = ?2", params![new_question, old_question]).map_err(|e| e.to_string())?;
+        tx.execute("INSERT INTO QuestionChoices (question_id, label, content, is_correct, sequence) SELECT ?1, label, content, is_correct, sequence FROM QuestionChoices WHERE question_id = ?2", params![new_question, old_question]).map_err(|e| e.to_string())?;
+        tx.execute("INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order) SELECT ?1, reference_id, location_text, display_order FROM QuestionReferences WHERE question_id = ?2", params![new_question, old_question]).map_err(|e| e.to_string())?;
+        let mut link_stmt = tx
+            .prepare(
+                "SELECT section_id, score, display_order FROM QuestionSectionLinks WHERE question_id = ?1",
+            )
+            .map_err(|e| e.to_string())?;
+        let source_links = link_stmt
+            .query_map(params![old_question], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i32>(1)?,
+                    row.get::<_, i32>(2)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())?;
+        drop(link_stmt);
+        for (old_linked_section, score, display_order) in source_links {
+            if let Some(new_linked_section) = section_map.get(&old_linked_section) {
+                tx.execute(
+                    "INSERT OR IGNORE INTO QuestionSectionLinks (question_id, section_id, score, display_order) VALUES (?1, ?2, ?3, ?4)",
+                    params![new_question, new_linked_section, score, display_order],
+                )
+                .map_err(|e| e.to_string())?;
+            }
+        }
+    }
+    for (old_section, new_section) in &section_map {
+        tx.execute("INSERT INTO SectionReferences (section_id, reference_id, display_order) SELECT ?1, reference_id, display_order FROM SectionReferences WHERE section_id = ?2", params![new_section, old_section]).map_err(|e| e.to_string())?;
+    }
+    tx.execute("INSERT INTO DocumentSimulationInstances (simulation_document_id, template_document_id, trainee_id) VALUES (?1, ?2, ?3)", params![simulation_document_id, template_document_id, trainee_id.trim()]).map_err(|e| e.to_string())?;
+    tx.commit()
+        .map_err(|e| format!("Failed to commit simulation clone: {}", e))?;
+    Ok(SimulationDocumentInfo {
+        simulation_document_id,
+        template_document_id,
+        trainee_id: trainee_id.trim().to_string(),
+    })
+}
+
+pub fn get_simulation_document_info(
+    document_id: String,
+) -> Result<Option<SimulationDocumentInfo>, String> {
+    let conn = get_content_connection().map_err(|e| e.to_string())?;
+    conn.query_row("SELECT simulation_document_id, template_document_id, trainee_id FROM DocumentSimulationInstances WHERE simulation_document_id = ?1", params![document_id], |row| Ok(SimulationDocumentInfo { simulation_document_id: row.get(0)?, template_document_id: row.get(1)?, trainee_id: row.get(2)? })).optional().map_err(|e| e.to_string())
+}
+
+fn count_attachment_paths(raw: Option<String>) -> i64 {
+    raw.and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+        .map(|paths| paths.len() as i64)
+        .unwrap_or(0)
+}
+
+/// Return only the currently existing simulation copies belonging to one Template.
+/// The monotonic SIM counter is deliberately not used as an existing-copy count.
+pub(crate) fn list_template_simulation_documents_with_conn(
+    conn: &Connection,
+    template_document_id: &str,
+) -> Result<Vec<SimulationDocumentSummary>, String> {
+    let template_exists: bool = conn
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM Documents d
+                WHERE d.id = ?1
+                  AND NOT EXISTS(
+                    SELECT 1 FROM DocumentSimulationInstances dsi
+                    WHERE dsi.simulation_document_id = d.id
+                  )
+            )",
+            params![template_document_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to validate Template: {e}"))?;
+    if !template_exists {
+        return Err("Template document not found".to_string());
+    }
+
+    let mut stmt = conn
+        .prepare(
+            "SELECT dsi.simulation_document_id,
+                    dsi.template_document_id,
+                    dsi.trainee_id,
+                    COALESCE(dsi.created_at, d.created_at, ''),
+                    MAX(
+                        COALESCE((SELECT MAX(ua.updated_at) FROM UserAnswers ua WHERE ua.document_id = dsi.simulation_document_id), ''),
+                        COALESCE((SELECT MAX(up.last_updated) FROM UserProgress up WHERE up.document_id = dsi.simulation_document_id), ''),
+                        COALESCE(dsi.created_at, d.created_at, '')
+                    ),
+                    (SELECT COUNT(*) FROM UserAnswers ua
+                     WHERE ua.document_id = dsi.simulation_document_id
+                       AND COALESCE(TRIM(ua.answer_text), '') <> ''),
+                    (SELECT COUNT(*) FROM UserAnswers ua
+                     WHERE ua.document_id = dsi.simulation_document_id
+                       AND (COALESCE(ua.status, 'pending') <> 'pending'
+                            OR ua.assessed_at IS NOT NULL
+                            OR ua.assessed_by IS NOT NULL
+                            OR COALESCE(ua.feedback, '') <> '')),
+                    (SELECT COUNT(*) FROM UserAnswers ua
+                     WHERE ua.document_id = dsi.simulation_document_id AND ua.status = 'passed'),
+                    (SELECT COUNT(*) FROM UserAnswers ua
+                     WHERE ua.document_id = dsi.simulation_document_id AND ua.status = 'needs_improvement'),
+                    (SELECT COUNT(*) FROM UserProgress up
+                     WHERE up.document_id = dsi.simulation_document_id)
+             FROM DocumentSimulationInstances dsi
+             JOIN Documents d ON d.id = dsi.simulation_document_id
+             WHERE dsi.template_document_id = ?1
+             ORDER BY dsi.created_at DESC, dsi.simulation_document_id DESC",
+        )
+        .map_err(|e| format!("Failed to prepare simulation list: {e}"))?;
+
+    let rows = stmt
+        .query_map(params![template_document_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, i64>(5)?,
+                row.get::<_, i64>(6)?,
+                row.get::<_, i64>(7)?,
+                row.get::<_, i64>(8)?,
+                row.get::<_, i64>(9)?,
+            ))
+        })
+        .map_err(|e| format!("Failed to read simulation list: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to decode simulation list: {e}"))?;
+    drop(stmt);
+
+    rows.into_iter()
+        .map(
+            |(
+                simulation_document_id,
+                template_document_id,
+                trainee_id,
+                created_at,
+                latest_activity_at,
+                answered_count,
+                assessed_count,
+                passed_count,
+                needs_improvement_count,
+                progress_record_count,
+            )| {
+                let mut attachment_stmt = conn
+                    .prepare(
+                        "SELECT attachments FROM UserAnswers
+                         WHERE document_id = ?1 AND attachments IS NOT NULL",
+                    )
+                    .map_err(|e| format!("Failed to prepare attachment summary: {e}"))?;
+                let attachment_count = attachment_stmt
+                    .query_map(params![&simulation_document_id], |row| {
+                        row.get::<_, String>(0)
+                    })
+                    .map_err(|e| format!("Failed to read attachment summary: {e}"))?
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| format!("Failed to decode attachment summary: {e}"))?
+                    .into_iter()
+                    .map(|raw| count_attachment_paths(Some(raw)))
+                    .sum();
+
+                Ok(SimulationDocumentSummary {
+                    attachment_directory: format!(
+                        "data/{simulation_document_id}/trainee-attachments"
+                    ),
+                    simulation_document_id,
+                    template_document_id,
+                    trainee_id,
+                    created_at,
+                    latest_activity_at,
+                    answered_count,
+                    assessed_count,
+                    passed_count,
+                    needs_improvement_count,
+                    attachment_count,
+                    progress_record_count,
+                })
+            },
+        )
+        .collect()
+}
+
+pub fn list_template_simulation_documents(
+    template_document_id: String,
+) -> Result<Vec<SimulationDocumentSummary>, String> {
+    let conn = get_content_connection().map_err(|e| e.to_string())?;
+    list_template_simulation_documents_with_conn(&conn, &template_document_id)
+}
+
+/// Clear trainee work only when the target is an issued simulation document.
+/// This is the backend authority behind the simulation-only Clear menu.
+pub fn clear_simulation_document_answers(document_id: String) -> Result<(), String> {
+    let conn = get_content_connection().map_err(|e| e.to_string())?;
+    let is_simulation: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM DocumentSimulationInstances WHERE simulation_document_id = ?1)",
+            params![document_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !is_simulation {
+        return Err("Clear Answers is available only for a simulation document".to_string());
+    }
+    super::answers::clear_document_trainee_answers_inner(&document_id)
+}
+
+/// Delete a simulation document only. This prevents a simulation UI action from
+/// being used to remove its source Template or another normal document.
+pub fn delete_simulation_document(document_id: String) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| e.to_string())?;
+    let is_simulation: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM DocumentSimulationInstances WHERE simulation_document_id = ?1)",
+            params![document_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !is_simulation {
+        return Err("Only a simulation document can be deleted from this action".to_string());
+    }
+    drop(conn);
+    delete_document(document_id)
+}
 
 /// Generate new Document ID
 pub(crate) fn generate_document_id_with_conn(

@@ -14,6 +14,7 @@ import {
     toThaiAlphabet
 } from "../../utils/thaiNumbering";
 import ConfirmModal from "../modals/ConfirmModal";
+import WorkflowModal from "../modals/WorkflowModal";
 import Button from "../ui/Button";
 import Tooltip from "../ui/Tooltip";
 import AnswerKeyEditor from "./questionFormCard/AnswerKeyEditor";
@@ -30,7 +31,7 @@ import {
 import { logger } from '../../utils/logger';
 import AttachmentPanel from "./AttachmentPanel";
 
-import { AnswerKeyRow, QuestionFormCardProps, SubQuestionItem } from "./questionFormCard/types";
+import { AnswerKeyRow, CreatorAnswerKeyInput, QuestionFormCardProps, SubQuestionItem } from "./questionFormCard/types";
 import {
   EMPTY_REFS,
   REFERENCE_PAGE_ALLOWED_CHARS,
@@ -39,6 +40,12 @@ import {
 } from "./questionFormCard/constants";
 import { getThemeColors } from "./questionFormCard/themeColors";
 import { useScrollVisibility } from "./questionFormCard/useScrollVisibility";
+import { useCreatorFormWorkflow } from "../../hooks/useCreatorFormWorkflow";
+import { hasMeaningfulRichText } from "../../utils/richText";
+import {
+  creatorQuestionService,
+  CreatorMappingImpactReport,
+} from "../../services/creatorQuestionService";
 
 
 const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
@@ -75,6 +82,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   subQUsageParentId,
   isInsidePrerequisiteDoc,
   fullPrefix,
+  workflowId,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -157,14 +165,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
   // Phase 5G: Multi-attachment state (replaces single-image system)
   // Backward compat: migrate metadata.image → attachments array on init
-  const [questionAttachments, setQuestionAttachments] = useState<string[]>(() => {
+  const initialQuestionAttachments = useMemo<string[]>(() => {
     if (parsedInitialMeta?.attachments && Array.isArray(parsedInitialMeta.attachments)) {
-      return parsedInitialMeta.attachments;
+      return parsedInitialMeta.attachments.filter((path: unknown): path is string => typeof path === "string");
     }
     // Backward compat: existing single image → first attachment
     if (initialImage) return [initialImage];
     return [];
-  });
+  }, [initialImage, parsedInitialMeta]);
+  const [questionAttachments, setQuestionAttachments] = useState<string[]>(initialQuestionAttachments);
+  const draftUploadedAttachmentPathsRef = useRef<Set<string>>(new Set());
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
@@ -669,9 +679,32 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [isRefExpanded, setIsRefExpanded] = useState(false); // Collapsible State
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
+  const [isDraftDirty, setIsDraftDirty] = useState(false);
+  type DirtyArea = "question" | "description" | "subQuestions" | "references" | "answerKey" | "attachments";
+  const [dirtyAreas, setDirtyAreas] = useState<Set<DirtyArea>>(() => new Set());
+  const [discardDraftModalOpen, setDiscardDraftModalOpen] = useState(false);
+  const [mappingImpact, setMappingImpact] = useState<CreatorMappingImpactReport | null>(null);
+  const pendingTransitionRef = useRef<(() => void) | null>(null);
+  const { register: registerWorkflow, update: updateWorkflow, release: releaseWorkflow } = useCreatorFormWorkflow();
+  const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<{ content?: boolean; answerKey?: boolean; refs?: boolean }>(
     {},
   ); // Inline Validation State
+
+  const markDirty = useCallback((area: DirtyArea) => {
+    setIsDraftDirty(true);
+    setDirtyAreas((previous) => {
+      if (previous.has(area)) return previous;
+      const next = new Set(previous);
+      next.add(area);
+      return next;
+    });
+  }, []);
+
+  const handleQuestionAttachmentsChange = useCallback((next: string[]) => {
+    setQuestionAttachments(next);
+    markDirty("attachments");
+  }, [markDirty]);
 
   useEffect(() => {
     if (!existingId) {
@@ -746,24 +779,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     }
   }, [requireRef, sectionId, usageRefreshKey]);
 
-  const syncReferenceDraftFromLinkedRefs = useCallback(() => {
-    setDraftSelectedRefIds(linkedRefs.map((ref) => ref.reference.id.toString()));
-    setDraftPageByRefId(
-      linkedRefs.reduce<Record<string, string>>((acc, ref) => {
-        acc[ref.reference.id.toString()] = ref.location_text || "";
-        return acc;
-      }, {}),
-    );
-    setDraftPageErrors({});
-  }, [linkedRefs]);
-
   const handleToggleReferenceEditor = () => {
-    if (!isRefExpanded) syncReferenceDraftFromLinkedRefs();
     setIsRefExpanded((prev) => !prev);
   };
 
   const handleToggleDraftReference = (refId: string) => {
     if (draftSelectedRefIds.includes(refId)) {
+      markDirty("references");
       setDraftSelectedRefIds((prev) => prev.filter((id) => id !== refId));
       setDraftPageErrors((prev) => {
         const next = { ...prev };
@@ -783,6 +805,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
+    markDirty("references");
     setDraftSelectedRefIds((prev) => [...prev, refId]);
   };
 
@@ -794,6 +817,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
+    markDirty("references");
     setDraftPageByRefId((prev) => ({ ...prev, [refId]: value }));
     const trimmed = value.trim();
     setDraftPageErrors((prev) => {
@@ -801,6 +825,26 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       if (!trimmed || REFERENCE_PAGE_VALID_FORMAT.test(trimmed)) delete next[refId];
       else next[refId] = REFERENCE_PAGE_ERROR_MESSAGE;
       return next;
+    });
+  };
+
+  const buildReferencesFromDraft = (): QuestionReferenceDetail[] => {
+    return draftSelectedRefIds.flatMap((refId, index) => {
+      const available = availableRefs.find((item) => item.reference.id.toString() === refId);
+      const existing = linkedRefs.find((item) => item.reference.id.toString() === refId);
+      const reference = available?.reference ?? existing?.reference;
+      if (!reference) return [];
+
+      const trimmedPage = (draftPageByRefId[refId] || "").trim();
+      return [{
+        id: existing?.id || 0,
+        question_id: existing?.question_id || existingId || "temp",
+        reference_id: reference.id,
+        reference,
+        location_text: trimmedPage || null,
+        display_order: index + 1,
+        thai_letter: available?.thai_letter ?? existing?.thai_letter ?? "",
+      } satisfies QuestionReferenceDetail];
     });
   };
 
@@ -823,23 +867,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       return;
     }
 
-    const selectedRefSet = new Set(draftSelectedRefIds);
-    const nextLinkedRefs = availableRefs
-      .filter((ref) => selectedRefSet.has(ref.reference.id.toString()))
-      .map((ref, index) => {
-        const existingRef = linkedRefs.find((linked) => linked.reference.id === ref.reference.id);
-        const refId = ref.reference.id.toString();
-        const trimmedPage = (draftPageByRefId[refId] || "").trim();
-        return {
-          id: existingRef?.id || 0,
-          question_id: existingRef?.question_id || existingId || "temp",
-          reference_id: ref.reference.id,
-          reference: ref.reference,
-          location_text: trimmedPage || null,
-          display_order: index + 1,
-          thai_letter: ref.thai_letter,
-        } satisfies QuestionReferenceDetail;
-      });
+    const nextLinkedRefs = buildReferencesFromDraft();
 
     setLinkedRefs(nextLinkedRefs);
     setDraftPageErrors({});
@@ -865,46 +893,78 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       questionId: targetId,
       friendlyPrefix: friendlyPrefix,
     });
+    draftUploadedAttachmentPathsRef.current.add(relPath);
     return relPath;
   }, [existingId, generatedId, fullPrefix, prefix, documentId]);
 
-  const handleQuestionAttachmentDelete = useCallback(async (relPath: string): Promise<void> => {
-    await invoke("delete_question_image", { path: relPath });
+  // AttachmentPanel edits are part of the Question draft. Physical deletion is deferred
+  // until the Question save succeeds, so Cancel/Discard can restore the persisted list.
+  const deferQuestionAttachmentDelete = useCallback(async (): Promise<void> => undefined, []);
+
+  const deleteAttachmentFiles = useCallback(async (paths: string[]) => {
+    await Promise.all(paths.map(async (path) => {
+      try {
+        await invoke("delete_question_image", { path });
+      } catch (err) {
+        logger.error("Failed to clean up Question attachment:", err);
+      }
+    }));
   }, []);
 
-  const persistAnswerKeys = async (questionId: string) => {
-    try {
-      if (requireAnswerKey) {
-        if (hasParentSubQ && selectedSubQCodes.length > 0) {
-          await invoke('replace_question_answer_keys', {
-            questionId,
-            items: selectedSubQCodes.map(code => ({
-              subCode: code,
-              text: answerKeys[code] || '',
-              isRequired: true,
-            }))
-          });
-        } else {
-          await invoke('replace_question_answer_keys', {
-            questionId,
-            items: [{ subCode: '', text: answerKey, isRequired: true }]
-          });
-        }
-      } else {
-        // Authoritative clearing: if toggle is OFF, ALWAYS clear answer keys.
-        await invoke('replace_question_answer_keys', { questionId, items: [] });
-      }
-    } catch (err) {
-      logger.error('Failed to reconcile answer keys:', err);
-    }
+  const cleanupRemovedPersistedAttachments = useCallback(async () => {
+    const current = new Set(questionAttachments);
+    await deleteAttachmentFiles(initialQuestionAttachments.filter((path) => !current.has(path)));
+  }, [deleteAttachmentFiles, initialQuestionAttachments, questionAttachments]);
+
+  const cleanupAddedDraftAttachments = useCallback(async () => {
+    await deleteAttachmentFiles(Array.from(draftUploadedAttachmentPathsRef.current));
+  }, [deleteAttachmentFiles]);
+
+  const cleanupRemovedDraftUploads = useCallback(async () => {
+    const current = new Set(questionAttachments);
+    await deleteAttachmentFiles(
+      Array.from(draftUploadedAttachmentPathsRef.current).filter((path) => !current.has(path)),
+    );
+  }, [deleteAttachmentFiles, questionAttachments]);
+
+  const canonicalizeSubQuestionCodes = (codes: string[]): string[] => {
+    const unique = Array.from(new Set(codes));
+    if (!parentSubQuestionList?.length) return unique;
+    const selected = new Set(unique);
+    return parentSubQuestionList
+      .map((item) => item.code)
+      .filter((code) => selected.has(code));
   };
 
-  const handleSave = async () => {
+  const buildAnswerKeyItems = (): CreatorAnswerKeyInput[] => {
+    if (!requireAnswerKey || is300) return [];
+    if (hasParentSubQ && selectedSubQCodes.length > 0) {
+      return canonicalizeSubQuestionCodes(selectedSubQCodes).map(code => ({
+        subCode: code,
+        text: answerKeys[code] || '',
+        isRequired: true,
+      }));
+    }
+    return [{ subCode: '', text: answerKey, isRequired: true }];
+  };
+
+  const performSave = async (
+    showValidationAlert = true,
+    confirmMappingChange = false,
+  ): Promise<boolean> => {
 
     // Reset errors
     setErrors({});
     const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
     let hasError = false;
+    const currentDraftReferences = requireRef ? buildReferencesFromDraft() : [];
+    const referencePageErrors = draftSelectedRefIds.reduce<Record<string, string>>((acc, refId) => {
+      const page = (draftPageByRefId[refId] || "").trim();
+      if (page && !REFERENCE_PAGE_VALID_FORMAT.test(page)) {
+        acc[refId] = REFERENCE_PAGE_ERROR_MESSAGE;
+      }
+      return acc;
+    }, {});
 
     // Validation (skip answer key & refs for default 200 L1 — those fields are hidden)
     if (!content.trim()) {
@@ -919,16 +979,22 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (showAnswerKey) {
       if (hasParentSubQ && selectedSubQCodes.length > 0) {
         // ตรวจว่าทุก subQ ที่เลือกมี answer key
-        const missingAny = selectedSubQCodes.some(c => !(answerKeys[c] || "").trim());
+        const missingAny = selectedSubQCodes.some(c => !hasMeaningfulRichText(answerKeys[c]));
         if (missingAny) { newErrors.answerKey = true; hasError = true; }
-      } else if (!answerKey.trim()) {
+      } else if (!hasMeaningfulRichText(answerKey)) {
         newErrors.answerKey = true;
         hasError = true;
       }
     }
-    if (!is300 && !isDefaultL1 && requireRef && linkedRefs.length === 0) {
+    if (!is300 && !isDefaultL1 && requireRef && currentDraftReferences.length === 0) {
       newErrors.refs = true;
       hasError = true;
+    }
+    if (!is300 && !isDefaultL1 && requireRef && Object.keys(referencePageErrors).length > 0) {
+      newErrors.refs = true;
+      hasError = true;
+      setDraftPageErrors((previous) => ({ ...previous, ...referencePageErrors }));
+      setIsRefExpanded(true);
     }
 
     if (hasError) {
@@ -939,14 +1005,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       if (newErrors.answerKey) messages.push("เฉลย (Answer Key)");
       if (newErrors.refs) messages.push("เอกสารอ้างอิง (References)");
 
-      const missingParts = `กรุณากรอกข้อมูลให้ครบถ้วน:\n- ${messages.join("\n- ")}`;
+      const invalidPageMessage = Object.keys(referencePageErrors).length > 0
+        ? `\n\n${REFERENCE_PAGE_ERROR_MESSAGE}`
+        : "";
+      const missingParts = `กรุณาตรวจสอบข้อมูลต่อไปนี้:\n- ${messages.join("\n- ")}${invalidPageMessage}`;
+      if (!showValidationAlert) throw new Error(missingParts);
       if (onAlert) {
         onAlert(missingParts, "warning");
       } else {
         setAlertMessage(missingParts);
         setIsAlertOpen(true);
       }
-      return;
+      return false;
     }
 
     let newMeta: Record<string, unknown> = {};
@@ -996,7 +1066,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       const forcedCodes = (sectionGroup === 300 && parentSubQuestionList)
         ? parentSubQuestionList.filter(sq => sq.alwaysChecked).map(sq => sq.code)
         : [];
-      const effectiveSelected = Array.from(new Set([...selectedSubQCodes, ...forcedCodes]));
+      const effectiveSelected = canonicalizeSubQuestionCodes([...selectedSubQCodes, ...forcedCodes]);
       if (effectiveSelected.length > 0) newMeta.selectedSubQuestions = effectiveSelected;
       else delete newMeta.selectedSubQuestions;
     }
@@ -1005,9 +1075,11 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
     // Validation: warn if useSubQuestions=true but no active items selected
     if (showSubQuestionEditor && useSubQuestions && effectiveActiveSubQCodes.length === 0) {
-      setAlertMessage('ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน\nต้องเลือกคำถามย่อยอย่างน้อย 1 ข้อก่อนบันทึก');
+      const validationMessage = 'ยังไม่ได้เลือกคำถามย่อยที่ใช้งาน\nต้องเลือกคำถามย่อยอย่างน้อย 1 ข้อก่อนบันทึก';
+      if (!showValidationAlert) throw new Error(validationMessage);
+      setAlertMessage(validationMessage);
       setIsAlertOpen(true);
-      return;
+      return false;
     }
 
     // --- Background-saved L2: update existing DB record instead of creating new ---
@@ -1057,14 +1129,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             }
           });
         }
-        await persistAnswerKeys(generatedId);
+        await invoke('replace_question_answer_keys', {
+          questionId: generatedId,
+          items: buildAnswerKeyItems(),
+        });
+        await cleanupRemovedPersistedAttachments();
+        await cleanupRemovedDraftUploads();
       } catch (err) {
         logger.error('Failed to finalize background-saved L2:', err);
       }
       // Refresh tree and close form (silent — avoids full reload flicker in 300 editor)
       onRefresh?.();
       onCancel();
-      return;
+      return true;
     }
 
     // --- Normal flow (new question or editing existing) ---
@@ -1122,20 +1199,46 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       finalMeta = Object.keys(metaForSave).length > 0 ? JSON.stringify(metaForSave) : '{}';
     } catch { /* keep metadataString as-is */ }
 
+    const answerKeyItems = buildAnswerKeyItems();
+    if (sectionGroup === 200 && isEdit && existingId && !confirmMappingChange) {
+      let proposedSubQuestionCodes: string[] = [];
+      try {
+        const parsed = JSON.parse(finalMeta) as { selectedSubQuestions?: unknown };
+        if (Array.isArray(parsed.selectedSubQuestions)) {
+          proposedSubQuestionCodes = parsed.selectedSubQuestions.filter(
+            (code): code is string => typeof code === "string",
+          );
+        }
+      } catch {
+        // Backend remains authoritative and will report malformed metadata.
+      }
+      const impact = await creatorQuestionService.analyzeChange({
+        questionId: existingId,
+        documentId,
+        proposedSubQuestionCodes,
+        proposedAnswerKeys: answerKeyItems,
+      });
+      if (impact.isBlocked || impact.requiresConfirmation) {
+        setDiscardDraftModalOpen(false);
+        setMappingImpact(impact);
+        return false;
+      }
+    }
+
     await onSave({
       content,
       description: showExtraButtons ? description : undefined,
       image: undefined, // Legacy field — no longer used
       id: !isEdit ? questionId : undefined,
-      references: requireRef ? linkedRefs : [],
+      references: currentDraftReferences,
       metadata: finalMeta,
+      answerKeys: answerKeyItems,
+      confirmMappingChange,
       childLayout: showExtraButtons ? currentChildLayout : undefined,
     });
 
-    // Save relational answer keys AFTER onSave so that the question record is guaranteed to exist
-    if (questionId) {
-      await persistAnswerKeys(questionId);
-    }
+    await cleanupRemovedPersistedAttachments();
+    await cleanupRemovedDraftUploads();
 
     // Auto-sync required count children AFTER onSave (L2 of 3xx.2-3xx.6, or L1 of 3xx.6)
     if ((isPerformanceL2 || is306L1) && sectionId && questionId && requiredCount > 0) {
@@ -1175,12 +1278,39 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     // NOTE: onRefresh removed — onSave → handleUpdate already triggers setBgSyncTrigger → fetchQuestions.
     // Calling onRefresh here caused a redundant second fetch from DB.
 
+    setIsDraftDirty(false);
+    setDirtyAreas(new Set());
     // Close form after save completes
     onCancel();
+    return true;
+  };
+
+  const saveDraft = async (
+    showFailureAlert = true,
+    confirmMappingChange = false,
+  ): Promise<boolean> => {
+    if (isSaving) return false;
+    setIsSaving(true);
+    try {
+      return await performSave(showFailureAlert, confirmMappingChange);
+    } catch (error) {
+      logger.error('Creator Question save failed:', error);
+      if (!showFailureAlert) throw error;
+      setAlertMessage(`ไม่สามารถบันทึก Question และ Answer Key ได้\nข้อมูลร่างยังอยู่ กรุณาตรวจสอบแล้วลองอีกครั้ง\n\nรายละเอียด: ${String(error)}`);
+      setIsAlertOpen(true);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSave = () => {
+    void saveDraft();
   };
 
   // Cleanup background-saved L2 if user cancels
-  const handleCancel = useCallback(async () => {
+  const discardDraft = useCallback(async () => {
+    await cleanupAddedDraftAttachments();
     if (isBackgroundSaved && generatedId) {
       try {
         await invoke('delete_question', { id: generatedId });
@@ -1189,12 +1319,125 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       }
     }
     onCancel();
-  }, [isBackgroundSaved, generatedId, onCancel]);
+  }, [cleanupAddedDraftAttachments, isBackgroundSaved, generatedId, onCancel]);
+
+  const handleCancel = useCallback(() => {
+    if (isDraftDirty) {
+      pendingTransitionRef.current = null;
+      setDiscardDraftModalOpen(true);
+      return;
+    }
+    void discardDraft();
+  }, [discardDraft, isDraftDirty]);
+
+  const requestWorkflowTransition = useCallback((proceed: () => void) => {
+    if (isSaving) return;
+    if (isDraftDirty) {
+      pendingTransitionRef.current = proceed;
+      setDiscardDraftModalOpen(true);
+      return;
+    }
+
+    void discardDraft().then(proceed);
+  }, [discardDraft, isDraftDirty, isSaving]);
+
+  useEffect(() => {
+    if (!workflowId) return;
+    registerWorkflow(workflowId, requestWorkflowTransition);
+    return () => releaseWorkflow(workflowId);
+  }, [registerWorkflow, releaseWorkflow, requestWorkflowTransition, workflowId]);
+
+  useEffect(() => {
+    if (workflowId) updateWorkflow(workflowId, requestWorkflowTransition);
+  }, [requestWorkflowTransition, updateWorkflow, workflowId]);
+
+  const keepEditing = useCallback(() => {
+    pendingTransitionRef.current = null;
+    setDiscardDraftModalOpen(false);
+  }, []);
+
+  const discardAndProceed = useCallback(async () => {
+    const proceed = pendingTransitionRef.current;
+    pendingTransitionRef.current = null;
+    setDiscardDraftModalOpen(false);
+    await discardDraft();
+    proceed?.();
+  }, [discardDraft]);
+
+  const saveAndProceed = async () => {
+    const proceed = pendingTransitionRef.current;
+    const saved = await saveDraft(false);
+    if (!saved) return;
+    pendingTransitionRef.current = null;
+    setDiscardDraftModalOpen(false);
+    proceed?.();
+  };
+
+  const closeMappingImpact = useCallback(() => {
+    pendingTransitionRef.current = null;
+    setMappingImpact(null);
+  }, []);
+
+  const confirmMappingImpact = async () => {
+    const proceed = pendingTransitionRef.current;
+    const saved = await saveDraft(false, true);
+    if (!saved) return;
+    pendingTransitionRef.current = null;
+    setMappingImpact(null);
+    proceed?.();
+  };
+
+  const dirtyAreaLabels = [
+    ["question", "คำถาม (Question)"],
+    ["description", "คำอธิบาย (Description)"],
+    ["subQuestions", "คำถามย่อย (Sub-questions)"],
+    ["references", "เอกสารอ้างอิง (References)"],
+    ["answerKey", "คำเฉลย (Answer Key)"],
+    ["attachments", "ไฟล์แนบ (Attachments)"],
+  ].filter(([area]) => dirtyAreas.has(area as DirtyArea)).map(([, label]) => label);
+  const unsavedDraftMessage = `ข้อ ${fullPrefix || prefix} มีการแก้ไขที่ยังไม่ได้บันทึก:\n${
+    (dirtyAreaLabels.length > 0 ? dirtyAreaLabels : ["รายละเอียดในฟอร์ม"])
+      .map((label) => `• ${label}`)
+      .join("\n")
+  }\n\nเลือกสิ่งที่ต้องการทำก่อนออกจากฟอร์มนี้`;
+
+  const mappingImpactMessage = mappingImpact
+    ? [
+        `คุณกำลังนำคำถามย่อยต่อไปนี้ออกจากข้อ ${fullPrefix || prefix}:`,
+        ...mappingImpact.items.map((item) => {
+          const subQuestionIndex = parentSubQuestionList?.findIndex(
+            (subQuestion) => subQuestion.code === item.subQuestionCode,
+          ) ?? -1;
+          const subQuestionLabel = subQuestionIndex >= 0
+            ? `${toThaiAlphabet(subQuestionIndex + 1)}.`
+            : item.subQuestionCode;
+          const description = item.label ? ` ${item.label}` : "";
+          return [
+            `• คำถามย่อย ${subQuestionLabel}${description}`,
+            `  คำเฉลยที่จะถูกนำออก ${item.answerKeyCount} รายการ`,
+            `  คำตอบ Trainee ${item.traineeAnswerCount} · ผลประเมิน ${item.assessedAnswerCount} · ไฟล์แนบ ${item.attachmentCount}`,
+          ].join("\n");
+        }),
+        mappingImpact.isBlocked
+          ? "\nไม่สามารถนำคำถามย่อยนี้ออกได้ เพราะมีงานของ Trainee อยู่แล้ว ระบบยังไม่ได้เปลี่ยนหรือลบข้อมูลใด ๆ\nเลือก “กลับไปแก้ไข” แล้วเลือกคำถามย่อยนั้นกลับคืน"
+          : "\nขณะนี้ยังเป็นเพียง Draft และยังไม่มีข้อมูลถูกนำออก\n\n“กลับไปตรวจสอบ” — กลับสู่ฟอร์มโดยคง Draft ไว้ หากไม่ต้องการนำออก ให้เลือกคำถามย่อยนั้นกลับ แล้วคำเฉลยเดิมจะปรากฏอีกครั้ง\n\n“นำออกและบันทึก” — นำคำถามย่อยและคำเฉลยตามรายการข้างต้นออกจากเอกสารต้นฉบับฉบับนี้ ส่วน Simulation ที่สร้างแยกไว้แล้วจะไม่ถูกเปลี่ยนแปลง",
+      ].join("\n")
+    : "";
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
-      setAnswerKey("");
+      if (isSaving) return;
+      e.preventDefault();
+      e.stopPropagation();
       handleCancel();
+    }
+    const isSaveShortcut = (e.ctrlKey || e.metaKey)
+      && (e.code === "KeyS" || e.key.toLowerCase() === "s");
+    if (isSaveShortcut) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSave();
+      return;
     }
     if (e.key === "Enter" && e.ctrlKey) handleSave();
   };
@@ -1202,6 +1445,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   return (
     <div
       ref={formCardRef}
+      onInput={() => setIsDraftDirty(true)}
+      onChange={() => setIsDraftDirty(true)}
+      onKeyDown={handleKeyDown}
       className="m-1 rounded-lg border border-blue-400/60 dark:border-blue-500/40 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-slate-800 p-3 shadow-md backdrop-blur-sm animate-in zoom-in-95 duration-200"
     >
       <div className="space-y-2">
@@ -1222,7 +1468,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               <Tooltip content="เพิ่มคำอธิบาย" position="top-end">
                 <button
                   type="button"
-                  onClick={() => setShowDescription(true)}
+                  onClick={() => {
+                    setShowDescription(true);
+                    markDirty("description");
+                  }}
                   className="p-1 text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -1251,10 +1500,25 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           )}
         </div>
 
+        {isDraftDirty && dirtyAreaLabels.length > 0 && (
+          <div
+            role="status"
+            className="flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-2.5 py-2 text-xs text-amber-900 dark:border-amber-600/50 dark:bg-amber-950/25 dark:text-amber-200"
+          >
+            <span className="font-semibold">ยังไม่ได้บันทึก:</span>
+            {dirtyAreaLabels.map((label) => (
+              <span key={label} className="rounded-full bg-amber-200/70 px-2 py-0.5 dark:bg-amber-900/60">
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Content (Main Question) - Compact & Auto-expanding */}
         {!isRequiredInstance && <div>
           <label className="block text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider mb-1">
             คำถาม (Question) <span className="text-red-500">*</span>
+            {dirtyAreas.has("question") && <span className="ml-2 text-amber-500 normal-case">แก้ไขแล้ว</span>}
           </label>
           <textarea
             ref={contentRef}
@@ -1262,6 +1526,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             value={content}
             onChange={(e) => {
               setContent(e.target.value);
+              markDirty("question");
               if (errors.content) setErrors((prev) => ({ ...prev, content: false }));
             }}
             onPaste={(e) => {
@@ -1276,6 +1541,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
               const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
               setContent(newValue);
+              markDirty("question");
 
               requestAnimationFrame(() => {
                 target.selectionStart = target.selectionEnd = start + trimmedText.length;
@@ -1308,8 +1574,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           setFormScoreValue={setFormScoreValue} setDescription={setDescription}
           setShowDescription={setShowDescription} setUseSubQuestions={setUseSubQuestions}
           setRequiredCount={setRequiredCount} setRequiredCountChildren={setRequiredCountChildren}
-          questionAttachments={questionAttachments} setQuestionAttachments={setQuestionAttachments}
-          handleQuestionAttachmentDelete={handleQuestionAttachmentDelete}
+          questionAttachments={questionAttachments} setQuestionAttachments={handleQuestionAttachmentsChange}
+          handleQuestionAttachmentDelete={deferQuestionAttachmentDelete}
           isL1={isL1} hasActualChildren={hasActualChildren}
         />
 
@@ -1318,8 +1584,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           isExemptableL1_200={isExemptableL1_200} formScoreType={formScoreType} setFormScoreType={setFormScoreType}
           setFormScoreDisplayText={setFormScoreDisplayText} setDescription={setDescription}
           setShowDescription={setShowDescription} setUseSubQuestions={setUseSubQuestions}
-          questionAttachments={questionAttachments} setQuestionAttachments={setQuestionAttachments}
-          handleQuestionAttachmentDelete={handleQuestionAttachmentDelete}
+          questionAttachments={questionAttachments} setQuestionAttachments={handleQuestionAttachmentsChange}
+          handleQuestionAttachmentDelete={deferQuestionAttachmentDelete}
           isDefaultDescL1_200={isDefaultDescL1_200} questionSequence={questionSequence}
           isL1={isL1} hasActualChildren={hasActualChildren}
         />
@@ -1331,12 +1597,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             <div className="group/desc animate-in slide-in-from-top-1">
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
                 คำอธิบาย (Description)
+                {dirtyAreas.has("description") && <span className="ml-2 text-amber-500 normal-case">แก้ไขแล้ว</span>}
               </label>
               <div className="relative">
                 <textarea
                   ref={descriptionRef}
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    markDirty("description");
+                  }}
                   onPaste={(e) => {
                     e.preventDefault();
                     const pastedText = e.clipboardData.getData("text");
@@ -1349,6 +1619,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
                     const newValue = currentValue.substring(0, start) + trimmedText + currentValue.substring(end);
                     setDescription(newValue);
+                    markDirty("description");
 
                     requestAnimationFrame(() => {
                       target.selectionStart = target.selectionEnd = start + trimmedText.length;
@@ -1368,7 +1639,9 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                       onClick={() => {
                         setDescription("");
                         setShowDescription(false);
+                        markDirty("description");
                       }}
+                      type="button"
                       className="absolute top-1.5 right-1.5 p-0.5 text-slate-300 hover:text-red-500 rounded opacity-0 group-hover/desc:opacity-100 transition-opacity"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -1415,10 +1688,14 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             <SubQuestionBindingEditor
               sqClr={sqClr}
               selectedSubQCodes={selectedSubQCodes}
-              setSelectedSubQCodes={setSelectedSubQCodes}
+              setSelectedSubQCodes={(next) => {
+                markDirty("subQuestions");
+                setSelectedSubQCodes(next);
+              }}
               parentSubQuestionList={parentSubQuestionList}
               is300={is300}
               subQUsageData={subQUsageData}
+              isDirty={dirtyAreas.has("subQuestions")}
             />
           )}
 
@@ -1432,6 +1709,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     checked={requireRef}
                     onChange={(e) => {
                       setRequireRef(e.target.checked);
+                      markDirty("references");
                       if (!e.target.checked) {
                         setLinkedRefs([]);
                         setDraftSelectedRefIds([]);
@@ -1459,8 +1737,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                     checked={requireAnswerKey}
                     onChange={(e) => {
                       setRequireAnswerKey(e.target.checked);
+                      markDirty("answerKey");
                       if (!e.target.checked) {
                         setAnswerKey("");
+                        setAnswerKeys({});
                         setErrors((prev) => ({ ...prev, answerKey: false }));
                       }
                     }}
@@ -1484,8 +1764,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               <ReferenceEditor
                 isExpanded={isRefExpanded}
                 draftSelectedRefIds={draftSelectedRefIds}
-                linkedRefs={linkedRefs}
                 hasError={!!errors.refs}
+                isDirty={dirtyAreas.has("references")}
                 availableRefs={availableRefs}
                 draftPageErrors={draftPageErrors}
                 draftPageByRefId={draftPageByRefId}
@@ -1500,15 +1780,18 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
           {/* Phase 5G: Question Attachments Panel (Image/PDF/Video) */}
           {showExtraButtons && !isInsidePrerequisiteDoc && !is300 && (
             <div className="pt-1">
+              {dirtyAreas.has("attachments") && (
+                <div className="mb-1 text-xs font-bold text-amber-500">ไฟล์แนบ (Attachments) แก้ไขแล้ว</div>
+              )}
               <AttachmentPanel
                 attachments={questionAttachments}
-                onAttachmentsChange={setQuestionAttachments}
+                onAttachmentsChange={handleQuestionAttachmentsChange}
                 documentId={documentId}
                 questionId={existingId || generatedId || ''}
                 userId=""
                 excludeAudio
                 onUploadFile={handleQuestionAttachmentUpload}
-                onDeleteFile={handleQuestionAttachmentDelete}
+                onDeleteFile={deferQuestionAttachmentDelete}
                 filePrefix={fullPrefix || prefix}
               />
             </div>
@@ -1527,18 +1810,20 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   const sq = parentSubQuestionList!.find(s => s.code === code);
                   const sqIdx = parentSubQuestionList!.findIndex(s => s.code === code);
                   const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
-                  const hasErr = !!errors.answerKey && !(answerKeys[code] || "").trim();
+                  const hasErr = !!errors.answerKey && !hasMeaningfulRichText(answerKeys[code]);
                   return (
                     <div key={code}>
                       <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                        เฉลย: {label}. {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
+                        เฉลย: {label}. <span className="text-red-500">*</span> {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
+                        {dirtyAreas.has("answerKey") && <span className="ml-2 text-amber-500 normal-case">แก้ไขแล้ว</span>}
                       </label>
                       {isAnswerKeyLoaded ? (
                         <AnswerKeyEditor
                           value={answerKeys[code] || ""}
                           onChange={(val: string) => {
                             setAnswerKeys(prev => ({ ...prev, [code]: val }));
-                            if (errors.answerKey) setErrors(prev => ({ ...prev, answerKey: false }));
+                            markDirty("answerKey");
+                            if (errors.answerKey && hasMeaningfulRichText(val)) setErrors(prev => ({ ...prev, answerKey: false }));
                           }}
                           hasError={hasErr}
                         />
@@ -1552,14 +1837,16 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                 /* Single answer key (no subQ selected) */
                 <div>
                   <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                    เฉลย (Answer Key)
+                    เฉลย (Answer Key) <span className="text-red-500">*</span>
+                    {dirtyAreas.has("answerKey") && <span className="ml-2 text-amber-500 normal-case">แก้ไขแล้ว</span>}
                   </label>
                   {isAnswerKeyLoaded ? (
                     <AnswerKeyEditor
                       value={answerKey}
                       onChange={(val: string) => {
                         setAnswerKey(val);
-                        if (errors.answerKey) setErrors((prev) => ({ ...prev, answerKey: false }));
+                        markDirty("answerKey");
+                        if (errors.answerKey && hasMeaningfulRichText(val)) setErrors((prev) => ({ ...prev, answerKey: false }));
                       }}
                       hasError={!!errors.answerKey}
                     />
@@ -1630,6 +1917,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               size="small"
               icon={<X className="w-3 h-3" />}
               onClick={handleCancel}
+              disabled={isSaving}
               className="h-7 text-xs px-2"
             >
               ยกเลิก
@@ -1639,9 +1927,10 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               size="small"
               icon={<Save className="w-3 h-3" />}
               onClick={handleSave}
+              disabled={isSaving}
               className="h-7 text-xs px-2"
             >
-              {isEdit ? "บันทึก" : "เพิ่ม"}
+              {isSaving ? "กำลังบันทึก..." : (isEdit ? "บันทึก" : "เพิ่ม")}
             </Button>
           </div>
         </div>
@@ -1656,6 +1945,65 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         confirmText="ตกลง"
         variant="warning"
         cancelText="" // Hide cancel button
+      />
+
+      <WorkflowModal
+        isOpen={discardDraftModalOpen}
+        onClose={keepEditing}
+        title="การแก้ไขยังไม่ได้บันทึก"
+        message={unsavedDraftMessage}
+        actions={[
+          {
+            id: "continue",
+            label: "แก้ไขต่อ",
+            onSelect: keepEditing,
+            variant: "secondary",
+          },
+          {
+            id: "discard",
+            label: "ละทิ้งการแก้ไข",
+            onSelect: discardAndProceed,
+            variant: "danger",
+          },
+          {
+            id: "save",
+            label: pendingTransitionRef.current ? "บันทึกแล้วไปข้อใหม่" : "บันทึก",
+            onSelect: saveAndProceed,
+            variant: "primary",
+          },
+        ]}
+      />
+
+      <WorkflowModal
+        isOpen={mappingImpact !== null}
+        onClose={closeMappingImpact}
+        title={mappingImpact?.isBlocked
+          ? "ไม่สามารถนำคำถามย่อยนี้ออกได้"
+          : `ยืนยันการนำคำถามย่อยออกจากข้อ ${fullPrefix || prefix}`}
+        message={mappingImpactMessage}
+        actions={mappingImpact?.isBlocked
+          ? [
+              {
+                id: "back",
+                label: "กลับไปแก้ไข",
+                onSelect: closeMappingImpact,
+                variant: "primary",
+              },
+            ]
+          : [
+              {
+                id: "back",
+                label: "กลับไปตรวจสอบ",
+                onSelect: closeMappingImpact,
+                variant: "secondary",
+              },
+              {
+                id: "confirm",
+                label: "นำออกและบันทึก",
+                onSelect: confirmMappingImpact,
+                variant: "danger",
+              },
+            ]}
       />
 
     </div>

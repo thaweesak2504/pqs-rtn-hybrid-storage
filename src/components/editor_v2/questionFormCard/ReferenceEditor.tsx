@@ -9,7 +9,6 @@ import {
   ImageIcon,
   LockIcon,
   Mic,
-  Plus,
   Shield,
   Video,
 } from "lucide-react";
@@ -20,9 +19,8 @@ import { SectionReferenceDetail } from "../../../types/content";
 interface ReferenceEditorProps {
   isExpanded: boolean;
   draftSelectedRefIds: string[];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-  linkedRefs: any[];
   hasError: boolean;
+  isDirty?: boolean;
   availableRefs: SectionReferenceDetail[];
   draftPageErrors: Record<string, string>;
   draftPageByRefId: Record<string, string>;
@@ -35,8 +33,8 @@ interface ReferenceEditorProps {
 const ReferenceEditor: React.FC<ReferenceEditorProps> = ({
   isExpanded,
   draftSelectedRefIds,
-  linkedRefs,
   hasError,
+  isDirty = false,
   availableRefs,
   draftPageErrors,
   draftPageByRefId,
@@ -52,8 +50,13 @@ const ReferenceEditor: React.FC<ReferenceEditorProps> = ({
         <span
           className={`text-xs font-normal ${hasError ? "text-red-500" : "text-slate-500 dark:text-slate-400"}`}
         >
-          (เลือกแล้ว {isExpanded ? draftSelectedRefIds.length : linkedRefs.length}/2 รายการ)
+          (เลือกแล้ว {draftSelectedRefIds.length}/2 รายการ)
         </span>
+        {isDirty && (
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold normal-case text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+            แก้ไขแล้ว · รอบันทึก
+          </span>
+        )}
       </label>
 
       {/* Collapsible References */}
@@ -76,8 +79,8 @@ const ReferenceEditor: React.FC<ReferenceEditorProps> = ({
             >
               {isExpanded
                 ? "ซ่อนตัวเลือก (Hide Options)"
-                : linkedRefs.length > 0
-                  ? "แก้ไขเอกสารอ้างอิง (Update References)"
+                : draftSelectedRefIds.length > 0
+                  ? "ตรวจสอบ/แก้ไขเอกสารอ้างอิง (Edit References)"
                   : "+ เพิ่มเอกสารอ้างอิง (Add References)"}
             </span>
             {isExpanded ? (
@@ -209,10 +212,10 @@ const ReferenceEditor: React.FC<ReferenceEditorProps> = ({
                     size="small"
                     onClick={onUpdateReferences}
                     disabled={Object.keys(draftPageErrors).length > 0}
-                    icon={<Plus className="w-3 h-3" />}
+                    icon={<CheckCircle className="w-3 h-3" />}
                     className="h-8 text-xs px-3"
                   >
-                    Update
+                    เสร็จสิ้น (Done)
                   </Button>
                 </div>
               </div>

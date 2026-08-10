@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Edit3, Eye, EyeOff, FileText, Lock, Menu, Plus, Printer, Trash2, UserCircle, Users, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Copy, Edit3, Eye, EyeOff, Files, FileText, Lock, Menu, Plus, Printer, Trash2, UserCircle, Users, X } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
@@ -18,8 +18,10 @@ import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
 import EditMetadataModal from '../modals/EditMetadataModal';
+import SimulationListModal from '../modals/SimulationListModal';
 import DropdownMenu from '../ui/DropdownMenu';
 import { logger } from '../../utils/logger';
+import { simulationService } from '../../services/simulationService';
 
 interface Document {
   id: string;
@@ -34,6 +36,12 @@ interface Document {
 interface DocumentHierarchy {
   document: Document;
   hierarchy: string[];
+}
+
+interface SimulationDocumentInfo {
+  simulation_document_id: string;
+  template_document_id: string;
+  trainee_id: string;
 }
 
 interface Section {
@@ -76,6 +84,11 @@ const ActiveDocumentPage: React.FC = () => {
   const [clearSuccessModal, setClearSuccessModal] = useState<boolean>(false);
   const [clearErrorModal, setClearErrorModal] = useState<boolean>(false);
   const [clearError, setClearError] = useState<string>('');
+  const [deleteSimulationModal, setDeleteSimulationModal] = useState(false);
+  const [simulationListModal, setSimulationListModal] = useState(false);
+  const [simulationCount, setSimulationCount] = useState<number | null>(null);
+  const [simulationInfo, setSimulationInfo] = useState<SimulationDocumentInfo | null>(null);
+  const isSimulation = simulationInfo !== null;
 
   const fetchDocData = useCallback(() => {
     if (docId) {
@@ -141,10 +154,24 @@ const ActiveDocumentPage: React.FC = () => {
     setClearConfirmModal(true);
   };
 
+  const handleStartSimulation = async () => {
+    if (!docId) return;
+    try {
+      const simulation = await invoke<SimulationDocumentInfo>('clone_document_for_simulation', {
+        templateDocumentId: docId,
+        traineeId: 'T-001',
+      });
+      navigate(`/pqs/${simulation.simulation_document_id}`);
+    } catch (err) {
+      logger.error('Failed to create simulation document:', err);
+      showError(`ไม่สามารถเริ่มรอบจำลองได้: ${err}`);
+    }
+  };
+
   const confirmClearAnswers = async () => {
     if (!docId) return;
     try {
-      await invoke('clear_document_trainee_answers', { documentId: docId });
+      await invoke('clear_simulation_document_answers', { documentId: docId });
       setClearConfirmModal(false);
       setClearSuccessModal(true);
       setRefreshKey(prev => prev + 1);
@@ -156,12 +183,35 @@ const ActiveDocumentPage: React.FC = () => {
     }
   };
 
+  const confirmDeleteSimulation = async () => {
+    if (!docId || !simulationInfo) return;
+    try {
+      await invoke('delete_simulation_document', { documentId: docId });
+      navigate(`/pqs/${simulationInfo.template_document_id}`);
+    } catch (err) {
+      logger.error('Failed to delete simulation:', err);
+      setDeleteSimulationModal(false);
+      showError(`ไม่สามารถลบรอบจำลองได้: ${err}`);
+    }
+  };
+
   useEffect(() => {
     if (docId) {
       localStorage.setItem('lastActiveDocId', docId);
       fetchDocData();
       fetchSections();
       fetchDocBranch();
+      invoke<SimulationDocumentInfo | null>('get_simulation_document_info', { documentId: docId })
+        .then(info => {
+          setSimulationInfo(info);
+          setViewMode(info ? 'trainee' : 'edit');
+          if (!info) {
+            simulationService.listForTemplate(docId)
+              .then(items => setSimulationCount(items.length))
+              .catch(err => logger.error('Failed to count simulation documents:', err));
+          }
+        })
+        .catch(err => logger.error('Failed to fetch simulation context:', err));
     }
   }, [docId, fetchDocData, fetchSections, fetchDocBranch]);
 
@@ -277,8 +327,23 @@ const ActiveDocumentPage: React.FC = () => {
                 <h1 className="text-base font-semibold text-github-text-primary leading-tight">
                   มาตรฐานกำลังพล : {docId} {docData?.document.name || '...'}
                 </h1>
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${isSimulation ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200'}`}>
+                  {isSimulation
+                    ? `SIMULATION: ${simulationInfo.simulation_document_id}`
+                    : 'TEMPLATE'}
+                </span>
                 <div className="flex items-center space-x-2">
-                  <button
+                  {isSimulation && (
+                    <button
+                      onClick={() => navigate(`/pqs/${simulationInfo.template_document_id}`)}
+                      className="px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1.5 border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      <span>กลับ Template</span>
+                    </button>
+                  )}
+
+                  {!isSimulation && <button
                     onClick={() => setViewMode('edit')}
                     className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1.5 border ${viewMode === 'edit'
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
@@ -287,7 +352,27 @@ const ActiveDocumentPage: React.FC = () => {
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>Edit</span>
-                  </button>
+                  </button>}
+
+                  {!isSimulation && (
+                    <button
+                      onClick={() => setSimulationListModal(true)}
+                      className="px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1.5 border bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+                    >
+                      <Files className="w-4 h-4" />
+                      <span>รอบจำลอง ({simulationCount ?? '…'})</span>
+                    </button>
+                  )}
+
+                  {!isSimulation && (
+                    <button
+                      onClick={handleStartSimulation}
+                      className="px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1.5 border bg-amber-600 text-white border-amber-600 shadow-sm hover:bg-amber-700"
+                    >
+                      <Copy className="w-4 h-4" />
+                      <span>เริ่มรอบจำลอง</span>
+                    </button>
+                  )}
 
                   <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
 
@@ -311,12 +396,15 @@ const ActiveDocumentPage: React.FC = () => {
                         <ChevronDown className="w-3.5 h-3.5 ml-1 opacity-70" />
                       </button>
                     }
-                    items={[
+                    items={isSimulation ? [
                       { label: 'Qualifier (See All)', icon: <UserCircle />, onClick: () => setViewMode('qualifier') },
                       { label: 'Trainee (Answer Only)', icon: <Users />, onClick: () => setViewMode('trainee') },
                       { label: 'Visitor (Questions Only)', icon: <EyeOff />, onClick: () => setViewMode('visitor') },
-                      { separator: true, label: '', onClick: () => { } },
-                      { label: 'Clear Answers (Current Document)', icon: <Trash2 className="text-red-500" />, onClick: handleClearAnswers }
+                        { separator: true, label: '', onClick: () => { } },
+                        { label: 'ล้างคำตอบของรอบจำลอง', icon: <Trash2 className="text-red-500" />, onClick: handleClearAnswers },
+                        { label: 'ลบรอบจำลองนี้', icon: <Trash2 />, danger: true, onClick: () => setDeleteSimulationModal(true) },
+                    ] : [
+                      { label: 'Visitor (Questions Only)', icon: <EyeOff />, onClick: () => setViewMode('visitor') },
                     ]}
                   />
 
@@ -342,7 +430,7 @@ const ActiveDocumentPage: React.FC = () => {
                     ]}
                   />
 
-                  {isEditMode && (
+                  {isEditMode && !isSimulation && (
                     <Button
                       variant="ghost"
                       size="small"
@@ -493,8 +581,18 @@ const ActiveDocumentPage: React.FC = () => {
         onClose={() => setClearConfirmModal(false)}
         onConfirm={confirmClearAnswers}
         title="ยืนยันการลบคำตอบ"
-        message="คำเตือน: คุณต้องการลบคำตอบ คะแนนความคืบหน้า และไฟล์แนบของเอกสารเล่มนี้ใช่หรือไม่? ข้อมูลของเอกสารเล่มอื่นจะไม่ถูกลบ"
-        confirmText="ลบคำตอบของเล่มนี้"
+        message="คำเตือน: คุณต้องการลบคำตอบ คะแนนความคืบหน้า และไฟล์แนบของรอบจำลองนี้ใช่หรือไม่? Template และเอกสารเล่มอื่นจะไม่ถูกลบ"
+        confirmText="ลบคำตอบของรอบจำลอง"
+        variant="danger"
+      />
+
+      <ConfirmModal
+        isOpen={deleteSimulationModal}
+        onClose={() => setDeleteSimulationModal(false)}
+        onConfirm={confirmDeleteSimulation}
+        title="ลบรอบจำลอง"
+        message={`คุณต้องการลบรอบจำลอง ${docId} ใช่หรือไม่? คำตอบ การประเมิน และไฟล์แนบของรอบนี้จะถูกลบ แต่ Template จะไม่ถูกกระทบ`}
+        confirmText="ลบรอบจำลอง"
         variant="danger"
       />
 
@@ -503,10 +601,23 @@ const ActiveDocumentPage: React.FC = () => {
         onClose={() => setClearSuccessModal(false)}
         onConfirm={() => setClearSuccessModal(false)}
         title="สำเร็จ"
-        message="ลบคำตอบของเอกสารเล่มนี้สำเร็จ"
+        message="ลบคำตอบของรอบจำลองสำเร็จ"
         confirmText="ตกลง"
         variant="info"
       />
+
+      {!isSimulation && (
+        <SimulationListModal
+          isOpen={simulationListModal}
+          templateDocumentId={docId}
+          onClose={() => setSimulationListModal(false)}
+          onCountChange={setSimulationCount}
+          onOpenSimulation={(simulationDocumentId) => {
+            setSimulationListModal(false);
+            navigate(`/pqs/${simulationDocumentId}`);
+          }}
+        />
+      )}
 
       <ConfirmModal
         isOpen={clearErrorModal}

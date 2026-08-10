@@ -1111,6 +1111,34 @@ pub fn initialize_question_tables(conn: &Connection) -> Result<(), String> {
     )
     .map_err(|e| format!("Failed to create index on QuestionAnswerKeys: {}", e))?;
 
+    // A simulation is a trainee-specific working copy of a template document.
+    // It intentionally owns its own Sections, Questions, Answer Keys, Answers,
+    // Progress, and trainee attachments through its distinct document ID.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS DocumentSimulationInstances (
+            simulation_document_id VARCHAR(11) PRIMARY KEY,
+            template_document_id VARCHAR(11) NOT NULL,
+            trainee_id TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(simulation_document_id) REFERENCES Documents(id) ON DELETE CASCADE,
+            FOREIGN KEY(template_document_id) REFERENCES Documents(id) ON DELETE RESTRICT
+        )",
+        [],
+    )
+    .map_err(|e| format!("Failed to create DocumentSimulationInstances: {}", e))?;
+
+    // Counter allocation is independent from a template's normal document sequence.
+    // Keeping it after a simulation is deleted prevents an ID from being reissued.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS TemplateSimulationCounters (
+            template_document_id VARCHAR(11) PRIMARY KEY,
+            next_sequence INTEGER NOT NULL DEFAULT 1,
+            FOREIGN KEY(template_document_id) REFERENCES Documents(id) ON DELETE CASCADE
+        )",
+        [],
+    )
+    .map_err(|e| format!("Failed to create TemplateSimulationCounters: {}", e))?;
+
     // One-time data migration: extract selectedSubQuestions from JSON metadata → QuestionSubQuestionLinks
     // This is safe to run on every startup — it only processes questions not yet in the links table.
     migrate_selected_sub_questions_to_table(conn)?;

@@ -85,10 +85,12 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   // Resolve paths for display
   useEffect(() => {
     attachments.forEach(async (relPath) => {
-      if (resolvedPaths[relPath]) return;
+      if (Object.prototype.hasOwnProperty.call(resolvedPaths, relPath)) return;
       try {
         const abs = await invoke<string>("resolve_image_path", { path: relPath });
-        setResolvedPaths((prev) => ({ ...prev, [relPath]: abs }));
+        if (typeof abs === "string" && abs.length > 0) {
+          setResolvedPaths((prev) => ({ ...prev, [relPath]: abs }));
+        }
       } catch { /* ignore */ }
     });
   }, [attachments, resolvedPaths]);
@@ -96,10 +98,12 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   // Load image thumbnails
   useEffect(() => {
     attachments.forEach(async (relPath) => {
-      if (imageData[relPath] || categorize(relPath) !== "image") return;
+      if (Object.prototype.hasOwnProperty.call(imageData, relPath) || categorize(relPath) !== "image") return;
       try {
         const b64 = await invoke<string>("get_question_image_base64", { path: relPath });
-        setImageData((prev) => ({ ...prev, [relPath]: b64 }));
+        if (typeof b64 === "string" && b64.length > 0) {
+          setImageData((prev) => ({ ...prev, [relPath]: b64 }));
+        }
       } catch { /* ignore */ }
     });
   }, [attachments, imageData]);

@@ -1,14 +1,17 @@
 pub mod types;
 pub use types::{
-    AddQuestionReferenceRequest, AddQuestionSectionLinkRequest, AddSectionRefChildArgs, AnswerKey,
-    BatchAddQuestionSectionLinksRequest, BatchAddSectionRefChildrenArgs, BatchSubQuestionItem,
-    BranchUsageReport, CareerBranchResetReport, CareerBranchUsageReport, ComputedSectionProgress,
-    CreateDocumentArgs, CreateQuestionArgs, CreateReferenceRequest, CreateSectionRequest,
-    CreateSubQuestionRequest, DevSectionMetrics, Document, DocumentBranch, DocumentHierarchy,
-    DocumentReference, DocumentStats, OccupationBranch, OccupationSubBranch, OccupationSubQuestion,
-    OwnerUnit, Question, QuestionChoice, QuestionDetail, QuestionReferenceDetail,
-    QuestionSectionLink, ReplaceAnswerKeyItem, RequiredCountChild, SaveQualifierAssessmentArgs,
-    SaveTraineeAnswerArgs, Section, SectionRefChild, SectionReferenceDetail,
+    AddQuestionReferenceRequest, AddQuestionSectionLinkRequest, AddSectionRefChildArgs,
+    AnalyzeCreatorQuestionChangeArgs, AnswerKey, BatchAddQuestionSectionLinksRequest,
+    BatchAddSectionRefChildrenArgs, BatchSubQuestionItem, BranchUsageReport,
+    CareerBranchResetReport, CareerBranchUsageReport, ComputedSectionProgress, CreateDocumentArgs,
+    CreateQuestionArgs, CreateReferenceRequest, CreateSectionRequest, CreateSubQuestionRequest,
+    CreatorMappingImpactItem, CreatorMappingImpactReport, DevSectionMetrics, Document,
+    DocumentBranch, DocumentHierarchy, DocumentReference, DocumentStats, OccupationBranch,
+    OccupationSubBranch, OccupationSubQuestion, OwnerUnit, Question, QuestionChoice,
+    QuestionDetail, QuestionReferenceDetail, QuestionSectionLink, ReplaceAnswerKeyItem,
+    RequiredCountChild, SaveCreatorQuestionArgs, SaveCreatorQuestionResult,
+    SaveQualifierAssessmentArgs, SaveTraineeAnswerArgs, Section, SectionRefChild,
+    SectionReferenceDetail, SimulationDocumentInfo, SimulationDocumentSummary,
     SubQuestionUsageResponse, SyncRequiredCountArgs, UpdateDocumentArgs, UpdateQuestionArgs,
     UpdateQuestionScoreArgs, UpdateReferenceArgs, UpdateSectionArgs, UpdateSectionLinkScoreArgs,
     UpsertUserProgressArgs, UserAnswer, UserProgress,
@@ -47,19 +50,23 @@ pub use branches::{
 pub mod documents;
 pub use documents::{
     check_branch_usage_global, check_career_branch_usage, check_sub_branch_usage_global,
-    create_document, delete_document, generate_document_id, get_document_branch,
-    get_document_stats, get_owner_units, reset_and_update_career_branch, search_documents,
+    clear_simulation_document_answers, clone_document_for_simulation, create_document,
+    delete_document, delete_simulation_document, generate_document_id, get_document_branch,
+    get_document_stats, get_owner_units, get_simulation_document_info,
+    list_template_simulation_documents, reset_and_update_career_branch, search_documents,
     seed_content_database_from_file, update_document, update_document_branch,
 };
 #[cfg(test)]
 pub(crate) use documents::{
-    delete_document_with_conn_and_data_dir, update_document_branch_with_conn,
+    delete_document_with_conn_and_data_dir, list_template_simulation_documents_with_conn,
+    update_document_branch_with_conn,
 };
 pub mod questions;
 pub use questions::{
-    check_has_children, create_question, delete_question, get_document_questions,
-    get_document_questions_with_details, get_document_with_hierarchy, get_required_count_children,
-    reorder_questions, sync_required_count_children, update_question,
+    analyze_creator_question_change, check_has_children, create_question, delete_question,
+    get_document_questions, get_document_questions_with_details, get_document_with_hierarchy,
+    get_required_count_children, reorder_questions, save_creator_question,
+    sync_required_count_children, update_question,
 };
 pub mod sections;
 pub use sections::{

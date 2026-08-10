@@ -4,10 +4,14 @@ mod tests {
         clear_document_trainee_answers_with_conn, replace_question_answer_keys_with_conn,
         update_answer_key_with_conn,
     };
+    use crate::content_database::questions::{
+        analyze_creator_question_change_with_conn, save_creator_question_with_conn,
+    };
+    use crate::content_database::types::CreatorQuestionReferenceInput;
 
     use crate::content_database::*;
     use crate::test_helpers::helpers::*;
-    use rusqlite::params;
+    use rusqlite::{params, Connection};
     use std::fs;
 
     // Phase D Policy Hardening Tests
@@ -859,5 +863,282 @@ mod tests {
             "Unrelated metadata should remain intact"
         );
         assert!(metadata.contains("\"keep\":\"yes\""));
+    }
+
+    #[test]
+    fn creator_question_save_rolls_back_question_and_answer_key_when_reference_fails() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        conn.execute_batch(
+            "INSERT INTO Documents (id, name, status) VALUES ('DOC-CREATOR', 'Creator', 'draft');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
+             VALUES (9101, 'DOC-CREATOR', 100, 101, 'S101', '101', 1, 1);",
+        )
+        .expect("Failed to seed Creator document");
+
+        let result = save_creator_question_with_conn(
+            &mut conn,
+            SaveCreatorQuestionArgs {
+                is_create: true,
+                id: Some("Q-CREATOR-ROLLBACK".to_string()),
+                document_id: "DOC-CREATOR".to_string(),
+                section_id: Some(9101),
+                parent_id: None,
+                content: "Question".to_string(),
+                description: None,
+                metadata: Some("{}".to_string()),
+                references: vec![CreatorQuestionReferenceInput {
+                    reference_id: 999_999,
+                    location_text: Some("p.1".to_string()),
+                }],
+                answer_keys: vec![ReplaceAnswerKeyItem {
+                    sub_code: "".to_string(),
+                    text: "Answer Key".to_string(),
+                    is_required: Some(true),
+                }],
+                confirm_mapping_change: false,
+            },
+        );
+
+        assert!(result.is_err());
+        let question_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE id = 'Q-CREATOR-ROLLBACK'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to inspect rolled back Question");
+        let answer_key_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = 'Q-CREATOR-ROLLBACK'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to inspect rolled back Answer Key");
+        assert_eq!(question_count, 0);
+        assert_eq!(answer_key_count, 0);
+    }
+
+    fn seed_section_200_mapping_fixture(conn: &Connection) {
+        conn.execute_batch(
+            "CREATE TABLE DocumentSimulationInstances (
+                 simulation_document_id TEXT PRIMARY KEY,
+                 template_document_id TEXT NOT NULL,
+                 trainee_id TEXT NOT NULL
+             );
+             CREATE TABLE UserAnswers (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 user_id TEXT NOT NULL,
+                 question_id TEXT NOT NULL,
+                 document_id TEXT NOT NULL,
+                 sub_question_code TEXT NOT NULL DEFAULT '',
+                 answer_text TEXT,
+                 status TEXT DEFAULT 'pending',
+                 feedback TEXT,
+                 assessed_at TEXT,
+                 assessed_by TEXT,
+                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                 attachments TEXT,
+                 UNIQUE(user_id, question_id, document_id, sub_question_code),
+                 FOREIGN KEY(question_id, sub_question_code) REFERENCES QuestionAnswerKeys(question_id, sub_question_code) ON DELETE CASCADE
+             );
+             DROP TABLE UserProgress;
+             CREATE TABLE UserProgress (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 user_id TEXT NOT NULL,
+                 document_id TEXT NOT NULL,
+                 section_id INTEGER,
+                 earned_score INTEGER DEFAULT 0,
+                 max_score INTEGER DEFAULT 0,
+                 completion_percentage REAL DEFAULT 0,
+                 is_passed INTEGER DEFAULT 0,
+                 passing_score INTEGER DEFAULT 100,
+                 last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
+                 UNIQUE(user_id, document_id, section_id)
+             );
+             CREATE TABLE QuestionReferences (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 question_id TEXT NOT NULL,
+                 reference_id INTEGER NOT NULL,
+                 location_text TEXT,
+                 display_order INTEGER NOT NULL
+             );
+             INSERT INTO Documents (id, name, status) VALUES ('DOC-MAP', 'Mapping', 'draft');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
+             VALUES (9200, 'DOC-MAP', 200, 201, 'S201', '201', 1, 0);
+             INSERT OR IGNORE INTO OccupationBranches (code, name) VALUES ('M2', 'Mapping branch');
+             INSERT OR IGNORE INTO OccupationSubBranches (code, branch_code, name) VALUES ('M2S', 'M2', 'Mapping subbranch');
+             INSERT INTO OccupationSubQuestions (branch_code, sub_branch_code, code, text, sequence)
+             VALUES ('M2', 'M2S', '20000001', 'Alpha', 1), ('M2', 'M2S', '20000002', 'Bravo', 2);
+             INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, metadata)
+             VALUES ('Q-MAP-PARENT', 'DOC-MAP', 9200, NULL, 1, 'Parent', 0, '{\"activeSubQuestions\":[\"20000001\",\"20000002\"]}'),
+                    ('Q-MAP-CHILD', 'DOC-MAP', 9200, 'Q-MAP-PARENT', 1, 'Child', 0, '{\"selectedSubQuestions\":[\"20000001\",\"20000002\"]}');
+             INSERT INTO QuestionSubQuestionLinks (question_id, sub_question_code)
+             VALUES ('Q-MAP-CHILD', '20000001'), ('Q-MAP-CHILD', '20000002');
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, order_index)
+             VALUES ('Q-MAP-CHILD', '20000001', 'Alpha key', 0), ('Q-MAP-CHILD', '20000002', 'Bravo key', 1);",
+        )
+        .expect("Failed to seed Section 200 mapping fixture");
+    }
+
+    fn mapping_save_args(confirm_mapping_change: bool) -> SaveCreatorQuestionArgs {
+        SaveCreatorQuestionArgs {
+            is_create: false,
+            id: Some("Q-MAP-CHILD".to_string()),
+            document_id: "DOC-MAP".to_string(),
+            section_id: Some(9200),
+            parent_id: Some("Q-MAP-PARENT".to_string()),
+            content: "Child updated".to_string(),
+            description: None,
+            metadata: Some("{\"selectedSubQuestions\":[\"20000001\"]}".to_string()),
+            references: vec![],
+            answer_keys: vec![ReplaceAnswerKeyItem {
+                sub_code: "20000001".to_string(),
+                text: "Alpha key updated".to_string(),
+                is_required: Some(true),
+            }],
+            confirm_mapping_change,
+        }
+    }
+
+    #[test]
+    fn section_200_mapping_rejects_code_outside_parent_list() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        seed_section_200_mapping_fixture(&conn);
+
+        let mut args = mapping_save_args(false);
+        args.metadata = Some("{\"selectedSubQuestions\":[\"29999999\"]}".to_string());
+        args.answer_keys[0].sub_code = "29999999".to_string();
+
+        let error = save_creator_question_with_conn(&mut conn, args)
+            .expect_err("Unknown parent code must be rejected");
+        assert!(error.contains("not available in the parent Question"));
+    }
+
+    #[test]
+    fn mapping_impact_reports_answer_assessment_attachment_and_progress_counts() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        seed_section_200_mapping_fixture(&conn);
+        conn.execute(
+            "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by, attachments)
+             VALUES ('T-001', 'Q-MAP-CHILD', 'DOC-MAP', '20000002', 'Answer', 'needs_improvement', 'Revise', CURRENT_TIMESTAMP, 'Q-001', '[\"one.pdf\",\"two.jpg\"]')",
+            [],
+        )
+        .expect("Failed to seed dependent answer");
+        conn.execute(
+            "INSERT INTO UserProgress (user_id, document_id, section_id) VALUES ('T-001', 'DOC-MAP', 9200)",
+            [],
+        )
+        .expect("Failed to seed progress");
+
+        let report = analyze_creator_question_change_with_conn(
+            &conn,
+            &AnalyzeCreatorQuestionChangeArgs {
+                question_id: "Q-MAP-CHILD".to_string(),
+                document_id: "DOC-MAP".to_string(),
+                proposed_sub_question_codes: vec!["20000001".to_string()],
+                proposed_answer_keys: mapping_save_args(false).answer_keys,
+            },
+        )
+        .expect("Impact analysis should succeed");
+
+        assert_eq!(report.removed_codes, vec!["20000002"]);
+        assert_eq!(report.answer_key_count, 1);
+        assert_eq!(report.trainee_answer_count, 1);
+        assert_eq!(report.assessed_answer_count, 1);
+        assert_eq!(report.attachment_count, 2);
+        assert_eq!(report.progress_record_count, 1);
+        assert!(report.requires_confirmation);
+        assert!(report.is_blocked);
+        assert_eq!(report.items[0].label.as_deref(), Some("Bravo"));
+    }
+
+    #[test]
+    fn answer_key_upsert_preserves_unchanged_code_trainee_answer() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        seed_section_200_mapping_fixture(&conn);
+        conn.execute(
+            "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text)
+             VALUES ('T-001', 'Q-MAP-CHILD', 'DOC-MAP', '20000001', 'Persist me')",
+            [],
+        )
+        .expect("Failed to seed dependent answer");
+
+        replace_question_answer_keys_with_conn(
+            &mut conn,
+            "Q-MAP-CHILD".to_string(),
+            vec![
+                ReplaceAnswerKeyItem {
+                    sub_code: "20000001".to_string(),
+                    text: "Alpha key revised".to_string(),
+                    is_required: Some(true),
+                },
+                ReplaceAnswerKeyItem {
+                    sub_code: "20000002".to_string(),
+                    text: "Bravo key".to_string(),
+                    is_required: Some(true),
+                },
+            ],
+        )
+        .expect("Non-destructive Answer Key update should succeed");
+
+        let answer_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers WHERE question_id = 'Q-MAP-CHILD' AND sub_question_code = '20000001'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to inspect preserved answer");
+        assert_eq!(answer_count, 1);
+    }
+
+    #[test]
+    fn mapping_save_requires_confirmation_for_answer_key_only_removal() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        seed_section_200_mapping_fixture(&conn);
+
+        let error = save_creator_question_with_conn(&mut conn, mapping_save_args(false))
+            .expect_err("Answer Key removal must require confirmation");
+        assert!(error.starts_with("MAPPING_CHANGE_CONFIRMATION_REQUIRED"));
+
+        save_creator_question_with_conn(&mut conn, mapping_save_args(true))
+            .expect("Confirmed Answer Key-only mapping removal should succeed");
+        let removed_key_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = 'Q-MAP-CHILD' AND sub_question_code = '20000002'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to inspect removed Answer Key");
+        assert_eq!(removed_key_count, 0);
+    }
+
+    #[test]
+    fn mapping_save_blocks_removal_when_trainee_work_exists() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        seed_section_200_mapping_fixture(&conn);
+        conn.execute(
+            "INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text)
+             VALUES ('T-001', 'Q-MAP-CHILD', 'DOC-MAP', '20000002', 'Do not delete')",
+            [],
+        )
+        .expect("Failed to seed dependent answer");
+
+        let error = save_creator_question_with_conn(&mut conn, mapping_save_args(true))
+            .expect_err("Trainee work must block mapping removal");
+        assert!(error.starts_with("MAPPING_CHANGE_BLOCKED"));
+        let answer_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers WHERE question_id = 'Q-MAP-CHILD' AND sub_question_code = '20000002'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to inspect protected Trainee Answer");
+        assert_eq!(answer_count, 1);
     }
 }

@@ -18,7 +18,9 @@ import ConfirmModal from "../modals/ConfirmModal";
 
 import QuestionFormCard from "./QuestionFormCard";
 import QuestionTreeNode from "./QuestionTreeNode";
+import { CreatorAnswerKeyInput } from "./questionFormCard/types";
 import { logger } from '../../utils/logger';
+import { useCreatorFormWorkflow } from '../../hooks/useCreatorFormWorkflow';
 
 // ============ Types ============
 
@@ -82,6 +84,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const [insertingAfterId, setInsertingAfterId] = useState<string | null>(null); // New state
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const { requestOpen: requestCreatorFormOpen } = useCreatorFormWorkflow();
 
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
@@ -280,15 +283,29 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   };
 
   const handleStartCreate = (parentId: string | null = null) => {
-    resetForms();
-    setCreatingAtParent(parentId);
-    setIsCreating(true);
+    const targetId = `creator-create-${docId}-${sectionId}-${parentId ?? 'root'}`;
+    requestCreatorFormOpen(targetId, () => {
+      resetForms();
+      setCreatingAtParent(parentId);
+      setIsCreating(true);
+    });
   };
 
   const handleStartInsertAfter = (targetId: string) => {
-    resetForms();
-    setInsertingAfterId(targetId);
-    setIsCreating(true);
+    const workflowId = `creator-insert-${docId}-${sectionId}-${targetId}`;
+    requestCreatorFormOpen(workflowId, () => {
+      resetForms();
+      setInsertingAfterId(targetId);
+      setIsCreating(true);
+    });
+  };
+
+  const handleStartEdit = (id: string) => {
+    const workflowId = `creator-edit-${docId}-${id}`;
+    requestCreatorFormOpen(workflowId, () => {
+      resetForms();
+      setEditingId(id);
+    });
   };
 
   const handleCreate = async (
@@ -299,6 +316,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       id?: string;
       references?: QuestionReferenceDetail[];
       metadata?: string;
+      answerKeys?: CreatorAnswerKeyInput[];
+      confirmMappingChange?: boolean;
       childLayout?: "list" | "grid";
     },
     parentId: string | null,
@@ -321,33 +340,25 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       }
       const finalMetadata = Object.keys(metaObj).length > 0 ? JSON.stringify(metaObj) : null;
 
-      const newId = await invoke<string>("create_question", {
+      const saved = await invoke<{ questionId: string }>("save_creator_question", {
         args: {
-          id: data.id || null, // Pass custom ID if provided
-          document_id: docId,
-          section_id: sectionId,
-          parent_id: parentId,
+          isCreate: true,
+          id: data.id || null,
+          documentId: docId,
+          sectionId: sectionId ?? null,
+          parentId,
           content: data.content.trim(),
           description: data.description || null,
-          is_header: false,
-          sequence: null, // Let backend assign sequence
-          answer_type: "text",
-          metadata: finalMetadata, // Use merged metadata
+          metadata: finalMetadata,
+          references: (data.references || []).map(ref => ({
+            referenceId: ref.reference.id,
+            locationText: ref.location_text,
+          })),
+          answerKeys: data.answerKeys || [],
+          confirmMappingChange: data.confirmMappingChange || false,
         },
       });
-
-      // 1.5 Save References if provided (for L1)
-      if (data.references && data.references.length > 0) {
-        for (const ref of data.references) {
-          await invoke("add_question_reference", {
-            req: {
-              question_id: newId,
-              reference_id: ref.reference.id,
-              location_text: ref.location_text,
-            },
-          });
-        }
-      }
+      const newId = saved.questionId;
 
       // 2. If insertAfterId provided, reorder siblings immediately
       if (insertAfterId) {
@@ -366,7 +377,11 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
             newId,
             ...allSiblings.slice(insertionIndex + 1).map((q) => q.id),
           ];
-          await invoke("reorder_questions", { questionIds: newOrderIds });
+          try {
+            await invoke("reorder_questions", { questionIds: newOrderIds });
+          } catch (reorderError) {
+            logger.error("Question saved, but sibling reorder failed:", reorderError);
+          }
         }
       }
 
@@ -404,6 +419,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
       logger.error("Failed to create question:", err);
+      throw err;
     }
   };
 
@@ -413,6 +429,8 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     description?: string | null,
     metadata?: string | null,
     references?: QuestionReferenceDetail[],
+    answerKeys?: CreatorAnswerKeyInput[],
+    confirmMappingChange = false,
   ) => {
     try {
       // Note: We might want to preserve existing metadata if not passed, but QuestionTreeNode passes the *updated* metadata logic.
@@ -437,62 +455,24 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       // Sanitize: never save 'undefined' or 'null' string literals to DB
       if (finalDesc === 'undefined' || finalDesc === 'null') finalDesc = null;
 
-      await invoke("update_question", {
+      await invoke("save_creator_question", {
         args: {
+          isCreate: false,
           id,
+          documentId: docId,
+          sectionId: sectionId ?? null,
+          parentId: questions.find(q => q.id === id)?.parent_id || null,
           content: content.trim(),
           description: finalDesc,
           metadata: finalMeta,
+          references: (references || []).map(ref => ({
+            referenceId: ref.reference.id,
+            locationText: ref.location_text,
+          })),
+          answerKeys: answerKeys || [],
+          confirmMappingChange,
         },
       });
-
-      // 2. Sync References (if provided)
-      if (references) {
-        const question = questions.find((q) => q.id === id);
-        const oldRefs = question?.references || [];
-        const newRefs = references;
-        const normalizeLocationText = (value: string | null | undefined) => {
-          const trimmed = value?.trim();
-          return trimmed ? trimmed : null;
-        };
-
-        // Diffing
-        const toAdd = newRefs.filter(
-          (nr) => !oldRefs.some((or) => or.reference.id === nr.reference.id),
-        );
-        const toRemove = oldRefs.filter(
-          (or) => !newRefs.some((nr) => nr.reference.id === or.reference.id),
-        );
-        const toUpdate = newRefs.filter((nr) => {
-          const oldRef = oldRefs.find((or) => or.reference.id === nr.reference.id);
-          if (!oldRef) return false;
-          return normalizeLocationText(oldRef.location_text) !== normalizeLocationText(nr.location_text);
-        });
-
-        // Execute Additions
-        for (const ref of toAdd) {
-          await invoke("add_question_reference", {
-            req: {
-              question_id: id,
-              reference_id: ref.reference_id, // Use reference_id
-              location_text: ref.location_text,
-            },
-          });
-        }
-
-        // Execute Removals
-        for (const ref of toRemove) {
-          await invoke("remove_question_reference", { id: ref.id });
-        }
-
-        // Update page number/location for existing links
-        for (const ref of toUpdate) {
-          await invoke("update_question_reference_location", {
-            id: ref.id,
-            locationText: normalizeLocationText(ref.location_text),
-          });
-        }
-      }
 
       // Optimistic: patch local state immediately
       // IMPORTANT: use explicit null check (!==undefined), not ?? operator,
@@ -513,6 +493,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
       setBgSyncTrigger(prev => prev + 1);
     } catch (err) {
       logger.error("Failed to update question:", err);
+      throw err;
     }
   };
 
@@ -660,10 +641,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 isCreating={isCreating}
                 creatingAtParent={creatingAtParent}
                 insertingAfterId={insertingAfterId}
-                onStartEdit={(id) => {
-                  resetForms();
-                  setEditingId(id);
-                }}
+                onStartEdit={handleStartEdit}
                 onUpdate={handleUpdate}
                 onDelete={handleDelete}
                 onStartCreate={handleStartCreate}
@@ -712,6 +690,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
               documentId={docId}
               parentId={null}
               sectionId={sectionId}
+              workflowId={`creator-create-${docId}-${sectionId}-root`}
             />
           </div>
         )}

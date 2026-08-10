@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/tauri';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
@@ -10,6 +10,7 @@ import { ReferenceDoc } from './reference/types';
 import TraineeAnswerBox from './TraineeAnswerBox';
 import { logger } from '../../utils/logger';
 import { buildFullPrefix } from '../../utils/thaiNumbering';
+import { UserAnswer } from './PqsQuestionSection';
 
 interface AnswerKeyRow {
   id: number;
@@ -65,6 +66,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
   printSubView: printSubViewProp = 'question-only',
 }) => {
   const [questions, setQuestions] = useState<QuestionDetail[]>([]);
+  const [traineeAnswers, setTraineeAnswers] = useState<UserAnswer[]>([]);
   const [loading, setLoading] = useState(true);
   const [printSubView, setPrintSubView] = useState<PrintSubView>(printSubViewProp);
   const [docBranchMain, setDocBranchMain] = useState('');
@@ -86,6 +88,36 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
   }, [printSubViewProp]);
 
   const showAnswerKey = mode !== 'print' ? (mode === 'qualifier') : (printSubView === 'question-with-key');
+  const isAssessmentMode = mode === 'trainee' || mode === 'qualifier';
+
+  const refreshAnswers = useCallback(async () => {
+    if (!docId || !isAssessmentMode) {
+      setTraineeAnswers([]);
+      return;
+    }
+    try {
+      const answers = await invoke<UserAnswer[]>('get_trainee_answers', {
+        userId: 'T-001',
+        documentId: docId,
+      });
+      setTraineeAnswers(Array.isArray(answers) ? answers : []);
+    } catch (error) {
+      logger.error('Failed to hydrate trainee answers for preview:', error);
+    }
+  }, [docId, isAssessmentMode]);
+
+  useEffect(() => {
+    void refreshAnswers();
+  }, [refreshAnswers]);
+
+  const answerMap = useMemo(() => {
+    return new Map(
+      traineeAnswers.map((answer) => [
+        `${answer.question_id}:${answer.sub_question_code || ''}`,
+        answer,
+      ]),
+    );
+  }, [traineeAnswers]);
 
   useEffect(() => {
     const fetchQuestions = async () => {
@@ -195,6 +227,8 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               parentFullPrefix={null}
               parentSequence={null}
               isInsidePrerequisiteDoc={false}
+              answerMap={answerMap}
+              onAnswersRefresh={refreshAnswers}
             />
           ))}
         </div>
@@ -220,6 +254,8 @@ interface PreviewQuestionNode200Props {
   parentFullPrefix?: string | null;
   parentSequence?: number | null;
   isInsidePrerequisiteDoc?: boolean;
+  answerMap?: Map<string, UserAnswer>;
+  onAnswersRefresh?: () => void | Promise<void>;
 }
 
 const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
@@ -237,8 +273,11 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   parentFullPrefix,
   parentSequence = null,
   isInsidePrerequisiteDoc = false,
+  answerMap,
+  onAnswersRefresh,
 }) => {
   const is200 = sectionGroup === 200;
+  const isAssessmentMode = mode === 'trainee' || mode === 'qualifier';
 
   // Build numbering based on section group
   let displayNumber = '';
@@ -483,7 +522,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
 
       {/* Single Answer Key */}
       {
-        showAnswerKey && answerKey && Object.keys(answerKeys).length === 0 && 
+        (showAnswerKey || isAssessmentMode) && answerKey && Object.keys(answerKeys).length === 0 &&
         question.question_type !== 'exempted' && !question.is_group_header && (
           <div className={`mt-1 ${contentStartOffsetClass} flex flex-col gap-1`}>
             {mode !== 'print' && (mode === 'trainee' || mode === 'qualifier') && (!is300 || effectiveIsInsidePrerequisiteDoc) && (
@@ -493,23 +532,26 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                 documentId={docId}
                 readOnly={mode !== "trainee"}
                 questionPrefix={fullPrefix}
+                traineeAnswer={answerMap?.get(`${question.id}:`)}
+                onAnswerSaved={onAnswersRefresh}
+                onAssessmentSaved={onAnswersRefresh}
               />
             )}
-            <div className="flex items-start gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary mb-1">
+            {showAnswerKey && <div className="flex items-baseline gap-2 text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary mb-1">
               <span className="text-slate-900 dark:text-slate-100 shrink-0 font-semibold">เฉลย:</span>
               <div className="answer-key-markdown min-w-0 flex-1">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
                   {formatMarkdownWithThaiLists(formatAnswerKeyForDisplay(answerKey))}
                 </ReactMarkdown>
               </div>
-            </div>
+            </div>}
           </div>
         )
       }
 
       {/* Multi Answer Keys (per sub-question code) */}
       {
-        showAnswerKey && Object.keys(answerKeys).length > 0 && 
+        (showAnswerKey || isAssessmentMode) && Object.keys(answerKeys).length > 0 &&
         question.question_type !== 'exempted' && !question.is_group_header && (() => {
           // Use effective parentSubQuestionList for ordering and labelling
           const effectiveSqList = parentSubQuestionList && parentSubQuestionList.length > 0 ? parentSubQuestionList : [];
@@ -541,10 +583,13 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                         subQuestionCode={code} 
                         readOnly={mode !== "trainee"} 
                         questionPrefix={subQPrefix}
+                        traineeAnswer={answerMap?.get(`${question.id}:${code}`)}
+                        onAnswerSaved={onAnswersRefresh}
+                        onAssessmentSaved={onAnswersRefresh}
                       />
                     )}
-                    <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary">
-                      <div className="flex items-start gap-2">
+                    {showAnswerKey && <div className="text-sm font-normal text-slate-900 dark:text-slate-100 bg-white dark:bg-github-bg-tertiary px-2 py-1 rounded-md border border-gray-300 dark:border-github-border-primary">
+                      <div className="flex items-baseline gap-2">
                         <span className="shrink-0 font-semibold">เฉลย: <span className="text-black dark:text-white">{label}</span></span>
                         <div className="answer-key-markdown min-w-0 flex-1">
                           <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
@@ -552,7 +597,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                           </ReactMarkdown>
                         </div>
                       </div>
-                    </div>
+                    </div>}
                   </div>
                 );
               })}
@@ -575,6 +620,9 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
               documentId={docId} 
               readOnly={mode !== "trainee"} 
               questionPrefix={fullPrefix}
+              traineeAnswer={answerMap?.get(`${question.id}:`)}
+              onAnswerSaved={onAnswersRefresh}
+              onAssessmentSaved={onAnswersRefresh}
             />
           </div>
         )
@@ -613,6 +661,8 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   parentFullPrefix={fullPrefix}
                   parentSequence={question.sequence}
                   isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
+                  answerMap={answerMap}
+                  onAnswersRefresh={onAnswersRefresh}
                 />
               </div>
             ))}

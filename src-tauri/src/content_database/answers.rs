@@ -1,5 +1,6 @@
 use crate::logger;
 use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::HashSet;
 use std::path::Path;
 
 use super::*;
@@ -340,37 +341,95 @@ pub fn replace_question_answer_keys_with_conn(
     question_id: String,
     items: Vec<ReplaceAnswerKeyItem>,
 ) -> Result<String, String> {
-    // Only enforce Section 300 policy when actually writing answer keys.
-    // Empty items = clear-only (harmless for new questions); skip the guard.
-    if !items.is_empty() {
-        ensure_section_300_policy_allows_question_action(conn, &question_id, "answer keys")?;
-    }
-
     let tx = conn
         .transaction()
         .map_err(|e| format!("Failed to start transaction: {}", e))?;
 
-    tx.execute(
-        "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1",
-        params![question_id],
-    )
-    .map_err(|e| format!("Failed to clear answer keys: {}", e))?;
-
-    for (idx, item) in items.iter().enumerate() {
-        let text = item.text.trim();
-        let sub_code = item.sub_code.trim();
-        if text.is_empty() {
-            continue;
-        }
-
-        tx.execute(
-            "INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![question_id, sub_code, text, item.is_required.unwrap_or(true), idx as i32],
-        ).map_err(|e| format!("Failed to insert answer key: {}", e))?;
-    }
+    replace_question_answer_keys_in_transaction(&tx, &question_id, &items)?;
 
     tx.commit()
         .map_err(|e| format!("Failed to commit answer key replacement: {}", e))?;
     Ok("Answer keys replaced successfully".to_string())
+}
+
+pub(crate) fn replace_question_answer_keys_in_transaction(
+    conn: &Connection,
+    question_id: &str,
+    items: &[ReplaceAnswerKeyItem],
+) -> Result<(), String> {
+    // Only enforce Section 300 policy when actually writing answer keys.
+    if !items.is_empty() {
+        ensure_section_300_policy_allows_question_action(conn, question_id, "answer keys")?;
+    }
+
+    let mut proposed_codes = HashSet::new();
+    let proposed_items: Vec<(usize, &ReplaceAnswerKeyItem, &str, &str)> = items
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, item)| {
+            let text = item.text.trim();
+            if text.is_empty() {
+                None
+            } else {
+                Some((idx, item, item.sub_code.trim(), text))
+            }
+        })
+        .collect();
+    for (_, _, code, _) in &proposed_items {
+        if !proposed_codes.insert((*code).to_string()) {
+            return Err(format!("Duplicate Answer Key code: {code}"));
+        }
+    }
+
+    let mut existing_stmt = conn
+        .prepare("SELECT sub_question_code FROM QuestionAnswerKeys WHERE question_id = ?1")
+        .map_err(|e| format!("Failed to inspect existing Answer Keys: {e}"))?;
+    let existing_codes = existing_stmt
+        .query_map(params![question_id], |row| row.get::<_, String>(0))
+        .map_err(|e| format!("Failed to inspect existing Answer Keys: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to inspect existing Answer Keys: {e}"))?;
+
+    for code in existing_codes
+        .iter()
+        .filter(|code| !proposed_codes.contains(code.as_str()))
+    {
+        let has_answers: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM UserAnswers WHERE question_id = ?1 AND sub_question_code = ?2)",
+                params![question_id, code],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to inspect dependent Trainee Answers: {e}"))?;
+        if has_answers {
+            return Err(format!(
+                "Cannot remove Answer Key {code}: dependent Trainee Answers exist"
+            ));
+        }
+    }
+
+    for code in existing_codes
+        .iter()
+        .filter(|code| !proposed_codes.contains(code.as_str()))
+    {
+        conn.execute(
+            "DELETE FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = ?2",
+            params![question_id, code],
+        )
+        .map_err(|e| format!("Failed to remove Answer Key {code}: {e}"))?;
+    }
+
+    for (idx, item, sub_code, text) in proposed_items {
+        conn.execute(
+            "INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+             VALUES (?1, ?2, ?3, ?4, ?5)
+             ON CONFLICT(question_id, sub_question_code) DO UPDATE SET
+                answer_key_text = excluded.answer_key_text,
+                is_required = excluded.is_required,
+                order_index = excluded.order_index",
+            params![question_id, sub_code, text, item.is_required.unwrap_or(true), idx as i32],
+        ).map_err(|e| format!("Failed to insert answer key: {}", e))?;
+    }
+
+    Ok(())
 }

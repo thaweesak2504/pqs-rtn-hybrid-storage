@@ -31,6 +31,29 @@ pub struct Document {
     pub created_at: Option<String>,
     pub updated_at: Option<String>,
 }
+/// Identifies a trainee-specific simulation document and its source template.
+#[derive(serde::Serialize)]
+pub struct SimulationDocumentInfo {
+    pub simulation_document_id: String,
+    pub template_document_id: String,
+    pub trainee_id: String,
+}
+/// Read-only summary used by a Template to manage its issued simulation copies.
+#[derive(Debug, serde::Serialize)]
+pub struct SimulationDocumentSummary {
+    pub simulation_document_id: String,
+    pub template_document_id: String,
+    pub trainee_id: String,
+    pub created_at: String,
+    pub latest_activity_at: String,
+    pub answered_count: i64,
+    pub assessed_count: i64,
+    pub passed_count: i64,
+    pub needs_improvement_count: i64,
+    pub attachment_count: i64,
+    pub progress_record_count: i64,
+    pub attachment_directory: String,
+}
 /// Arguments for updating an existing PQS document.
 #[derive(serde::Deserialize)]
 pub struct UpdateDocumentArgs {
@@ -183,6 +206,72 @@ pub struct UpdateQuestionArgs {
     pub display_text: Option<String>,
     pub is_group_header: Option<bool>,
     pub is_scored: Option<bool>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatorQuestionReferenceInput {
+    pub reference_id: i64,
+    pub location_text: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveCreatorQuestionArgs {
+    pub is_create: bool,
+    pub id: Option<String>,
+    pub document_id: String,
+    pub section_id: Option<i64>,
+    pub parent_id: Option<String>,
+    pub content: String,
+    pub description: Option<String>,
+    pub metadata: Option<String>,
+    pub references: Vec<CreatorQuestionReferenceInput>,
+    pub answer_keys: Vec<ReplaceAnswerKeyItem>,
+    #[serde(default)]
+    pub confirm_mapping_change: bool,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveCreatorQuestionResult {
+    pub question_id: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzeCreatorQuestionChangeArgs {
+    pub question_id: String,
+    pub document_id: String,
+    pub proposed_sub_question_codes: Vec<String>,
+    pub proposed_answer_keys: Vec<ReplaceAnswerKeyItem>,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatorMappingImpactItem {
+    pub sub_question_code: String,
+    pub label: Option<String>,
+    pub answer_key_count: i64,
+    pub trainee_answer_count: i64,
+    pub assessed_answer_count: i64,
+    pub attachment_count: i64,
+    pub progress_record_count: i64,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreatorMappingImpactReport {
+    pub question_id: String,
+    pub removed_codes: Vec<String>,
+    pub items: Vec<CreatorMappingImpactItem>,
+    pub answer_key_count: i64,
+    pub trainee_answer_count: i64,
+    pub assessed_answer_count: i64,
+    pub attachment_count: i64,
+    pub progress_record_count: i64,
+    pub requires_confirmation: bool,
+    pub is_blocked: bool,
 }
 /// Document with its full unit hierarchy path.
 #[derive(serde::Serialize)]
@@ -496,7 +585,7 @@ pub struct AnswerKey {
     pub is_required: bool,
     pub order_index: i32,
 }
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReplaceAnswerKeyItem {
     pub sub_code: String,

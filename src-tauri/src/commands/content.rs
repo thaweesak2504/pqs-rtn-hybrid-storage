@@ -45,6 +45,38 @@ pub fn update_document(args: content_database::UpdateDocumentArgs) -> Result<Str
 }
 
 #[tauri::command]
+pub fn clone_document_for_simulation(
+    template_document_id: String,
+    trainee_id: String,
+) -> Result<content_database::SimulationDocumentInfo, String> {
+    content_database::clone_document_for_simulation(template_document_id, trainee_id)
+}
+
+#[tauri::command]
+pub fn get_simulation_document_info(
+    document_id: String,
+) -> Result<Option<content_database::SimulationDocumentInfo>, String> {
+    content_database::get_simulation_document_info(document_id)
+}
+
+#[tauri::command]
+pub fn list_template_simulation_documents(
+    template_document_id: String,
+) -> Result<Vec<content_database::SimulationDocumentSummary>, String> {
+    content_database::list_template_simulation_documents(template_document_id)
+}
+
+#[tauri::command]
+pub fn clear_simulation_document_answers(document_id: String) -> Result<(), String> {
+    content_database::clear_simulation_document_answers(document_id)
+}
+
+#[tauri::command]
+pub fn delete_simulation_document(document_id: String) -> Result<String, String> {
+    content_database::delete_simulation_document(document_id)
+}
+
+#[tauri::command]
 pub fn get_document_questions(doc_id: String) -> Result<Vec<content_database::Question>, String> {
     content_database::get_document_questions(doc_id)
 }
@@ -71,6 +103,20 @@ pub fn create_question(args: content_database::CreateQuestionArgs) -> Result<Str
 #[tauri::command]
 pub fn update_question(args: content_database::UpdateQuestionArgs) -> Result<(), String> {
     content_database::update_question(args)
+}
+
+#[tauri::command]
+pub fn save_creator_question(
+    args: content_database::SaveCreatorQuestionArgs,
+) -> Result<content_database::SaveCreatorQuestionResult, String> {
+    content_database::save_creator_question(args)
+}
+
+#[tauri::command]
+pub fn analyze_creator_question_change(
+    args: content_database::AnalyzeCreatorQuestionChangeArgs,
+) -> Result<content_database::CreatorMappingImpactReport, String> {
+    content_database::analyze_creator_question_change(args)
 }
 
 #[tauri::command]

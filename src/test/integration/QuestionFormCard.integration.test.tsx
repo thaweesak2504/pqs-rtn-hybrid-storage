@@ -1,16 +1,21 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import QuestionFormCard from "../../components/editor_v2/QuestionFormCard";
 import { SectionReferenceDetail } from "../../types/content";
+import { CreatorFormWorkflow } from "../../hooks/useCreatorFormWorkflow";
 
 vi.mock("../../components/editor_v2/questionFormCard/AnswerKeyEditor", () => ({
   default: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
     <textarea
       aria-label="answer-key-editor"
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onInput={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        e.stopPropagation();
+        onChange(e.target.value);
+      }}
     />
   ),
 }));
@@ -90,6 +95,7 @@ const buildProps = (overrides: Partial<React.ComponentProps<typeof QuestionFormC
 describe("QuestionFormCard integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    CreatorFormWorkflow.reset();
     vi.mocked(invoke).mockReset();
     vi.mocked(invoke).mockImplementation(async (command: string) => {
       if (command === "get_section_references") return refsFixture;
@@ -103,6 +109,290 @@ describe("QuestionFormCard integration", () => {
       if (command === "get_question_answer_keys") return [];
       return null;
     });
+  });
+
+  it("switches directly when another Creator form is requested from a clean draft", async () => {
+    const onCancel = vi.fn();
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          initialContent: "Persisted question",
+          onCancel,
+          workflowId: "creator-edit-DOC-1-Q-1",
+        })}
+      />,
+    );
+
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-2", openNext);
+    });
+
+    await waitFor(() => {
+      expect(onCancel).toHaveBeenCalledOnce();
+      expect(openNext).toHaveBeenCalledOnce();
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("recognizes Ctrl+S by physical key code while a non-Latin keyboard layout is active", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          initialContent: "Persisted question",
+          onSave,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText(/เอกสารอ้างอิง \(Reference\)/));
+    fireEvent.click(screen.getByLabelText(/คำเฉลย \(Answer Key\)/));
+    fireEvent.keyDown(screen.getByPlaceholderText("พิมพ์คำถาม..."), {
+      key: "ห",
+      code: "KeyS",
+      ctrlKey: true,
+    });
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("keeps a dirty Creator draft open and shows one decision modal", async () => {
+    const onCancel = vi.fn();
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          initialContent: "Persisted question",
+          onCancel,
+          workflowId: "creator-edit-DOC-1-Q-1",
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("พิมพ์คำถาม..."), {
+      target: { value: "Unsaved question" },
+    });
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-2", openNext);
+    });
+
+    expect(screen.getByRole("dialog", { name: "การแก้ไขยังไม่ได้บันทึก" })).toBeInTheDocument();
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(openNext).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "แก้ไขต่อ" }));
+    expect(screen.getByDisplayValue("Unsaved question")).toBeInTheDocument();
+    expect(openNext).not.toHaveBeenCalled();
+
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-2", openNext);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ละทิ้งการแก้ไข" }));
+
+    await waitFor(() => {
+      expect(onCancel).toHaveBeenCalledOnce();
+      expect(openNext).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("identifies Description as its own unsaved draft area", async () => {
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          initialContent: "Persisted question",
+          initialDescription: "Persisted description",
+          workflowId: "creator-edit-DOC-1-Q-DESCRIPTION",
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("คำอธิบายเพิ่มเติม (Description)..."), {
+      target: { value: "Changed description" },
+    });
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-NEXT", openNext);
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "การแก้ไขยังไม่ได้บันทึก" });
+    expect(dialog).toHaveTextContent("คำอธิบาย (Description)");
+    expect(dialog).not.toHaveTextContent("รายละเอียดประกอบ");
+    expect(openNext).not.toHaveBeenCalled();
+  });
+
+  it("keeps persisted attachment files intact when an attachment draft is discarded", async () => {
+    const onCancel = vi.fn();
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          existingId: "Q-ATTACHMENT-DISCARD",
+          initialContent: "Persisted question",
+          initialMetadata: JSON.stringify({ attachments: ["questions/persisted.pdf"] }),
+          onCancel,
+          workflowId: "creator-edit-DOC-1-Q-ATTACHMENT-DISCARD",
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTitle("ลบไฟล์แนบ"));
+    await screen.findByRole("button", { name: "📎 แนบไฟล์ (0/3)" });
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-NEXT", openNext);
+    });
+
+    const dialog = screen.getByRole("dialog", { name: "การแก้ไขยังไม่ได้บันทึก" });
+    expect(dialog).toHaveTextContent("ไฟล์แนบ (Attachments)");
+    fireEvent.click(within(dialog).getByRole("button", { name: "ละทิ้งการแก้ไข" }));
+
+    await waitFor(() => {
+      expect(onCancel).toHaveBeenCalledOnce();
+      expect(openNext).toHaveBeenCalledOnce();
+    });
+    expect(invoke).not.toHaveBeenCalledWith("delete_question_image", expect.anything());
+  });
+
+  it("deletes a removed persisted attachment only after the Question save succeeds", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          existingId: "Q-ATTACHMENT-SAVE",
+          sectionGroup: 100,
+          level: 0,
+          initialContent: "Persisted question",
+          initialMetadata: JSON.stringify({ attachments: ["questions/persisted.pdf"] }),
+          onSave,
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText(/เอกสารอ้างอิง \(Reference\)/));
+    fireEvent.click(screen.getByLabelText(/คำเฉลย \(Answer Key\)/));
+    fireEvent.click(screen.getByTitle("ลบไฟล์แนบ"));
+    await screen.findByRole("button", { name: "📎 แนบไฟล์ (0/3)" });
+    expect(invoke).not.toHaveBeenCalledWith("delete_question_image", expect.anything());
+
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+        metadata: expect.not.stringContaining("persisted.pdf"),
+      }));
+      expect(invoke).toHaveBeenCalledWith("delete_question_image", {
+        path: "questions/persisted.pdf",
+      });
+    });
+  });
+
+  it("treats clearing only the Answer Key editor as a dirty required draft", async () => {
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_section_references") return refsFixture;
+      if (command === "get_question_answer_keys") {
+        return [{
+          id: 1,
+          question_id: "Q-1",
+          sub_question_code: "",
+          answer_key_text: "Persisted answer key",
+          is_required: true,
+          order_index: 0,
+        }];
+      }
+      return [];
+    });
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          existingId: "Q-1",
+          initialContent: "Persisted question",
+          workflowId: "creator-edit-DOC-1-Q-1",
+        })}
+      />,
+    );
+
+    const answerEditor = await screen.findByLabelText("answer-key-editor");
+    expect(answerEditor).toHaveValue("Persisted answer key");
+    fireEvent.change(answerEditor, { target: { value: "" } });
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-2", openNext);
+    });
+
+    expect(screen.getByRole("dialog", { name: "การแก้ไขยังไม่ได้บันทึก" })).toBeInTheDocument();
+    expect(openNext).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกแล้วไปข้อใหม่" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("เฉลย (Answer Key)");
+    expect(openNext).not.toHaveBeenCalled();
+  });
+
+  it("saves the dirty Creator draft before opening the requested form", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const onCancel = vi.fn();
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          initialContent: "Persisted question",
+          onSave,
+          onCancel,
+          workflowId: "creator-edit-DOC-1-Q-1",
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("พิมพ์คำถาม..."), {
+      target: { value: "Saved before switching" },
+    });
+    fireEvent.click(screen.getByLabelText(/เอกสารอ้างอิง \(Reference\)/));
+    fireEvent.change(screen.getByLabelText("answer-key-editor"), {
+      target: { value: "Saved answer key" },
+    });
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-2", openNext);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกแล้วไปข้อใหม่" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+        content: "Saved before switching",
+        answerKeys: [expect.objectContaining({ text: "Saved answer key" })],
+      }));
+      expect(onCancel).toHaveBeenCalledOnce();
+      expect(openNext).toHaveBeenCalledOnce();
+    });
+  });
+
+  it("keeps one workflow modal open when save-before-switch validation fails", async () => {
+    const onAlert = vi.fn();
+    const openNext = vi.fn();
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          initialContent: "Persisted question",
+          onAlert,
+          workflowId: "creator-edit-DOC-1-Q-1",
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("พิมพ์คำถาม..."), {
+      target: { value: "" },
+    });
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-2", openNext);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "บันทึกแล้วไปข้อใหม่" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("คำถาม (Question)");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(onAlert).not.toHaveBeenCalled();
+    expect(openNext).not.toHaveBeenCalled();
   });
 
   it("opens and closes reference selector", async () => {
@@ -178,12 +468,75 @@ describe("QuestionFormCard integration", () => {
       target: { value: "5" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Update" }));
+    fireEvent.click(screen.getByRole("button", { name: "เสร็จสิ้น (Done)" }));
 
     await waitFor(() => {
-      expect(screen.getByText("แก้ไขเอกสารอ้างอิง (Update References)")).toBeInTheDocument();
+      expect(screen.getByText("ตรวจสอบ/แก้ไขเอกสารอ้างอิง (Edit References)")).toBeInTheDocument();
       expect(screen.queryByText("ซ่อนตัวเลือก (Hide Options)")).not.toBeInTheDocument();
       expect(screen.getByText(/เลือกแล้ว 1\/2 รายการ/)).toBeInTheDocument();
+    });
+  });
+
+  it("saves the current reference draft without requiring the Done button", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const openNext = vi.fn();
+    const initialReferences = refsFixture.slice(0, 2).map((item, index) => ({
+      id: index + 1,
+      question_id: "Q-REF-DRAFT",
+      reference_id: item.reference.id,
+      reference: item.reference,
+      location_text: index === 0 ? "35" : "30",
+      display_order: index + 1,
+      thai_letter: item.thai_letter,
+    }));
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_section_references") return refsFixture;
+      if (command === "get_question_answer_keys") {
+        return [{
+          id: 1,
+          question_id: "Q-REF-DRAFT",
+          sub_question_code: "",
+          answer_key_text: "Persisted answer key",
+          is_required: true,
+          order_index: 0,
+        }];
+      }
+      return [];
+    });
+
+    render(
+      <QuestionFormCard
+        {...buildProps({
+          existingId: "Q-REF-DRAFT",
+          initialContent: "Persisted question",
+          initialReferences,
+          onSave,
+          workflowId: "creator-edit-DOC-1-Q-REF-DRAFT",
+        })}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("พิมพ์คำถาม..."), {
+      target: { value: "Changed question" },
+    });
+    fireEvent.click(await screen.findByText("ตรวจสอบ/แก้ไขเอกสารอ้างอิง (Edit References)"));
+    fireEvent.click(screen.getByText("Reference Two"));
+
+    act(() => {
+      CreatorFormWorkflow.requestOpen("creator-edit-DOC-1-Q-NEXT", openNext);
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "การแก้ไขยังไม่ได้บันทึก" });
+    expect(dialog).toHaveTextContent("คำถาม (Question)");
+    expect(dialog).toHaveTextContent("เอกสารอ้างอิง (References)");
+    fireEvent.click(within(dialog).getByRole("button", { name: "บันทึกแล้วไปข้อใหม่" }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+        content: "Changed question",
+        references: [expect.objectContaining({ reference_id: 11, location_text: "35" })],
+      }));
+      expect(openNext).toHaveBeenCalledOnce();
     });
   });
 
@@ -437,5 +790,128 @@ describe("QuestionFormCard integration", () => {
       />,
     );
     expect(screen.queryByLabelText("ไม่ต้องปฏิบัติ")).not.toBeInTheDocument();
+  });
+
+  it("shows Section 200 mapping impact and saves only after explicit confirmation", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_section_references") return [];
+      if (command === "get_question_answer_keys") {
+        return [
+          { id: 1, question_id: "Q-200", sub_question_code: "20000001", answer_key_text: "Alpha key", is_required: true, order_index: 0 },
+          { id: 2, question_id: "Q-200", sub_question_code: "20000002", answer_key_text: "Bravo key", is_required: true, order_index: 1 },
+        ];
+      }
+      if (command === "analyze_creator_question_change") {
+        return {
+          questionId: "Q-200",
+          removedCodes: ["20000002"],
+          items: [{
+            subQuestionCode: "20000002", label: "Bravo", answerKeyCount: 1,
+            traineeAnswerCount: 0, assessedAnswerCount: 0, attachmentCount: 0,
+            progressRecordCount: 0,
+          }],
+          answerKeyCount: 1, traineeAnswerCount: 0, assessedAnswerCount: 0,
+          attachmentCount: 0, progressRecordCount: 0,
+          requiresConfirmation: true, isBlocked: false,
+        };
+      }
+      if (command === "get_sub_question_usage_counts") return { usage_map: {}, total_children: 1 };
+      return null;
+    });
+
+    render(
+      <QuestionFormCard {...buildProps({
+        existingId: "Q-200",
+        parentId: "Q-PARENT",
+        initialContent: "Persisted child",
+        initialMetadata: JSON.stringify({
+          requireRef: false,
+          selectedSubQuestions: ["20000001", "20000002"],
+        }),
+        parentSubQuestionList: [
+          { code: "20000001", text: "Alpha" },
+          { code: "20000002", text: "Bravo" },
+        ],
+        onSave,
+      })} />,
+    );
+
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Bravo/ })).toBeChecked());
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bravo/ }));
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+
+    expect(await screen.findByRole("dialog", { name: /ยืนยันการนำคำถามย่อยออกจากข้อ/ })).toBeInTheDocument();
+    expect(screen.getByText(/คำถามย่อย ข\. Bravo/)).toBeInTheDocument();
+    expect(screen.getByText(/ยังเป็นเพียง Draft และยังไม่มีข้อมูลถูกนำออก/)).toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "กลับไปตรวจสอบ" }));
+    expect(screen.queryByRole("dialog", { name: /ยืนยันการนำคำถามย่อยออกจากข้อ/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Bravo/ })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bravo/ }));
+    expect(screen.getByDisplayValue("Bravo key")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bravo/ }));
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+    await screen.findByRole("dialog", { name: /ยืนยันการนำคำถามย่อยออกจากข้อ/ });
+    fireEvent.click(screen.getByRole("button", { name: "นำออกและบันทึก" }));
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ confirmMappingChange: true }));
+    });
+  });
+
+  it("blocks Section 200 mapping removal when Trainee work exists", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    vi.mocked(invoke).mockImplementation(async (command: string) => {
+      if (command === "get_section_references") return [];
+      if (command === "get_question_answer_keys") {
+        return [
+          { id: 1, question_id: "Q-200", sub_question_code: "20000001", answer_key_text: "Alpha key", is_required: true, order_index: 0 },
+          { id: 2, question_id: "Q-200", sub_question_code: "20000002", answer_key_text: "Bravo key", is_required: true, order_index: 1 },
+        ];
+      }
+      if (command === "analyze_creator_question_change") {
+        return {
+          questionId: "Q-200",
+          removedCodes: ["20000002"],
+          items: [{
+            subQuestionCode: "20000002", label: "Bravo", answerKeyCount: 1,
+            traineeAnswerCount: 1, assessedAnswerCount: 1, attachmentCount: 2,
+            progressRecordCount: 1,
+          }],
+          answerKeyCount: 1, traineeAnswerCount: 1, assessedAnswerCount: 1,
+          attachmentCount: 2, progressRecordCount: 1,
+          requiresConfirmation: true, isBlocked: true,
+        };
+      }
+      if (command === "get_sub_question_usage_counts") return { usage_map: {}, total_children: 1 };
+      return null;
+    });
+
+    render(
+      <QuestionFormCard {...buildProps({
+        existingId: "Q-200",
+        parentId: "Q-PARENT",
+        initialContent: "Persisted child",
+        initialMetadata: JSON.stringify({
+          requireRef: false,
+          selectedSubQuestions: ["20000001", "20000002"],
+        }),
+        parentSubQuestionList: [
+          { code: "20000001", text: "Alpha" },
+          { code: "20000002", text: "Bravo" },
+        ],
+        onSave,
+      })} />,
+    );
+
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Bravo/ })).toBeChecked());
+    fireEvent.click(screen.getByRole("checkbox", { name: /Bravo/ }));
+    fireEvent.click(screen.getByRole("button", { name: "บันทึก" }));
+
+    expect(await screen.findByRole("dialog", { name: "ไม่สามารถนำคำถามย่อยนี้ออกได้" })).toBeInTheDocument();
+    expect(screen.getByText(/คำตอบ Trainee 1 · ผลประเมิน 1 · ไฟล์แนบ 2/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "นำออกและบันทึก" })).not.toBeInTheDocument();
+    expect(onSave).not.toHaveBeenCalled();
   });
 });

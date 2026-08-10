@@ -401,6 +401,7 @@ interface SubQuestionBindingEditorProps {
   parentSubQuestionList: any[];
   is300: boolean;
   subQUsageData: { usage_map: Record<string, number>; total_children: number };
+  isDirty?: boolean;
 }
 
 export const SubQuestionBindingEditor: React.FC<SubQuestionBindingEditorProps> = ({
@@ -410,6 +411,7 @@ export const SubQuestionBindingEditor: React.FC<SubQuestionBindingEditorProps> =
   parentSubQuestionList,
   is300,
   subQUsageData,
+  isDirty = false,
 }) => {
   return (
     <div className={`rounded-lg border ${sqClr.bindWrap} p-3`}>
@@ -422,6 +424,11 @@ export const SubQuestionBindingEditor: React.FC<SubQuestionBindingEditorProps> =
           <span className={`text-[10px] ${sqClr.count}`}>
             {selectedSubQCodes.length}/{parentSubQuestionList.length}
           </span>
+          {isDirty && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold normal-case text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+              แก้ไขแล้ว · รอบันทึก
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button

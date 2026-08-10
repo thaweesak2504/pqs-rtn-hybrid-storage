@@ -60,7 +60,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
-  const { activeId, lock, unlock } = useEditorLock();
+  const { lock, unlock, updateLock } = useEditorLock();
   const boxId = useMemo(() => `box-${questionId}-${documentId}-${subQuestionCode || ""}`, [questionId, documentId, subQuestionCode]);
 
   // Phase 5G: Attachments
@@ -74,6 +74,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     message: "",
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [discardDraftModalOpen, setDiscardDraftModalOpen] = useState(false);
   // textareaRef removed — TiptapEditor manages its own ref
   const containerRef = useRef<HTMLDivElement>(null);
   const is300 = questionPrefix ? (questionPrefix.startsWith("3") || questionPrefix.startsWith("๓")) : false;
@@ -174,9 +175,13 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     }
   };
 
-  const handleCancelEdit = async (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    
+  const hasDirtyAnswerDraft = useMemo(() => (
+    value !== originalValue
+    || attachments.length !== originalAttachments.length
+    || attachments.some((attachment, index) => attachment !== originalAttachments[index])
+  ), [attachments, originalAttachments, originalValue, value]);
+
+  const discardAnswerDraft = useCallback(async () => {
     // Find newly uploaded files to delete from disk
     const newFiles = attachments.filter(file => !originalAttachments.includes(file));
     for (const file of newFiles) {
@@ -191,7 +196,33 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     setAttachments([...originalAttachments]);
     setIsEditing(false);
     unlock(boxId);
+  }, [attachments, boxId, originalAttachments, originalValue, unlock]);
+
+  const handleCancelEdit = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (hasDirtyAnswerDraft) {
+      setDiscardDraftModalOpen(true);
+      return;
+    }
+    void discardAnswerDraft();
   };
+
+  const handleRequestSwitch = useCallback(() => {
+    if (isSaving) return false;
+    if (hasDirtyAnswerDraft) {
+      setDiscardDraftModalOpen(true);
+      return false;
+    }
+    setIsEditing(false);
+    unlock(boxId);
+    return true;
+  }, [boxId, hasDirtyAnswerDraft, isSaving, unlock]);
+
+  // Keep the global lock callback synchronized with the latest draft state.
+  // The callback captured when editing started must not remain "clean" after typing.
+  useEffect(() => {
+    if (isEditing) updateLock(boxId, handleRequestSwitch);
+  }, [boxId, handleRequestSwitch, isEditing, updateLock]);
 
   const hasSavedAnswer = originalValue.trim().length > 0 || originalAttachments.length > 0;
 
@@ -216,6 +247,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setAttachments([]);
       setOriginalAttachments([]);
       setIsEditing(false);
+      unlock(boxId);
       onAnswerSaved?.();
     } catch (error) {
       logger.error("Failed to delete answer:", error);
@@ -295,19 +327,12 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const handleEditStart = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
 
-    // Enforce single active editor
-    if (activeId && activeId !== boxId) {
-      setAlertModal({
-        isOpen: true,
-        message: "กรุณาบันทึกหรือยกเลิกคำตอบที่กำลังแก้ไขอยู่ก่อน",
-      });
-      return;
-    }
-
     const canEdit = mode === "trainee" || (mode === "edit" && !readOnly);
     if (readOnly || !canEdit || localStatus === "passed") return;
-    
-    lock(boxId);
+
+    if (!lock(boxId, handleRequestSwitch)) {
+      return;
+    }
     setIsEditing(true);
   };
 
@@ -397,7 +422,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             <div className="flex-1 min-w-0 pb-[2px]">
               <div className="flex items-start justify-between gap-4">
                 {/* Left Side: Prefix + Content */}
-                <div className="flex items-start gap-2 flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 flex-1 min-w-0">
                   {!isPrerequisiteDoc && (
                     <>
                       <span className="text-slate-900 dark:text-slate-100 shrink-0">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
@@ -608,6 +633,13 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       ref={containerRef}
       data-color-mode={colorMode}
       data-question-id={questionId}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !isSaving) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleCancelEdit();
+        }
+      }}
       className={`rounded-md overflow-hidden border border-blue-400 dark:border-blue-500 shadow-xl transition-all ring-2 ring-blue-500/20 bg-white dark:bg-slate-900 z-10 w-full font-normal`}
     >
       {/* Toolbar */}
@@ -633,6 +665,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
           )}
           <button
             onClick={handleCancelEdit}
+            disabled={isSaving}
             className="h-6 px-2 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
           >
             ยกเลิก
@@ -719,6 +752,18 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       confirmText="ยืนยันลบ"
       cancelText="ยกเลิก"
       variant="danger"
+    />
+
+    <ConfirmModal
+      isOpen={discardDraftModalOpen}
+      onClose={() => setDiscardDraftModalOpen(false)}
+      onConfirm={() => { void discardAnswerDraft(); }}
+      title="ละทิ้งการแก้ไขคำตอบ?"
+      message={`ข้อความและไฟล์แนบที่แก้ไขในครั้งนี้ยังไม่ได้บันทึก
+เลือก “แก้ไขต่อ” เพื่อกลับไปทำงานต่อ หรือ “ละทิ้งการแก้ไข” เพื่อลบเฉพาะการเปลี่ยนแปลงครั้งนี้`}
+      confirmText="ละทิ้งการแก้ไข"
+      cancelText="แก้ไขต่อ"
+      variant="warning"
     />
     </>
   );

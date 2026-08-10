@@ -86,12 +86,15 @@ describe('TraineeAnswerBox Integration', () => {
         questionId="q-1"
         documentId="doc-1"
         mode="trainee"
+        label="ก"
         traineeAnswer={mockTraineeAnswer}
       />
     );
 
     // Should display the saved answer text
-    expect(screen.getByText('Original Answer Text')).toBeInTheDocument();
+    const answerText = screen.getByText('Original Answer Text');
+    expect(answerText).toBeInTheDocument();
+    expect(answerText.parentElement?.parentElement).toHaveClass('items-baseline');
     // Should display the status label
     expect(screen.getByText('รอประเมิน')).toBeInTheDocument();
   });
@@ -124,7 +127,7 @@ describe('TraineeAnswerBox Integration', () => {
     expect(saveButton).toBeDisabled();
   });
 
-  it('reverts edits and restores original value on Cancel', async () => {
+  it('asks before discarding a dirty edit, then restores the original value', async () => {
     render(
       <TraineeAnswerBox
         questionId="q-1"
@@ -143,13 +146,20 @@ describe('TraineeAnswerBox Integration', () => {
     fireEvent.input(editor);
     expect(editor).toHaveTextContent('Modified Answer Text');
 
-    // Cancel edit
+    // Cancel requests confirmation because the draft differs from the saved answer.
     const cancelButton = screen.getByRole('button', { name: /ยกเลิก/i });
     fireEvent.click(cancelButton);
 
+    expect(screen.getByText('ละทิ้งการแก้ไขคำตอบ?')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'ระบุคำตอบของคุณที่นี่...' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'ละทิ้งการแก้ไข' }));
+
     // Editor should be gone, back to view mode showing original text
-    expect(screen.getByText('Original Answer Text')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Original Answer Text')).toBeInTheDocument();
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    });
   });
 
   it('triggers delete_trainee_answer command when "ล้างคำตอบ" is clicked and confirmed', async () => {

@@ -161,6 +161,10 @@ const ToolbarButton: React.FC<ToolbarButtonProps> = ({
       <button
         type="button"
         aria-label={title}
+        onMouseDown={(e) => {
+          // Keep the ProseMirror selection alive until the toolbar command runs.
+          e.preventDefault();
+        }}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -180,9 +184,17 @@ interface DropdownMenuProps {
   trigger: React.ReactNode;
   children: React.ReactNode;
   variant: "default" | "emerald";
+  label: string;
+  onInteractionStart?: () => void;
 }
 
-const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, children, variant }) => {
+const DropdownMenu: React.FC<DropdownMenuProps> = ({
+  trigger,
+  children,
+  variant,
+  label,
+  onInteractionStart,
+}) => {
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -202,6 +214,11 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, children, variant 
     <div ref={ref} className="relative">
       <button
         type="button"
+        aria-label={label}
+        onMouseDown={(e) => {
+          onInteractionStart?.();
+          e.preventDefault();
+        }}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}
         className={`${TOOLBAR_BTN_BASE} gap-0.5 ${open ? v.active : v.normal}`}
       >
@@ -229,6 +246,10 @@ interface DropdownItemProps {
 const DropdownItem: React.FC<DropdownItemProps> = ({ onClick, icon, label, danger }) => (
   <button
     type="button"
+    onMouseDown={(e) => {
+      // Dropdown items must not steal the editor selection before onClick.
+      e.preventDefault();
+    }}
     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick(); }}
     className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs transition-colors
       ${danger
@@ -265,8 +286,74 @@ interface EditorToolbarProps {
   variant: "default" | "emerald";
 }
 
+interface EditorSelectionRange {
+  from: number;
+  to: number;
+}
+
+const readVisibleEditorSelection = (
+  editor: NonNullable<ReturnType<typeof useEditor>>,
+): EditorSelectionRange => {
+  const stateSelection = editor.state.selection;
+  const fallback = { from: stateSelection.from, to: stateSelection.to };
+  const domSelection = window.getSelection();
+  const { anchorNode, focusNode } = domSelection ?? {};
+
+  if (
+    !anchorNode ||
+    !focusNode ||
+    !editor.view.dom.contains(anchorNode) ||
+    !editor.view.dom.contains(focusNode)
+  ) {
+    return fallback;
+  }
+
+  try {
+    const anchor = editor.view.posAtDOM(anchorNode, domSelection!.anchorOffset);
+    const focus = editor.view.posAtDOM(focusNode, domSelection!.focusOffset);
+    return {
+      from: Math.min(anchor, focus),
+      to: Math.max(anchor, focus),
+    };
+  } catch {
+    // A DOM mutation can briefly invalidate a browser range immediately after
+    // paste. ProseMirror's state remains the safest fallback in that instant.
+    return fallback;
+  }
+};
+
 const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
+  const colorSelectionRef = React.useRef<EditorSelectionRange | null>(null);
+
   if (!editor) return null;
+
+  const rememberColorSelection = () => {
+    colorSelectionRef.current = readVisibleEditorSelection(editor);
+  };
+
+  const applyColorToRememberedSelection = (color: string | null) => {
+    const chain = editor.chain().focus();
+    const selection = colorSelectionRef.current;
+    const documentEnd = editor.state.doc.content.size;
+
+    // A toolbar interaction must stay owned by this editor instance. Restoring
+    // its own selection also prevents a copied rich-text selection from another
+    // mounted Tiptap editor becoming the command target.
+    if (
+      selection &&
+      selection.from >= 0 &&
+      selection.to >= selection.from &&
+      selection.to <= documentEnd
+    ) {
+      chain.setTextSelection(selection);
+    }
+
+    if (color === null) {
+      chain.unsetColor().run();
+    } else {
+      chain.setColor(color).run();
+    }
+  };
 
   const toolbarBg =
     variant === "emerald"
@@ -325,21 +412,23 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
       {/* 2. Text Color Dropdown */}
       <DropdownMenu
         variant={variant}
+        label="เลือกสีข้อความ"
+        onInteractionStart={rememberColorSelection}
         trigger={<Palette className="w-3.5 h-3.5" />}
       >
         <DropdownItem
-          onClick={() => editor.chain().focus().setColor('var(--color-warning)').run()}
+          onClick={() => applyColorToRememberedSelection('var(--color-warning)')}
           icon={<div className="w-3 h-3 rounded-full bg-amber-500 dark:bg-amber-400 shrink-0" />}
           label="สีเหลืองส้ม (Warning)"
         />
         <DropdownItem
-          onClick={() => editor.chain().focus().setColor('var(--color-danger)').run()}
+          onClick={() => applyColorToRememberedSelection('var(--color-danger)')}
           icon={<div className="w-3 h-3 rounded-full bg-red-500 dark:bg-red-400 shrink-0" />}
           label="สีแดงสว่าง (Danger)"
         />
         <div className="h-px bg-slate-200 dark:bg-slate-700 my-1" />
         <DropdownItem
-          onClick={() => editor.chain().focus().unsetColor().run()}
+          onClick={() => applyColorToRememberedSelection(null)}
           icon={<Eraser className="w-3 h-3 shrink-0" />}
           label="ล้างสี (Clear)"
         />
@@ -350,6 +439,7 @@ const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, variant }) => {
       {/* 3. Table Dropdown */}
       <DropdownMenu
         variant={variant}
+        label="คำสั่งตาราง"
         trigger={<TableIcon className="w-3.5 h-3.5" />}
       >
         <DropdownItem
@@ -437,7 +527,9 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     onUpdate: ({ editor: ed }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const md = (ed.storage as any).markdown?.getMarkdown?.() ?? ed.getHTML();
-      onChange(md);
+      // Normalize Tiptap's empty document (`<p></p>` / `<p><br></p>`) to the
+      // canonical empty draft value used by validation and dirty tracking.
+      onChange(ed.isEmpty ? "" : md);
     },
     onSelectionUpdate: () => {
       // Force re-render to update toolbar button active states

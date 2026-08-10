@@ -13,7 +13,14 @@
 use tauri::Manager;
 
 #[cfg(target_os = "windows")]
-use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Controller2, COREWEBVIEW2_COLOR};
+use webview2_com::{
+    ClearBrowsingDataCompletedHandler,
+    Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Controller2, ICoreWebView2Profile2, ICoreWebView2Settings4, ICoreWebView2_13,
+        COREWEBVIEW2_BROWSING_DATA_KINDS_GENERAL_AUTOFILL,
+        COREWEBVIEW2_BROWSING_DATA_KINDS_PASSWORD_AUTOSAVE, COREWEBVIEW2_COLOR,
+    },
+};
 
 // Database module
 mod auth;
@@ -120,6 +127,11 @@ fn main() {
             commands::content::search_documents,
             commands::content::delete_document,
             commands::content::update_document,
+            commands::content::clone_document_for_simulation,
+            commands::content::get_simulation_document_info,
+            commands::content::list_template_simulation_documents,
+            commands::content::clear_simulation_document_answers,
+            commands::content::delete_simulation_document,
             commands::content::get_document_questions,
             commands::content::get_document_questions_with_details,
             commands::content::get_document_with_hierarchy,
@@ -127,6 +139,8 @@ fn main() {
             // ===== Content: Questions =====
             commands::content::create_question,
             commands::content::update_question,
+            commands::content::save_creator_question,
+            commands::content::analyze_creator_question_change,
             commands::content::delete_question,
             commands::content::reorder_questions,
             // ===== Content: Media =====
@@ -280,6 +294,58 @@ fn main() {
                             B: 9,
                         };
                         let _ = controller2.SetDefaultBackgroundColor(bg);
+                    }
+
+                    // Authentication fields are owned by the application. Disable
+                    // WebView2 form/password history so failed identifiers never
+                    // appear as a misleading list of previously signed-in users.
+                    if let Ok(core_webview) = controller.CoreWebView2() {
+                        if let Ok(settings) = core_webview.Settings() {
+                            if let Ok(settings4) = settings.cast::<ICoreWebView2Settings4>() {
+                                if let Err(error) = settings4.SetIsGeneralAutofillEnabled(false) {
+                                    logger::warn(format!(
+                                        "Failed to disable WebView2 general autofill: {}",
+                                        error
+                                    ));
+                                }
+                                if let Err(error) = settings4.SetIsPasswordAutosaveEnabled(false) {
+                                    logger::warn(format!(
+                                        "Failed to disable WebView2 password autosave: {}",
+                                        error
+                                    ));
+                                }
+                            }
+                        }
+
+                        if let Ok(core_webview13) = core_webview.cast::<ICoreWebView2_13>() {
+                            if let Ok(profile) = core_webview13.Profile() {
+                                if let Ok(profile2) = profile.cast::<ICoreWebView2Profile2>() {
+                                    let data_kinds =
+                                        COREWEBVIEW2_BROWSING_DATA_KINDS_GENERAL_AUTOFILL
+                                            | COREWEBVIEW2_BROWSING_DATA_KINDS_PASSWORD_AUTOSAVE;
+                                    let handler = ClearBrowsingDataCompletedHandler::create(
+                                        Box::new(|result| match result {
+                                            Err(error) => {
+                                                logger::warn(
+                                                    "Failed to clear saved WebView2 sign-in form data",
+                                                );
+                                                Err(error)
+                                            }
+                                            Ok(()) => Ok(()),
+                                        }),
+                                    );
+
+                                    if let Err(error) =
+                                        profile2.ClearBrowsingData(data_kinds, &handler)
+                                    {
+                                        logger::warn(format!(
+                                            "Failed to request WebView2 sign-in form cleanup: {}",
+                                            error
+                                        ));
+                                    }
+                                }
+                            }
+                        }
                     }
                 });
             }

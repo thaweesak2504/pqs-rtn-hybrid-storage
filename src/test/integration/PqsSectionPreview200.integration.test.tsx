@@ -6,9 +6,9 @@ import { QuestionDetail } from "../../types/content";
 
 // Mock the dependencies
 vi.mock("../../components/editor_v2/TraineeAnswerBox", () => ({
-  default: ({ questionId, subQuestionCode }: { questionId: string; subQuestionCode?: string }) => (
+  default: ({ questionId, subQuestionCode, traineeAnswer }: { questionId: string; subQuestionCode?: string; traineeAnswer?: { answer_text?: string } }) => (
     <div data-testid={`trainee-answer-box-${questionId}-${subQuestionCode || 'default'}`}>
-      TraineeAnswerBox
+      TraineeAnswerBox {traineeAnswer?.answer_text}
     </div>
   ),
 }));
@@ -29,6 +29,75 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(invoke).mockReset();
+  });
+
+  it("hydrates the exact persisted Section 200 subquestion answer", async () => {
+    const question: QuestionDetail = {
+      id: "q-hydrate",
+      document_id: "DOC-1",
+      section_id: 201,
+      parent_id: null,
+      sequence: 1,
+      content: "Question",
+      is_header: false,
+      description: null,
+      answer_type: "text",
+      metadata: JSON.stringify({ selectedSubQuestions: ["20000001"] }),
+      score: 0,
+      question_type: "normal",
+      group_score: 0,
+      display_text: null,
+      is_group_header: false,
+      is_scored: false,
+      choices: [],
+      references: [],
+      children: [],
+    };
+    vi.mocked(invoke).mockImplementation(async (cmd) => {
+      if (cmd === "get_document_questions_with_details") return [question];
+      if (cmd === "get_question_answer_keys") {
+        return [{
+          id: 1,
+          question_id: "q-hydrate",
+          sub_question_code: "20000001",
+          answer_key_text: "Key",
+          is_required: true,
+          order_index: 0,
+        }];
+      }
+      if (cmd === "get_trainee_answers") {
+        return [{
+          user_id: "T-001",
+          question_id: "q-hydrate",
+          document_id: "DOC-1",
+          sub_question_code: "20000001",
+          answer_text: "Persisted exact answer",
+          status: "pending",
+          feedback: null,
+          assessed_at: null,
+          assessed_by: null,
+          updated_at: "2026-08-09",
+          answer_key: "Key",
+          attachments: null,
+        }];
+      }
+      return null;
+    });
+
+    const { getByTestId } = render(
+      <PqsSectionPreview200
+        docId="DOC-1"
+        sectionId={201}
+        sectionNumber={200}
+        title="Section 200"
+        references={[]}
+        mode="trainee"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId("trainee-answer-box-q-hydrate-20000001")).toHaveTextContent("Persisted exact answer");
+    });
   });
 
   /**

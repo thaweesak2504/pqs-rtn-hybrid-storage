@@ -1,5 +1,5 @@
 use rusqlite::{params, Connection};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::*;
 
@@ -395,6 +395,449 @@ pub fn update_question(args: UpdateQuestionArgs) -> Result<(), String> {
         .unwrap_or_else(|e| eprintln!("[SubQ Sync] update_question: {}", e));
 
     Ok(())
+}
+
+/// Persist the Creator-owned Question, its reference links, subquestion links,
+/// and Answer Keys as one atomic unit. Simulation documents are immutable from
+/// this authoring command.
+pub fn save_creator_question(
+    args: SaveCreatorQuestionArgs,
+) -> Result<SaveCreatorQuestionResult, String> {
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    save_creator_question_with_conn(&mut conn, args)
+}
+
+fn selected_sub_question_codes(metadata: Option<&str>) -> Result<Vec<String>, String> {
+    let Some(metadata) = metadata else {
+        return Ok(Vec::new());
+    };
+    let value: serde_json::Value = serde_json::from_str(metadata)
+        .map_err(|_| "Question metadata is not valid JSON".to_string())?;
+    let Some(raw_codes) = value.get("selectedSubQuestions") else {
+        return Ok(Vec::new());
+    };
+    let raw_codes = raw_codes
+        .as_array()
+        .ok_or_else(|| "selectedSubQuestions must be an array".to_string())?;
+
+    let mut codes = Vec::with_capacity(raw_codes.len());
+    let mut seen = HashSet::new();
+    for raw_code in raw_codes {
+        let code = raw_code
+            .as_str()
+            .map(str::trim)
+            .filter(|code| !code.is_empty())
+            .ok_or_else(|| "Every selected subquestion code must be non-empty text".to_string())?;
+        if !seen.insert(code.to_string()) {
+            return Err(format!("Duplicate selected subquestion code: {code}"));
+        }
+        codes.push(code.to_string());
+    }
+    Ok(codes)
+}
+
+fn validate_section_200_sub_question_codes(
+    conn: &Connection,
+    document_id: &str,
+    section_id: Option<i64>,
+    parent_id: Option<&str>,
+    selected_codes: &[String],
+    answer_keys: &[ReplaceAnswerKeyItem],
+) -> Result<(), String> {
+    let Some(section_id) = section_id else {
+        return Ok(());
+    };
+    let section_group: i32 = conn
+        .query_row(
+            "SELECT section_group FROM Sections WHERE id = ?1 AND document_id = ?2",
+            params![section_id, document_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Creator Question references an unknown Section".to_string())?;
+    if section_group != 200 {
+        return Ok(());
+    }
+
+    let selected: HashSet<&str> = selected_codes.iter().map(String::as_str).collect();
+    if !selected.is_empty() {
+        let parent_id = parent_id.ok_or_else(|| {
+            "Section 200 subquestion selections require a parent Question".to_string()
+        })?;
+        let parent_metadata: Option<String> = conn
+            .query_row(
+                "SELECT metadata FROM Questions WHERE id = ?1 AND document_id = ?2",
+                params![parent_id, document_id],
+                |row| row.get(0),
+            )
+            .map_err(|_| "Section 200 parent Question was not found".to_string())?;
+        let parent_value: serde_json::Value =
+            serde_json::from_str(parent_metadata.as_deref().unwrap_or("{}"))
+                .map_err(|_| "Section 200 parent Question metadata is invalid".to_string())?;
+        let permitted: HashSet<&str> = parent_value
+            .get("activeSubQuestions")
+            .and_then(|value| value.as_array())
+            .into_iter()
+            .flatten()
+            .filter_map(|value| value.as_str())
+            .collect();
+
+        for code in &selected {
+            if !permitted.contains(code) {
+                return Err(format!(
+                    "Subquestion code {code} is not available in the parent Question"
+                ));
+            }
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM OccupationSubQuestions WHERE code = ?1)",
+                    params![code],
+                    |row| row.get(0),
+                )
+                .map_err(|e| format!("Failed to validate subquestion code {code}: {e}"))?;
+            if !exists {
+                return Err(format!("Subquestion code {code} does not exist"));
+            }
+        }
+    }
+
+    for item in answer_keys {
+        let code = item.sub_code.trim();
+        if !selected.is_empty() && (code.is_empty() || !selected.contains(code)) {
+            return Err(format!(
+                "Answer Key code {code} is not part of the selected Section 200 subquestions"
+            ));
+        }
+        if selected.is_empty() && !code.is_empty() {
+            return Err(format!(
+                "Answer Key code {code} requires a selected Section 200 subquestion"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn count_attachment_paths(raw: Option<String>) -> i64 {
+    raw.and_then(|value| serde_json::from_str::<Vec<String>>(&value).ok())
+        .map(|paths| paths.len() as i64)
+        .unwrap_or(0)
+}
+
+pub fn analyze_creator_question_change(
+    args: AnalyzeCreatorQuestionChangeArgs,
+) -> Result<CreatorMappingImpactReport, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {e}"))?;
+    analyze_creator_question_change_with_conn(&conn, &args)
+}
+
+pub(crate) fn analyze_creator_question_change_with_conn(
+    conn: &Connection,
+    args: &AnalyzeCreatorQuestionChangeArgs,
+) -> Result<CreatorMappingImpactReport, String> {
+    let (section_id, parent_id, current_metadata): (Option<i64>, Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT section_id, parent_id, metadata FROM Questions WHERE id = ?1 AND document_id = ?2",
+            params![args.question_id, args.document_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .map_err(|_| "Question was not found in the Creator document".to_string())?;
+
+    validate_section_200_sub_question_codes(
+        conn,
+        &args.document_id,
+        section_id,
+        parent_id.as_deref(),
+        &args.proposed_sub_question_codes,
+        &args.proposed_answer_keys,
+    )?;
+
+    let mut current_codes = selected_sub_question_codes(current_metadata.as_deref())?;
+    let mut key_stmt = conn
+        .prepare(
+            "SELECT sub_question_code FROM QuestionAnswerKeys WHERE question_id = ?1 ORDER BY order_index, id",
+        )
+        .map_err(|e| format!("Failed to inspect Answer Keys: {e}"))?;
+    let current_key_codes = key_stmt
+        .query_map(params![args.question_id], |row| row.get::<_, String>(0))
+        .map_err(|e| format!("Failed to inspect Answer Keys: {e}"))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("Failed to inspect Answer Keys: {e}"))?;
+    for code in current_key_codes {
+        if !current_codes.contains(&code) {
+            current_codes.push(code);
+        }
+    }
+
+    let proposed_codes: HashSet<&str> = args
+        .proposed_sub_question_codes
+        .iter()
+        .map(String::as_str)
+        .chain(
+            args.proposed_answer_keys
+                .iter()
+                .map(|item| item.sub_code.trim())
+                .filter(|code| !code.is_empty()),
+        )
+        .collect();
+    let removed_codes: Vec<String> = current_codes
+        .into_iter()
+        .filter(|code| !code.is_empty() && !proposed_codes.contains(code.as_str()))
+        .collect();
+
+    let mut items = Vec::new();
+    for code in &removed_codes {
+        let label = conn
+            .query_row(
+                "SELECT text FROM OccupationSubQuestions WHERE code = ?1",
+                params![code],
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
+        let answer_key_count = conn
+            .query_row(
+                "SELECT COUNT(*) FROM QuestionAnswerKeys WHERE question_id = ?1 AND sub_question_code = ?2",
+                params![args.question_id, code],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to count Answer Keys: {e}"))?;
+        let trainee_answer_count = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers WHERE question_id = ?1 AND document_id = ?2 AND sub_question_code = ?3",
+                params![args.question_id, args.document_id, code],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to count Trainee Answers: {e}"))?;
+        let assessed_answer_count = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers
+                 WHERE question_id = ?1 AND document_id = ?2 AND sub_question_code = ?3
+                   AND (status <> 'pending' OR assessed_at IS NOT NULL OR assessed_by IS NOT NULL OR COALESCE(feedback, '') <> '')",
+                params![args.question_id, args.document_id, code],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to count assessments: {e}"))?;
+        let mut attachment_stmt = conn
+            .prepare(
+                "SELECT attachments FROM UserAnswers WHERE question_id = ?1 AND document_id = ?2 AND sub_question_code = ?3",
+            )
+            .map_err(|e| format!("Failed to inspect attachments: {e}"))?;
+        let attachment_count = attachment_stmt
+            .query_map(params![args.question_id, args.document_id, code], |row| {
+                row.get::<_, Option<String>>(0)
+            })
+            .map_err(|e| format!("Failed to inspect attachments: {e}"))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("Failed to inspect attachments: {e}"))?
+            .into_iter()
+            .map(count_attachment_paths)
+            .sum();
+        let progress_record_count = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserProgress
+                 WHERE document_id = ?1 AND section_id = ?2
+                   AND user_id IN (
+                       SELECT user_id FROM UserAnswers
+                       WHERE question_id = ?3 AND document_id = ?1 AND sub_question_code = ?4
+                   )",
+                params![args.document_id, section_id, args.question_id, code],
+                |row| row.get(0),
+            )
+            .map_err(|e| format!("Failed to count progress records: {e}"))?;
+        items.push(CreatorMappingImpactItem {
+            sub_question_code: code.clone(),
+            label,
+            answer_key_count,
+            trainee_answer_count,
+            assessed_answer_count,
+            attachment_count,
+            progress_record_count,
+        });
+    }
+
+    let answer_key_count = items.iter().map(|item| item.answer_key_count).sum();
+    let trainee_answer_count = items.iter().map(|item| item.trainee_answer_count).sum();
+    let assessed_answer_count = items.iter().map(|item| item.assessed_answer_count).sum();
+    let attachment_count = items.iter().map(|item| item.attachment_count).sum();
+    let progress_record_count = items.iter().map(|item| item.progress_record_count).sum();
+    Ok(CreatorMappingImpactReport {
+        question_id: args.question_id.clone(),
+        removed_codes,
+        items,
+        answer_key_count,
+        trainee_answer_count,
+        assessed_answer_count,
+        attachment_count,
+        progress_record_count,
+        requires_confirmation: answer_key_count > 0,
+        is_blocked: trainee_answer_count > 0,
+    })
+}
+
+pub(crate) fn save_creator_question_with_conn(
+    conn: &mut Connection,
+    args: SaveCreatorQuestionArgs,
+) -> Result<SaveCreatorQuestionResult, String> {
+    let content = args.content.trim();
+    if content.is_empty() {
+        return Err("Question content is required".to_string());
+    }
+
+    let is_simulation: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM DocumentSimulationInstances WHERE simulation_document_id = ?1)",
+            params![args.document_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("Failed to validate Creator document: {}", e))?;
+    if is_simulation {
+        return Err("Simulation documents cannot be edited by the Creator workflow".to_string());
+    }
+
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start Creator save: {}", e))?;
+    let question_id = args.id.clone().unwrap_or_else(generate_uuid);
+    let proposed_codes = selected_sub_question_codes(args.metadata.as_deref())?;
+
+    let existing_section_id = if args.is_create {
+        args.section_id
+    } else {
+        tx.query_row(
+            "SELECT section_id FROM Questions WHERE id = ?1 AND document_id = ?2",
+            params![question_id, args.document_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Question was not found in the Creator document".to_string())?
+    };
+    let existing_parent_id = if args.is_create {
+        args.parent_id.clone()
+    } else {
+        tx.query_row(
+            "SELECT parent_id FROM Questions WHERE id = ?1 AND document_id = ?2",
+            params![question_id, args.document_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| "Question was not found in the Creator document".to_string())?
+    };
+    validate_section_200_sub_question_codes(
+        &tx,
+        &args.document_id,
+        existing_section_id,
+        existing_parent_id.as_deref(),
+        &proposed_codes,
+        &args.answer_keys,
+    )?;
+
+    if !args.is_create {
+        let impact = analyze_creator_question_change_with_conn(
+            &tx,
+            &AnalyzeCreatorQuestionChangeArgs {
+                question_id: question_id.clone(),
+                document_id: args.document_id.clone(),
+                proposed_sub_question_codes: proposed_codes.clone(),
+                proposed_answer_keys: args.answer_keys.clone(),
+            },
+        )?;
+        if impact.is_blocked {
+            return Err(
+                "MAPPING_CHANGE_BLOCKED: Trainee work exists for a removed Section 200 subquestion"
+                    .to_string(),
+            );
+        }
+        if impact.requires_confirmation && !args.confirm_mapping_change {
+            return Err(
+                "MAPPING_CHANGE_CONFIRMATION_REQUIRED: Answer Keys will be removed".to_string(),
+            );
+        }
+    }
+
+    if args.is_create {
+        let sequence = if let Some(parent_id) = &args.parent_id {
+            tx.query_row(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM Questions WHERE parent_id = ?1",
+                params![parent_id],
+                |row| row.get::<_, i32>(0),
+            )
+        } else if let Some(section_id) = args.section_id {
+            tx.query_row(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM Questions WHERE document_id = ?1 AND section_id = ?2 AND parent_id IS NULL",
+                params![args.document_id, section_id],
+                |row| row.get::<_, i32>(0),
+            )
+        } else {
+            tx.query_row(
+                "SELECT COALESCE(MAX(sequence), 0) + 1 FROM Questions WHERE document_id = ?1 AND section_id IS NULL AND parent_id IS NULL",
+                params![args.document_id],
+                |row| row.get::<_, i32>(0),
+            )
+        }
+        .map_err(|e| format!("Failed to allocate Question sequence: {}", e))?;
+
+        tx.execute(
+            "INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0, ?7, 'text', ?8)",
+            params![question_id, args.document_id, args.section_id, args.parent_id, sequence, content, args.description, args.metadata],
+        )
+        .map_err(|e| format!("Failed to create Question: {}", e))?;
+
+        if let Some(parent_id) = &args.parent_id {
+            tx.execute(
+                "UPDATE Questions SET is_group_header = 1, is_scored = 0 WHERE id = ?1",
+                params![parent_id],
+            )
+            .map_err(|e| format!("Failed to update parent Question: {}", e))?;
+        }
+    } else {
+        let updated = tx
+            .execute(
+                "UPDATE Questions SET content = ?2, description = ?3, metadata = ?4
+                 WHERE id = ?1 AND document_id = ?5",
+                params![
+                    question_id,
+                    content,
+                    args.description,
+                    args.metadata,
+                    args.document_id
+                ],
+            )
+            .map_err(|e| format!("Failed to update Question: {}", e))?;
+        if updated != 1 {
+            return Err("Question was not found in the Creator document".to_string());
+        }
+    }
+
+    sync_question_sub_question_links(&tx, &question_id, args.metadata.as_deref())?;
+
+    super::answers::replace_question_answer_keys_in_transaction(
+        &tx,
+        &question_id,
+        &args.answer_keys,
+    )?;
+
+    if !args.references.is_empty() {
+        super::helpers::ensure_section_300_policy_allows_question_action(
+            &tx,
+            &question_id,
+            "references",
+        )?;
+    }
+
+    tx.execute(
+        "DELETE FROM QuestionReferences WHERE question_id = ?1",
+        params![question_id],
+    )
+    .map_err(|e| format!("Failed to clear Question references: {}", e))?;
+    for (index, reference) in args.references.iter().enumerate() {
+        tx.execute(
+            "INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![question_id, reference.reference_id, reference.location_text, index as i32],
+        )
+        .map_err(|e| format!("Failed to save Question reference: {}", e))?;
+    }
+
+    tx.commit()
+        .map_err(|e| format!("Failed to commit Creator save: {}", e))?;
+    Ok(SaveCreatorQuestionResult { question_id })
 }
 
 /// Sync the selectedSubQuestions field in JSON metadata → QuestionSubQuestionLinks table.

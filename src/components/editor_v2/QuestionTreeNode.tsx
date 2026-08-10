@@ -7,6 +7,7 @@ import Button from "../ui/Button";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionDisplayCard from "./QuestionDisplayCard";
 import QuestionFormCard from "./QuestionFormCard";
+import { CreatorAnswerKeyInput } from "./questionFormCard/types";
 import { logger } from '../../utils/logger';
 
 // ============ Types ============
@@ -32,11 +33,11 @@ interface QuestionTreeNodeProps {
   creatingAtParent: string | null;
   insertingAfterId: string | null;
   onStartEdit: (id: string) => void;
-  onUpdate: (id: string, content: string, description: string | null, metadata: string | null, references?: QuestionReferenceDetail[]) => void;
+  onUpdate: (id: string, content: string, description: string | null, metadata: string | null, references?: QuestionReferenceDetail[], answerKeys?: CreatorAnswerKeyInput[], confirmMappingChange?: boolean) => void | Promise<void>;
   onDelete: (q: QuestionDetail) => void;
   onStartCreate: (parentId: string | null) => void;
   onStartInsertAfter: (id: string) => void;
-  onCreate: (data: { content: string; description?: string; image?: string; id?: string; metadata?: string; references?: QuestionReferenceDetail[]; childLayout?: "list" | "grid"; }, parentId: string | null, insertAfterId: string | null) => void;
+  onCreate: (data: { content: string; description?: string; image?: string; id?: string; metadata?: string; references?: QuestionReferenceDetail[]; answerKeys?: CreatorAnswerKeyInput[]; confirmMappingChange?: boolean; childLayout?: "list" | "grid"; }, parentId: string | null, insertAfterId: string | null) => void | Promise<void>;
   onCancel: () => void;
   onMoveUp: (id: string, siblings: QuestionDetail[]) => void;
   onMoveDown: (id: string, siblings: QuestionDetail[]) => void;
@@ -333,6 +334,8 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
               data.description || null,
               finalMetadata,
               data.references,
+              data.answerKeys,
+              data.confirmMappingChange,
             );
           }}
           onCancel={onCancel}
@@ -357,6 +360,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
           usageRefreshKey={usageRefreshKey}
           subQUsageParentId={effectiveSubQUsageParentId}
           isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
+          workflowId={`creator-edit-${documentId}-${question.id}`}
         />
       </div>
     );
@@ -420,6 +424,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             usageRefreshKey={usageRefreshKey}
             subQUsageParentId={effectiveSubQUsageParentId}
             isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
+            workflowId={`creator-insert-${documentId}-${sectionId}-${question.id}`}
           />
         </div>
       )}
@@ -502,6 +507,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
             usageRefreshKey={usageRefreshKey}
             subQUsageParentId={effectiveSubQUsageParentId}
             isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
+            workflowId={`creator-create-${documentId}-${sectionId}-${question.id}`}
           />
         </div>
       )}
@@ -516,4 +522,3 @@ export default React.memo(QuestionTreeNode);
 export { buildPrefix, buildPrefix200_300, convertThaiToArabic, toThaiAlphabet, toThaiNumber } from "../../utils/thaiNumbering";
 export { default as AsyncImagePreview } from "./AsyncImagePreview";
 export { QuestionFormCard };
-

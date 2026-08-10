@@ -15,6 +15,12 @@ export interface AnswerKeyRow {
   order_index: number;
 }
 
+export interface CreatorAnswerKeyInput {
+  subCode: string;
+  text: string;
+  isRequired: boolean;
+}
+
 export interface QuestionFormCardProps {
   prefix: string;
   level: number; // New prop to determine if L1
@@ -34,7 +40,8 @@ export interface QuestionFormCardProps {
     id?: string;
     references?: QuestionReferenceDetail[];
     metadata?: string;
-    answerKeys?: AnswerKeyRow[];
+    answerKeys?: CreatorAnswerKeyInput[];
+    confirmMappingChange?: boolean;
     childLayout?: "list" | "grid";
   }) => void | Promise<void>; // Added references, metadata & childLayout
   onCancel: () => void;
@@ -60,4 +67,5 @@ export interface QuestionFormCardProps {
   subQUsageParentId?: string; // L1 ancestor ID for consistent SubQ usage counting across L2/L3
   isInsidePrerequisiteDoc?: boolean; // True for 3xx.1.1/3xx.1.2 and their children
   fullPrefix?: string;
+  workflowId?: string;
 }

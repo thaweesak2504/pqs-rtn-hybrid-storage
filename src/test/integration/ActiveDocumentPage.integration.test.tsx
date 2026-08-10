@@ -33,8 +33,14 @@ describe("ActiveDocumentPage integration", () => {
   };
 
   let sectionsState: MockSection[] = [];
+  let simulationInfoState: null | {
+    simulation_document_id: string;
+    template_document_id: string;
+    trainee_id: string;
+  } = null;
 
   beforeEach(() => {
+    simulationInfoState = null;
     sectionsState = [
       {
         id: 101,
@@ -105,6 +111,14 @@ describe("ActiveDocumentPage integration", () => {
         };
       }
 
+      if (command === "get_simulation_document_info") {
+        return simulationInfoState;
+      }
+
+      if (command === "list_template_simulation_documents") {
+        return [];
+      }
+
       if (command === "delete_section") {
         sectionsState = sectionsState.filter((s) => s.id !== args?.id);
         return null;
@@ -164,17 +178,22 @@ describe("ActiveDocumentPage integration", () => {
   });
 
   it("clears answers only for the active document", async () => {
+    simulationInfoState = {
+      simulation_document_id: "DOC-DEL-101",
+      template_document_id: "DOC-TEMPLATE",
+      trainee_id: "T-001",
+    };
     renderPage();
 
     await screen.findByRole("button", { name: /101 Precautions/i });
     fireEvent.click(screen.getByRole("button", { name: /View As/i }));
-    fireEvent.click(await screen.findByRole("button", { name: "Clear Answers (Current Document)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "ล้างคำตอบของรอบจำลอง" }));
 
     expect(await screen.findByText("ยืนยันการลบคำตอบ")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "ลบคำตอบของเล่มนี้" }));
+    fireEvent.click(screen.getByRole("button", { name: "ลบคำตอบของรอบจำลอง" }));
 
     await waitFor(() => {
-      expect(invoke).toHaveBeenCalledWith("clear_document_trainee_answers", {
+      expect(invoke).toHaveBeenCalledWith("clear_simulation_document_answers", {
         documentId: "DOC-DEL-101",
       });
     });
