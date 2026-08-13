@@ -6,6 +6,7 @@ import { logger } from "../../utils/logger";
 import ConfirmModal from "../modals/ConfirmModal";
 import DropdownMenu, { DropdownMenuItem } from "../ui/DropdownMenu";
 import Tooltip from "../ui/Tooltip";
+import { COMMAND_BUTTON_FOCUS } from "../ui/buttonStyles";
 import OralAssessmentBox from "./OralAssessmentBox";
 import { UserAnswer } from "./PqsQuestionSection";
 import QuestionMetadataDisplay from "./QuestionMetadataDisplay";
@@ -65,6 +66,7 @@ interface QuestionDisplayCardProps {
   sectionSelectedBranch?: { main: string; sub: string };
   isInsidePrerequisiteDoc?: boolean;
   fullPrefix?: string;
+  actionButtonId?: string;
 }
 
 // ============ Helpers ============
@@ -115,6 +117,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
   sectionSelectedBranch,
   isInsidePrerequisiteDoc,
   fullPrefix,
+  actionButtonId,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -657,7 +660,12 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({
         <div className="pl-2 border-l border-slate-200 dark:border-slate-700 shrink-0">
           <DropdownMenu
             trigger={
-              <button className="p-1.5 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors">
+              <button
+                id={actionButtonId}
+                type="button"
+                aria-label={`เมนูคำสั่ง ข้อ ${fullPrefix || prefix}`}
+                className={`p-1.5 text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg transition-colors ${COMMAND_BUTTON_FOCUS}`}
+              >
                 <MoreVertical className="w-4 h-4" />
               </button>
             }

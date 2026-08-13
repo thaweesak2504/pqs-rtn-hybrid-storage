@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useId, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
@@ -41,6 +41,20 @@ interface TiptapEditorProps {
   minHeight?: string;
   /** Auto-focus when mounted */
   autoFocus?: boolean;
+  /** Stable DOM id for the ProseMirror textbox. */
+  editorId?: string;
+  /** Contextual accessible name for the rich-text textbox. */
+  ariaLabel?: string;
+  /**
+   * Authoritative content that may replace the editor only when the caller has
+   * confirmed that its local draft is clean. This must not be wired directly
+   * to an onChange draft value without a version token.
+   */
+  externalContent?: string;
+  /** Changes when `externalContent` represents a new authoritative snapshot. */
+  externalContentVersion?: string | number;
+  /** Caller-owned dirty-state guard for external synchronization. */
+  canSyncExternalContent?: boolean;
 }
 
 const TOOLBAR_BTN_BASE = "h-6 px-2 flex items-center justify-center text-xs rounded border transition-colors";
@@ -491,8 +505,16 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
   variant = "default",
   minHeight = "120px",
   autoFocus = true,
+  editorId,
+  ariaLabel,
+  externalContent,
+  externalContentVersion,
+  canSyncExternalContent = false,
 }) => {
   const [, setSelectionUpdate] = React.useState(0);
+  const generatedId = useId();
+  const resolvedEditorId = editorId ?? `tiptap-editor-${generatedId.replace(/:/g, "")}`;
+  const lastExternalVersionRef = useRef<string | number | undefined>(externalContentVersion);
   
   const editor = useEditor({
     extensions: [
@@ -521,7 +543,8 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
         style: `min-height: ${minHeight}`,
         "data-placeholder": placeholder,
         role: "textbox",
-        "aria-label": placeholder,
+        id: resolvedEditorId,
+        "aria-label": ariaLabel ?? placeholder,
       },
     },
     onUpdate: ({ editor: ed }) => {
@@ -539,6 +562,19 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
       setSelectionUpdate((prev) => prev + 1);
     }
   });
+
+  // Parent refreshes must never replace a local draft. The parent supplies an
+  // explicit snapshot version and a dirty-state decision so a normal onChange
+  // rerender cannot accidentally reset the editor or its selection.
+  useEffect(() => {
+    if (externalContent === undefined || externalContentVersion === undefined) return;
+    if (lastExternalVersionRef.current === externalContentVersion) return;
+
+    lastExternalVersionRef.current = externalContentVersion;
+    if (!canSyncExternalContent || !editor) return;
+
+    editor.commands.setContent(externalContent, { emitUpdate: false });
+  }, [canSyncExternalContent, editor, externalContent, externalContentVersion]);
 
   // Auto-focus on mount
   useEffect(() => {

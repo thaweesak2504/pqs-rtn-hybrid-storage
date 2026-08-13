@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/tauri";
-import { CheckCircle2, MessageSquare, RotateCcw, Save } from "lucide-react";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, MessageSquare, RotateCcw, Save, X } from "lucide-react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
@@ -12,6 +12,9 @@ import { logger } from '../../utils/logger';
 import AttachmentPanel from "./AttachmentPanel";
 import Tooltip from "../ui/Tooltip";
 import { useEditorLock } from "../../hooks/useEditorLock";
+import WorkflowModal from "../modals/WorkflowModal";
+import { COMMAND_BUTTON_FOCUS } from "../ui/buttonStyles";
+import Button from "../ui/Button";
 
 // Simulation Constants
 const MOCK_TRAINEE_ID = "T-001";
@@ -19,6 +22,12 @@ const MOCK_QUALIFIER_ID = "Q-001";
 
 
 export type AssessmentStatus = "pending" | "passed" | "needs_improvement";
+
+const ASSESSMENT_STATUS_LABELS: Record<AssessmentStatus, string> = {
+  pending: "รอประเมิน",
+  passed: "ผ่าน",
+  needs_improvement: "ปรับปรุง",
+};
 
 interface TraineeAnswerBoxProps {
   questionId: string;
@@ -53,13 +62,18 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   isPrerequisiteDoc = false,
   questionPrefix,
 }) => {
+  const initialAssessmentStatus = traineeAnswer?.status ?? status;
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(initialValue);
   const [localFeedback, setLocalFeedback] = useState(feedback);
-  const [localStatus, setLocalStatus] = useState<AssessmentStatus>(status);
+  const [localStatus, setLocalStatus] = useState<AssessmentStatus>(initialAssessmentStatus);
+  const [savedAssessmentStatus, setSavedAssessmentStatus] = useState<AssessmentStatus>(initialAssessmentStatus);
   const [isSaving, setIsSaving] = useState(false);
+  const [savingAssessmentAction, setSavingAssessmentAction] = useState<AssessmentStatus | null>(null);
+  const [assessmentAnnouncement, setAssessmentAnnouncement] = useState("");
+  const [assessmentValidationMessage, setAssessmentValidationMessage] = useState("");
   const [isSaved, setIsSaved] = useState(false);
-  const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(status === "pending");
+  const [isQualifierPanelOpen, setIsQualifierPanelOpen] = useState(false);
   const { lock, unlock, updateLock } = useEditorLock();
   const boxId = useMemo(() => `box-${questionId}-${documentId}-${subQuestionCode || ""}`, [questionId, documentId, subQuestionCode]);
 
@@ -75,9 +89,21 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   });
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [discardDraftModalOpen, setDiscardDraftModalOpen] = useState(false);
+  const [cancelImprovementModalOpen, setCancelImprovementModalOpen] = useState(false);
   // textareaRef removed — TiptapEditor manages its own ref
   const containerRef = useRef<HTMLDivElement>(null);
+  const editAnswerButtonRef = useRef<HTMLButtonElement>(null);
+  const shouldRestoreAnswerFocusRef = useRef(false);
+  const qualifierTriggerRef = useRef<HTMLButtonElement>(null);
+  const qualifierFirstActionRef = useRef<HTMLButtonElement>(null);
+  const qualifierFeedbackRef = useRef<HTMLTextAreaElement>(null);
+  const shouldFocusQualifierPanelRef = useRef(false);
+  const shouldFocusQualifierFeedbackRef = useRef(false);
+  const shouldRestoreQualifierFocusRef = useRef(false);
+  const previousModeRef = useRef(mode);
   const is300 = questionPrefix ? (questionPrefix.startsWith("3") || questionPrefix.startsWith("๓")) : false;
+  const assessmentFeedbackId = `${boxId}-qualifier-feedback`;
+  const assessmentFeedbackHelpId = `${assessmentFeedbackId}-help`;
 
   // Sync with props
   useEffect(() => {
@@ -87,9 +113,10 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setValue(answerText);
       setOriginalValue(answerText);
       setLocalStatus(traineeAnswer.status || "pending");
+      setSavedAssessmentStatus(traineeAnswer.status || "pending");
       setLocalFeedback(feedbackText);
       setOriginalFeedback(feedbackText);
-      setIsQualifierPanelOpen(traineeAnswer.status === "pending");
+      setAssessmentValidationMessage("");
       // Phase 5G: Parse attachments JSON
       try {
         const parsed = traineeAnswer.attachments ? JSON.parse(traineeAnswer.attachments) : [];
@@ -101,13 +128,55 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setValue(initialValue);
       setOriginalValue(initialValue);
       setLocalStatus(status);
+      setSavedAssessmentStatus(status);
       setLocalFeedback(feedback);
       setOriginalFeedback(feedback);
-      setIsQualifierPanelOpen(status === "pending");
+      setAssessmentValidationMessage("");
       setAttachments([]);
       setOriginalAttachments([]);
     }
   }, [traineeAnswer, initialValue, status, feedback]);
+
+  useEffect(() => {
+    const previousMode = previousModeRef.current;
+    if (previousMode === mode) return;
+    previousModeRef.current = mode;
+
+    if (previousMode === "qualifier" || mode === "qualifier") {
+      setIsQualifierPanelOpen(false);
+      setLocalStatus(traineeAnswer?.status ?? status);
+      setLocalFeedback(traineeAnswer?.feedback ?? feedback);
+      setAssessmentValidationMessage("");
+      shouldFocusQualifierPanelRef.current = false;
+      shouldFocusQualifierFeedbackRef.current = false;
+      shouldRestoreQualifierFocusRef.current = false;
+    }
+  }, [feedback, mode, status, traineeAnswer]);
+
+  useLayoutEffect(() => {
+    if (isEditing || !shouldRestoreAnswerFocusRef.current) return;
+    shouldRestoreAnswerFocusRef.current = false;
+    editAnswerButtonRef.current?.focus({ preventScroll: true });
+  }, [isEditing]);
+
+  useLayoutEffect(() => {
+    if (isQualifierPanelOpen && shouldFocusQualifierFeedbackRef.current) {
+      shouldFocusQualifierFeedbackRef.current = false;
+      qualifierFeedbackRef.current?.focus({ preventScroll: true });
+      return;
+    }
+
+    if (isQualifierPanelOpen && shouldFocusQualifierPanelRef.current) {
+      shouldFocusQualifierPanelRef.current = false;
+      qualifierFirstActionRef.current?.focus({ preventScroll: true });
+      return;
+    }
+
+    if (!isQualifierPanelOpen && shouldRestoreQualifierFocusRef.current) {
+      shouldRestoreQualifierFocusRef.current = false;
+      qualifierTriggerRef.current?.focus({ preventScroll: true });
+    }
+  }, [isQualifierPanelOpen, localStatus]);
 
   const colorMode = useMemo<"light" | "dark">(() => {
     if (typeof document === "undefined") return "light";
@@ -161,6 +230,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       // Update originals after successful save
       setOriginalValue(value);
       setOriginalAttachments([...attachments]);
+      shouldRestoreAnswerFocusRef.current = true;
       setIsEditing(false);
       unlock(boxId);
       onAnswerSaved?.();
@@ -194,6 +264,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     
     setValue(originalValue);
     setAttachments([...originalAttachments]);
+    setDiscardDraftModalOpen(false);
+    shouldRestoreAnswerFocusRef.current = true;
     setIsEditing(false);
     unlock(boxId);
   }, [attachments, boxId, originalAttachments, originalValue, unlock]);
@@ -246,15 +318,14 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       setOriginalValue("");
       setAttachments([]);
       setOriginalAttachments([]);
+      setDeleteModalOpen(false);
+      shouldRestoreAnswerFocusRef.current = true;
       setIsEditing(false);
       unlock(boxId);
       onAnswerSaved?.();
     } catch (error) {
       logger.error("Failed to delete answer:", error);
-      setAlertModal({
-        isOpen: true,
-        message: "ไม่สามารถลบคำตอบได้ (โปรดแจ้งนักพัฒนา)",
-      });
+      throw new Error("ไม่สามารถลบคำตอบได้ (โปรดแจ้งนักพัฒนา)");
     } finally {
       setIsSaving(false);
     }
@@ -272,17 +343,26 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     if (targetStatus === "needs_improvement") {
       const trimmedFeedback = localFeedback.trim();
       if (!trimmedFeedback) {
-        setAlertModal({ isOpen: true, message: "กรุณาระบุข้อเสนอแนะสำหรับการปรับปรุงก่อนบันทึก" });
+        const message = "กรุณาระบุข้อเสนอแนะสำหรับการปรับปรุงก่อนบันทึก";
+        setAssessmentValidationMessage(message);
+        setAssessmentAnnouncement(message);
+        qualifierFeedbackRef.current?.focus({ preventScroll: true });
         return;
       }
       // Prevent re-saving identical feedback (no actual change)
       if (localStatus === "needs_improvement" && trimmedFeedback === originalFeedback.trim()) {
-        setAlertModal({ isOpen: true, message: "ยังไม่มีการเปลี่ยนแปลงข้อเสนอแนะ — กรุณาแก้ไขก่อนบันทึก" });
+        const message = "ยังไม่มีการเปลี่ยนแปลงข้อเสนอแนะ — กรุณาแก้ไขก่อนบันทึก";
+        setAssessmentValidationMessage(message);
+        setAssessmentAnnouncement(message);
+        qualifierFeedbackRef.current?.focus({ preventScroll: true });
         return;
       }
     }
 
+    setAssessmentValidationMessage("");
+    setAssessmentAnnouncement(`กำลังบันทึกการประเมินสถานะ ${ASSESSMENT_STATUS_LABELS[targetStatus]}`);
     setIsSaving(true);
+    setSavingAssessmentAction(targetStatus);
     setIsSaved(false);
     try {
       await invoke("save_qualifier_assessment", {
@@ -297,6 +377,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         }
       });
       setLocalStatus(targetStatus);
+      setSavedAssessmentStatus(targetStatus);
       // Update original feedback after successful save
       if (targetStatus === "needs_improvement") {
         setOriginalFeedback(localFeedback.trim());
@@ -306,16 +387,20 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         setLocalFeedback("");
       }
       // Close panel after successful save
+      shouldRestoreQualifierFocusRef.current = true;
       setIsQualifierPanelOpen(false);
+      setAssessmentAnnouncement(`บันทึกการประเมินสถานะ ${ASSESSMENT_STATUS_LABELS[targetStatus]} เรียบร้อยแล้ว`);
       // Immediately close and refresh after save per user request
       onAssessmentSaved?.();
     } catch (error) {
       logger.error("Failed to save assessment:", error);
+      setAssessmentAnnouncement("ไม่สามารถบันทึกการประเมินได้");
       setAlertModal({
         isOpen: true,
         message: "ไม่สามารถบันทึกการประเมินได้ (โปรดแจ้งนักพัฒนา)",
       });
     } finally {
+      setSavingAssessmentAction(null);
       setIsSaving(false);
     }
   };
@@ -336,12 +421,48 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     setIsEditing(true);
   };
 
+  const handleOpenQualifierPanel = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    shouldFocusQualifierPanelRef.current = true;
+    setIsQualifierPanelOpen(true);
+  };
+
+  const handleCloseQualifierPanel = (event: React.SyntheticEvent) => {
+    event.stopPropagation();
+    if (isSaving) return;
+    setLocalStatus(savedAssessmentStatus);
+    setLocalFeedback(originalFeedback);
+    setAssessmentValidationMessage("");
+    shouldRestoreQualifierFocusRef.current = true;
+    setIsQualifierPanelOpen(false);
+    setAssessmentAnnouncement("ปิดส่วนการประเมินและละทิ้งการเปลี่ยนแปลงที่ยังไม่ได้บันทึกแล้ว");
+  };
+
+  const handleSelectNeedsImprovement = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setLocalStatus("needs_improvement");
+    setAssessmentValidationMessage("");
+    setAssessmentAnnouncement("เลือกสถานะปรับปรุง กรุณาระบุข้อเสนอแนะ");
+    shouldFocusQualifierFeedbackRef.current = true;
+  };
+
+  const handleConfirmCancelImprovement = async () => {
+    // Close the confirmation first so its focus restoration can return to the
+    // originating command while the existing assessment save path runs.
+    setCancelImprovementModalOpen(false);
+    await handleSaveAssessment("pending");
+  };
+
   const handleAttachmentsChange = (newAttachments: string[]) => {
     setAttachments(newAttachments);
   };
 
   const cleanValue = value.trim();
   const hasAnswer = cleanValue.length > 0 || attachments.length > 0;
+  const canEditAnswer = !readOnly
+    && (mode === "trainee" || mode === "edit")
+    && localStatus !== "passed";
+  const answerIdentity = questionPrefix || questionId;
 
   // Status Styles
   const statusConfig = {
@@ -385,11 +506,40 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const timestampText = formatThaiTime(traineeAnswer?.updated_at) || formatThaiTime(traineeAnswer?.assessed_at);
 
   const config = statusConfig[localStatus] || statusConfig.pending;
+  const answerCommand = canEditAnswer ? (
+    <button
+      ref={editAnswerButtonRef}
+      type="button"
+      onClick={handleEditStart}
+      className={`shrink-0 rounded border border-blue-200 bg-white px-2 py-1 text-[10px] font-bold text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-700 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-blue-900/20 ${COMMAND_BUTTON_FOCUS}`}
+      aria-label={`${hasAnswer ? "แก้ไขคำตอบ" : "ตอบคำถาม"} ข้อ ${answerIdentity}${label ? ` คำถามย่อย ${label}` : ""}`}
+    >
+      {hasAnswer ? "แก้ไขคำตอบ" : "ตอบคำถาม"}
+    </button>
+  ) : null;
+  const qualifierClosedCommand = mode === "qualifier"
+    && hasAnswer
+    && !isQualifierPanelOpen
+    && localStatus !== "needs_improvement" ? (
+      <Button
+        ref={qualifierTriggerRef}
+        onClick={handleOpenQualifierPanel}
+        variant="outline"
+        size="small"
+        icon={<RotateCcw className="w-3 h-3" />}
+        className="h-7 px-2.5 !text-[10px] !font-bold text-blue-600 dark:text-blue-400"
+      >
+        {localStatus === "passed" ? "แก้ไขการประเมิน" : "เปิดการประเมิน"}
+      </Button>
+    ) : null;
 
   // View Mode
   if (!isEditing) {
     return (
       <>
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {assessmentAnnouncement}
+      </div>
       <div className="flex flex-col gap-1.5 w-full">
         {/* Feedback Display for Trainee */}
         {localStatus === "needs_improvement" && localFeedback && (
@@ -403,96 +553,76 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
             {/* Edit Feedback Button for Qualifier */}
             {mode === "qualifier" && !isQualifierPanelOpen && (
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsQualifierPanelOpen(true); }}
-                className="shrink-0 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2 py-1 rounded border border-blue-200 dark:border-blue-700 hover:bg-blue-50 transition-colors"
+              <Button
+                ref={qualifierTriggerRef}
+                onClick={handleOpenQualifierPanel}
+                variant="outline"
+                size="small"
+                className="h-7 shrink-0 px-2 !text-[10px] !font-bold text-blue-600 dark:text-blue-400"
               >
                 แก้ไขคำแนะนำ
-              </button>
+              </Button>
             )}
           </div>
         )}
 
         <div
           ref={containerRef}
-          className={`px-3 py-2.5 text-sm font-normal rounded-md border transition-all ${config.bgColor} ${config.borderColor} ${readOnly || localStatus === "passed" || (mode !== "trainee" && mode !== "edit") ? "cursor-default" : "cursor-pointer hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500"}`}
-          onClick={handleEditStart}
+          className={`px-3 py-2.5 text-sm font-normal rounded-md border ${config.bgColor} ${config.borderColor}`}
         >
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0 pb-[2px]">
-              <div className="flex items-start justify-between gap-4">
-                {/* Left Side: Prefix + Content */}
-                <div className="flex items-baseline gap-2 flex-1 min-w-0">
-                  {!isPrerequisiteDoc && (
-                    <>
-                      <span className="text-slate-900 dark:text-slate-100 shrink-0">คำตอบ: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span></span>
+          <div className="min-w-0 pb-[2px]">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="shrink-0 text-slate-900 dark:text-slate-100">
+                {isPrerequisiteDoc ? "เอกสารหลักฐาน:" : "คำตอบ:"}{" "}
+                <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ""}</span>
+              </span>
 
-                      {cleanValue ? (
-                        <div className="answer-key-markdown min-w-0 flex-1 text-slate-800 dark:text-slate-200">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-                            {formatMarkdownWithThaiLists(cleanValue)}
-                          </ReactMarkdown>
-                        </div>
-                      ) : (
-                        <div className="flex items-center flex-wrap gap-2 min-w-0">
-                          <span className="text-slate-400 dark:text-slate-500 italic mt-[2px]">
-                            {readOnly ? "ยังไม่มีคำตอบ" : "[คลิกเพื่อระบุคำตอบ...]"}
-                          </span>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1`}>
-                            {config.icon} {config.label}
-                          </span>
-                        </div>
-                      )}
-                    </>
-                  )}
-                  {isPrerequisiteDoc && (
-                    <span className="text-slate-900 dark:text-slate-100 shrink-0">
-                      เอกสารหลักฐาน: <span className="text-amber-600 dark:text-amber-400">{label ? `${label}.` : ''}</span>
-                      {attachments.length === 0 && !readOnly && (
-                        <span className="text-slate-400 dark:text-slate-500 italic ml-2 text-xs">
-                          [คลิกเพื่อแนบเอกสาร...]
-                        </span>
-                      )}
-                    </span>
-                  )}
-                </div>
+              {!hasAnswer && (
+                <span className="text-slate-400 dark:text-slate-500 italic">
+                  {isPrerequisiteDoc ? "ยังไม่มีเอกสารหลักฐาน" : "ยังไม่มีคำตอบ"}
+                </span>
+              )}
 
-                {/* Right Side: Status Badges (Only shown if answer exists) */}
-                {(hasAnswer || !!timestampText) && (
-                  <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar shrink-0 mt-[2px]">
-                    {/* Timestamp display */}
-                    {timestampText && (
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium whitespace-nowrap">
-                        {timestampText}
-                      </span>
-                    )}
+              {hasAnswer && localStatus === "pending" && (
+                <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                  {config.icon} {config.label}
+                </span>
+              )}
+              {hasAnswer && localStatus === "passed" && (
+                <>
+                  <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">ตรวจสอบแล้ว</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
+                    {config.icon} {config.label}
+                  </span>
+                </>
+              )}
+              {hasAnswer && localStatus === "needs_improvement" && (
+                <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                  {mode === "qualifier" ? "ปรับปรุง" : "รอการแก้ไข"}
+                </span>
+              )}
+              {hasAnswer && timestampText && (
+                <span
+                  aria-label={`อัปเดตล่าสุด ${timestampText}`}
+                  className="text-[10px] font-bold text-slate-500 dark:text-slate-300 whitespace-nowrap"
+                >
+                  {timestampText}
+                </span>
+              )}
 
-                    {/* Status Badges */}
-                    {localStatus === "pending" && (
-                      <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
-                        {config.icon} {config.label}
-                      </span>
-                    )}
-                    {localStatus === "passed" && (
-                      <>
-                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">ตรวจสอบแล้ว</span>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
-                          {config.icon} {config.label}
-                        </span>
-                      </>
-                    )}
-                    {localStatus === "needs_improvement" && (
-                      <>
-                        <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 rounded-full whitespace-nowrap">รอการแก้ไข</span>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${config.bgColor} ${config.textColor} border ${config.borderColor} flex items-center gap-1 whitespace-nowrap`}>
-                          {config.icon} {config.label}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+              {(answerCommand || qualifierClosedCommand) && (
+                <div className="ml-auto">{answerCommand || qualifierClosedCommand}</div>
+              )}
             </div>
+
+            {!isPrerequisiteDoc && cleanValue && (
+              <div className="answer-key-markdown mt-2 w-full min-w-0 text-slate-800 dark:text-slate-200">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                  {formatMarkdownWithThaiLists(cleanValue)}
+                </ReactMarkdown>
+              </div>
+            )}
+
           </div>
 
           {/* Phase 5G: Attachments Panel (View mode) */}
@@ -513,65 +643,112 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
 
           {/* Qualifier Assessment Controls — available for all statuses when Qualifier mode */}
           {mode === "qualifier" && hasAnswer && (() => {
-            // PASSED state: show a compact "แก้ไขการประเมิน" button to reopen the panel
-            if (localStatus === "passed" && !isQualifierPanelOpen) {
-              return (
-                <div className="mt-3 pt-2 border-t border-emerald-100 dark:border-emerald-900/30 flex items-center justify-end">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setIsQualifierPanelOpen(true); }}
-                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2.5 py-1 rounded border border-blue-200 dark:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    แก้ไขการประเมิน
-                  </button>
-                </div>
-              );
-            }
-
             // Panel is open (pending, needs_improvement, or re-opened from passed)
             if (isQualifierPanelOpen) {
               return (
-                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
+                <div
+                  role="region"
+                  aria-label={`การประเมิน ข้อ ${answerIdentity}${label ? ` คำถามย่อย ${label}` : ""}`}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape" && !isSaving) {
+                      event.preventDefault();
+                      handleCloseQualifierPanel(event);
+                    }
+                  }}
+                  className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">การประเมิน (Qualifier)</span>
-                    <div className="flex items-center gap-2">
+                    <div role="group" aria-label="คำสั่งการประเมิน" className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
                       {/* ผ่าน button — toggles between pass/revert */}
                       {localStatus === "passed" ? (
-                        <button
+                        <Button
+                          ref={qualifierFirstActionRef}
                           onClick={(e) => { e.stopPropagation(); handleSaveAssessment("pending"); }}
                           disabled={isSaving}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                          loading={savingAssessmentAction === "pending"}
+                          loadingText="กำลังบันทึก..."
+                          variant="outline"
+                          size="small"
+                          icon={<RotateCcw className="w-3.5 h-3.5" />}
+                          className="h-8 !text-xs !font-bold !border-amber-300 !bg-amber-50 !text-amber-700 hover:!bg-amber-100 dark:!border-amber-700 dark:!bg-amber-900/20 dark:!text-amber-400 dark:hover:!bg-amber-900/30"
                         >
-                          <RotateCcw className="w-3.5 h-3.5" />
                           ยกเลิกผ่าน
-                        </button>
+                        </Button>
                       ) : (
-                        <button
+                        <Button
+                          ref={qualifierFirstActionRef}
                           onClick={(e) => { e.stopPropagation(); handleSaveAssessment("passed"); }}
                           disabled={isSaving}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all bg-white dark:bg-slate-800 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                          loading={savingAssessmentAction === "passed"}
+                          loadingText="กำลังบันทึก..."
+                          variant="outline"
+                          size="small"
+                          icon={<CheckCircle2 className="w-3.5 h-3.5" />}
+                          className="h-8 !text-xs !font-bold !border-emerald-200 !bg-white !text-emerald-700 hover:!bg-emerald-50 dark:!border-emerald-800 dark:!bg-slate-800 dark:!text-emerald-400 dark:hover:!bg-emerald-900/20"
                         >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
                           ผ่าน
-                        </button>
+                        </Button>
                       )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setLocalStatus("needs_improvement"); }}
-                        disabled={isSaving || localStatus === "passed"}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${localStatus === "needs_improvement" ? "bg-rose-600 text-white shadow-lg" : localStatus === "passed" ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-slate-700 cursor-not-allowed opacity-50" : "bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20"}`}
+                      {localStatus === "needs_improvement" && savedAssessmentStatus === "needs_improvement" ? (
+                        <Button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setCancelImprovementModalOpen(true);
+                          }}
+                          disabled={isSaving}
+                          loading={savingAssessmentAction === "pending"}
+                          loadingText="กำลังบันทึก..."
+                          variant="outline"
+                          size="small"
+                          icon={<RotateCcw className="w-3.5 h-3.5" />}
+                          className="h-8 !text-xs !font-bold !border-amber-300 !bg-amber-50 !text-amber-700 hover:!bg-amber-100 dark:!border-amber-700 dark:!bg-amber-900/20 dark:!text-amber-400 dark:hover:!bg-amber-900/30"
+                        >
+                          ยกเลิกการปรับปรุง
+                        </Button>
+                      ) : localStatus !== "passed" && (
+                        <Button
+                          onClick={handleSelectNeedsImprovement}
+                          disabled={isSaving}
+                          variant="outline"
+                          size="small"
+                          icon={<RotateCcw className="w-3.5 h-3.5" />}
+                          aria-pressed={localStatus === "needs_improvement"}
+                          data-state={localStatus === "needs_improvement" ? "selected" : "available"}
+                          className={`h-8 !text-xs !font-bold ${localStatus === "needs_improvement"
+                            ? "!border-rose-600 !bg-rose-600 !text-white shadow-sm hover:!bg-rose-700"
+                            : "!border-rose-200 !bg-white !text-rose-700 hover:!bg-rose-50 dark:!border-rose-800 dark:!bg-slate-800 dark:!text-rose-400 dark:hover:!bg-rose-900/20"
+                          }`}
+                        >
+                          ปรับปรุง
+                        </Button>
+                      )}
+                      <Button
+                        onClick={handleCloseQualifierPanel}
+                        disabled={isSaving}
+                        variant="outline"
+                        size="small"
+                        icon={<X className="w-3.5 h-3.5" />}
+                        className="h-8 !text-xs !font-bold !border-slate-500 !bg-slate-50 !text-slate-700 shadow-sm hover:!bg-slate-100 dark:!border-slate-400 dark:!bg-slate-800 dark:!text-slate-200 dark:hover:!bg-slate-700"
                       >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        ปรับปรุง
-                      </button>
+                        ปิดการประเมิน
+                      </Button>
                     </div>
                   </div>
 
                   {localStatus === "needs_improvement" && (
                     <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-200" onClick={e => e.stopPropagation()}>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">ข้อเสนอแนะสำหรับการปรับปรุง</label>
+                      <label htmlFor={assessmentFeedbackId} className="text-[10px] font-bold text-slate-500 uppercase">ข้อเสนอแนะสำหรับการปรับปรุง</label>
                       <textarea
+                        ref={qualifierFeedbackRef}
+                        id={assessmentFeedbackId}
                         value={localFeedback}
-                        onChange={(e) => setLocalFeedback(e.target.value)}
+                        onChange={(e) => {
+                          setLocalFeedback(e.target.value);
+                          if (assessmentValidationMessage) setAssessmentValidationMessage("");
+                        }}
+                        aria-describedby={assessmentFeedbackHelpId}
+                        aria-invalid={assessmentValidationMessage ? "true" : undefined}
                         placeholder="พิมพ์คำแนะนำที่นี่เพื่อให้ Trainee นำไปแก้ไข..."
                         rows={3}
                         className="w-full p-2 text-sm bg-rose-50/30 dark:bg-rose-900/10 border border-rose-200/50 dark:border-rose-800/30 rounded focus:outline-none focus:ring-1 focus:ring-rose-500/50"
@@ -579,26 +756,39 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
                       />
                       {(() => {
                         const feedbackReady = localFeedback.trim().length > 0 && localFeedback.trim() !== originalFeedback.trim();
+                        const feedbackHelpText = assessmentValidationMessage
+                          || (localFeedback.trim().length === 0
+                            ? "จำเป็นต้องระบุข้อเสนอแนะก่อนบันทึก"
+                            : !feedbackReady
+                              ? "กรุณาแก้ไขข้อเสนอแนะเดิมก่อนบันทึก"
+                              : "พร้อมบันทึกข้อเสนอแนะ");
                         return (
-                          <div className="flex justify-end">
+                          <div className="flex items-center justify-between gap-3">
+                            <p
+                              id={assessmentFeedbackHelpId}
+                              role={assessmentValidationMessage ? "alert" : undefined}
+                              className={`text-[10px] ${assessmentValidationMessage ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"}`}
+                            >
+                              {feedbackHelpText}
+                            </p>
                             <Tooltip
                               content={!feedbackReady ? "กรุณาพิมพ์ข้อเสนอแนะก่อนบันทึก" : null}
                               position="top-end"
                             >
-                              <button
+                              <Button
                                 onClick={e => { e.stopPropagation(); handleSaveAssessment("needs_improvement"); }}
-                                disabled={isSaving || !feedbackReady}
-                                className={`text-[10px] font-bold px-3 py-1.5 rounded transition-all flex items-center gap-1.5 shadow-sm ${
-                                  isSaved
-                                    ? "bg-emerald-600 text-white"
-                                    : feedbackReady
-                                      ? "bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 cursor-pointer"
-                                      : "bg-slate-300 dark:bg-slate-600 text-slate-500 dark:text-slate-400 cursor-not-allowed opacity-60"
-                                }`}
+                                disabled={isSaving}
+                                aria-disabled={!feedbackReady || undefined}
+                                aria-describedby={assessmentFeedbackHelpId}
+                                loading={savingAssessmentAction === "needs_improvement"}
+                                loadingText="กำลังบันทึก..."
+                                variant="secondary"
+                                size="small"
+                                icon={isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
+                                className={`h-8 !text-[10px] !font-bold ${!feedbackReady ? "!cursor-not-allowed opacity-50" : ""}`}
                               >
-                                {isSaved ? <CheckCircle2 className="w-3 h-3" /> : <Save className="w-3 h-3" />}
                                 {isSaved ? "บันทึกคำแนะนำเรียบร้อย!" : "บันทึกคำแนะนำ"}
-                              </button>
+                              </Button>
                             </Tooltip>
                           </div>
                         );
@@ -621,6 +811,28 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         title="แจ้งเตือน"
         message={alertModal.message}
         variant="warning"
+      />
+
+      <WorkflowModal
+        isOpen={cancelImprovementModalOpen}
+        title="ยกเลิกการปรับปรุง?"
+        message={`การประเมินข้อนี้จะกลับเป็น “รอประเมิน” และคำแนะนำสำหรับการปรับปรุงจะถูกล้าง
+คำตอบและไฟล์แนบของ Trainee จะยังคงอยู่ แต่ระบบจะคำนวณ Progress ใหม่`}
+        actions={[
+          {
+            id: "continue-improvement",
+            label: "กลับไปประเมินต่อ",
+            variant: "secondary",
+            onSelect: () => setCancelImprovementModalOpen(false),
+          },
+          {
+            id: "confirm-cancel-improvement",
+            label: "ยืนยันยกเลิกการปรับปรุง",
+            variant: "danger",
+            onSelect: handleConfirmCancelImprovement,
+          },
+        ]}
+        onClose={() => setCancelImprovementModalOpen(false)}
       />
       </>
     );
@@ -705,6 +917,8 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             initialContent={value}
             onChange={(md) => setValue(md)}
             placeholder="ระบุคำตอบของคุณที่นี่..."
+            editorId={`trainee-answer-${documentId}-${questionId}-${subQuestionCode || "main"}`}
+            ariaLabel={`คำตอบ ข้อ ${questionPrefix || questionId}${label ? ` คำถามย่อย ${label}` : ""}`}
             variant="default"
             minHeight="120px"
           />
@@ -743,28 +957,49 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       variant="warning"
     />
 
-    <ConfirmModal
+    <WorkflowModal
       isOpen={deleteModalOpen}
       onClose={() => setDeleteModalOpen(false)}
-      onConfirm={handleDeleteAnswerConfirm}
       title="ล้างคำตอบ"
       message={`คุณต้องการลบคำตอบและไฟล์แนบทั้งหมดของข้อนี้ใช่หรือไม่?\n(การดำเนินการนี้จะไม่สามารถย้อนกลับได้)`}
-      confirmText="ยืนยันลบ"
-      cancelText="ยกเลิก"
-      variant="danger"
+      actions={[
+        {
+          id: "cancel-clear-answer",
+          label: "ยกเลิก",
+          variant: "secondary",
+          onSelect: () => setDeleteModalOpen(false),
+        },
+        {
+          id: "confirm-clear-answer",
+          label: "ยืนยันลบ",
+          variant: "danger",
+          onSelect: handleDeleteAnswerConfirm,
+        },
+      ]}
     />
 
-    <ConfirmModal
+    <WorkflowModal
       isOpen={discardDraftModalOpen}
-      onClose={() => setDiscardDraftModalOpen(false)}
-      onConfirm={() => { void discardAnswerDraft(); }}
       title="ละทิ้งการแก้ไขคำตอบ?"
       message={`ข้อความและไฟล์แนบที่แก้ไขในครั้งนี้ยังไม่ได้บันทึก
 เลือก “แก้ไขต่อ” เพื่อกลับไปทำงานต่อ หรือ “ละทิ้งการแก้ไข” เพื่อลบเฉพาะการเปลี่ยนแปลงครั้งนี้`}
-      confirmText="ละทิ้งการแก้ไข"
-      cancelText="แก้ไขต่อ"
-      variant="warning"
+      actions={[
+        {
+          id: "continue-editing",
+          label: "แก้ไขต่อ",
+          variant: "secondary",
+          onSelect: () => setDiscardDraftModalOpen(false),
+        },
+        {
+          id: "discard-answer-draft",
+          label: "ละทิ้งการแก้ไข",
+          variant: "danger",
+          onSelect: discardAnswerDraft,
+        },
+      ]}
+      onClose={() => setDiscardDraftModalOpen(false)}
     />
+
     </>
   );
 };

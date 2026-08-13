@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useEditor } from "@tiptap/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TiptapEditor from "./TiptapEditor";
 
@@ -31,7 +32,7 @@ const tiptapMocks = vi.hoisted(() => {
         posAtDOM: vi.fn((_node: Node, offset: number) => offset),
       },
       chain: vi.fn(() => chain),
-      commands: { focus: vi.fn() },
+      commands: { focus: vi.fn(), setContent: vi.fn() },
       isActive: vi.fn(() => false),
       destroy: vi.fn(),
       chainCommands: chain,
@@ -91,5 +92,114 @@ describe("TiptapEditor toolbar selection ownership", () => {
     expect(targetEditor.chainCommands.setColor).toHaveBeenCalledWith("var(--color-warning)");
     expect(targetEditor.chainCommands.run).toHaveBeenCalledOnce();
     expect(sourceEditor.chain).not.toHaveBeenCalled();
+  });
+
+  it("applies color to the newly mounted editor after the active Answer Key switches", () => {
+    const firstEditor = tiptapMocks.createEditorMock(2, 7);
+    const secondEditor = tiptapMocks.createEditorMock(1, 20);
+    tiptapMocks.editors.set("first answer", firstEditor);
+    tiptapMocks.editors.set("second answer", secondEditor);
+    vi.spyOn(window, "getSelection").mockReturnValue({
+      anchorNode: secondEditor.textNode,
+      focusNode: secondEditor.textNode,
+      anchorOffset: 5,
+      focusOffset: 11,
+    } as unknown as Selection);
+
+    const { rerender } = render(
+      <TiptapEditor
+        key="first"
+        initialContent="first answer"
+        onChange={vi.fn()}
+        autoFocus={false}
+        editorId="answer-key-first"
+        ariaLabel="เฉลย คำถามย่อย ก"
+      />,
+    );
+
+    rerender(
+      <TiptapEditor
+        key="second"
+        initialContent="second answer"
+        onChange={vi.fn()}
+        autoFocus
+        editorId="answer-key-second"
+        ariaLabel="เฉลย คำถามย่อย ข"
+      />,
+    );
+
+    expect(screen.getAllByRole("button", { name: "เลือกสีข้อความ" })).toHaveLength(1);
+    const palette = screen.getByRole("button", { name: "เลือกสีข้อความ" });
+    fireEvent.mouseDown(palette);
+    fireEvent.click(palette);
+    const warningColor = screen.getByRole("button", { name: "สีเหลืองส้ม (Warning)" });
+    fireEvent.mouseDown(warningColor);
+    fireEvent.click(warningColor);
+
+    expect(secondEditor.chainCommands.setTextSelection).toHaveBeenCalledWith({ from: 5, to: 11 });
+    expect(secondEditor.chainCommands.setColor).toHaveBeenCalledWith("var(--color-warning)");
+    expect(secondEditor.chainCommands.run).toHaveBeenCalledOnce();
+    expect(firstEditor.chain).not.toHaveBeenCalled();
+  });
+
+  it("exposes the caller's stable textbox id and contextual accessible name", () => {
+    const editor = tiptapMocks.createEditorMock(0, 0);
+    tiptapMocks.editors.set("answer key", editor);
+
+    render(
+      <TiptapEditor
+        initialContent="answer key"
+        onChange={vi.fn()}
+        autoFocus={false}
+        editorId="answer-key-q-101-main"
+        ariaLabel="เฉลย ข้อ 101.1"
+      />,
+    );
+
+    const options = vi.mocked(useEditor).mock.calls.at(-1)?.[0];
+    expect(options?.editorProps?.attributes).toMatchObject({
+      id: "answer-key-q-101-main",
+      role: "textbox",
+      "aria-label": "เฉลย ข้อ 101.1",
+    });
+  });
+
+  it("applies a newer authoritative snapshot only when the caller declares the draft clean", () => {
+    const editor = tiptapMocks.createEditorMock(0, 0);
+    tiptapMocks.editors.set("draft", editor);
+    const { rerender } = render(
+      <TiptapEditor
+        initialContent="draft"
+        onChange={vi.fn()}
+        autoFocus={false}
+        externalContent="draft"
+        externalContentVersion="revision-1"
+        canSyncExternalContent
+      />,
+    );
+
+    rerender(
+      <TiptapEditor
+        initialContent="draft"
+        onChange={vi.fn()}
+        autoFocus={false}
+        externalContent="authoritative refresh"
+        externalContentVersion="revision-2"
+        canSyncExternalContent
+      />,
+    );
+    expect(editor.commands.setContent).toHaveBeenCalledWith("authoritative refresh", { emitUpdate: false });
+
+    rerender(
+      <TiptapEditor
+        initialContent="draft"
+        onChange={vi.fn()}
+        autoFocus={false}
+        externalContent="must keep local draft"
+        externalContentVersion="revision-3"
+        canSyncExternalContent={false}
+      />,
+    );
+    expect(editor.commands.setContent).toHaveBeenCalledTimes(1);
   });
 });

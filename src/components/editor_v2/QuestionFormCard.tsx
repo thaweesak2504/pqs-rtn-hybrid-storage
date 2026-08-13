@@ -177,6 +177,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const draftUploadedAttachmentPathsRef = useRef<Set<string>>(new Set());
   const [currentChildLayout, setCurrentChildLayout] = useState<"list" | "grid">(initialChildLayout);
   const [generatedId, setGeneratedId] = useState<string | null>(null);
+  const editorIdentity = existingId ?? generatedId ?? workflowId ?? `${documentId}-${prefix}`;
   const [isBackgroundSaved, setIsBackgroundSaved] = useState(false);
 
   // ---- Score Editor State (Section 300 only) ----
@@ -664,6 +665,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
   const [answerKey, setAnswerKey] = useState<string>("");
   const [answerKeys, setAnswerKeys] = useState<Record<string, string>>({});
   const [isAnswerKeyLoaded, setIsAnswerKeyLoaded] = useState<boolean>(!existingId);
+  const [activeAnswerKeyCode, setActiveAnswerKeyCode] = useState<string | null>(null);
+  const [answerKeyFocusCode, setAnswerKeyFocusCode] = useState<string | null>(null);
 
   // Toggle states for optional required fields
   const [requireRef, setRequireRef] = useState<boolean>(() => {
@@ -927,19 +930,39 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     );
   }, [deleteAttachmentFiles, questionAttachments]);
 
-  const canonicalizeSubQuestionCodes = (codes: string[]): string[] => {
+  const canonicalizeSubQuestionCodes = useCallback((codes: string[]): string[] => {
     const unique = Array.from(new Set(codes));
     if (!parentSubQuestionList?.length) return unique;
     const selected = new Set(unique);
     return parentSubQuestionList
       .map((item) => item.code)
       .filter((code) => selected.has(code));
-  };
+  }, [parentSubQuestionList]);
+
+  const orderedSelectedSubQCodes = useMemo(
+    () => canonicalizeSubQuestionCodes(selectedSubQCodes),
+    [canonicalizeSubQuestionCodes, selectedSubQCodes],
+  );
+
+  useEffect(() => {
+    setActiveAnswerKeyCode((current) => (
+      current && orderedSelectedSubQCodes.includes(current)
+        ? current
+        : orderedSelectedSubQCodes[0] ?? null
+    ));
+    setAnswerKeyFocusCode((current) => (
+      current && orderedSelectedSubQCodes.includes(current) ? current : null
+    ));
+  }, [orderedSelectedSubQCodes]);
+
+  useEffect(() => {
+    setAnswerKeyFocusCode(null);
+  }, [existingId]);
 
   const buildAnswerKeyItems = (): CreatorAnswerKeyInput[] => {
     if (!requireAnswerKey || is300) return [];
     if (hasParentSubQ && selectedSubQCodes.length > 0) {
-      return canonicalizeSubQuestionCodes(selectedSubQCodes).map(code => ({
+      return orderedSelectedSubQCodes.map(code => ({
         subCode: code,
         text: answerKeys[code] || '',
         isRequired: true,
@@ -957,6 +980,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     setErrors({});
     const newErrors: { content?: boolean; answerKey?: boolean; refs?: boolean } = {};
     let hasError = false;
+    let missingAnswerKeyCodes: string[] = [];
+    let firstMissingAnswerKeyCode: string | undefined;
     const currentDraftReferences = requireRef ? buildReferencesFromDraft() : [];
     const referencePageErrors = draftSelectedRefIds.reduce<Record<string, string>>((acc, refId) => {
       const page = (draftPageByRefId[refId] || "").trim();
@@ -979,8 +1004,13 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
     if (showAnswerKey) {
       if (hasParentSubQ && selectedSubQCodes.length > 0) {
         // ตรวจว่าทุก subQ ที่เลือกมี answer key
-        const missingAny = selectedSubQCodes.some(c => !hasMeaningfulRichText(answerKeys[c]));
-        if (missingAny) { newErrors.answerKey = true; hasError = true; }
+        missingAnswerKeyCodes = orderedSelectedSubQCodes.filter(c => !hasMeaningfulRichText(answerKeys[c]));
+        firstMissingAnswerKeyCode = missingAnswerKeyCodes[0];
+        if (firstMissingAnswerKeyCode) {
+          newErrors.answerKey = true;
+          hasError = true;
+          setActiveAnswerKeyCode(firstMissingAnswerKeyCode);
+        }
       } else if (!hasMeaningfulRichText(answerKey)) {
         newErrors.answerKey = true;
         hasError = true;
@@ -1002,7 +1032,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
       // Construct alert message based on errors
       const messages = [];
       if (newErrors.content) messages.push("คำถาม (Question)");
-      if (newErrors.answerKey) messages.push("เฉลย (Answer Key)");
+      if (missingAnswerKeyCodes.length > 0) {
+        const missingAnswerKeyLines = missingAnswerKeyCodes.map((code) => {
+          const subQuestionIndex = parentSubQuestionList?.findIndex((item) => item.code === code) ?? -1;
+          const subQuestionLabel = subQuestionIndex >= 0 ? toThaiAlphabet(subQuestionIndex + 1) : code;
+          const subQuestionText = parentSubQuestionList?.find((item) => item.code === code)?.text?.trim();
+          return `  • เฉลย ${subQuestionLabel}. — ${subQuestionText || `คำถามย่อย ${subQuestionLabel}`}`;
+        });
+        messages.push(
+          `คำเฉลยที่ยังว่าง ${missingAnswerKeyCodes.length} รายการ:\n${missingAnswerKeyLines.join("\n")}`,
+        );
+      } else if (newErrors.answerKey) {
+        messages.push("เฉลย (Answer Key)");
+      }
       if (newErrors.refs) messages.push("เอกสารอ้างอิง (References)");
 
       const invalidPageMessage = Object.keys(referencePageErrors).length > 0
@@ -1010,11 +1052,38 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
         : "";
       const missingParts = `กรุณาตรวจสอบข้อมูลต่อไปนี้:\n- ${messages.join("\n- ")}${invalidPageMessage}`;
       if (!showValidationAlert) throw new Error(missingParts);
+      const focusFirstMissingAnswerKey = firstMissingAnswerKeyCode
+        ? () => {
+            const code = firstMissingAnswerKeyCode!;
+            setAnswerKeyFocusCode(code);
+            window.requestAnimationFrame(() => {
+              document.getElementById(`answer-key-${editorIdentity}-${code}`)?.focus({ preventScroll: false });
+            });
+          }
+        : undefined;
+      const firstMissingAnswerKeyIndex = firstMissingAnswerKeyCode
+        ? parentSubQuestionList?.findIndex((item) => item.code === firstMissingAnswerKeyCode) ?? -1
+        : -1;
+      const firstMissingAnswerKeyLabel = firstMissingAnswerKeyCode
+        ? (firstMissingAnswerKeyIndex >= 0
+            ? toThaiAlphabet(firstMissingAnswerKeyIndex + 1)
+            : firstMissingAnswerKeyCode)
+        : undefined;
       if (onAlert) {
-        onAlert(missingParts, "warning");
+        if (focusFirstMissingAnswerKey) {
+          onAlert(
+            missingParts,
+            "warning",
+            focusFirstMissingAnswerKey,
+            `ไปที่เฉลย ${firstMissingAnswerKeyLabel}.`,
+          );
+        } else {
+          onAlert(missingParts, "warning");
+        }
       } else {
         setAlertMessage(missingParts);
         setIsAlertOpen(true);
+        focusFirstMissingAnswerKey?.();
       }
       return false;
     }
@@ -1502,6 +1571,7 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
 
         {isDraftDirty && dirtyAreaLabels.length > 0 && (
           <div
+            id={`question-form-dirty-${editorIdentity}`}
             role="status"
             className="flex flex-wrap items-center gap-1.5 rounded-md border border-amber-400/60 bg-amber-50 px-2.5 py-2 text-xs text-amber-900 dark:border-amber-600/50 dark:bg-amber-950/25 dark:text-amber-200"
           >
@@ -1806,20 +1876,38 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
             <div className="pt-1 border-t border-slate-200/50 dark:border-slate-700/50 space-y-2">
               {hasParentSubQ && selectedSubQCodes.length > 0 ? (
                 /* Per-subQ answer keys */
-                selectedSubQCodes.map((code) => {
+                orderedSelectedSubQCodes.map((code) => {
                   const sq = parentSubQuestionList!.find(s => s.code === code);
                   const sqIdx = parentSubQuestionList!.findIndex(s => s.code === code);
                   const label = sqIdx >= 0 ? toThaiAlphabet(sqIdx + 1) : code;
                   const hasErr = !!errors.answerKey && !hasMeaningfulRichText(answerKeys[code]);
+                  const isActiveAnswerKey = activeAnswerKeyCode === code;
                   return (
                     <div key={code}>
                       <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
-                        เฉลย: {label}. <span className="text-red-500">*</span> {sq?.text && <span className="font-normal normal-case text-slate-400 dark:text-slate-500 ml-1">{sq.text}</span>}
+                        เฉลย: {label}. <span className="text-red-500">*</span> {sq?.text && (
+                          <span
+                            data-answer-key-context-state={isActiveAnswerKey ? "active" : "inactive"}
+                            className={`ml-1 font-normal normal-case ${isActiveAnswerKey
+                              ? "font-medium text-slate-800 dark:text-slate-100"
+                              : "text-slate-400 dark:text-slate-500"}`}
+                          >
+                            {sq.text}
+                          </span>
+                        )}
                         {dirtyAreas.has("answerKey") && <span className="ml-2 text-amber-500 normal-case">แก้ไขแล้ว</span>}
                       </label>
                       {isAnswerKeyLoaded ? (
                         <AnswerKeyEditor
                           value={answerKeys[code] || ""}
+                          editorId={`answer-key-${editorIdentity}-${code}`}
+                          ariaLabel={`เฉลย ข้อ ${fullPrefix || prefix} คำถามย่อย ${label}`}
+                          isActive={isActiveAnswerKey}
+                          autoFocus={isActiveAnswerKey && answerKeyFocusCode === code}
+                          onActivate={() => {
+                            setActiveAnswerKeyCode(code);
+                            setAnswerKeyFocusCode(code);
+                          }}
                           onChange={(val: string) => {
                             setAnswerKeys(prev => ({ ...prev, [code]: val }));
                             markDirty("answerKey");
@@ -1843,6 +1931,8 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
                   {isAnswerKeyLoaded ? (
                     <AnswerKeyEditor
                       value={answerKey}
+                      editorId={`answer-key-${editorIdentity}-main`}
+                      ariaLabel={`เฉลย ข้อ ${fullPrefix || prefix}`}
                       onChange={(val: string) => {
                         setAnswerKey(val);
                         markDirty("answerKey");
@@ -1928,9 +2018,19 @@ const QuestionFormCard: React.FC<QuestionFormCardProps> = ({
               icon={<Save className="w-3 h-3" />}
               onClick={handleSave}
               disabled={isSaving}
-              className="h-7 text-xs px-2"
+              loading={isSaving}
+              loadingText="กำลังบันทึก..."
+              data-state={isSaving ? "saving" : isDraftDirty ? "dirty" : "clean"}
+              aria-describedby={isDraftDirty && dirtyAreaLabels.length > 0
+                ? `question-form-dirty-${editorIdentity}`
+                : undefined}
+              className={`h-7 text-xs px-2 ${isDraftDirty && !isSaving
+                ? "border-amber-400 dark:border-amber-500 shadow-[0_0_0_1px_rgba(251,191,36,0.35)]"
+                : ""}`}
             >
-              {isSaving ? "กำลังบันทึก..." : (isEdit ? "บันทึก" : "เพิ่ม")}
+              {isEdit
+                ? (isDraftDirty ? "บันทึกการแก้ไข" : "บันทึก")
+                : (isDraftDirty ? "เพิ่มรายการ" : "เพิ่ม")}
             </Button>
           </div>
         </div>

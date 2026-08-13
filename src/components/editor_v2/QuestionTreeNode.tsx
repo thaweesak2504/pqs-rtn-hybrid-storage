@@ -46,7 +46,12 @@ interface QuestionTreeNodeProps {
   isLast: boolean;
   documentId: string;
   sectionId?: number;
-  onAlert?: (msg: string, type?: "warning" | "danger") => void;
+  onAlert?: (
+    msg: string,
+    type?: "warning" | "danger",
+    onDismiss?: () => void,
+    actionLabel?: string,
+  ) => void;
   parentLayout?: "list" | "grid";
   parentSubQuestionList?: SubQuestionItem[];
   sectionOccupationBranches?: Record<string, { name: string; subs: Record<string, string> }>;
@@ -62,6 +67,7 @@ interface QuestionTreeNodeProps {
   traineeAnswer?: UserAnswer;
   answerMap?: Map<string, UserAnswer>;
   isInsidePrerequisiteDoc?: boolean;
+  questionActionId?: string;
 }
 const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   question,
@@ -105,6 +111,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
   answerMap,
   isInsidePrerequisiteDoc = false,
   parentFullPrefix,
+  questionActionId,
 }) => {
   const is200 = sectionGroup === 200;
   const is300 = sectionGroup === 300;
@@ -400,6 +407,7 @@ const QuestionTreeNode: React.FC<QuestionTreeNodeProps> = ({
         usageRefreshKey={usageRefreshKey}
         sectionSelectedBranch={sectionSelectedBranch}
         isInsidePrerequisiteDoc={effectiveIsInsidePrerequisiteDoc}
+        actionButtonId={questionActionId || `creator-question-actions-${documentId}-${question.id}`}
       />
 
       {/* Insert After Form */}

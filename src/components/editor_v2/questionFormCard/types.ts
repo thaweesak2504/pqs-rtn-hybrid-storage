@@ -49,7 +49,12 @@ export interface QuestionFormCardProps {
   existingId?: string; // Edit mode ID
   parentId?: string | null; // Parent question ID (for background save of new L2)
   sectionId?: number; // Added sectionId for fetching available references
-  onAlert?: (message: string, type?: "warning" | "danger") => void;
+  onAlert?: (
+    message: string,
+    type?: "warning" | "danger",
+    onDismiss?: () => void,
+    actionLabel?: string,
+  ) => void;
   childLayout?: "list" | "grid";
   questionSequence?: number;
   parentSubQuestionList?: SubQuestionItem[];

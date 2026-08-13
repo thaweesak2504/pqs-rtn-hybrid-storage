@@ -5,7 +5,7 @@ import {
     Layers,
     Plus
 } from "lucide-react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 type ViewMode = 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
 
@@ -14,13 +14,14 @@ import {
     QuestionReferenceDetail
 } from "../../types/content";
 import { buildPrefix, buildPrefix200_300 } from "../../utils/thaiNumbering";
-import ConfirmModal from "../modals/ConfirmModal";
+import WorkflowModal from "../modals/WorkflowModal";
 
 import QuestionFormCard from "./QuestionFormCard";
 import QuestionTreeNode from "./QuestionTreeNode";
 import { CreatorAnswerKeyInput } from "./questionFormCard/types";
 import { logger } from '../../utils/logger';
 import { useCreatorFormWorkflow } from '../../hooks/useCreatorFormWorkflow';
+import { COMMAND_BUTTON_FOCUS } from '../ui/buttonStyles';
 
 // ============ Types ============
 
@@ -84,7 +85,12 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const [insertingAfterId, setInsertingAfterId] = useState<string | null>(null); // New state
   const [isCreating, setIsCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [questionPendingDelete, setQuestionPendingDelete] = useState<QuestionDetail | null>(null);
   const { requestOpen: requestCreatorFormOpen } = useCreatorFormWorkflow();
+  const creatorFocusReturnIdRef = useRef<string | null>(null);
+
+  const questionActionId = (questionId: string) => `creator-question-actions-${docId}-${questionId}`;
+  const emptyQuestionActionId = `creator-empty-question-action-${docId}-${sectionId ?? "unknown"}`;
 
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
@@ -99,16 +105,22 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     isOpen: boolean;
     title: string;
     message: string;
-    onConfirm: () => void;
-    variant: "danger" | "warning" | "info";
-    cancelText?: string;
+    actionLabel: string;
+    actionVariant: "primary" | "warning";
+    onDismiss?: () => void;
   }>({
     isOpen: false,
     title: "",
     message: "",
-    onConfirm: () => { },
-    variant: "danger",
+    actionLabel: "รับทราบ",
+    actionVariant: "primary",
   });
+
+  const closeQuestionAlert = () => {
+    const onDismiss = confirmModal.onDismiss;
+    setConfirmModal((prev) => ({ ...prev, isOpen: false, onDismiss: undefined }));
+    window.requestAnimationFrame(() => onDismiss?.());
+  };
 
   const fetchQuestions = async (silent?: boolean) => {
     if (!docId || sectionId === undefined) return; // sectionId can be 0, so check for undefined
@@ -282,9 +294,27 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
     setEditingId(null);
   };
 
+  useLayoutEffect(() => {
+    if (isCreating || creatingAtParent !== null || insertingAfterId !== null || editingId !== null || questionPendingDelete !== null) return;
+
+    const focusReturnId = creatorFocusReturnIdRef.current;
+    if (!focusReturnId) return;
+
+    const frameId = window.requestAnimationFrame(() => {
+      const focusTarget = document.getElementById(focusReturnId);
+      if (focusTarget instanceof HTMLElement && !focusTarget.hasAttribute("disabled")) {
+        focusTarget.focus({ preventScroll: true });
+      }
+      creatorFocusReturnIdRef.current = null;
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [creatingAtParent, editingId, insertingAfterId, isCreating, questionPendingDelete, questions]);
+
   const handleStartCreate = (parentId: string | null = null) => {
     const targetId = `creator-create-${docId}-${sectionId}-${parentId ?? 'root'}`;
     requestCreatorFormOpen(targetId, () => {
+      creatorFocusReturnIdRef.current = parentId ? questionActionId(parentId) : emptyQuestionActionId;
       resetForms();
       setCreatingAtParent(parentId);
       setIsCreating(true);
@@ -294,6 +324,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const handleStartInsertAfter = (targetId: string) => {
     const workflowId = `creator-insert-${docId}-${sectionId}-${targetId}`;
     requestCreatorFormOpen(workflowId, () => {
+      creatorFocusReturnIdRef.current = questionActionId(targetId);
       resetForms();
       setInsertingAfterId(targetId);
       setIsCreating(true);
@@ -303,6 +334,7 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   const handleStartEdit = (id: string) => {
     const workflowId = `creator-edit-${docId}-${id}`;
     requestCreatorFormOpen(workflowId, () => {
+      creatorFocusReturnIdRef.current = questionActionId(id);
       resetForms();
       setEditingId(id);
     });
@@ -359,6 +391,9 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         },
       });
       const newId = saved.questionId;
+      // After a successful create, the original empty/add command may no longer
+      // exist. Return to the newly created Question's stable actions command.
+      creatorFocusReturnIdRef.current = questionActionId(newId);
 
       // 2. If insertAfterId provided, reorder siblings immediately
       if (insertAfterId) {
@@ -498,23 +533,47 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
   };
 
   const handleDelete = (question: QuestionDetail) => {
-    setConfirmModal({
-      isOpen: true,
-      title: "ยืนยันการลบคำถาม",
-      message: `คุณต้องการลบคำถามนี้ใช่หรือไม่?\n\n"${question.content}"\n\nคำเตือน: การลบนี้จะลบคำถามย่อยที่เกี่ยวข้องทั้งหมด`,
-      onConfirm: async () => {
-        try {
-          await invoke("delete_question", { id: question.id });
-          // Optimistic: remove from local state immediately
-          setQuestions(prev => prev.filter(q => q.id !== question.id));
-          onReferencesUpdated?.();
-          setBgSyncTrigger(prev => prev + 1);
-        } catch (err) {
-          logger.error("Failed to delete:", err);
-        }
-      },
-      variant: "warning",
-    });
+    setQuestionPendingDelete(question);
+  };
+
+  const getDeleteFocusReturnId = (question: QuestionDetail) => {
+    const siblings = questions
+      .filter((candidate) => candidate.parent_id === question.parent_id && candidate.id !== question.id)
+      .sort((a, b) => a.sequence - b.sequence);
+    const nextSibling = siblings.find((candidate) => candidate.sequence > question.sequence);
+    const previousSibling = [...siblings].reverse().find((candidate) => candidate.sequence < question.sequence);
+    const nearbyQuestion = nextSibling || previousSibling;
+
+    if (nearbyQuestion) return questionActionId(nearbyQuestion.id);
+    if (question.parent_id) return questionActionId(question.parent_id);
+    return emptyQuestionActionId;
+  };
+
+  const closeDeleteQuestionModal = () => {
+    if (questionPendingDelete) {
+      creatorFocusReturnIdRef.current = questionActionId(questionPendingDelete.id);
+    }
+    setQuestionPendingDelete(null);
+  };
+
+  const confirmDeleteQuestion = async () => {
+    if (!questionPendingDelete) return;
+    const question = questionPendingDelete;
+    const focusReturnId = getDeleteFocusReturnId(question);
+
+    try {
+      await invoke("delete_question", { id: question.id });
+      creatorFocusReturnIdRef.current = focusReturnId;
+      // Preserve the existing optimistic policy; the background refresh remains
+      // authoritative for any descendants removed by the backend.
+      setQuestions(prev => prev.filter(q => q.id !== question.id));
+      setQuestionPendingDelete(null);
+      onReferencesUpdated?.();
+      setBgSyncTrigger(prev => prev + 1);
+    } catch (err) {
+      logger.error("Failed to delete:", err);
+      throw new Error("ไม่สามารถลบคำถามได้");
+    }
   };
 
   // ---- Reorder: Move Up/Down ----
@@ -656,21 +715,32 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
                 documentId={docId}
                 sectionId={sectionId || 0} // Pass sectionId
 
-                onAlert={(msg, type) =>
+                onAlert={(msg, type, onDismiss, requestedActionLabel) => {
+                  const isSaveValidation = msg.startsWith("กรุณาตรวจสอบข้อมูลต่อไปนี้:");
                   setConfirmModal({
                     isOpen: true,
-                    title: "แจ้งเตือน",
-                    message: msg,
-                    onConfirm: () => setConfirmModal((prev) => ({ ...prev, isOpen: false })),
-                    variant: type || "warning",
-                    cancelText: "",
-                  })
-                }
+                    title: isSaveValidation
+                      ? "ยังบันทึกไม่ได้"
+                      : type === "danger"
+                        ? "ไม่สามารถดำเนินการได้"
+                        : "โปรดตรวจสอบข้อมูล",
+                    message: isSaveValidation
+                      ? msg.replace(
+                          "กรุณาตรวจสอบข้อมูลต่อไปนี้:",
+                          "กรุณาแก้ไขข้อมูลต่อไปนี้ก่อนบันทึก:",
+                        )
+                      : msg,
+                    actionLabel: requestedActionLabel || (isSaveValidation ? "กลับไปแก้ไข" : "รับทราบ"),
+                    actionVariant: isSaveValidation ? "warning" : "primary",
+                    onDismiss,
+                  });
+                }}
                 onRefresh={() => setBgSyncTrigger(prev => prev + 1)}
                 onQuestionsUpdated={onQuestionsUpdated}
                 usageRefreshKey={bgSyncTrigger}
                 traineeAnswer={answerMap?.get(`${question.id}:`)}
                 answerMap={answerMap}
+                questionActionId={questionActionId(question.id)}
               />
             ))}
           </div>
@@ -698,8 +768,18 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         {/* Empty State */}
         {!isCreating && questionTree.length === 0 && (
           <div
+            id={emptyQuestionActionId}
+            role={readOnly ? undefined : "button"}
+            tabIndex={readOnly ? undefined : 0}
+            aria-label={readOnly ? undefined : `เพิ่มคำถามแรก Section ${sectionNumber}`}
             onClick={readOnly ? undefined : () => handleStartCreate(null)}
-            className={`group relative overflow-hidden rounded-xl border border-github-border-primary bg-github-bg-active py-16 transition-all duration-200 shadow-github-small hover:shadow-github-medium transform hover:scale-[1.01] active:scale-[0.99] ${readOnly ? 'cursor-default' : 'cursor-pointer hover:bg-github-bg-hover hover:border-github-border-active'}`}
+            onKeyDown={readOnly ? undefined : (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                handleStartCreate(null);
+              }
+            }}
+            className={`group relative overflow-hidden rounded-xl border border-github-border-primary bg-github-bg-active py-16 transition-all duration-200 shadow-github-small hover:shadow-github-medium transform hover:scale-[1.01] active:scale-[0.99] ${readOnly ? 'cursor-default' : `cursor-pointer hover:bg-github-bg-hover hover:border-github-border-active ${COMMAND_BUTTON_FOCUS}`}`}
           >
             <div className="flex flex-col items-center gap-4 relative z-10">
               <div className="w-16 h-16 rounded-2xl bg-github-bg-secondary border border-github-border-primary flex items-center justify-center group-hover:scale-110 group-hover:border-github-accent-primary transition-all duration-300">
@@ -721,13 +801,42 @@ const PqsQuestionSection: React.FC<PqsQuestionSectionProps> = ({
         )}
       </div>
 
-      <ConfirmModal
+      <WorkflowModal
         isOpen={confirmModal.isOpen}
-        onClose={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
-        onConfirm={confirmModal.onConfirm}
+        onClose={closeQuestionAlert}
         title={confirmModal.title}
         message={confirmModal.message}
-        variant={confirmModal.variant}
+        actions={[
+          {
+            id: "acknowledge-question-alert",
+            label: confirmModal.actionLabel,
+            variant: confirmModal.actionVariant,
+            onSelect: closeQuestionAlert,
+          },
+        ]}
+      />
+
+      <WorkflowModal
+        isOpen={questionPendingDelete !== null}
+        onClose={closeDeleteQuestionModal}
+        title="ยืนยันการลบคำถาม"
+        message={questionPendingDelete
+          ? `คุณต้องการลบคำถามนี้ใช่หรือไม่?\n\n"${questionPendingDelete.content}"\n\nคำเตือน: การลบนี้จะลบคำถามย่อยที่เกี่ยวข้องทั้งหมด`
+          : ""}
+        actions={[
+          {
+            id: "cancel-delete-question",
+            label: "ยกเลิก",
+            variant: "secondary",
+            onSelect: closeDeleteQuestionModal,
+          },
+          {
+            id: "confirm-delete-question",
+            label: "ลบคำถาม",
+            variant: "danger",
+            onSelect: confirmDeleteQuestion,
+          },
+        ]}
       />
 
     </div>

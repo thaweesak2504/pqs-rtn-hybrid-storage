@@ -1,11 +1,12 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
+import { COMMAND_BUTTON_FOCUS } from "../ui/buttonStyles";
 
 export interface WorkflowModalAction {
   id: string;
   label: string;
   onSelect: () => void | Promise<void>;
-  variant?: "primary" | "secondary" | "danger";
+  variant?: "primary" | "secondary" | "warning" | "danger";
   disabled?: boolean;
 }
 
@@ -20,38 +21,63 @@ interface WorkflowModalProps {
 const actionClasses: Record<NonNullable<WorkflowModalAction["variant"]>, string> = {
   primary: "border-blue-600 bg-blue-600 text-white hover:bg-blue-700",
   secondary: "border-github-border-primary bg-github-bg-tertiary text-github-text-primary hover:bg-github-bg-hover",
+  warning: "border-amber-500 bg-amber-500 text-slate-950 hover:bg-amber-400 dark:border-amber-400 dark:bg-amber-500 dark:text-slate-950 dark:hover:bg-amber-400",
   danger: "border-red-600 bg-transparent text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30",
 };
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
 
 const WorkflowModal: React.FC<WorkflowModalProps> = ({ isOpen, title, message, actions, onClose }) => {
   const titleId = useId();
   const descriptionId = useId();
   const firstButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useLayoutEffect(() => {
     if (!isOpen) return;
     restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setActionError("");
-    window.setTimeout(() => firstButtonRef.current?.focus(), 0);
+    firstButtonRef.current?.focus({ preventScroll: true });
 
     return () => {
-      restoreFocusRef.current?.focus();
+      const restoreTarget = restoreFocusRef.current;
+      if (restoreTarget?.isConnected && !restoreTarget.hasAttribute("disabled")) {
+        restoreTarget.focus();
+      } else {
+        document.body.focus();
+      }
     };
   }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busyActionId) onClose();
+      if (event.key === "Escape" && !busyActionId) {
+        event.preventDefault();
+        event.stopPropagation();
+        onCloseRef.current();
+      }
     };
-    document.addEventListener("keydown", handleEscape);
-    return () => document.removeEventListener("keydown", handleEscape);
-  }, [busyActionId, isOpen, onClose]);
-
-  if (!isOpen) return null;
+    // Capture before a parent editing form can consume Escape for its own
+    // draft guard. While a modal is open, its close rule owns Escape.
+    document.addEventListener("keydown", handleEscape, true);
+    return () => document.removeEventListener("keydown", handleEscape, true);
+  }, [busyActionId, isOpen]);
 
   const runAction = async (action: WorkflowModalAction) => {
     if (busyActionId || action.disabled) return;
@@ -63,25 +89,66 @@ const WorkflowModal: React.FC<WorkflowModalProps> = ({ isOpen, title, message, a
         await result;
       }
     } catch (error) {
-      setActionError(`ไม่สามารถดำเนินการได้: ${String(error)}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setActionError(`ไม่สามารถดำเนินการได้: ${errorMessage}`);
     } finally {
       setBusyActionId(null);
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    // Capture at document level so the trap recovers even if a browser/WebView
+    // moves focus outside the dialog before React can receive a bubbling event.
+    const keepTabWithinDialog = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+
+      const focusableElements = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) ?? [],
+      );
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+
+      const first = focusableElements[0]!;
+      const last = focusableElements[focusableElements.length - 1]!;
+      const currentIndex = focusableElements.indexOf(document.activeElement as HTMLElement);
+
+      if (event.shiftKey) {
+        if (currentIndex <= 0) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (currentIndex === -1 || currentIndex === focusableElements.length - 1) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", keepTabWithinDialog, true);
+    return () => document.removeEventListener("keydown", keepTabWithinDialog, true);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="presentation">
-      <button
-        type="button"
-        aria-label="ปิดหน้าต่าง"
+      <div
+        aria-hidden="true"
+        data-workflow-backdrop
         className="absolute inset-0 h-full w-full cursor-default bg-black/55 backdrop-blur-sm"
         onClick={() => { if (!busyActionId) onClose(); }}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
+        tabIndex={-1}
         className="relative w-full max-w-lg rounded-xl border border-github-border-primary bg-github-bg-secondary shadow-2xl"
       >
         <button
@@ -89,7 +156,7 @@ const WorkflowModal: React.FC<WorkflowModalProps> = ({ isOpen, title, message, a
           aria-label="ปิด"
           disabled={!!busyActionId}
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-md p-1 text-github-text-tertiary hover:bg-github-bg-hover hover:text-github-text-primary disabled:opacity-50"
+          className={`absolute right-4 top-4 rounded-md p-1 text-github-text-tertiary hover:bg-github-bg-hover hover:text-github-text-primary disabled:opacity-50 ${COMMAND_BUTTON_FOCUS}`}
         >
           <X className="h-5 w-5" />
         </button>
@@ -119,7 +186,7 @@ const WorkflowModal: React.FC<WorkflowModalProps> = ({ isOpen, title, message, a
                 type="button"
                 disabled={!!busyActionId || action.disabled}
                 onClick={() => { void runAction(action); }}
-                className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${actionClasses[action.variant ?? "secondary"]}`}
+                className={`rounded-md border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${COMMAND_BUTTON_FOCUS} ${actionClasses[action.variant ?? "secondary"]}`}
               >
                 {busyActionId === action.id ? "กำลังดำเนินการ..." : action.label}
               </button>

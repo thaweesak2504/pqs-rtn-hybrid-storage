@@ -94,6 +94,21 @@ describe("QuestionDisplayCard integration", () => {
     expect(screen.getByTestId("dropdown-menu")).toBeInTheDocument();
   });
 
+  it("exposes a stable, meaningful Creator action command for focus return", () => {
+    render(
+      <QuestionDisplayCard
+        {...baseProps}
+        viewMode="edit"
+        fullPrefix="301.1"
+        actionButtonId="creator-question-actions-DOC-1-q-1"
+        question={createQuestion()}
+      />,
+    );
+
+    const actionButton = screen.getByRole("button", { name: "เมนูคำสั่ง ข้อ 301.1" });
+    expect(actionButton).toHaveAttribute("id", "creator-question-actions-DOC-1-q-1");
+  });
+
   it("hides action dropdown in qualifier mode", () => {
     render(
       <QuestionDisplayCard
