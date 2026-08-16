@@ -1,9 +1,11 @@
 # Editor Workflow Phase 4 — Lifecycle, Focus, and Accessibility
 
-**Status:** Batches 4.1–4.2 and the first two Batch 4.3 slices manually validated; Qualifier UX Full Pass awaiting Manual Gate
+**Status:** Phase 4 complete — Batches 4.1–4.4 passed automated checks and Desktop App Manual Gates
 
 **Created:** 2026-08-10
 **Scope:** React editor lifecycle, keyboard workflow, focus management, modal accessibility, and targeted performance. This phase does not alter schemas, Rust/SQLite policy, document content, simulation data, or Print Layout.
+
+Intermediate `awaiting Manual Gate` notes below preserve the chronological findings from each slice; the Phase 4 checkpoint at the end of this document supersedes those temporary statuses.
 
 ## Guardrails
 
