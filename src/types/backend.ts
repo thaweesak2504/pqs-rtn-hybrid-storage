@@ -450,6 +450,73 @@ export interface UpsertUserProgressArgs {
   passing_score?: number;
 }
 
+/** SQLite portion of the simulation Clear Answers result. */
+export interface ClearAnswersDatabaseResult {
+  answerRowsDeleted: number;
+  assessedAnswerRowsDeleted: number;
+  progressRowsDeleted: number;
+  referencedAttachmentPathCount: number;
+  invalidAttachmentMetadataRows: number;
+  committed: boolean;
+}
+
+/** Logical-path-only failure reported by managed attachment cleanup. */
+export interface AttachmentCleanupFailure {
+  logicalPath: string;
+  message: string;
+}
+
+/** Filesystem portion of the simulation Clear Answers result. */
+export interface AttachmentCleanupResult {
+  logicalDirectory: string;
+  dataDirectoryAvailable: boolean;
+  cleanupAttempted: boolean;
+  directoryFound: boolean;
+  managedFilesFound: number;
+  managedFilesDeleted: number;
+  managedFilesRetained: number;
+  managedFilesMissing: number;
+  cleanupComplete: boolean;
+  failures: AttachmentCleanupFailure[];
+}
+
+/** Authoritative result returned by `clear_simulation_document_answers`. */
+export interface ClearAnswersResult {
+  documentId: string;
+  database: ClearAnswersDatabaseResult;
+  attachments: AttachmentCleanupResult;
+}
+
+/** SQLite portion of one exact answer deletion result. */
+export interface DeleteAnswerDatabaseResult {
+  matched: boolean;
+  answerRowsDeleted: number;
+  answerTextWasPresent: boolean;
+  wasAssessed: boolean;
+  referencedAttachmentPathCount: number;
+  invalidAttachmentMetadata: boolean;
+  committed: boolean;
+}
+
+/** Progress recalculation result after an answer deletion commits. */
+export interface ProgressRecalculationResult {
+  attempted: boolean;
+  sectionsUpdated: number;
+  complete: boolean;
+  failure: string | null;
+}
+
+/** Authoritative result returned by `delete_trainee_answer`. */
+export interface DeleteAnswerResult {
+  userId: string;
+  documentId: string;
+  questionId: string;
+  subQuestionCode: string;
+  database: DeleteAnswerDatabaseResult;
+  progress: ProgressRecalculationResult;
+  attachments: AttachmentCleanupResult;
+}
+
 /** Args to update a question score. **Rust source:** `UpdateQuestionScoreArgs` */
 export interface UpdateQuestionScoreArgs {
   id: string;

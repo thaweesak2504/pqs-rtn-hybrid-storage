@@ -274,3 +274,14 @@ Suggested state vocabulary สำหรับนำไปอภิปราย �
 ```
 
 สถานะเหล่านี้ต้องมาจาก Eligibility + Authorization + Progress ไม่ควรอนุมานจากเปอร์เซ็นต์เพียงค่าเดียว
+
+### 12.4 Manual Regression Evidence — Linked Section 201 Progress
+
+**หลักฐาน:** การทดสอบ `22730203001-SIM-013` เมื่อวันที่ 2026-08-14 หลังประเมิน Section 201 จำนวน 2 คำตอบเป็น `ผ่าน` 1 และ `ปรับปรุง` 1
+
+- Section 201 ต้นทางแสดง Progress `8%`
+- Requirement ที่อ้าง Section 201 ภายใน Section 300 ยังแสดง Progress `0%`
+- ตัวเลข `UserProgress` ที่ Clear Answers รายงานเป็นจำนวนแถวความก้าวหน้าราย Section ที่ลบ ไม่ใช่หลักฐานว่า Linked Requirement ใน Section 300 ได้รับค่าแล้ว
+- Product Owner ระบุว่าการส่ง Progress จาก Section ต้นทางไปแสดงใน Section 300 เคยทำงานได้ จึงต้องถืออาการปัจจุบันเป็น regression candidate จนกว่าจะพิสูจน์สาเหตุ
+- ยังไม่แก้ใน Phase 5 ณ จุดนี้; เมื่อกลับมาทำ Section 300 ต้องทดสอบทั้งหลัง Save ทันทีและหลัง Reload เพื่อแยกระหว่าง stale refresh กับความสัมพันธ์ `refSectionId` ที่ไม่ถูก remap ใน Simulation
+- Regression test ที่ต้องเพิ่ม: Section 201 มี partial progress, linked Requirement ใน Section 300 อ่านเปอร์เซ็นต์เดียวกันภายใน Simulation เดียวกัน และเปลี่ยนตามทั้ง upgrade/downgrade โดยไม่กระทบ Source หรือ Simulation อื่น

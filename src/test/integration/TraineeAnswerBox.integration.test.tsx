@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TraineeAnswerBox from '../../components/editor_v2/TraineeAnswerBox';
 import { invoke } from '@tauri-apps/api/tauri';
 import { UserAnswer } from '../../components/editor_v2/PqsQuestionSection';
+import type { DeleteAnswerResult } from '../../types';
 
 // Mock Tauri invoke
 vi.mock('@tauri-apps/api/tauri', () => ({
@@ -60,6 +61,40 @@ vi.mock('../../components/modals/ConfirmModal', () => ({
     );
   },
 }));
+
+const successfulDeleteResult: DeleteAnswerResult = {
+  userId: 'T-001',
+  documentId: 'doc-1',
+  questionId: 'q-1',
+  subQuestionCode: '',
+  database: {
+    matched: true,
+    answerRowsDeleted: 1,
+    answerTextWasPresent: true,
+    wasAssessed: false,
+    referencedAttachmentPathCount: 1,
+    invalidAttachmentMetadata: false,
+    committed: true,
+  },
+  progress: {
+    attempted: true,
+    sectionsUpdated: 1,
+    complete: true,
+    failure: null,
+  },
+  attachments: {
+    logicalDirectory: 'data/doc-1/trainee-attachments',
+    dataDirectoryAvailable: true,
+    cleanupAttempted: true,
+    directoryFound: true,
+    managedFilesFound: 1,
+    managedFilesDeleted: 1,
+    managedFilesRetained: 0,
+    managedFilesMissing: 0,
+    cleanupComplete: true,
+    failures: [],
+  },
+};
 
 describe('TraineeAnswerBox Integration', () => {
   beforeEach(() => {
@@ -254,36 +289,46 @@ describe('TraineeAnswerBox Integration', () => {
     });
   });
 
-  it('triggers delete_trainee_answer command when "ล้างคำตอบ" is clicked and confirmed', async () => {
-    vi.mocked(invoke).mockResolvedValue('success');
-
+  it('explains and reports an authoritative Section 100 answer deletion, then restores focus', async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      ...successfulDeleteResult,
+      database: { ...successfulDeleteResult.database, wasAssessed: true },
+    });
     const onAnswerSavedMock = vi.fn();
+    const assessedAnswer: UserAnswer = {
+      ...mockTraineeAnswer,
+      status: 'needs_improvement',
+      feedback: 'โปรดแก้ไขคำตอบ',
+    };
 
     render(
       <TraineeAnswerBox
         questionId="q-1"
         documentId="doc-1"
+        questionPrefix="101.1"
         mode="trainee"
-        traineeAnswer={mockTraineeAnswer}
+        traineeAnswer={assessedAnswer}
         onAnswerSaved={onAnswerSavedMock}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'แก้ไขคำตอบ ข้อ q-1' }));
-
-    // Clear Answer button should be visible
-    const clearButton = screen.getByRole('button', { name: /ล้างคำตอบ/i });
+    fireEvent.click(screen.getByRole('button', { name: 'แก้ไขคำตอบ ข้อ 101.1' }));
+    const clearButton = screen.getByRole('button', { name: 'ล้างคำตอบข้อ 101.1' });
     fireEvent.click(clearButton);
 
-    // The destructive flow uses the accessible, focus-trapped WorkflowModal.
-    expect(screen.getByRole('dialog', { name: 'ล้างคำตอบ' })).toBeInTheDocument();
-    expect(screen.getByText(/คุณต้องการลบคำตอบและไฟล์แนบทั้งหมดของข้อนี้ใช่หรือไม่/)).toBeInTheDocument();
+    const confirmation = screen.getByRole('dialog', { name: 'ลบคำตอบข้อ 101.1?' });
+    expect(confirmation).toHaveTextContent('มีข้อความคำตอบ');
+    expect(confirmation).toHaveTextContent('1 ไฟล์');
+    expect(confirmation).toHaveTextContent('ปรับปรุง');
+    expect(confirmation).toHaveTextContent('คำนวณ Progress ราย Section ของรอบจำลองใหม่');
+    expect(screen.getByRole('button', { name: 'กลับไปแก้ไข' })).toHaveFocus();
 
-    // Click confirm delete
-    const confirmDeleteBtn = screen.getByRole('button', { name: /ยืนยันลบ/i });
-    fireEvent.click(confirmDeleteBtn);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(clearButton).toHaveFocus());
 
-    // Should call invoke delete_trainee_answer with correct arguments
+    fireEvent.click(clearButton);
+    fireEvent.click(screen.getByRole('button', { name: 'ลบคำตอบข้อนี้' }));
+
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith('delete_trainee_answer', {
         userId: 'T-001',
@@ -293,11 +338,225 @@ describe('TraineeAnswerBox Integration', () => {
       });
     });
 
-    // Check callback is fired
-    expect(onAnswerSavedMock).toHaveBeenCalled();
+    const resultDialog = await screen.findByRole('dialog', { name: 'ลบคำตอบเรียบร้อย' });
+    expect(resultDialog).toHaveTextContent('คำตอบที่ลบ1');
+    expect(resultDialog).toHaveTextContent('ผลประเมินที่ลบ1');
+    expect(resultDialog).toHaveTextContent('Section Progress ที่คำนวณใหม่1');
+    expect(resultDialog).toHaveTextContent('ไฟล์ที่ลบ1');
+    expect(onAnswerSavedMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'ปิดผลการลบ' })).toHaveFocus();
+
+    fireEvent.click(screen.getByRole('button', { name: 'ปิดผลการลบ' }));
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'ตอบคำถาม ข้อ q-1' })).toHaveFocus();
+      expect(screen.getByRole('button', { name: 'ตอบคำถาม ข้อ 101.1' })).toHaveFocus();
     });
+  });
+
+  it('deletes an attachment-only Section 300 prerequisite with evidence-specific commands', async () => {
+    const prerequisiteDeleteResult: DeleteAnswerResult = {
+      ...successfulDeleteResult,
+      questionId: 'q-301-prerequisite',
+      database: {
+        ...successfulDeleteResult.database,
+        answerTextWasPresent: false,
+        referencedAttachmentPathCount: 1,
+        wasAssessed: true,
+      },
+    };
+    vi.mocked(invoke).mockImplementation((command) => {
+      if (command === 'delete_trainee_answer') return Promise.resolve(prerequisiteDeleteResult);
+      return Promise.resolve(null);
+    });
+    const prerequisiteAnswer: UserAnswer = {
+      ...mockTraineeAnswer,
+      question_id: 'q-301-prerequisite',
+      answer_text: null,
+      status: 'needs_improvement',
+      feedback: 'กรุณาแนบเอกสารที่ชัดเจนกว่าเดิม',
+      attachments: JSON.stringify(['data/doc-1/trainee-attachments/301.1.1_certificate.png']),
+    };
+
+    render(
+      <TraineeAnswerBox
+        questionId="q-301-prerequisite"
+        documentId="doc-1"
+        questionPrefix="301.1.1"
+        mode="trainee"
+        traineeAnswer={prerequisiteAnswer}
+        isPrerequisiteDoc
+      />
+    );
+
+    expect(screen.getByText('เอกสารหลักฐาน:')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /คำตอบ/ })).not.toBeInTheDocument();
+    const editEvidenceButton = screen.getByRole('button', { name: 'แก้ไขเอกสารหลักฐาน ข้อ 301.1.1' });
+    fireEvent.click(editEvidenceButton);
+
+    const uploadEvidenceButton = screen.getByRole('button', { name: /แนบไฟล์/ });
+    await waitFor(() => {
+      expect(uploadEvidenceButton).toHaveFocus();
+    });
+    expect(uploadEvidenceButton).toHaveClass('focus:ring-1');
+
+    const clearEvidenceButton = screen.getByRole('button', { name: 'ล้างเอกสารหลักฐานข้อ 301.1.1' });
+    fireEvent.click(clearEvidenceButton);
+
+    const confirmation = screen.getByRole('dialog', { name: 'ลบเอกสารหลักฐานข้อ 301.1.1?' });
+    expect(confirmation).toHaveTextContent('1 ไฟล์');
+    expect(confirmation).toHaveTextContent('ปรับปรุง');
+    expect(confirmation).not.toHaveTextContent('ไม่มีข้อความคำตอบ');
+    fireEvent.click(screen.getByRole('button', { name: 'ลบเอกสารหลักฐานข้อนี้' }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('delete_trainee_answer', {
+        userId: 'T-001',
+        questionId: 'q-301-prerequisite',
+        documentId: 'doc-1',
+        subQuestionCode: '',
+      });
+    });
+    expect(await screen.findByRole('dialog', { name: 'ลบเอกสารหลักฐานเรียบร้อย' })).toHaveTextContent('ชุดหลักฐานที่ลบ1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'ปิดผลการลบ' }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'แนบเอกสารหลักฐาน ข้อ 301.1.1' })).toHaveFocus();
+    });
+  });
+
+  it('prevents deleting a saved answer while its current edit draft is dirty', () => {
+    render(
+      <TraineeAnswerBox
+        questionId="q-1"
+        documentId="doc-1"
+        questionPrefix="101.1"
+        mode="trainee"
+        traineeAnswer={mockTraineeAnswer}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'แก้ไขคำตอบ ข้อ 101.1' }));
+    const editor = screen.getByRole('textbox', { name: 'ระบุคำตอบของคุณที่นี่...' });
+    editor.textContent = 'Unsaved replacement';
+    fireEvent.input(editor);
+
+    const clearButton = screen.getByRole('button', { name: 'ล้างคำตอบข้อ 101.1' });
+    expect(clearButton).toBeDisabled();
+    expect(clearButton).toHaveAccessibleDescription('กรุณาบันทึกหรือยกเลิกการแก้ไขก่อนล้างคำตอบ');
+    fireEvent.click(clearButton);
+    expect(screen.queryByRole('dialog', { name: /ลบคำตอบข้อ/ })).not.toBeInTheDocument();
+    expect(invoke).not.toHaveBeenCalledWith('delete_trainee_answer', expect.anything());
+  });
+
+  it('keeps a failed deletion in the modal and allows a successful retry', async () => {
+    let deleteAttempts = 0;
+    vi.mocked(invoke).mockImplementation((command) => {
+      if (command !== 'delete_trainee_answer') return Promise.resolve(null);
+      deleteAttempts += 1;
+      return deleteAttempts === 1
+        ? Promise.reject(new Error('database is busy'))
+        : Promise.resolve(successfulDeleteResult);
+    });
+
+    render(
+      <TraineeAnswerBox
+        questionId="q-1"
+        documentId="doc-1"
+        questionPrefix="101.1"
+        mode="trainee"
+        traineeAnswer={mockTraineeAnswer}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'แก้ไขคำตอบ ข้อ 101.1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ล้างคำตอบข้อ 101.1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ลบคำตอบข้อนี้' }));
+
+    const retryButton = await screen.findByRole('button', { name: 'ลองลบอีกครั้ง' });
+    expect(screen.getByRole('alert')).toHaveTextContent('database is busy');
+    expect(screen.getByRole('button', { name: 'คัดลอกรายละเอียด' })).toBeInTheDocument();
+
+    fireEvent.click(retryButton);
+    expect(await screen.findByRole('dialog', { name: 'ลบคำตอบเรียบร้อย' })).toBeInTheDocument();
+    expect(deleteAttempts).toBe(2);
+  });
+
+  it('shows committed deletion counts and a diagnostic action when cleanup is partial', async () => {
+    vi.mocked(invoke).mockResolvedValue({
+      ...successfulDeleteResult,
+      progress: {
+        attempted: true,
+        sectionsUpdated: 0,
+        complete: false,
+        failure: 'progress refresh failed',
+      },
+    });
+
+    render(
+      <TraineeAnswerBox
+        questionId="q-1"
+        documentId="doc-1"
+        questionPrefix="101.1"
+        mode="trainee"
+        traineeAnswer={mockTraineeAnswer}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'แก้ไขคำตอบ ข้อ 101.1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ล้างคำตอบข้อ 101.1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ลบคำตอบข้อนี้' }));
+
+    const resultDialog = await screen.findByRole('dialog', { name: 'ลบคำตอบแล้ว แต่มีรายการต้องตรวจสอบ' });
+    expect(resultDialog).toHaveTextContent('ลบคำตอบแล้ว แต่การคำนวณ Progress ใหม่ไม่สมบูรณ์');
+    expect(resultDialog).toHaveTextContent('progress refresh failed');
+    expect(screen.getByRole('button', { name: 'คัดลอกรายละเอียด' })).toBeInTheDocument();
+  });
+
+  it('deletes only the selected Section 200 sub-question identity', async () => {
+    const subQuestionDeleteResult: DeleteAnswerResult = {
+      ...successfulDeleteResult,
+      subQuestionCode: 'sq-a',
+    };
+    vi.mocked(invoke).mockResolvedValue(subQuestionDeleteResult);
+    const answerA = { ...mockTraineeAnswer, sub_question_code: 'sq-a', answer_text: 'คำตอบ ก' };
+    const answerB = { ...mockTraineeAnswer, sub_question_code: 'sq-b', answer_text: 'คำตอบ ข' };
+
+    render(
+      <>
+        <TraineeAnswerBox
+          questionId="q-1"
+          documentId="doc-1"
+          subQuestionCode="sq-a"
+          questionPrefix="201.2.1"
+          label="ก"
+          mode="trainee"
+          traineeAnswer={answerA}
+        />
+        <TraineeAnswerBox
+          questionId="q-1"
+          documentId="doc-1"
+          subQuestionCode="sq-b"
+          questionPrefix="201.2.1"
+          label="ข"
+          mode="trainee"
+          traineeAnswer={answerB}
+        />
+      </>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'แก้ไขคำตอบ ข้อ 201.2.1 คำถามย่อย ก' }));
+    fireEvent.click(screen.getByRole('button', { name: 'ล้างคำตอบข้อ 201.2.1 คำถามย่อย ก' }));
+    expect(screen.getByRole('dialog', { name: 'ลบคำตอบข้อ 201.2.1 คำถามย่อย ก?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'ลบคำตอบข้อนี้' }));
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith('delete_trainee_answer', {
+        userId: 'T-001',
+        questionId: 'q-1',
+        documentId: 'doc-1',
+        subQuestionCode: 'sq-a',
+      });
+    });
+    expect(screen.getByText('คำตอบ ข')).toBeInTheDocument();
   });
 
   it('moves focus into a manually opened Qualifier panel and restores it on close', async () => {

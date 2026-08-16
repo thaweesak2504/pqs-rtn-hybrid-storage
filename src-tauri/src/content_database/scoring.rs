@@ -753,23 +753,37 @@ pub fn compute_section_progress_inner(
 /// Recalculate UserProgress for all sections of a user/document by summing
 /// Questions.score for all passed answers. Updates UserProgress automatically.
 pub fn recalculate_section_progress(user_id: String, document_id: String) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    recalculate_section_progress_with_conn(&mut conn, &user_id, &document_id).map(|_| ())
+}
+
+pub(crate) fn recalculate_section_progress_with_conn(
+    conn: &mut Connection,
+    user_id: &str,
+    document_id: &str,
+) -> Result<i64, String> {
+    let tx = conn
+        .transaction()
+        .map_err(|e| format!("Failed to start progress recalculation transaction: {e}"))?;
 
     // Get all sections for this document
-    let mut sect_stmt = conn
-        .prepare("SELECT id, total_score FROM Sections WHERE document_id = ?1")
-        .map_err(|e| e.to_string())?;
+    let sections = {
+        let mut sect_stmt = tx
+            .prepare("SELECT id, total_score FROM Sections WHERE document_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let rows = sect_stmt
+            .query_map(params![document_id], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1).unwrap_or(0)))
+            })
+            .map_err(|e| e.to_string())?
+            .collect::<Result<Vec<(i64, i32)>, _>>()
+            .map_err(|e| e.to_string())?;
+        rows
+    };
 
-    let sections: Vec<(i64, i32)> = sect_stmt
-        .query_map(params![document_id], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1).unwrap_or(0)))
-        })
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-
+    let mut sections_updated = 0_i64;
     for (section_id, _max_score) in sections {
-        let progress = compute_section_progress(&conn, &user_id, &document_id, section_id)?;
+        let progress = compute_section_progress(&tx, user_id, document_id, section_id)?;
         let pct = if progress.max_score > 0 {
             (progress.earned_score as f64 / progress.max_score as f64) * 100.0
         } else if progress.total_questions > 0 {
@@ -778,16 +792,20 @@ pub fn recalculate_section_progress(user_id: String, document_id: String) -> Res
             0.0
         };
 
-        let _ = conn.execute(
+        tx.execute(
             "INSERT INTO UserProgress (user_id, document_id, section_id, earned_score, max_score, completion_percentage, is_passed, passing_score, last_updated)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 100, CURRENT_TIMESTAMP)
              ON CONFLICT(user_id, document_id, section_id) DO UPDATE SET
                 earned_score = ?4, max_score = ?5, completion_percentage = ?6, is_passed = ?7, last_updated = CURRENT_TIMESTAMP",
             params![user_id, document_id, section_id, progress.earned_score, progress.max_score, pct, progress.is_passed],
-        );
+        )
+        .map_err(|e| format!("Failed to update UserProgress for section {section_id}: {e}"))?;
+        sections_updated += 1;
     }
 
-    Ok(())
+    tx.commit()
+        .map_err(|e| format!("Failed to commit progress recalculation: {e}"))?;
+    Ok(sections_updated)
 }
 
 /// Get progress for a specific section for the ScoreProgressBanner

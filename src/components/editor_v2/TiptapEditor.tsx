@@ -12,6 +12,7 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import { Bold, Italic, ListOrdered, List, Eraser, Table as TableIcon, Trash, GripHorizontal, GripVertical, Palette, ChevronDown, Plus, Minus } from "lucide-react";
 import Tooltip from "../ui/Tooltip";
+import { normalizePastedHtmlForEditor } from "../../utils/richTextClipboard";
 
 // ============ Types ============
 
@@ -538,6 +539,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
     ],
     content: initialContent,
     editorProps: {
+      transformPastedHTML: normalizePastedHtmlForEditor,
       attributes: {
         class: `prose prose-sm max-w-none dark:prose-invert focus:outline-none px-3 py-2 font-['Kanit',sans-serif] text-sm leading-relaxed`,
         style: `min-height: ${minHeight}`,

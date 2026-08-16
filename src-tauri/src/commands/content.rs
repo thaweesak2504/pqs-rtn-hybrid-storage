@@ -67,7 +67,9 @@ pub fn list_template_simulation_documents(
 }
 
 #[tauri::command]
-pub fn clear_simulation_document_answers(document_id: String) -> Result<(), String> {
+pub fn clear_simulation_document_answers(
+    document_id: String,
+) -> Result<content_database::ClearAnswersResult, String> {
     content_database::clear_simulation_document_answers(document_id)
 }
 
@@ -673,7 +675,7 @@ pub fn delete_trainee_answer(
     question_id: String,
     document_id: String,
     sub_question_code: String,
-) -> Result<String, String> {
+) -> Result<content_database::DeleteAnswerResult, String> {
     content_database::delete_trainee_answer(
         &user_id,
         &question_id,

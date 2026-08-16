@@ -1,8 +1,9 @@
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { convertFileSrc, invoke } from "@tauri-apps/api/tauri";
 import { FileText, Headphones, Image, Paperclip, Play, Trash2, Upload } from "lucide-react";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { logger } from "../../utils/logger";
+import { COMMAND_BUTTON_FOCUS } from "../ui/buttonStyles";
 
 const MAX_ATTACHMENTS = 3;
 
@@ -60,6 +61,7 @@ interface AttachmentPanelProps {
   onDeleteFile?: (relPath: string) => Promise<void>;
   onlyImageAndPdf?: boolean;
   filePrefix?: string;
+  autoFocusUpload?: boolean;
 }
 
 const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
@@ -74,6 +76,7 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   onDeleteFile,
   onlyImageAndPdf = false,
   filePrefix,
+  autoFocusUpload = false,
 }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +84,13 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
   const [resolvedPaths, setResolvedPaths] = useState<Record<string, string>>({});
   // base64 data for image thumbnails
   const [imageData, setImageData] = useState<Record<string, string>>({});
+  const uploadButtonRef = useRef<HTMLButtonElement>(null);
+
+  useLayoutEffect(() => {
+    if (autoFocusUpload && !readOnly) {
+      uploadButtonRef.current?.focus({ preventScroll: true });
+    }
+  }, [autoFocusUpload, readOnly]);
 
   // Resolve paths for display
   useEffect(() => {
@@ -258,9 +268,11 @@ const AttachmentPanel: React.FC<AttachmentPanelProps> = ({
       {/* Upload button */}
       {!readOnly && (
         <button
+          ref={uploadButtonRef}
+          type="button"
           onClick={(e) => { e.stopPropagation(); handleUpload(); }}
           disabled={isUploading || attachments.length >= MAX_ATTACHMENTS}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${COMMAND_BUTTON_FOCUS}`}
         >
           {isUploading ? (
             <><Upload className="w-3.5 h-3.5 animate-pulse" /> กำลังอัปโหลด...</>

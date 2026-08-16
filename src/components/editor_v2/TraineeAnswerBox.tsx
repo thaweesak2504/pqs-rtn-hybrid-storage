@@ -13,6 +13,7 @@ import AttachmentPanel from "./AttachmentPanel";
 import Tooltip from "../ui/Tooltip";
 import { useEditorLock } from "../../hooks/useEditorLock";
 import WorkflowModal from "../modals/WorkflowModal";
+import DeleteAnswerWorkflowModal from "../modals/DeleteAnswerWorkflowModal";
 import { COMMAND_BUTTON_FOCUS } from "../ui/buttonStyles";
 import Button from "../ui/Button";
 
@@ -93,6 +94,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   // textareaRef removed — TiptapEditor manages its own ref
   const containerRef = useRef<HTMLDivElement>(null);
   const editAnswerButtonRef = useRef<HTMLButtonElement>(null);
+  const deleteAnswerButtonRef = useRef<HTMLButtonElement>(null);
   const shouldRestoreAnswerFocusRef = useRef(false);
   const qualifierTriggerRef = useRef<HTMLButtonElement>(null);
   const qualifierFirstActionRef = useRef<HTMLButtonElement>(null);
@@ -154,10 +156,10 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   }, [feedback, mode, status, traineeAnswer]);
 
   useLayoutEffect(() => {
-    if (isEditing || !shouldRestoreAnswerFocusRef.current) return;
+    if (isEditing || deleteModalOpen || !shouldRestoreAnswerFocusRef.current) return;
     shouldRestoreAnswerFocusRef.current = false;
     editAnswerButtonRef.current?.focus({ preventScroll: true });
-  }, [isEditing]);
+  }, [deleteModalOpen, isEditing]);
 
   useLayoutEffect(() => {
     if (isQualifierPanelOpen && shouldFocusQualifierFeedbackRef.current) {
@@ -303,32 +305,22 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     setDeleteModalOpen(true);
   };
 
-  const handleDeleteAnswerConfirm = async () => {
-    setIsSaving(true);
-    try {
-      await invoke("delete_trainee_answer", {
-        userId: MOCK_TRAINEE_ID,
-        questionId,
-        documentId,
-        subQuestionCode: subQuestionCode || "",
-      });
-
-      // Reset local and original states
-      setValue("");
-      setOriginalValue("");
-      setAttachments([]);
-      setOriginalAttachments([]);
-      setDeleteModalOpen(false);
-      shouldRestoreAnswerFocusRef.current = true;
-      setIsEditing(false);
-      unlock(boxId);
-      onAnswerSaved?.();
-    } catch (error) {
-      logger.error("Failed to delete answer:", error);
-      throw new Error("ไม่สามารถลบคำตอบได้ (โปรดแจ้งนักพัฒนา)");
-    } finally {
-      setIsSaving(false);
-    }
+  const handleAnswerDeleted = () => {
+    // The backend result is authoritative. This callback is called only after
+    // one exact answer identity was deleted and its transaction committed.
+    setValue("");
+    setOriginalValue("");
+    setAttachments([]);
+    setOriginalAttachments([]);
+    setLocalStatus("pending");
+    setSavedAssessmentStatus("pending");
+    setLocalFeedback("");
+    setOriginalFeedback("");
+    setAssessmentValidationMessage("");
+    shouldRestoreAnswerFocusRef.current = true;
+    setIsEditing(false);
+    unlock(boxId);
+    onAnswerSaved?.();
   };
 
   const handleTraineeAttachmentDelete = useCallback(async (relPath: string): Promise<void> => {
@@ -463,6 +455,27 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
     && (mode === "trainee" || mode === "edit")
     && localStatus !== "passed";
   const answerIdentity = questionPrefix || questionId;
+  const fullAnswerLabel = `${answerIdentity}${label ? ` คำถามย่อย ${label}` : ""}`;
+  const deleteAnswerHelpId = `${boxId}-delete-answer-help`;
+  const deleteWorkflowModal = (
+    <DeleteAnswerWorkflowModal
+      key="delete-answer-workflow"
+      isOpen={deleteModalOpen}
+      userId={MOCK_TRAINEE_ID}
+      documentId={documentId}
+      questionId={questionId}
+      subQuestionCode={subQuestionCode || ""}
+      answerLabel={fullAnswerLabel}
+      answerTextPresent={originalValue.trim().length > 0}
+      attachmentCount={originalAttachments.length}
+      assessmentStatus={savedAssessmentStatus}
+      contentKind={isPrerequisiteDoc ? "evidence" : "answer"}
+      onClose={() => setDeleteModalOpen(false)}
+      onDeleted={handleAnswerDeleted}
+      originFocusRef={deleteAnswerButtonRef}
+      successFocusRef={editAnswerButtonRef}
+    />
+  );
 
   // Status Styles
   const statusConfig = {
@@ -471,7 +484,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       bgColor: hasAnswer ? "bg-amber-50/50 dark:bg-amber-900/10" : "bg-slate-50/30 dark:bg-slate-900/10",
       textColor: hasAnswer ? "text-amber-800 dark:text-amber-300" : "text-slate-500",
       icon: hasAnswer ? <span className="text-sm">💡</span> : null,
-      label: hasAnswer ? "รอประเมิน" : "ยังไม่ได้ส่งคำตอบ"
+      label: hasAnswer ? "รอประเมิน" : (isPrerequisiteDoc ? "ยังไม่ได้ส่งเอกสารหลักฐาน" : "ยังไม่ได้ส่งคำตอบ")
     },
     passed: {
       borderColor: "border-emerald-200 dark:border-emerald-800/50",
@@ -506,15 +519,18 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   const timestampText = formatThaiTime(traineeAnswer?.updated_at) || formatThaiTime(traineeAnswer?.assessed_at);
 
   const config = statusConfig[localStatus] || statusConfig.pending;
+  const answerCommandText = isPrerequisiteDoc
+    ? (hasAnswer ? "แก้ไขเอกสารหลักฐาน" : "แนบเอกสารหลักฐาน")
+    : (hasAnswer ? "แก้ไขคำตอบ" : "ตอบคำถาม");
   const answerCommand = canEditAnswer ? (
     <button
       ref={editAnswerButtonRef}
       type="button"
       onClick={handleEditStart}
       className={`shrink-0 rounded border border-blue-200 bg-white px-2 py-1 text-[10px] font-bold text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-700 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-blue-900/20 ${COMMAND_BUTTON_FOCUS}`}
-      aria-label={`${hasAnswer ? "แก้ไขคำตอบ" : "ตอบคำถาม"} ข้อ ${answerIdentity}${label ? ` คำถามย่อย ${label}` : ""}`}
+      aria-label={`${answerCommandText} ข้อ ${answerIdentity}${label ? ` คำถามย่อย ${label}` : ""}`}
     >
-      {hasAnswer ? "แก้ไขคำตอบ" : "ตอบคำถาม"}
+      {answerCommandText}
     </button>
   ) : null;
   const qualifierClosedCommand = mode === "qualifier"
@@ -537,6 +553,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   if (!isEditing) {
     return (
       <>
+      {deleteWorkflowModal}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {assessmentAnnouncement}
       </div>
@@ -841,6 +858,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
   // Edit Mode (Trainee only)
   return (
     <>
+    {deleteWorkflowModal}
     <div
       ref={containerRef}
       data-color-mode={colorMode}
@@ -866,14 +884,31 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
         </div>
         <div className="flex items-center gap-1.5">
           {hasSavedAnswer && (
-            <button
-              onClick={handleClearAnswer}
-              disabled={isSaving}
-              className="h-6 px-2 text-[10px] font-bold text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 transition-colors border border-rose-200 dark:border-rose-900 rounded"
-              title="ล้างคำตอบและไฟล์แนบทั้งหมด"
+            <Tooltip
+              content={hasDirtyAnswerDraft
+                ? `กรุณาบันทึกหรือยกเลิกการแก้ไขก่อนล้าง${isPrerequisiteDoc ? "เอกสารหลักฐาน" : "คำตอบ"}`
+                : isPrerequisiteDoc
+                  ? "ลบเอกสารหลักฐานและผลประเมินของข้อนี้"
+                  : "ลบคำตอบ ผลประเมิน และไฟล์แนบของข้อนี้"}
+              position="top-end"
             >
-              ล้างคำตอบ
-            </button>
+              <button
+                ref={deleteAnswerButtonRef}
+                type="button"
+                onClick={handleClearAnswer}
+                disabled={isSaving || hasDirtyAnswerDraft}
+                aria-label={`ล้าง${isPrerequisiteDoc ? "เอกสารหลักฐาน" : "คำตอบ"}ข้อ ${fullAnswerLabel}`}
+                aria-describedby={hasDirtyAnswerDraft ? deleteAnswerHelpId : undefined}
+                className={`h-6 rounded border border-rose-200 px-2 text-[10px] font-bold text-rose-500 transition-colors hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-900 dark:text-rose-400 dark:hover:text-rose-200 ${COMMAND_BUTTON_FOCUS}`}
+              >
+                {isPrerequisiteDoc ? "ล้างเอกสารหลักฐาน" : "ล้างคำตอบ"}
+              </button>
+            </Tooltip>
+          )}
+          {hasSavedAnswer && hasDirtyAnswerDraft && (
+            <span id={deleteAnswerHelpId} className="sr-only">
+              กรุณาบันทึกหรือยกเลิกการแก้ไขก่อนล้าง{isPrerequisiteDoc ? "เอกสารหลักฐาน" : "คำตอบ"}
+            </span>
           )}
           <button
             onClick={handleCancelEdit}
@@ -891,7 +926,13 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             const canSave = hasContent && (localStatus !== "needs_improvement" || hasChange);
             return (
               <Tooltip
-                content={!canSave ? (localStatus === "needs_improvement" ? "กรุณาแก้ไขคำตอบก่อนบันทึก" : "กรุณาระบุคำตอบ") : null}
+                content={!canSave
+                  ? localStatus === "needs_improvement"
+                    ? `กรุณาแก้ไข${isPrerequisiteDoc ? "เอกสารหลักฐาน" : "คำตอบ"}ก่อนบันทึก`
+                    : isPrerequisiteDoc
+                      ? "กรุณาแนบเอกสารหลักฐาน"
+                      : "กรุณาระบุคำตอบ"
+                  : null}
                 position="top-end"
               >
                 <button
@@ -943,6 +984,7 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
             onlyImageAndPdf={isPrerequisiteDoc}
             filePrefix={questionPrefix}
             onDeleteFile={handleTraineeAttachmentDelete}
+            autoFocusUpload={isPrerequisiteDoc}
           />
         </div>
       )}
@@ -955,27 +997,6 @@ const TraineeAnswerBox: React.FC<TraineeAnswerBoxProps> = ({
       title="แจ้งเตือน"
       message={alertModal.message}
       variant="warning"
-    />
-
-    <WorkflowModal
-      isOpen={deleteModalOpen}
-      onClose={() => setDeleteModalOpen(false)}
-      title="ล้างคำตอบ"
-      message={`คุณต้องการลบคำตอบและไฟล์แนบทั้งหมดของข้อนี้ใช่หรือไม่?\n(การดำเนินการนี้จะไม่สามารถย้อนกลับได้)`}
-      actions={[
-        {
-          id: "cancel-clear-answer",
-          label: "ยกเลิก",
-          variant: "secondary",
-          onSelect: () => setDeleteModalOpen(false),
-        },
-        {
-          id: "confirm-clear-answer",
-          label: "ยืนยันลบ",
-          variant: "danger",
-          onSelect: handleDeleteAnswerConfirm,
-        },
-      ]}
     />
 
     <WorkflowModal

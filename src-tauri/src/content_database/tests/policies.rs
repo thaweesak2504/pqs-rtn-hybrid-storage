@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod tests {
     use crate::content_database::answers::{
-        clear_document_trainee_answers_with_conn, replace_question_answer_keys_with_conn,
-        update_answer_key_with_conn,
+        clear_document_trainee_answers_with_conn, delete_trainee_answer_with_conn_and_data_dir,
+        replace_question_answer_keys_with_conn, update_answer_key_with_conn,
     };
+    use crate::content_database::documents::clear_simulation_document_answers_with_conn_and_data_dir;
     use crate::content_database::questions::{
         analyze_creator_question_change_with_conn, save_creator_question_with_conn,
     };
@@ -506,14 +507,29 @@ mod tests {
     }
 
     #[test]
-    fn test_clear_answers_only_affects_requested_document() {
+    fn test_clear_answers_only_affects_requested_document_and_preserves_source_assets() {
         let mut conn = create_test_db();
         init_content_schema(&conn).expect("Failed to init schema");
         crate::content_database::schema::initialize_question_tables(&conn)
             .expect("Failed to initialize answer and progress tables");
 
         conn.execute_batch(
-            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+            "CREATE TABLE IF NOT EXISTS DocumentReferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT NOT NULL UNIQUE,
+                title TEXT NOT NULL,
+                file_path TEXT
+             );
+             CREATE TABLE IF NOT EXISTS QuestionReferences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                question_id TEXT NOT NULL,
+                reference_id INTEGER NOT NULL,
+                location_text TEXT,
+                display_order INTEGER NOT NULL,
+                FOREIGN KEY(question_id) REFERENCES Questions(id) ON DELETE CASCADE,
+                FOREIGN KEY(reference_id) REFERENCES DocumentReferences(id) ON DELETE RESTRICT
+             );
+             INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
              VALUES ('DOC-CLEAR-A', 'Doc A', '2272420', '22724', 'Test', '20', '1'),
                     ('DOC-CLEAR-B', 'Doc B', '2272420', '22724', 'Test', '20', '1');
              INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label, is_system_defined)
@@ -521,18 +537,44 @@ mod tests {
                     (8102, 'DOC-CLEAR-B', 100, 101, 'B', 'B', 1);
              INSERT INTO Questions (id, document_id, section_id, sequence, content)
              VALUES ('Q-CLEAR-A', 'DOC-CLEAR-A', 8101, 1, 'Question A'),
+                    ('Q-CLEAR-A2', 'DOC-CLEAR-A', 8101, 2, 'Question A2'),
                     ('Q-CLEAR-B', 'DOC-CLEAR-B', 8102, 1, 'Question B');
              INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
              VALUES ('Q-CLEAR-A', '', 'Key A', 1, 0),
+                    ('Q-CLEAR-A2', '', 'Key A2', 1, 0),
                     ('Q-CLEAR-B', '', 'Key B', 1, 0);
-             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text)
-             VALUES ('T-001', 'Q-CLEAR-A', 'DOC-CLEAR-A', '', 'Answer A'),
-                    ('T-001', 'Q-CLEAR-B', 'DOC-CLEAR-B', '', 'Answer B');
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by)
+             VALUES ('T-001', 'Q-CLEAR-A', 'DOC-CLEAR-A', '', 'Answer A', 'pending', NULL, NULL, NULL),
+                    ('T-001', 'Q-CLEAR-A2', 'DOC-CLEAR-A', '', 'Answer A2', 'passed', 'Good', CURRENT_TIMESTAMP, 'Q-001'),
+                    ('T-001', 'Q-CLEAR-B', 'DOC-CLEAR-B', '', 'Answer B', 'pending', NULL, NULL, NULL);
              INSERT INTO UserProgress (user_id, document_id, section_id)
              VALUES ('T-001', 'DOC-CLEAR-A', 8101),
-                    ('T-001', 'DOC-CLEAR-B', 8102);",
+                    ('T-001', 'DOC-CLEAR-B', 8102);
+             INSERT INTO DocumentReferences (id, code, title, file_path)
+             VALUES (1, 'REF-CLEAR', 'Reference retained by Clear Answers', 'data/COMMON/references/REF-CLEAR.pdf');
+             INSERT INTO QuestionReferences (question_id, reference_id, location_text, display_order)
+             VALUES ('Q-CLEAR-A', 1, 'p.1', 1);",
         )
         .expect("Failed to seed clear-answer test data");
+
+        conn.execute(
+            "UPDATE Questions SET metadata = ?1 WHERE id = 'Q-CLEAR-A'",
+            params![serde_json::json!({
+                "imagePath": "data/DOC-CLEAR-A/question-images/q-clear-a.png"
+            })
+            .to_string()],
+        )
+        .expect("Failed to seed question image metadata");
+        conn.execute(
+            "UPDATE UserAnswers SET attachments = ?1 WHERE question_id = 'Q-CLEAR-A'",
+            params![serde_json::json!(["data/DOC-CLEAR-A/trainee-attachments/a.pdf"]).to_string()],
+        )
+        .expect("Failed to seed first attachment path");
+        conn.execute(
+            "UPDATE UserAnswers SET attachments = ?1 WHERE question_id = 'Q-CLEAR-A2'",
+            params![serde_json::json!(["data/DOC-CLEAR-A/trainee-attachments/a2.pdf"]).to_string()],
+        )
+        .expect("Failed to seed second attachment path");
 
         let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
         let doc_a_attachments = temp_dir
@@ -546,10 +588,65 @@ mod tests {
         fs::create_dir_all(&doc_a_attachments).expect("Failed to create Doc A attachments");
         fs::create_dir_all(&doc_b_attachments).expect("Failed to create Doc B attachments");
         fs::write(doc_a_attachments.join("a.pdf"), b"a").expect("Failed to write Doc A attachment");
+        fs::write(doc_a_attachments.join("a2.pdf"), b"a2")
+            .expect("Failed to write second Doc A attachment");
+        fs::write(doc_a_attachments.join("orphan.tmp"), b"orphan")
+            .expect("Failed to write managed orphan attachment");
         fs::write(doc_b_attachments.join("b.pdf"), b"b").expect("Failed to write Doc B attachment");
 
-        clear_document_trainee_answers_with_conn(&mut conn, "DOC-CLEAR-A", Some(temp_dir.path()))
-            .expect("Failed to clear Doc A answers");
+        let question_image = temp_dir
+            .path()
+            .join("DOC-CLEAR-A")
+            .join("question-images")
+            .join("q-clear-a.png");
+        fs::create_dir_all(
+            question_image
+                .parent()
+                .expect("Question image parent should exist"),
+        )
+        .expect("Failed to create question image directory");
+        fs::write(&question_image, b"question-image").expect("Failed to write question image");
+
+        let shared_reference = temp_dir
+            .path()
+            .join("COMMON")
+            .join("references")
+            .join("REF-CLEAR.pdf");
+        fs::create_dir_all(
+            shared_reference
+                .parent()
+                .expect("Shared reference parent should exist"),
+        )
+        .expect("Failed to create shared reference directory");
+        fs::write(&shared_reference, b"shared-reference")
+            .expect("Failed to write shared reference");
+
+        let result = clear_document_trainee_answers_with_conn(
+            &mut conn,
+            "DOC-CLEAR-A",
+            Some(temp_dir.path()),
+        )
+        .expect("Failed to clear Doc A answers");
+
+        assert_eq!(result.document_id, "DOC-CLEAR-A");
+        assert_eq!(result.database.answer_rows_deleted, 2);
+        assert_eq!(result.database.assessed_answer_rows_deleted, 1);
+        assert_eq!(result.database.progress_rows_deleted, 1);
+        assert_eq!(result.database.referenced_attachment_path_count, 2);
+        assert_eq!(result.database.invalid_attachment_metadata_rows, 0);
+        assert!(result.database.committed);
+        assert!(result.attachments.data_directory_available);
+        assert!(result.attachments.cleanup_attempted);
+        assert!(result.attachments.directory_found);
+        assert_eq!(result.attachments.managed_files_found, 3);
+        assert_eq!(result.attachments.managed_files_deleted, 3);
+        assert!(result.attachments.cleanup_complete);
+        assert!(result.attachments.failures.is_empty());
+
+        let serialized = serde_json::to_value(&result).expect("Result should serialize");
+        assert_eq!(serialized["documentId"], "DOC-CLEAR-A");
+        assert_eq!(serialized["database"]["answerRowsDeleted"], 2);
+        assert_eq!(serialized["attachments"]["cleanupComplete"], true);
 
         for table in ["UserAnswers", "UserProgress"] {
             let doc_a_count: i64 = conn
@@ -578,6 +675,435 @@ mod tests {
 
         assert!(!doc_a_attachments.exists());
         assert!(doc_b_attachments.join("b.pdf").exists());
+        assert!(question_image.exists(), "Question image must remain");
+        assert!(
+            shared_reference.exists(),
+            "Shared reference file must remain"
+        );
+
+        for (table, expected_count) in [
+            ("Documents", 1_i64),
+            ("Questions", 2_i64),
+            ("QuestionAnswerKeys", 2_i64),
+            ("QuestionReferences", 1_i64),
+        ] {
+            let where_clause = match table {
+                "Documents" => "id = 'DOC-CLEAR-A'",
+                "Questions" => "document_id = 'DOC-CLEAR-A'",
+                "QuestionAnswerKeys" => "question_id IN ('Q-CLEAR-A', 'Q-CLEAR-A2')",
+                "QuestionReferences" => "question_id = 'Q-CLEAR-A'",
+                _ => unreachable!(),
+            };
+            let count: i64 = conn
+                .query_row(
+                    &format!("SELECT COUNT(*) FROM {table} WHERE {where_clause}"),
+                    [],
+                    |row| row.get(0),
+                )
+                .expect("Failed to count preserved source data");
+            assert_eq!(count, expected_count, "{table} must remain unchanged");
+        }
+
+        let reference_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM DocumentReferences", [], |row| {
+                row.get(0)
+            })
+            .expect("Failed to count retained reference master");
+        assert_eq!(reference_count, 1);
+    }
+
+    #[test]
+    fn test_clear_answers_reports_unavailable_attachment_cleanup() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        crate::content_database::schema::initialize_question_tables(&conn)
+            .expect("Failed to initialize answer and progress tables");
+        conn.execute_batch(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-NO-DATA-DIR', 'Doc', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label)
+             VALUES (8201, 'DOC-NO-DATA-DIR', 100, 101, 'A', 'A');
+             INSERT INTO Questions (id, document_id, section_id, sequence, content)
+             VALUES ('Q-NO-DATA-DIR', 'DOC-NO-DATA-DIR', 8201, 1, 'Question');
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text)
+             VALUES ('Q-NO-DATA-DIR', '', 'Key');
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, attachments)
+             VALUES ('T-001', 'Q-NO-DATA-DIR', 'DOC-NO-DATA-DIR', '', 'Answer', 'not-json');
+             INSERT INTO UserProgress (user_id, document_id, section_id)
+             VALUES ('T-001', 'DOC-NO-DATA-DIR', 8201);",
+        )
+        .expect("Failed to seed unavailable-data-directory test");
+
+        let result = clear_document_trainee_answers_with_conn(&mut conn, "DOC-NO-DATA-DIR", None)
+            .expect("Database clear should still return its filesystem result");
+
+        assert_eq!(result.database.answer_rows_deleted, 1);
+        assert_eq!(result.database.progress_rows_deleted, 1);
+        assert_eq!(result.database.invalid_attachment_metadata_rows, 1);
+        assert!(result.database.committed);
+        assert!(!result.attachments.data_directory_available);
+        assert!(!result.attachments.cleanup_attempted);
+        assert!(!result.attachments.cleanup_complete);
+        assert_eq!(result.attachments.failures.len(), 1);
+        assert_eq!(result.attachments.failures[0].logical_path, "data");
+    }
+
+    #[test]
+    fn test_delete_one_answer_uses_exact_identity_and_only_cleans_owned_unreferenced_files() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        crate::content_database::schema::initialize_question_tables(&conn)
+            .expect("Failed to initialize answer and progress tables");
+        conn.execute_batch(
+            "DROP TABLE UserProgress;
+             CREATE TABLE UserProgress (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 user_id TEXT NOT NULL,
+                 document_id TEXT NOT NULL,
+                 section_id INTEGER,
+                 earned_score INTEGER DEFAULT 0,
+                 max_score INTEGER DEFAULT 0,
+                 completion_percentage REAL DEFAULT 0,
+                 is_passed INTEGER DEFAULT 0,
+                 passing_score INTEGER DEFAULT 100,
+                 last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
+                 UNIQUE(user_id, document_id, section_id)
+             );
+             INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-DEL-A', 'Doc A', '2272420', '22724', 'Test', '20', '1'),
+                    ('DOC-DEL-B', 'Doc B', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label)
+             VALUES (8251, 'DOC-DEL-A', 100, 101, 'A', 'A'),
+                    (8252, 'DOC-DEL-B', 100, 101, 'B', 'B');
+             INSERT INTO Questions (id, document_id, section_id, sequence, content, is_scored, score)
+             VALUES ('Q-DEL-A', 'DOC-DEL-A', 8251, 1, 'Question A', 1, 2),
+                    ('Q-DEL-A2', 'DOC-DEL-A', 8251, 2, 'Question A2', 1, 1),
+                    ('Q-DEL-B', 'DOC-DEL-B', 8252, 1, 'Question B', 1, 1);
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text, is_required, order_index)
+             VALUES ('Q-DEL-A', 'ก', 'Key A ก', 1, 0),
+                    ('Q-DEL-A', 'ข', 'Key A ข', 1, 1),
+                    ('Q-DEL-A2', 'ก', 'Key A2', 1, 0),
+                    ('Q-DEL-B', 'ก', 'Key B', 1, 0);
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, status, feedback, assessed_at, assessed_by)
+             VALUES ('T-001', 'Q-DEL-A', 'DOC-DEL-A', 'ก', 'Delete me', 'passed', 'Good', CURRENT_TIMESTAMP, 'Q-001'),
+                    ('T-001', 'Q-DEL-A', 'DOC-DEL-A', 'ข', 'Keep same question', 'pending', NULL, NULL, NULL),
+                    ('T-002', 'Q-DEL-A', 'DOC-DEL-A', 'ก', 'Keep same identity except user', 'pending', NULL, NULL, NULL),
+                    ('T-001', 'Q-DEL-A2', 'DOC-DEL-A', 'ก', 'Keep other question', 'pending', NULL, NULL, NULL),
+                    ('T-001', 'Q-DEL-B', 'DOC-DEL-B', 'ก', 'Keep other document', 'pending', NULL, NULL, NULL);",
+        )
+        .expect("Failed to seed delete-one test data");
+
+        let target_path = "data/DOC-DEL-A/trainee-attachments/target.pdf";
+        let shared_path = "data/DOC-DEL-A/trainee-attachments/shared.pdf";
+        let missing_path = "data/DOC-DEL-A/trainee-attachments/missing.pdf";
+        let foreign_path = "data/DOC-DEL-B/trainee-attachments/foreign.pdf";
+        conn.execute(
+            "UPDATE UserAnswers SET attachments = ?1
+             WHERE user_id = 'T-001' AND question_id = 'Q-DEL-A' AND document_id = 'DOC-DEL-A' AND sub_question_code = 'ก'",
+            params![serde_json::json!([target_path, shared_path, missing_path, foreign_path]).to_string()],
+        )
+        .expect("Failed to seed target attachments");
+        conn.execute(
+            "UPDATE UserAnswers SET attachments = ?1
+             WHERE user_id = 'T-002' AND question_id = 'Q-DEL-A' AND document_id = 'DOC-DEL-A' AND sub_question_code = 'ก'",
+            params![serde_json::json!([shared_path]).to_string()],
+        )
+        .expect("Failed to seed shared attachment reference");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let doc_a_dir = temp_dir
+            .path()
+            .join("DOC-DEL-A")
+            .join("trainee-attachments");
+        let doc_b_dir = temp_dir
+            .path()
+            .join("DOC-DEL-B")
+            .join("trainee-attachments");
+        fs::create_dir_all(&doc_a_dir).expect("Failed to create Doc A attachment directory");
+        fs::create_dir_all(&doc_b_dir).expect("Failed to create Doc B attachment directory");
+        fs::write(doc_a_dir.join("target.pdf"), b"target").expect("Failed to write target file");
+        fs::write(doc_a_dir.join("shared.pdf"), b"shared").expect("Failed to write shared file");
+        fs::write(doc_b_dir.join("foreign.pdf"), b"foreign").expect("Failed to write foreign file");
+
+        let result = delete_trainee_answer_with_conn_and_data_dir(
+            &mut conn,
+            "T-001",
+            "Q-DEL-A",
+            "DOC-DEL-A",
+            "ก",
+            Some(temp_dir.path()),
+        )
+        .expect("Exact answer deletion should succeed");
+
+        assert_eq!(result.user_id, "T-001");
+        assert_eq!(result.document_id, "DOC-DEL-A");
+        assert_eq!(result.question_id, "Q-DEL-A");
+        assert_eq!(result.sub_question_code, "ก");
+        assert!(result.database.matched);
+        assert_eq!(result.database.answer_rows_deleted, 1);
+        assert!(result.database.answer_text_was_present);
+        assert!(result.database.was_assessed);
+        assert_eq!(result.database.referenced_attachment_path_count, 4);
+        assert!(!result.database.invalid_attachment_metadata);
+        assert!(result.database.committed);
+        assert!(result.progress.attempted);
+        assert_eq!(result.progress.sections_updated, 1);
+        assert!(result.progress.complete);
+        assert!(result.progress.failure.is_none());
+        assert!(result.attachments.cleanup_attempted);
+        assert!(result.attachments.directory_found);
+        assert_eq!(result.attachments.managed_files_found, 2);
+        assert_eq!(result.attachments.managed_files_deleted, 1);
+        assert_eq!(result.attachments.managed_files_retained, 1);
+        assert_eq!(result.attachments.managed_files_missing, 1);
+        assert!(!result.attachments.cleanup_complete);
+        assert_eq!(result.attachments.failures.len(), 2);
+        assert!(result
+            .attachments
+            .failures
+            .iter()
+            .any(|failure| failure.logical_path == missing_path));
+        assert!(result
+            .attachments
+            .failures
+            .iter()
+            .any(|failure| failure.logical_path == foreign_path));
+
+        let serialized = serde_json::to_value(&result).expect("Result should serialize");
+        assert_eq!(serialized["subQuestionCode"], "ก");
+        assert_eq!(serialized["database"]["answerRowsDeleted"], 1);
+        assert_eq!(serialized["progress"]["sectionsUpdated"], 1);
+        assert_eq!(serialized["attachments"]["managedFilesRetained"], 1);
+
+        let remaining_answers: i64 = conn
+            .query_row("SELECT COUNT(*) FROM UserAnswers", [], |row| row.get(0))
+            .expect("Failed to count preserved answers");
+        assert_eq!(remaining_answers, 4);
+        for (table, expected_count) in [
+            ("Documents", 2_i64),
+            ("Questions", 3_i64),
+            ("QuestionAnswerKeys", 4_i64),
+        ] {
+            let count: i64 = conn
+                .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })
+                .expect("Failed to count preserved source rows");
+            assert_eq!(count, expected_count, "{table} must remain unchanged");
+        }
+        assert!(!doc_a_dir.join("target.pdf").exists());
+        assert!(doc_a_dir.join("shared.pdf").exists());
+        assert!(doc_b_dir.join("foreign.pdf").exists());
+
+        let second_result = delete_trainee_answer_with_conn_and_data_dir(
+            &mut conn,
+            "T-001",
+            "Q-DEL-A",
+            "DOC-DEL-A",
+            "ก",
+            Some(temp_dir.path()),
+        )
+        .expect("Deleting a missing exact identity should be idempotent");
+        assert!(!second_result.database.matched);
+        assert_eq!(second_result.database.answer_rows_deleted, 0);
+        assert!(!second_result.progress.attempted);
+        assert!(!second_result.attachments.cleanup_attempted);
+    }
+
+    #[test]
+    fn test_delete_one_answer_database_failure_preserves_row_and_file() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        crate::content_database::schema::initialize_question_tables(&conn)
+            .expect("Failed to initialize answer tables");
+        conn.execute_batch(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-DEL-BLOCK', 'Blocked', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label)
+             VALUES (8261, 'DOC-DEL-BLOCK', 100, 101, 'Blocked', 'Blocked');
+             INSERT INTO Questions (id, document_id, section_id, sequence, content)
+             VALUES ('Q-DEL-BLOCK', 'DOC-DEL-BLOCK', 8261, 1, 'Blocked question');
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text)
+             VALUES ('Q-DEL-BLOCK', '', 'Key');
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, attachments)
+             VALUES ('T-001', 'Q-DEL-BLOCK', 'DOC-DEL-BLOCK', '', 'Must remain',
+                     '[\"data/DOC-DEL-BLOCK/trainee-attachments/must-remain.pdf\"]');
+             CREATE TRIGGER block_exact_answer_delete
+             BEFORE DELETE ON UserAnswers
+             WHEN OLD.user_id = 'T-001' AND OLD.question_id = 'Q-DEL-BLOCK'
+             BEGIN
+                 SELECT RAISE(ABORT, 'blocked delete for test');
+             END;",
+        )
+        .expect("Failed to seed blocked delete test");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let attachment = temp_dir
+            .path()
+            .join("DOC-DEL-BLOCK")
+            .join("trainee-attachments")
+            .join("must-remain.pdf");
+        fs::create_dir_all(attachment.parent().expect("Attachment parent should exist"))
+            .expect("Failed to create attachment directory");
+        fs::write(&attachment, b"must remain").expect("Failed to write attachment");
+
+        let error = delete_trainee_answer_with_conn_and_data_dir(
+            &mut conn,
+            "T-001",
+            "Q-DEL-BLOCK",
+            "DOC-DEL-BLOCK",
+            "",
+            Some(temp_dir.path()),
+        )
+        .expect_err("SQLite failure must stop the destructive workflow");
+        assert!(error.contains("Failed to delete answer"));
+
+        let answer_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers
+                 WHERE user_id = 'T-001' AND question_id = 'Q-DEL-BLOCK'
+                   AND document_id = 'DOC-DEL-BLOCK' AND sub_question_code = ''",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count preserved answer");
+        assert_eq!(answer_count, 1);
+        assert!(
+            attachment.exists(),
+            "File must remain when SQLite deletion fails"
+        );
+    }
+
+    #[test]
+    fn test_delete_one_answer_reports_progress_failure_after_committed_delete() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        crate::content_database::schema::initialize_question_tables(&conn)
+            .expect("Failed to initialize answer tables");
+        conn.execute_batch(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-DEL-PART', 'Partial', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label)
+             VALUES (8271, 'DOC-DEL-PART', 100, 101, 'Partial', 'Partial');
+             INSERT INTO Questions (id, document_id, section_id, sequence, content)
+             VALUES ('Q-DEL-PART', 'DOC-DEL-PART', 8271, 1, 'Partial question');
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text)
+             VALUES ('Q-DEL-PART', '', 'Key');
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text, attachments)
+             VALUES ('T-001', 'Q-DEL-PART', 'DOC-DEL-PART', '', 'Delete despite later progress failure',
+                     '[\"data/DOC-DEL-PART/trainee-attachments/partial.pdf\"]');",
+        )
+        .expect("Failed to seed partial delete result test");
+
+        // `init_content_schema` intentionally leaves the legacy test UserProgress
+        // columns in place. The answer transaction can commit, while the later
+        // progress transaction cannot write the production progress columns.
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let attachment = temp_dir
+            .path()
+            .join("DOC-DEL-PART")
+            .join("trainee-attachments")
+            .join("partial.pdf");
+        fs::create_dir_all(attachment.parent().expect("Attachment parent should exist"))
+            .expect("Failed to create attachment directory");
+        fs::write(&attachment, b"partial").expect("Failed to write attachment");
+
+        let result = delete_trainee_answer_with_conn_and_data_dir(
+            &mut conn,
+            "T-001",
+            "Q-DEL-PART",
+            "DOC-DEL-PART",
+            "",
+            Some(temp_dir.path()),
+        )
+        .expect("Committed deletion should return a structured partial result");
+
+        assert!(result.database.committed);
+        assert_eq!(result.database.answer_rows_deleted, 1);
+        assert!(result.progress.attempted);
+        assert!(!result.progress.complete);
+        assert_eq!(result.progress.sections_updated, 0);
+        assert!(result.progress.failure.is_some());
+        assert!(result.attachments.cleanup_complete);
+        assert_eq!(result.attachments.managed_files_deleted, 1);
+
+        let answer_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers WHERE question_id = 'Q-DEL-PART'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count deleted answer");
+        assert_eq!(answer_count, 0);
+        assert!(!attachment.exists());
+    }
+
+    #[test]
+    fn test_clear_simulation_answers_rejects_source_document() {
+        let mut conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        crate::content_database::schema::initialize_question_tables(&conn)
+            .expect("Failed to initialize answer and progress tables");
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS DocumentSimulationInstances (
+                simulation_document_id TEXT PRIMARY KEY,
+                template_document_id TEXT NOT NULL,
+                trainee_id TEXT NOT NULL
+             );
+             INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level)
+             VALUES ('DOC-SOURCE', 'Source', '2272420', '22724', 'Test', '20', '1'),
+                    ('DOC-SOURCE-SIM-001', 'Simulation', '2272420', '22724', 'Test', '20', '1');
+             INSERT INTO Sections (id, document_id, section_group, section_number, title_th, menu_label)
+             VALUES (8301, 'DOC-SOURCE', 100, 101, 'Source', 'Source'),
+                    (8302, 'DOC-SOURCE-SIM-001', 100, 101, 'Simulation', 'Simulation');
+             INSERT INTO Questions (id, document_id, section_id, sequence, content)
+             VALUES ('Q-SOURCE', 'DOC-SOURCE', 8301, 1, 'Source question'),
+                    ('Q-SIM', 'DOC-SOURCE-SIM-001', 8302, 1, 'Simulation question');
+             INSERT INTO QuestionAnswerKeys (question_id, sub_question_code, answer_key_text)
+             VALUES ('Q-SOURCE', '', 'Source key'), ('Q-SIM', '', 'Simulation key');
+             INSERT INTO UserAnswers (user_id, question_id, document_id, sub_question_code, answer_text)
+             VALUES ('T-001', 'Q-SOURCE', 'DOC-SOURCE', '', 'Source answer'),
+                    ('T-001', 'Q-SIM', 'DOC-SOURCE-SIM-001', '', 'Simulation answer');
+             INSERT INTO DocumentSimulationInstances (simulation_document_id, template_document_id, trainee_id)
+             VALUES ('DOC-SOURCE-SIM-001', 'DOC-SOURCE', 'T-001');",
+        )
+        .expect("Failed to seed simulation authority test");
+
+        let temp_dir = tempfile::tempdir().expect("Failed to create temp directory");
+        let error = clear_simulation_document_answers_with_conn_and_data_dir(
+            &mut conn,
+            "DOC-SOURCE",
+            Some(temp_dir.path()),
+        )
+        .expect_err("Source document must not pass the simulation-only clear command");
+        assert!(error.contains("only for a simulation document"));
+
+        let source_answer_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers WHERE document_id = 'DOC-SOURCE'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to count source answers");
+        assert_eq!(source_answer_count, 1);
+
+        let result = clear_simulation_document_answers_with_conn_and_data_dir(
+            &mut conn,
+            "DOC-SOURCE-SIM-001",
+            Some(temp_dir.path()),
+        )
+        .expect("Simulation document should be clearable");
+        assert_eq!(result.document_id, "DOC-SOURCE-SIM-001");
+        assert_eq!(result.database.answer_rows_deleted, 1);
+
+        let source_answer_count_after: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM UserAnswers WHERE document_id = 'DOC-SOURCE'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to recount source answers");
+        assert_eq!(source_answer_count_after, 1);
     }
 
     #[test]

@@ -414,7 +414,10 @@ pub fn delete_trainee_attachment(relative_path: String) -> Result<(), String> {
     Ok(())
 }
 
-fn count_database_references(conn: &Connection, relative_path: &str) -> Result<usize, String> {
+pub(crate) fn count_database_references(
+    conn: &Connection,
+    relative_path: &str,
+) -> Result<usize, String> {
     let pattern = format!("%\"{}\"%", relative_path);
 
     let answers_count: usize = conn

@@ -541,6 +541,90 @@ pub struct UserAnswer {
     pub answer_key: Option<String>,
     pub attachments: Option<String>, // Phase 5G: JSON array of file paths
 }
+
+/// Authoritative SQLite result for clearing one issued copy's trainee work.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearAnswersDatabaseResult {
+    pub answer_rows_deleted: i64,
+    pub assessed_answer_rows_deleted: i64,
+    pub progress_rows_deleted: i64,
+    pub referenced_attachment_path_count: i64,
+    pub invalid_attachment_metadata_rows: i64,
+    pub committed: bool,
+}
+
+/// One managed-filesystem cleanup failure. Paths are logical paths only and
+/// never expose an absolute path from the host machine.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentCleanupFailure {
+    pub logical_path: String,
+    pub message: String,
+}
+
+/// Filesystem cleanup result kept separate from the SQLite transaction result.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentCleanupResult {
+    pub logical_directory: String,
+    pub data_directory_available: bool,
+    pub cleanup_attempted: bool,
+    pub directory_found: bool,
+    pub managed_files_found: i64,
+    pub managed_files_deleted: i64,
+    pub managed_files_retained: i64,
+    pub managed_files_missing: i64,
+    pub cleanup_complete: bool,
+    pub failures: Vec<AttachmentCleanupFailure>,
+}
+
+/// Result returned by the simulation-only Clear Answers command.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearAnswersResult {
+    pub document_id: String,
+    pub database: ClearAnswersDatabaseResult,
+    pub attachments: AttachmentCleanupResult,
+}
+
+/// Authoritative SQLite result for one exact answer identity.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteAnswerDatabaseResult {
+    pub matched: bool,
+    pub answer_rows_deleted: i64,
+    pub answer_text_was_present: bool,
+    pub was_assessed: bool,
+    pub referenced_attachment_path_count: i64,
+    pub invalid_attachment_metadata: bool,
+    pub committed: bool,
+}
+
+/// Progress recalculation follows the committed answer deletion and can report
+/// a partial outcome without disguising the database result.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProgressRecalculationResult {
+    pub attempted: bool,
+    pub sections_updated: i64,
+    pub complete: bool,
+    pub failure: Option<String>,
+}
+
+/// Result returned after deleting one exact Trainee answer.
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeleteAnswerResult {
+    pub user_id: String,
+    pub document_id: String,
+    pub question_id: String,
+    pub sub_question_code: String,
+    pub database: DeleteAnswerDatabaseResult,
+    pub progress: ProgressRecalculationResult,
+    pub attachments: AttachmentCleanupResult,
+}
+
 #[derive(Debug, Clone)]
 pub struct ComputedSectionProgress {
     pub earned_score: i32,

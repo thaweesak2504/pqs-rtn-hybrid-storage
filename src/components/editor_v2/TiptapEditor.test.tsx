@@ -164,6 +164,29 @@ describe("TiptapEditor toolbar selection ownership", () => {
     });
   });
 
+  it("normalizes rich clipboard HTML before ProseMirror parses it", () => {
+    const editor = tiptapMocks.createEditorMock(0, 0);
+    tiptapMocks.editors.set("answer key", editor);
+
+    render(
+      <TiptapEditor
+        initialContent="answer key"
+        onChange={vi.fn()}
+        autoFocus={false}
+      />,
+    );
+
+    const options = vi.mocked(useEditor).mock.calls.at(-1)?.[0];
+    const transformPastedHTML = options?.editorProps?.transformPastedHTML as
+      | ((html: string) => string)
+      | undefined;
+    expect(
+      transformPastedHTML?.(
+        '<p><span style="color:rgb(226,232,240)"><strong>คำถามที่คัดลอก</strong></span></p>',
+      ),
+    ).toBe("<p>คำถามที่คัดลอก</p>");
+  });
+
   it("applies a newer authoritative snapshot only when the caller declares the draft clean", () => {
     const editor = tiptapMocks.createEditorMock(0, 0);
     tiptapMocks.editors.set("draft", editor);

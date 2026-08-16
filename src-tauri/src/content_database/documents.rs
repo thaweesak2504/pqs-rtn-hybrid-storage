@@ -397,8 +397,23 @@ pub fn list_template_simulation_documents(
 
 /// Clear trainee work only when the target is an issued simulation document.
 /// This is the backend authority behind the simulation-only Clear menu.
-pub fn clear_simulation_document_answers(document_id: String) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| e.to_string())?;
+pub fn clear_simulation_document_answers(
+    document_id: String,
+) -> Result<ClearAnswersResult, String> {
+    let mut conn = get_content_connection().map_err(|e| e.to_string())?;
+    let data_dir = get_portable_data_dir().ok();
+    clear_simulation_document_answers_with_conn_and_data_dir(
+        &mut conn,
+        &document_id,
+        data_dir.as_deref(),
+    )
+}
+
+pub(crate) fn clear_simulation_document_answers_with_conn_and_data_dir(
+    conn: &mut Connection,
+    document_id: &str,
+    data_dir: Option<&Path>,
+) -> Result<ClearAnswersResult, String> {
     let is_simulation: bool = conn
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM DocumentSimulationInstances WHERE simulation_document_id = ?1)",
@@ -409,7 +424,7 @@ pub fn clear_simulation_document_answers(document_id: String) -> Result<(), Stri
     if !is_simulation {
         return Err("Clear Answers is available only for a simulation document".to_string());
     }
-    super::answers::clear_document_trainee_answers_inner(&document_id)
+    super::answers::clear_document_trainee_answers_with_conn(conn, document_id, data_dir)
 }
 
 /// Delete a simulation document only. This prevents a simulation UI action from

@@ -1,20 +1,22 @@
 pub mod types;
 pub use types::{
     AddQuestionReferenceRequest, AddQuestionSectionLinkRequest, AddSectionRefChildArgs,
-    AnalyzeCreatorQuestionChangeArgs, AnswerKey, BatchAddQuestionSectionLinksRequest,
-    BatchAddSectionRefChildrenArgs, BatchSubQuestionItem, BranchUsageReport,
-    CareerBranchResetReport, CareerBranchUsageReport, ComputedSectionProgress, CreateDocumentArgs,
+    AnalyzeCreatorQuestionChangeArgs, AnswerKey, AttachmentCleanupFailure, AttachmentCleanupResult,
+    BatchAddQuestionSectionLinksRequest, BatchAddSectionRefChildrenArgs, BatchSubQuestionItem,
+    BranchUsageReport, CareerBranchResetReport, CareerBranchUsageReport,
+    ClearAnswersDatabaseResult, ClearAnswersResult, ComputedSectionProgress, CreateDocumentArgs,
     CreateQuestionArgs, CreateReferenceRequest, CreateSectionRequest, CreateSubQuestionRequest,
-    CreatorMappingImpactItem, CreatorMappingImpactReport, DevSectionMetrics, Document,
-    DocumentBranch, DocumentHierarchy, DocumentReference, DocumentStats, OccupationBranch,
-    OccupationSubBranch, OccupationSubQuestion, OwnerUnit, Question, QuestionChoice,
-    QuestionDetail, QuestionReferenceDetail, QuestionSectionLink, ReplaceAnswerKeyItem,
-    RequiredCountChild, SaveCreatorQuestionArgs, SaveCreatorQuestionResult,
-    SaveQualifierAssessmentArgs, SaveTraineeAnswerArgs, Section, SectionRefChild,
-    SectionReferenceDetail, SimulationDocumentInfo, SimulationDocumentSummary,
-    SubQuestionUsageResponse, SyncRequiredCountArgs, UpdateDocumentArgs, UpdateQuestionArgs,
-    UpdateQuestionScoreArgs, UpdateReferenceArgs, UpdateSectionArgs, UpdateSectionLinkScoreArgs,
-    UpsertUserProgressArgs, UserAnswer, UserProgress,
+    CreatorMappingImpactItem, CreatorMappingImpactReport, DeleteAnswerDatabaseResult,
+    DeleteAnswerResult, DevSectionMetrics, Document, DocumentBranch, DocumentHierarchy,
+    DocumentReference, DocumentStats, OccupationBranch, OccupationSubBranch, OccupationSubQuestion,
+    OwnerUnit, ProgressRecalculationResult, Question, QuestionChoice, QuestionDetail,
+    QuestionReferenceDetail, QuestionSectionLink, ReplaceAnswerKeyItem, RequiredCountChild,
+    SaveCreatorQuestionArgs, SaveCreatorQuestionResult, SaveQualifierAssessmentArgs,
+    SaveTraineeAnswerArgs, Section, SectionRefChild, SectionReferenceDetail,
+    SimulationDocumentInfo, SimulationDocumentSummary, SubQuestionUsageResponse,
+    SyncRequiredCountArgs, UpdateDocumentArgs, UpdateQuestionArgs, UpdateQuestionScoreArgs,
+    UpdateReferenceArgs, UpdateSectionArgs, UpdateSectionLinkScoreArgs, UpsertUserProgressArgs,
+    UserAnswer, UserProgress,
 };
 pub mod connection;
 pub use connection::{get_content_connection, get_content_database_path, get_portable_data_dir};
@@ -130,11 +132,6 @@ pub fn get_section_dev_metrics(
     section_id: i64,
 ) -> Result<DevSectionMetrics, String> {
     scoring::get_section_dev_metrics(document_id, section_id)
-}
-
-#[tauri::command]
-pub fn clear_document_trainee_answers(document_id: String) -> Result<(), String> {
-    answers::clear_document_trainee_answers_inner(&document_id)
 }
 
 #[tauri::command]

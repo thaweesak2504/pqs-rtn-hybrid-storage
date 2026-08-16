@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import ActiveDocumentPage from "../../components/pages/ActiveDocumentPage";
 import { AuthContext } from "../../contexts/AuthContext";
 import { ToastProvider } from "../../contexts/ToastContext";
+import type { ClearAnswersResult } from "../../types";
 
 const mockAuthValue = {
   user: { id: '1', username: 'test', email: 'test@test.com', name: 'Test', role: 'admin' },
@@ -18,6 +19,30 @@ const mockAuthValue = {
 };
 
 describe("ActiveDocumentPage integration", () => {
+  const successfulClearResult: ClearAnswersResult = {
+    documentId: "DOC-DEL-101",
+    database: {
+      answerRowsDeleted: 3,
+      assessedAnswerRowsDeleted: 1,
+      progressRowsDeleted: 2,
+      referencedAttachmentPathCount: 2,
+      invalidAttachmentMetadataRows: 0,
+      committed: true,
+    },
+    attachments: {
+      logicalDirectory: "data/DOC-DEL-101/trainee-attachments",
+      dataDirectoryAvailable: true,
+      cleanupAttempted: true,
+      directoryFound: true,
+      managedFilesFound: 2,
+      managedFilesDeleted: 2,
+      managedFilesRetained: 0,
+      managedFilesMissing: 0,
+      cleanupComplete: true,
+      failures: [],
+    },
+  };
+
   type MockSection = {
     id: number;
     document_id: string;
@@ -38,9 +63,13 @@ describe("ActiveDocumentPage integration", () => {
     template_document_id: string;
     trainee_id: string;
   } = null;
+  let clearAnswersResponse: ClearAnswersResult = successfulClearResult;
+  let clearAnswersFailuresRemaining = 0;
 
   beforeEach(() => {
     simulationInfoState = null;
+    clearAnswersResponse = successfulClearResult;
+    clearAnswersFailuresRemaining = 0;
     sectionsState = [
       {
         id: 101,
@@ -124,6 +153,14 @@ describe("ActiveDocumentPage integration", () => {
         return null;
       }
 
+      if (command === "clear_simulation_document_answers") {
+        if (clearAnswersFailuresRemaining > 0) {
+          clearAnswersFailuresRemaining -= 1;
+          throw new Error("database busy for test");
+        }
+        return clearAnswersResponse;
+      }
+
       return null;
     });
   });
@@ -177,7 +214,7 @@ describe("ActiveDocumentPage integration", () => {
     });
   });
 
-  it("clears answers only for the active document", async () => {
+  it("requires the active Simulation ID and presents authoritative clear results", async () => {
     simulationInfoState = {
       simulation_document_id: "DOC-DEL-101",
       template_document_id: "DOC-TEMPLATE",
@@ -186,16 +223,102 @@ describe("ActiveDocumentPage integration", () => {
     renderPage();
 
     await screen.findByRole("button", { name: /101 Precautions/i });
-    fireEvent.click(screen.getByRole("button", { name: /View As/i }));
+    const viewAsButton = screen.getByRole("button", { name: /View As/i });
+    fireEvent.click(viewAsButton);
     fireEvent.click(await screen.findByRole("button", { name: "ล้างคำตอบของรอบจำลอง" }));
 
-    expect(await screen.findByText("ยืนยันการลบคำตอบ")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "ลบคำตอบของรอบจำลอง" }));
+    expect(await screen.findByRole("dialog", { name: "ล้างข้อมูล Trainee ของรอบจำลอง" })).toBeInTheDocument();
+    expect(screen.getByText("ข้อมูลที่จะลบ")).toBeInTheDocument();
+    expect(screen.getByText("ข้อมูลที่เก็บไว้")).toBeInTheDocument();
+    expect(screen.getByText("Questions และ Answer Keys")).toBeInTheDocument();
+    const confirmationInput = screen.getByRole("textbox", { name: "พิมพ์รหัสรอบจำลองเพื่อยืนยัน" });
+    const clearButton = screen.getByRole("button", { name: "ล้างข้อมูล Trainee ของรอบนี้" });
+    await waitFor(() => expect(confirmationInput).toHaveFocus());
+    expect(clearButton).toBeDisabled();
+
+    fireEvent.change(confirmationInput, { target: { value: "DOC-DEL-10" } });
+    expect(clearButton).toBeDisabled();
+    fireEvent.change(confirmationInput, { target: { value: "DOC-DEL-101" } });
+    expect(clearButton).toBeEnabled();
+    fireEvent.click(clearButton);
 
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("clear_simulation_document_answers", {
         documentId: "DOC-DEL-101",
       });
     });
+
+    expect(await screen.findByRole("dialog", { name: "ล้างข้อมูล Trainee เรียบร้อย" })).toBeInTheDocument();
+    expect(screen.getByText("คำตอบที่ลบ").parentElement).toHaveTextContent("3");
+    expect(screen.getByText("รายการที่เคยประเมิน").parentElement).toHaveTextContent("1");
+    expect(screen.getByText("Progress ที่ลบ").parentElement).toHaveTextContent("2");
+    expect(screen.getByText("ไฟล์ที่ลบ").parentElement).toHaveTextContent("2");
+    expect(screen.getByText("ฐานข้อมูลและการล้างไฟล์แนบเสร็จสมบูรณ์")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "ปิดผลการล้าง" }));
+    await waitFor(() => expect(viewAsButton).toHaveFocus());
+    expect(viewAsButton).toHaveClass("focus:ring-1", "focus:ring-blue-500");
+  });
+
+  it("keeps the clear context for retry after a backend failure", async () => {
+    simulationInfoState = {
+      simulation_document_id: "DOC-DEL-101",
+      template_document_id: "DOC-TEMPLATE",
+      trainee_id: "T-001",
+    };
+    clearAnswersFailuresRemaining = 1;
+    renderPage();
+
+    await screen.findByRole("button", { name: /101 Precautions/i });
+    fireEvent.click(screen.getByRole("button", { name: /View As/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "ล้างคำตอบของรอบจำลอง" }));
+    const confirmationInput = screen.getByRole("textbox", { name: "พิมพ์รหัสรอบจำลองเพื่อยืนยัน" });
+    fireEvent.change(confirmationInput, { target: { value: "DOC-DEL-101" } });
+    fireEvent.click(screen.getByRole("button", { name: "ล้างข้อมูล Trainee ของรอบนี้" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("database busy for test");
+    expect(confirmationInput).toHaveValue("DOC-DEL-101");
+    expect(screen.getByRole("button", { name: "คัดลอกรายละเอียด" })).toBeInTheDocument();
+    const retryButton = screen.getByRole("button", { name: "ลองล้างอีกครั้ง" });
+    fireEvent.click(retryButton);
+
+    expect(await screen.findByRole("dialog", { name: "ล้างข้อมูล Trainee เรียบร้อย" })).toBeInTheDocument();
+    expect(vi.mocked(invoke).mock.calls.filter(([command]) => command === "clear_simulation_document_answers")).toHaveLength(2);
+  });
+
+  it("reports partial attachment cleanup separately from committed database deletion", async () => {
+    simulationInfoState = {
+      simulation_document_id: "DOC-DEL-101",
+      template_document_id: "DOC-TEMPLATE",
+      trainee_id: "T-001",
+    };
+    clearAnswersResponse = {
+      ...successfulClearResult,
+      attachments: {
+        ...successfulClearResult.attachments,
+        managedFilesFound: 1,
+        managedFilesDeleted: 1,
+        managedFilesMissing: 1,
+        cleanupComplete: false,
+        failures: [{
+          logicalPath: "data/DOC-DEL-101/trainee-attachments/missing.pdf",
+          message: "Managed attachment file was not found",
+        }],
+      },
+    };
+    renderPage();
+
+    await screen.findByRole("button", { name: /101 Precautions/i });
+    fireEvent.click(screen.getByRole("button", { name: /View As/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "ล้างคำตอบของรอบจำลอง" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "พิมพ์รหัสรอบจำลองเพื่อยืนยัน" }), {
+      target: { value: "DOC-DEL-101" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "ล้างข้อมูล Trainee ของรอบนี้" }));
+
+    expect(await screen.findByRole("dialog", { name: "ล้างข้อมูลแล้ว แต่ไฟล์บางส่วนต้องตรวจสอบ" })).toBeInTheDocument();
+    expect(screen.getByText("ฐานข้อมูลล้างสำเร็จแล้ว แต่ไฟล์แนบบางส่วนต้องตรวจสอบเพิ่มเติม")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "รายการไฟล์ที่ต้องตรวจสอบ" })).toHaveTextContent("missing.pdf");
+    expect(screen.getByRole("button", { name: "คัดลอกรายละเอียด" })).toBeInTheDocument();
   });
 });

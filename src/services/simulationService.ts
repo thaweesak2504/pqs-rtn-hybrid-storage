@@ -1,4 +1,5 @@
 import { safeInvoke } from "./tauriService";
+import type { ClearAnswersResult } from "../types";
 
 export interface SimulationDocumentSummary {
   simulation_document_id: string;
@@ -24,6 +25,12 @@ export const simulationService = {
 
   async deleteSimulation(documentId: string): Promise<void> {
     await safeInvoke("delete_simulation_document", { documentId });
+  },
+
+  async clearAnswers(documentId: string): Promise<ClearAnswersResult> {
+    return await safeInvoke("clear_simulation_document_answers", {
+      documentId,
+    }) as ClearAnswersResult;
   },
 
   async openAttachmentDirectory(relativePath: string): Promise<void> {

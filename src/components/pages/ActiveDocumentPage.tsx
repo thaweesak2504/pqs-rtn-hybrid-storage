@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/tauri';
 import { ArrowLeft, BookOpen, ChevronDown, ChevronRight, Copy, Edit3, Eye, EyeOff, Files, FileText, Lock, Menu, Plus, Printer, Trash2, UserCircle, Users, X } from 'lucide-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../hooks/useAuth';
@@ -17,8 +17,10 @@ import Pqs200SectionEditor from '../editor_v2/Pqs200SectionEditor';
 import Pqs300SectionEditor from '../editor_v2/Pqs300SectionEditor';
 import PqsSectionEditor from '../editor_v2/PqsSectionEditor';
 import AddSectionModal from '../modals/AddSectionModal';
+import ClearAnswersWorkflowModal from '../modals/ClearAnswersWorkflowModal';
 import EditMetadataModal from '../modals/EditMetadataModal';
 import SimulationListModal from '../modals/SimulationListModal';
+import { COMMAND_BUTTON_FOCUS } from '../ui/buttonStyles';
 import DropdownMenu from '../ui/DropdownMenu';
 import { logger } from '../../utils/logger';
 import { simulationService } from '../../services/simulationService';
@@ -81,13 +83,11 @@ const ActiveDocumentPage: React.FC = () => {
   const [sectionToDelete, setSectionToDelete] = useState<Section | null>(null);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [clearConfirmModal, setClearConfirmModal] = useState<boolean>(false);
-  const [clearSuccessModal, setClearSuccessModal] = useState<boolean>(false);
-  const [clearErrorModal, setClearErrorModal] = useState<boolean>(false);
-  const [clearError, setClearError] = useState<string>('');
   const [deleteSimulationModal, setDeleteSimulationModal] = useState(false);
   const [simulationListModal, setSimulationListModal] = useState(false);
   const [simulationCount, setSimulationCount] = useState<number | null>(null);
   const [simulationInfo, setSimulationInfo] = useState<SimulationDocumentInfo | null>(null);
+  const viewAsButtonRef = useRef<HTMLButtonElement>(null);
   const isSimulation = simulationInfo !== null;
 
   const fetchDocData = useCallback(() => {
@@ -150,7 +150,7 @@ const ActiveDocumentPage: React.FC = () => {
     }
   };
 
-  const handleClearAnswers = async () => {
+  const handleClearAnswers = () => {
     setClearConfirmModal(true);
   };
 
@@ -165,21 +165,6 @@ const ActiveDocumentPage: React.FC = () => {
     } catch (err) {
       logger.error('Failed to create simulation document:', err);
       showError(`ไม่สามารถเริ่มรอบจำลองได้: ${err}`);
-    }
-  };
-
-  const confirmClearAnswers = async () => {
-    if (!docId) return;
-    try {
-      await invoke('clear_simulation_document_answers', { documentId: docId });
-      setClearConfirmModal(false);
-      setClearSuccessModal(true);
-      setRefreshKey(prev => prev + 1);
-    } catch (err) {
-      logger.error("Failed to clear trainee answers:", err);
-      setClearConfirmModal(false);
-      setClearError(String(err));
-      setClearErrorModal(true);
     }
   };
 
@@ -379,7 +364,9 @@ const ActiveDocumentPage: React.FC = () => {
                   <DropdownMenu
                     trigger={
                       <button
-                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 border ${viewMode !== 'edit'
+                        type="button"
+                        ref={viewAsButtonRef}
+                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors flex items-center space-x-1 border ${COMMAND_BUTTON_FOCUS} ${viewMode !== 'edit'
                           ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
                           : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700'
                           }`}
@@ -576,15 +563,17 @@ const ActiveDocumentPage: React.FC = () => {
         variant="danger"
       />
 
-      <ConfirmModal
-        isOpen={clearConfirmModal}
-        onClose={() => setClearConfirmModal(false)}
-        onConfirm={confirmClearAnswers}
-        title="ยืนยันการลบคำตอบ"
-        message="คำเตือน: คุณต้องการลบคำตอบ คะแนนความคืบหน้า และไฟล์แนบของรอบจำลองนี้ใช่หรือไม่? Template และเอกสารเล่มอื่นจะไม่ถูกลบ"
-        confirmText="ลบคำตอบของรอบจำลอง"
-        variant="danger"
-      />
+      {isSimulation && (
+        <ClearAnswersWorkflowModal
+          isOpen={clearConfirmModal}
+          documentId={docId}
+          documentTitle={docData?.document.name ?? ""}
+          templateDocumentId={simulationInfo.template_document_id}
+          onClose={() => setClearConfirmModal(false)}
+          onCleared={() => setRefreshKey(prev => prev + 1)}
+          returnFocusRef={viewAsButtonRef}
+        />
+      )}
 
       <ConfirmModal
         isOpen={deleteSimulationModal}
@@ -594,16 +583,6 @@ const ActiveDocumentPage: React.FC = () => {
         message={`คุณต้องการลบรอบจำลอง ${docId} ใช่หรือไม่? คำตอบ การประเมิน และไฟล์แนบของรอบนี้จะถูกลบ แต่ Template จะไม่ถูกกระทบ`}
         confirmText="ลบรอบจำลอง"
         variant="danger"
-      />
-
-      <ConfirmModal
-        isOpen={clearSuccessModal}
-        onClose={() => setClearSuccessModal(false)}
-        onConfirm={() => setClearSuccessModal(false)}
-        title="สำเร็จ"
-        message="ลบคำตอบของรอบจำลองสำเร็จ"
-        confirmText="ตกลง"
-        variant="info"
       />
 
       {!isSimulation && (
@@ -619,15 +598,6 @@ const ActiveDocumentPage: React.FC = () => {
         />
       )}
 
-      <ConfirmModal
-        isOpen={clearErrorModal}
-        onClose={() => setClearErrorModal(false)}
-        onConfirm={() => setClearErrorModal(false)}
-        title="ข้อผิดพลาด"
-        message={`เกิดข้อผิดพลาด: ${clearError}`}
-        confirmText="ตกลง"
-        variant="warning"
-      />
     </div>
   );
 };

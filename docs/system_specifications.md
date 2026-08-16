@@ -62,15 +62,20 @@
 *   **Workflow**:
     1.  **Assign**: หัวหน้าทีมแบ่งงานตาม "หน่วยงาน" (เช่น นาย A ทำหน่วย ก., นาย B ทำหน่วย ข.)
     2.  **Work**: ต่างคนต่างสร้าง/แก้ไขเอกสารในเครื่องตัวเอง
-    3.  **Export**: ผู้ทำกดส่งออกไฟล์ `pqs_package.zip` (ประกอบด้วย SQL script และรูปภาพ)
+    3.  **Export**: ผู้ทำส่งออก Typed Package ที่มี manifest, logical records, managed files และ checksum ตามชนิดข้อมูล
     4.  **Merge**: นำไฟล์มา Import ที่เครื่องหลัก (Master)
     5.  **Conflict Handling**:
-        *   หาก ID ซ้ำ (คือเอกสารเดียวกัน) -> ถามเพื่อ **Update/Overwrite**
+        *   หาก ID และ Revision/Hash ตรงกัน -> Import แบบ idempotent/reuse
+        *   หาก ID ซ้ำแต่ Revision/Hash ต่างกัน -> แจ้ง Conflict และใช้ explicit version/update policy; ห้าม silent overwrite
         *   หาก ID ไม่ซ้ำ (สร้างคนละหน่วย) -> **Insert New** ได้ทันที
 
 ### 5.2 Technical Implementation (แผนในอนาคต)
-*   **Export Format**: JSON/SQL + Images Zip
-*   **Import Logic**: Transactional Import (ถ้าล้มเหลว Rollback ทั้งหมด) เพื่อความปลอดภัยของข้อมูล
+*   **Package Types**: Source Document, Trainee Working, Evaluator, Trainee Return และ Reference Package มี payload/authorization ต่างกัน
+*   **Export Format**: Versioned manifest + typed logical data + managed files + per-file checksum; ไม่ใช้ SQL script เป็น public interchange contract
+*   **Import Logic**: แตกไฟล์ลง staging, ปฏิเสธ unsafe paths, ตรวจ version/checksum/dependencies ก่อนเขียน และ Transactional Merge เฉพาะ entity เป้าหมาย; ถ้าล้มเหลวต้องไม่เปลี่ยนเอกสารอื่น
+*   **Answer Key Rule**: Trainee Working Package ต้องไม่มี Answer Key; ปลายทางที่ไม่มี Source Document ใช้ Evaluator Package แบบ Read-only ที่ผูกกับ Source Revision เดียวกัน
+*   **Backup Separation**: Full Hybrid Backup/Restore เป็นการกู้คืนทั้งระบบและห้ามนำมาใช้แทน Package รายเอกสาร
+*   **Architecture Baseline**: รายละเอียด ownership, live storage, manifest และงานที่เลื่อนไปทำภายหลังอยู่ที่ `docs/plans/DATA_OWNERSHIP_AND_PORTABILITY_BASELINE.md`
 
 ---
 
@@ -204,6 +209,16 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 
 - `Clear Answers` ต้องลบเฉพาะ `UserAnswers`, `UserProgress` และไฟล์ใน `trainee-attachments/` ของเอกสารเล่มที่กำลังเปิดอยู่เท่านั้น
 - ข้อมูลคำตอบและไฟล์แนบของเอกสารเล่มอื่นต้องไม่ได้รับผลกระทบ
+- Tauri IPC ต้องเปิดเฉพาะคำสั่ง Clear Answers ที่ Rust ตรวจยืนยันว่าเป้าหมายเป็น Simulation; generic document-clear helper ห้าม register เป็นคำสั่งภายนอกที่ข้าม guard ได้
+- Backend ต้องนับผลจาก authoritative SQLite rows และคืน Database result แยกจาก managed-filesystem cleanup result; ถ้า SQLite commit สำเร็จแต่ไฟล์ลบไม่ครบต้องคืน partial result พร้อม logical path โดยไม่กล่าวว่าสำเร็จทั้งหมดและไม่เปิดเผย absolute host path
+- Questions, Answer Keys, Question Images, References, Source Document และ Simulation อื่นต้องคงอยู่หลัง Clear Answers
+- Clear Answers UI ต้องแสดง Active Simulation ID, Source ID, ข้อมูลที่จะลบ/เก็บไว้ และเปิดคำสั่ง danger หลังผู้ใช้พิมพ์ Simulation ID ตรงกันทุกตัวอักษรเท่านั้น; ระหว่าง request ต้องป้องกันการกดซ้ำ, Escape, backdrop และปุ่มปิด
+- หลัง Clear Answers ต้องแสดง authoritative answer/assessment/progress/file counts จาก Rust; command failure ต้องคง Modal context เพื่อ Retry/Copy Details ส่วน SQLite commit ที่สำเร็จแต่ไฟล์ล้างไม่ครบต้องแสดงเป็น partial outcome ไม่ใช่ success ทั้งหมด
+- `Delete One Answer` ต้องระบุเป้าหมายด้วย composite identity `user_id + document_id + question_id + sub_question_code` และลบได้ไม่เกินหนึ่ง `UserAnswers` row โดยไม่เปลี่ยน Question หรือ Answer Key
+- การลบคำตอบรายข้อต้อง commit SQLite ก่อนลบไฟล์; หาก SQLite ปฏิเสธการลบ ต้องรักษาทั้ง answer row และไฟล์ไว้ ส่วน Progress recalculation และ filesystem cleanup หลัง commit ต้องคืนผลแยกจาก Database result เพื่อรายงาน partial outcome ได้ตรงจริง
+- ไฟล์ที่ลบจากคำตอบรายข้อต้องอยู่ใต้ logical path `data/<document-id>/trainee-attachments/` ของ Document เดียวกันเท่านั้น; ไฟล์ข้าม Document และไฟล์ที่ยังมี Database reference อื่นใช้อยู่ต้องไม่ถูกลบ
+- ก่อนยืนยัน Delete One Answer UI ต้องแสดง Question/Subquestion identity, การมีข้อความ, จำนวนไฟล์แนบ, Assessment status และผลต่อ Section Progress; ขณะมี Answer Draft ที่ยังไม่บันทึกต้องห้ามลบจนกว่าจะบันทึกหรือยกเลิก Draft และหลังคำสั่งต้องแสดง Database/Progress/Filesystem result จาก Backend โดยแยก partial outcome พร้อม Retry/Copy Details เมื่อเกิด failure
+- สำหรับ Section 300 prerequisite ที่ใช้ไฟล์หลักฐานโดยไม่มีข้อความคำตอบ UI ต้องเรียกคำสั่งตามบริบทเป็น `แนบ/แก้ไข/ล้าง/ลบเอกสารหลักฐาน`; การลบยังใช้ exact UserAnswers identity และ database-first cleanup contract เดียวกัน พร้อมคืน Focus ไปคำสั่ง `แนบเอกสารหลักฐาน` หลังสำเร็จ
 - Workflow นี้ยังอยู่ระหว่างการทดสอบร่วมกับโหมดจำลอง Trainee และ Qualifier ก่อนเชื่อมกับผู้ใช้ที่ Login จริง
 
 ### 7.2 Product Model and Simulation Copies (Under Testing)
@@ -216,18 +231,21 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 - Clean Release Seed ต้องมี System/Master Configuration, กติกา Skeleton และ Sample Document `22724201001` เพียงหนึ่งฉบับ โดยไม่มี SIM, Mock `T-001`/`Q-001`, คำตอบ, การประเมิน, Progress, Trainee Attachments, Session หรือข้อมูลทดสอบอื่นหลงเหลือ
 - ข้อกำหนด “มีเอกสารตัวอย่างหนึ่งฉบับ” หมายถึงสถานะเริ่มต้นของ Clean Release Seed; หลังผู้ใช้สร้างหรือ Import เอกสารจริง `content.db` ย่อมมีเอกสารเพิ่มได้ตามปกติ
 
-- Template ใช้เลขเอกสารหลักของหน่วยตามปกติ เช่น `22724201001`
-- สำเนารอบจำลองของ Template ใช้รหัสแยก เช่น `22724201001-SIM-001` และไม่ใช้เลขรันของเอกสารหน่วย
-- รหัส `SIM` ถูกจัดสรรต่อ Template และไม่ใช้ซ้ำแม้ลบรอบจำลองแล้ว เพื่อให้ Admin ติดตามประวัติได้ในอนาคต
+- Source Document ใช้เลขเอกสารหลักของหน่วยตามปกติ เช่น `22724201001`
+- สำเนารอบจำลองของ Source Document ใช้รหัสแยก เช่น `22724201001-SIM-001` และไม่ใช้เลขรันของเอกสารหน่วย
+- รหัส `SIM` ถูกจัดสรรต่อ Source Document และไม่ใช้ซ้ำแม้ลบรอบจำลองแล้ว เพื่อให้ Admin ติดตามประวัติได้ในอนาคต
 - เลขท้าย `SIM-004` หมายถึงลำดับที่เคยจัดสรร ไม่ได้หมายความว่ายังมีสำเนาอยู่ 4 ฉบับ; จำนวนที่ยังอยู่จริงต้องอ่านจาก `DocumentSimulationInstances` ที่ยังเชื่อมกับ `Documents`
-- หน้า Template ต้องแสดงจำนวนรอบจำลองที่ยังอยู่จริง และเปิด Modal รายการเพื่อดูรหัสรอบ, Trainee ID, เวลาสร้าง/กิจกรรมล่าสุด, จำนวนคำตอบ, การประเมิน, ผลผ่าน/ปรับปรุง, ไฟล์แนบ และ Progress
+- หน้า Source Document ต้องแสดงจำนวนรอบจำลองที่ยังอยู่จริง และเปิด Modal รายการเพื่อดูรหัสรอบ, Trainee ID, เวลาสร้าง/กิจกรรมล่าสุด, จำนวนคำตอบ, การประเมิน, ผลผ่าน/ปรับปรุง, ไฟล์แนบ และ Progress
 - Modal รายการรองรับการรีเฟรช เปิดรอบเดิมกลับไปดู เปิดโฟลเดอร์ไฟล์แนบ และลบรอบที่เลือกหลังยืนยัน โดยการลบต้องไม่กระทบ Template หรือรอบอื่น
 - คำตอบ การประเมิน และ Progress เก็บใน `content.db`; ไฟล์แนบเก็บแยกที่ logical path `data/<simulation-document-id>/trainee-attachments/` ภายใต้ managed data directory ของแอป
 - เมื่อเข้า Qualifier view ชุดประเมินทุกข้อต้องเริ่มแบบปิด โดยแสดงคำสั่งเดียวตามสถานะ (`เปิดการประเมิน`, `แก้ไขการประเมิน` หรือ `แก้ไขคำแนะนำ`) และเปิด inline assessment เฉพาะข้อที่ผู้ใช้สั่งเท่านั้น; การ Refresh ข้อมูลต้องไม่เปิดชุดประเมินเอง
 - Qualifier ต้องมีคำสั่งประเมินที่ชัดเจนสำหรับ `ผ่าน`, `ปรับปรุง` และการย้อนผลประเมิน: การยกเลิก `ปรับปรุง` ต้องยืนยันก่อนเปลี่ยนสถานะกลับเป็น `รอประเมิน`, ล้างเฉพาะ Qualifier feedback และคำนวณ Progress ใหม่ โดยไม่ลบคำตอบหรือไฟล์แนบของ Trainee; การปิด inline assessment โดยไม่บันทึกต้องละทิ้งเฉพาะตัวเลือก/ข้อความ Draft ใน UI
-- การกด `กลับ Template` เป็นเพียง Navigation และต้องไม่ลบรอบจำลอง ส่วนการเริ่มรอบใหม่ต้องจัดสรรเลขถัดไปโดยไม่เขียนทับรอบเดิม
+- การกดคำสั่ง UI ปัจจุบัน `กลับ Template` หมายถึงกลับไปยัง Source Document และเป็นเพียง Navigation; ต้องไม่ลบรอบจำลอง ส่วนการเริ่มรอบใหม่ต้องจัดสรรเลขถัดไปโดยไม่เขียนทับรอบเดิม
 - ผู้ดูแลระบบจะเห็นผู้เข้าทดสอบของรอบจำลองได้ในชั้นข้อมูล; นโยบายการเปิดเผยตัวตนให้ Qualifier เพื่อป้องกัน Bias เป็นงานในอนาคต
 - Full Hybrid Backup/Restore เป็นงานสำรองทั้งระบบและอาจแทนที่ข้อมูลเครื่องปลายทาง จึงห้ามนำมาใช้แทน Trainee Portable Export/Import; Portable Package ต้องย้ายเฉพาะ Test Copy และความก้าวหน้าของ Trainee โดยไม่เขียนทับ `content.db` หรือเอกสารอื่นของหน่วยปลายทาง
+- Production Issued Copy ต้องผูกกับ immutable Source Revision; การแก้ Source Document ภายหลังต้องไม่เปลี่ยนเนื้อหาหรือ Answer Key ที่ใช้ประเมินสำเนาที่ออกไปแล้ว
+- Trainee Working Package ต้องไม่มี Answer Key/Rubric ที่ Trainee อ่านได้ ส่วนปลายทางที่ไม่มี Source Document ต้องได้รับ Evaluator Package แบบ Read-only แยกต่างหากและจับคู่ด้วย Source Document ID, Source Revision ID, Issued Copy ID และ stable question identity
+- รุ่นแรกต้องแจก Trainee Working Package และ Evaluator Package แยกช่องทาง; sealed evaluator payload ใน Package เดียวกันเป็นงานในอนาคตที่ต้องมี encryption, real-user authorization, key management และ audit policy ก่อน
 
 ### 7.3 Creator Question Save
 
@@ -243,6 +261,7 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 - Answer Key Editor ต้องส่งค่าว่างมาตรฐานเมื่อ Tiptap ไม่มีเนื้อหาจริง (รวม `<p></p>`/`<p><br></p>`), การแก้ไขหรือล้าง Answer Key ต้องทำให้ Creator Draft เป็น dirty และ Required/Error indicator ต้องแสดงที่กล่อง Answer Key โดยตรง
 - Question Attachment เป็นส่วนหนึ่งของ Creator Draft: การเอาไฟล์ที่บันทึกแล้วออกต้องยังไม่ลบไฟล์จริงจนกว่า Question save จะสำเร็จ; การละทิ้ง Draft ต้องรักษาไฟล์เดิมและลบเฉพาะไฟล์ใหม่ที่อัปโหลดในรอบนั้น
 - Tiptap selection style ต้องคงสีข้อความที่ Creator เลือกไว้ให้มองเห็นทันทีหลังใช้คำสั่งสี โดยยังแสดงพื้นหลัง Selection เพื่อบอกช่วงข้อความที่เลือก
+- การ Paste rich text ลง Tiptap ต้องเก็บเฉพาะโครงสร้างที่รองรับ เช่น ย่อหน้า รายการ และตาราง แต่ล้างรูปแบบการนำเสนอจากต้นทาง เช่น สี ตัวหนา ตัวเอียง ฟอนต์ ขนาด และพื้นหลัง เพื่อให้ข้อความรับรูปแบบของ Editor ปลายทาง; ผู้ใช้ยังใช้ Toolbar ใส่รูปแบบโดยตั้งใจภายหลังได้ และนโยบายนี้ห้ามย้อนแก้ข้อมูลที่บันทึกไว้เดิมอัตโนมัติ
 
 ### 7.4 Section 200 Mapping Integrity
 
