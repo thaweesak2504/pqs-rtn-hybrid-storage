@@ -132,6 +132,22 @@ export interface UpdateDocumentArgs {
 }
 
 /**
+ * Narrow update arguments for General Introduction item 2.
+ *
+ * **Rust source:** `UpdateDocumentAppliedToArgs`
+ */
+export interface UpdateDocumentAppliedToArgs {
+  documentId: string;
+  appliedTo: string;
+}
+
+/** **Rust source:** `UpdateDocumentAppliedToResult` */
+export interface UpdateDocumentAppliedToResult {
+  documentId: string;
+  appliedTo: string;
+}
+
+/**
  * Document with its full unit hierarchy path.
  *
  * **Rust source:** `DocumentHierarchy`

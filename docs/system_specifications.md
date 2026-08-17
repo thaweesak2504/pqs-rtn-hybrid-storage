@@ -276,6 +276,18 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 - ทุก Section 200 assessment view ต้อง hydrate คำตอบด้วย composite key `question_id + sub_question_code`; Template ยังไม่แสดง Trainee Answer หรือ Qualifier feedback
 - นโยบายปัจจุบันใช้ **Block removal** เมื่อมีงาน Trainee เป็นมาตรการปลอดภัย การ Archive/Recovery แบบมีประวัติเป็นงานในอนาคตและต้องมี schema รองรับก่อนเปิดใช้
 
+### 7.5 Introduction Content Authority
+
+- General Introduction ข้อ 2 `การประยุกต์ใช้` เป็น Document Content เพียงรายการเดียวที่ Creator แก้ไขได้ต่อเอกสาร โดยบันทึกใน `Documents.applied_to`
+- General Introduction ข้อ 1 และ 3–7 รวมทั้ง Section 100/200/300 Introduction ทั้งหมดเป็น System Content ที่ล็อกไว้ใน Document Editor
+- การแก้ `การประยุกต์ใช้` จากหน้า Introduction ต้องใช้ Tauri command ที่เปลี่ยนเฉพาะ `Documents.applied_to`; ห้ามใช้คำสั่งแก้ Metadata หลาย field เป็น persistent boundary ของ workflow นี้
+- Rust ต้องตรวจค่าว่าง ตรวจว่า Document มีอยู่ และปฏิเสธ Document ที่เป็น `DocumentSimulationInstances.simulation_document_id`; UI role/view guard เป็นเพียงการป้องกันเพิ่มเติม
+- Simulation เก็บค่า `applied_to` ที่คัดลอกจาก Source Document ณ เวลาสร้างรอบเพื่อรักษา issued snapshot; Trainee, Qualifier, Visitor และ Print Layout อ่านค่าจาก Document ที่กำลังเปิด แต่ไม่มีสิทธิ์แก้ไขจาก Introduction workflow
+- Legacy virtual Question records ที่ใช้ `section_id` 100/200/300 ไม่ใช่แหล่งเนื้อหา Introduction ที่แสดงจริง; audit วันที่ 17 สิงหาคม 2569 ยืนยันว่า records เหล่านี้ถูก seed และ clone โดยไม่มี UI consumer และทำให้ `Questions.section_id` ใช้ namespace ซ้ำกับ Primary Key ของ `Sections`
+- Product Owner อนุมัติ Option C เมื่อ 17 สิงหาคม 2569: เอกสารใหม่ต้องเริ่มจาก Application Skeleton ที่ persist เฉพาะ Section 101 ซึ่งบังคับ ชื่อคงที่ และลบไม่ได้; ห้าม seed Introduction เป็น Question placeholder
+- Migration version 3 ลบเฉพาะ record ที่ตรง legacy signature และไม่มี `Sections.id` จริงของ Document เดียวกัน ก่อนลบต้อง preflight ว่าไม่มี child, Answer Key, Choice, Reference, Question/Subquestion link, Question/Section link หรือ User Answer; หากพบ dependency ต้อง abort และ rollback ทั้ง migration ห้าม cascade เงียบ ๆ
+- Simulation clone ต้อง map Question ทุกข้อไปยัง Section จริงที่ถูก clone เท่านั้น ห้าม preserve virtual `section_id` 100/200/300
+
 ### 7.2 Print Layout & A4 Pagination (Pending)
 
 - Print Layout ปัจจุบันใช้สำหรับดูเอกสารแบบหน้าต่อเนื่อง โดยแยก `Question only` สำหรับ Trainee และ `Question with answer key` สำหรับ Qualifier

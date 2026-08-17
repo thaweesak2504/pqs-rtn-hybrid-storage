@@ -1,4 +1,5 @@
 import { BookOpen } from 'lucide-react';
+import { SECTION_200_INTRODUCTION_SECTIONS } from '../../content/introductionContent';
 import Container from '../ui/Container';
 
 interface Section200ViewProps {
@@ -20,32 +21,7 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
     return thaiAlphabets[index] || '';
   };
 
-  const sections = [
-    {
-      title: "โครงสร้างพื้นฐาน",
-      content: `ในหัวข้อนี้จะแบ่งอุปกรณ์ออกเป็นส่วนย่อยๆ และอธิบายหน้าที่ เพื่อเป็นการเรียนรู้และเข้าใจการทำงานของระบบ เนื้อหาข้อระบบจะกล่าวถึงความต้องการ ในการปฏิบัติหน้าที่ โดยเลือกเฉพาะอุปกรณ์ที่ตรงกับการปฏิบัติหน้าที่ในแต่ละตำแหน่ง ระบบที่ไม่มีความซับซ้อนจะอธิบายเพียงเล็กน้อย โดยจะเน้นระบบที่มีความสำคัญ หรือมีความซับซ้อนมากกว่า`
-    },
-    {
-      title: "ส่วนประกอบและชิ้นส่วนในส่วนประกอบ",
-      content: `เป็นระบบที่แยกออกจากกัน เพื่อที่จะแบ่งการเรียนรู้ออกเป็น 2 ระดับ คือแบ่งออกเป็นส่วนประกอบและชิ้นส่วนในส่วนประกอบ จะไม่มีรายการชิ้นส่วนทั้งหมดดังเช่นมีในหนังสือคู่มือทางเทคนิค จะมีเฉพาะรายการที่จำเป็นต้องรู้และเข้าใจในการปฏิบัติหน้าที่ โดยปกติแต่ละระบบจะมีรูปภาพแสดงให้เห็น ซึงจะแยกแสดงเป็นภาพส่วนประกอบและภาพชิ้นส่วนในส่วนประกอบ เช่น เครื่องกำเนิดไฟฟ้าและสวิตช์เกียร์ จะมีรายการชิ้นส่วนอยู่ในส่วนประกอบของระบบไฟฟ้าเรือ และรายละเอียดอื่นๆ ของแต่ละระบบ ในส่วนหัวข้อถัดไปจะเป็นการเรียนรู้ลึกลงไปในรายละเอียด`
-    },
-    {
-      title: "รูปแบบ",
-      content: `แต่ละระบบจะมีรูปแบบการจัดระบบ ดังนี้`,
-      subItems: [
-        "มีรายชื่อเอกสารอ้างอิงเพื่อใช้ในการเรียนรู้ และมีคำถามให้ผู้รับการทดสอบอธิบายหน้าที่ของแต่ละระบบ",
-        "มีการสอบถามโดยทั่วไป ถึงความสัมพันธ์ของส่วนประกอบ และชิ้นส่วนในส่วนประกอบของระบบว่าคืออะไร อยู่ที่ไหนฯ",
-        "มีการกล่าวถึงการทำงานของส่วนประกอบ และชิ้นส่วนในส่วนประกอบว่าทำหน้าที่อย่างไร",
-        "มีรายละเอียดของค่าการทำงานที่สามารถนำมาตรวจสอบได้ในทันทีทันใด",
-        "มีการศึกษาเรียนรู้ถึงความสัมพันธ์ระหว่างระบบ ที่กำลังศึกษากับระบบอื่น หรือพื้นที่ใกล้เคียง",
-        "มีการอธิบายถึงอุปกรณ์ที่ให้ความปลอดภัยแก่ระบบ และมีข้อระมัดระวังอันตรายสำหรับบุคคลและอุปกรณ์"
-      ]
-    },
-    {
-      title: "วิธีปฏิบัติ",
-      content: `ผู้รับการทดสอบจะต้องผ่านการทดสอบตามรายการในหัวข้อการปฏิบัติหน้าที่ (หัวข้อ 300) สำหรับการปฏิบัติหน้าที่ในแต่ละตำแหน่ง เมื่อผู้รับการทดสอบเข้าใจในระบบใดระบบหนึ่งหรือมากกว่าอย่างดีแล้ว ให้ติดต่อกับผู้ทดสอบ เพื่อที่ผู้ทดสอบจะสัมภาษณ์ในแต่ละระบบ ถ้าผู้ทดสอบมีความพอใจว่าผู้รับการทดสอบมีความรู้เกี่ยวกับระบบเพียงพอ ผู้ทดสอบจะลงนามรับรอง ผู้รับการทดสอบที่พร้อมจะทำการทดสอบ จะต้องทดสอบปากเปล่า และสอบข้อเขียน เพื่อที่จะแสดงว่าเป็นผู้ที่มีความรู้ ความเข้าใจในระบบที่เกี่ยวกับการปฏิบัติหน้าที่`
-    }
-  ];
+  const sections = SECTION_200_INTRODUCTION_SECTIONS;
 
   // Preview Mode - A4 Paper Format
   if (isPreviewMode) {
@@ -60,23 +36,27 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
 
           <ol className="list-none space-y-4">
             {sections.map((section, index) => (
-              <li key={index} className="flex items-baseline gap-[2ch]">
+              <li
+                key={section.id}
+                data-introduction-section-id={section.id}
+                className="flex items-baseline gap-[2ch]"
+              >
                 <span className="font-bold min-w-fit">{toThaiNumber(index + 1)}.</span>
                 <div className="flex-1">
-                  <span className="font-bold">{section.title}</span>
-                  <div className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
+                  <h2 className="font-bold">{section.title}</h2>
+                  <p className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
                     {section.content.replace(/\s+/g, ' ').trim()}
-                  </div>
+                  </p>
 
                   {/* Nested List for Section 3 (index 2) */}
                   {section.subItems && (
                     <ol className="list-none mt-2 space-y-1 ml-8">
                       {section.subItems.map((item, subIndex) => (
-                        <li key={subIndex} className="flex items-baseline gap-[1ch]">
+                        <li key={item.id} className="flex items-baseline gap-[1ch]">
                           <span className="min-w-fit font-normal text-orange-700 dark:text-orange-400">{toThaiAlphabet(subIndex)}.</span>
-                          <div className="flex-1 text-justify text-slate-700 dark:text-slate-300">
-                            {item}
-                          </div>
+                          <p className="flex-1 text-justify text-slate-700 dark:text-slate-300">
+                            {item.content}
+                          </p>
                         </li>
                       ))}
                     </ol>
@@ -105,11 +85,12 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
       </div>
 
       {/* Content Cards */}
-      <div className="space-y-4">
+      <ol className="list-none space-y-4">
         {sections.map((section, index) => (
-          <div
-            key={index}
-            className="rounded-lg shadow-md border bg-white dark:bg-github-bg-secondary border-github-border-primary transition-all duration-200 hover:shadow-lg"
+          <li
+            key={section.id}
+            data-introduction-section-id={section.id}
+            className="rounded-lg shadow-md border bg-white dark:bg-github-bg-secondary border-github-border-primary"
           >
             <div className="p-6">
               {/* Section Header */}
@@ -125,29 +106,29 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
               </div>
 
               {/* Section Content */}
-              <div className="text-justify leading-relaxed ml-12 text-github-text-secondary">
+              <p className="text-justify leading-relaxed ml-12 text-github-text-secondary">
                 {section.content}
-              </div>
+              </p>
 
               {/* Sub Items (Thai Alphabet) */}
               {section.subItems && (
                 <ol className="list-none mt-4 ml-12 space-y-2">
                   {section.subItems.map((item, subIndex) => (
-                    <li key={subIndex} className="flex items-baseline gap-2">
+                    <li key={item.id} className="flex items-baseline gap-2">
                       <span className="min-w-fit font-medium text-orange-600 dark:text-orange-400">
                         {toThaiAlphabet(subIndex)}.
                       </span>
-                      <div className="flex-1 text-justify text-github-text-secondary">
-                        {item}
-                      </div>
+                      <p className="flex-1 text-justify text-github-text-secondary">
+                        {item.content}
+                      </p>
                     </li>
                   ))}
                 </ol>
               )}
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
 
       {/* Footer Note */}
       <div className="bg-github-bg-secondary dark:bg-gray-800 border border-github-border-primary dark:border-gray-700 rounded-lg p-4 text-sm text-github-text-secondary dark:text-gray-400">

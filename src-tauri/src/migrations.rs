@@ -329,6 +329,94 @@ fn mig_002_up_add_persistent_auth_sessions(tx: &Transaction) -> rusqlite::Result
     Ok(())
 }
 
+const LEGACY_INTRODUCTION_QUESTION_PREDICATE: &str = "
+    q.parent_id IS NULL
+    AND q.is_header = 1
+    AND q.answer_type = 'none'
+    AND NOT EXISTS (
+        SELECT 1
+        FROM Sections s
+        WHERE s.id = q.section_id
+          AND s.document_id = q.document_id
+    )
+    AND (
+        (q.section_id = 100 AND q.sequence = 100 AND q.content = '100 Introduction')
+        OR
+        (q.section_id = 200 AND q.sequence = 200 AND q.content LIKE '200 System Description (%)')
+        OR
+        (q.section_id = 300 AND q.sequence = 300 AND q.content = '300 Operations')
+    )";
+
+fn legacy_introduction_question_ids(conn: &Connection) -> rusqlite::Result<Vec<String>> {
+    let questions_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Questions')",
+        [],
+        |row| row.get(0),
+    )?;
+    let sections_exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'Sections')",
+        [],
+        |row| row.get(0),
+    )?;
+    if !questions_exists || !sections_exists {
+        return Ok(Vec::new());
+    }
+
+    let sql = format!(
+        "SELECT q.id FROM Questions q WHERE {} ORDER BY q.id",
+        LEGACY_INTRODUCTION_QUESTION_PREDICATE
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let ids = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(ids)
+}
+
+fn mig_003_baseline_check(conn: &Connection) -> rusqlite::Result<bool> {
+    Ok(legacy_introduction_question_ids(conn)?.is_empty())
+}
+
+fn mig_003_up_remove_legacy_introduction_questions(tx: &Transaction) -> rusqlite::Result<()> {
+    let candidate_ids = legacy_introduction_question_ids(tx)?;
+    let dependent_tables = [
+        ("Questions children", "Questions", "parent_id"),
+        ("Answer Keys", "QuestionAnswerKeys", "question_id"),
+        ("Choices", "QuestionChoices", "question_id"),
+        ("References", "QuestionReferences", "question_id"),
+        (
+            "Sub-question links",
+            "QuestionSubQuestionLinks",
+            "question_id",
+        ),
+        ("Section links", "QuestionSectionLinks", "question_id"),
+        ("Trainee answers", "UserAnswers", "question_id"),
+    ];
+
+    // These historical rows should never have owned content. Refuse the whole
+    // migration if that assumption is false so SQLite cannot cascade-delete
+    // user-authored or assessment data silently.
+    for question_id in &candidate_ids {
+        for (label, table, column) in dependent_tables {
+            let dependency_sql = format!("SELECT COUNT(*) FROM {table} WHERE {column} = ?1");
+            let dependency_count: i64 =
+                tx.query_row(&dependency_sql, [question_id], |row| row.get(0))?;
+            if dependency_count > 0 {
+                return Err(rusqlite::Error::InvalidParameterName(format!(
+                    "legacy Introduction cleanup blocked: Question {question_id} owns {dependency_count} {label} record(s)"
+                )));
+            }
+        }
+    }
+
+    let delete_sql = format!(
+        "DELETE FROM Questions AS q WHERE {}",
+        LEGACY_INTRODUCTION_QUESTION_PREDICATE
+    );
+    tx.execute(&delete_sql, [])?;
+    Ok(())
+}
+
 /// All migrations known to the app, in definition order (runner sorts by version).
 ///
 /// Append-only: NEVER edit a migration after it has shipped. Add a new one instead.
@@ -345,6 +433,12 @@ pub fn all_migrations() -> Vec<Migration> {
             name: "add_persistent_auth_sessions",
             up: mig_002_up_add_persistent_auth_sessions,
             baseline_check: None,
+        },
+        Migration {
+            version: 3,
+            name: "remove_legacy_introduction_question_rows",
+            up: mig_003_up_remove_legacy_introduction_questions,
+            baseline_check: Some(mig_003_baseline_check),
         },
     ]
 }
@@ -400,6 +494,49 @@ mod tests {
         cols.iter().any(|c| c == col)
     }
 
+    fn create_legacy_introduction_test_schema(conn: &Connection) {
+        conn.execute_batch(
+            "CREATE TABLE Sections (
+                id INTEGER PRIMARY KEY,
+                document_id TEXT NOT NULL
+             );
+             CREATE TABLE Questions (
+                id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                section_id INTEGER,
+                parent_id TEXT,
+                sequence INTEGER NOT NULL,
+                content TEXT NOT NULL,
+                is_header BOOLEAN DEFAULT 0,
+                answer_type TEXT DEFAULT 'text'
+             );
+             CREATE TABLE QuestionAnswerKeys (question_id TEXT);
+             CREATE TABLE QuestionChoices (question_id TEXT);
+             CREATE TABLE QuestionReferences (question_id TEXT);
+             CREATE TABLE QuestionSubQuestionLinks (question_id TEXT);
+             CREATE TABLE QuestionSectionLinks (question_id TEXT);
+             CREATE TABLE UserAnswers (question_id TEXT);",
+        )
+        .unwrap();
+    }
+
+    fn insert_legacy_question(
+        conn: &Connection,
+        id: &str,
+        document_id: &str,
+        section_id: i64,
+        sequence: i64,
+        content: &str,
+    ) {
+        conn.execute(
+            "INSERT INTO Questions
+                (id, document_id, section_id, parent_id, sequence, content, is_header, answer_type)
+             VALUES (?1, ?2, ?3, NULL, ?4, ?5, 1, 'none')",
+            rusqlite::params![id, document_id, section_id, sequence, content],
+        )
+        .unwrap();
+    }
+
     // ── framework primitives ────────────────────────────────────────────
 
     #[test]
@@ -434,7 +571,7 @@ mod tests {
 
         let report = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
         assert_eq!(report.applied, vec![1, 2]);
-        assert!(report.baselined.is_empty());
+        assert_eq!(report.baselined, vec![3]);
         assert!(report.skipped.is_empty());
 
         // Column now exists
@@ -442,12 +579,14 @@ mod tests {
 
         // Recorded in tracking table
         let applied = list_applied(&conn).unwrap();
-        assert_eq!(applied.len(), 2);
+        assert_eq!(applied.len(), 3);
         assert_eq!(applied[0].version, 1);
         assert_eq!(applied[0].name, "add_must_change_password_to_users");
         assert!(!applied[0].baselined);
         assert_eq!(applied[1].version, 2);
         assert_eq!(applied[1].name, "add_persistent_auth_sessions");
+        assert_eq!(applied[2].version, 3);
+        assert!(applied[2].baselined);
 
         let sessions_table_exists: i64 = conn
             .query_row(
@@ -470,14 +609,16 @@ mod tests {
 
         let report = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
         assert_eq!(report.applied, vec![2]);
-        assert_eq!(report.baselined, vec![1]);
+        assert_eq!(report.baselined, vec![1, 3]);
 
         let applied = list_applied(&conn).unwrap();
-        assert_eq!(applied.len(), 2);
+        assert_eq!(applied.len(), 3);
         assert_eq!(applied[0].version, 1);
         assert!(applied[0].baselined);
         assert_eq!(applied[0].duration_ms, 0);
         assert_eq!(applied[1].version, 2);
+        assert_eq!(applied[2].version, 3);
+        assert!(applied[2].baselined);
     }
 
     // ── idempotency / re-run ────────────────────────────────────────────
@@ -489,15 +630,16 @@ mod tests {
 
         let r1 = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
         assert_eq!(r1.applied, vec![1, 2]);
+        assert_eq!(r1.baselined, vec![3]);
 
         let r2 = run_pending_migrations(&mut conn, &all_migrations()).unwrap();
         assert!(r2.applied.is_empty());
         assert!(r2.baselined.is_empty());
-        assert_eq!(r2.skipped, vec![1, 2]);
+        assert_eq!(r2.skipped, vec![1, 2, 3]);
 
         // Still exactly one row per known migration in the tracking table
         let applied = list_applied(&conn).unwrap();
-        assert_eq!(applied.len(), 2);
+        assert_eq!(applied.len(), 3);
     }
 
     // ── failure / rollback ──────────────────────────────────────────────
@@ -640,5 +782,115 @@ mod tests {
         let conn = in_memory();
         create_users_table_with_flag(&conn);
         assert!(mig_001_baseline_check(&conn).unwrap());
+    }
+
+    // ── migration 003: exact legacy Introduction rows ─────────────────
+
+    #[test]
+    fn mig_003_removes_only_exact_unmapped_legacy_rows() {
+        let mut conn = in_memory();
+        create_legacy_introduction_test_schema(&conn);
+        insert_legacy_question(&conn, "legacy-100", "doc-a", 100, 100, "100 Introduction");
+        insert_legacy_question(
+            &conn,
+            "legacy-200",
+            "doc-a",
+            200,
+            200,
+            "200 System Description (Unit A)",
+        );
+        insert_legacy_question(&conn, "legacy-300", "doc-a", 300, 300, "300 Operations");
+        insert_legacy_question(&conn, "near-match", "doc-a", 100, 101, "100 Introduction");
+
+        let tx = conn.transaction().unwrap();
+        mig_003_up_remove_legacy_introduction_questions(&tx).unwrap();
+        tx.commit().unwrap();
+
+        let remaining_ids: Vec<String> = conn
+            .prepare("SELECT id FROM Questions ORDER BY id")
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(remaining_ids, vec!["near-match"]);
+    }
+
+    #[test]
+    fn mig_003_preserves_a_real_question_when_section_primary_key_is_100() {
+        let mut conn = in_memory();
+        create_legacy_introduction_test_schema(&conn);
+        conn.execute(
+            "INSERT INTO Sections (id, document_id) VALUES (100, 'doc-real')",
+            [],
+        )
+        .unwrap();
+        insert_legacy_question(
+            &conn,
+            "real-question",
+            "doc-real",
+            100,
+            100,
+            "100 Introduction",
+        );
+
+        let tx = conn.transaction().unwrap();
+        mig_003_up_remove_legacy_introduction_questions(&tx).unwrap();
+        tx.commit().unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE id = 'real-question'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn mig_003_refuses_to_delete_a_legacy_row_with_dependent_data() {
+        let mut conn = in_memory();
+        create_legacy_introduction_test_schema(&conn);
+        insert_legacy_question(
+            &conn,
+            "legacy-with-key",
+            "doc-a",
+            100,
+            100,
+            "100 Introduction",
+        );
+        conn.execute(
+            "INSERT INTO QuestionAnswerKeys (question_id) VALUES ('legacy-with-key')",
+            [],
+        )
+        .unwrap();
+
+        let error = {
+            let tx = conn.transaction().unwrap();
+            mig_003_up_remove_legacy_introduction_questions(&tx)
+                .expect_err("Dependent Answer Key must block cleanup")
+        };
+        assert!(error.to_string().contains("cleanup blocked"));
+        assert!(error.to_string().contains("Answer Keys"));
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE id = 'legacy-with-key'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn mig_003_baselines_only_when_no_exact_legacy_rows_remain() {
+        let conn = in_memory();
+        create_legacy_introduction_test_schema(&conn);
+        assert!(mig_003_baseline_check(&conn).unwrap());
+
+        insert_legacy_question(&conn, "legacy-100", "doc-a", 100, 100, "100 Introduction");
+        assert!(!mig_003_baseline_check(&conn).unwrap());
     }
 }

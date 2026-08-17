@@ -10,6 +10,70 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn test_application_skeleton_contains_only_mandatory_section_101() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+
+        let doc_id = "22730203001";
+        conn.execute(
+            "INSERT INTO Documents (id, name, unit_owner_id, unit_code, applied_to, doc_type, user_level, created_at, updated_at)
+             VALUES (?, 'Clean Skeleton', '2273020', '22730', 'Test', '20', '1', datetime('now'), datetime('now'))",
+            [doc_id],
+        )
+        .expect("Failed to create document");
+
+        seed_application_skeleton(&conn, doc_id).expect("Failed to seed Application Skeleton");
+
+        let section: (i64, i64, String, String, i64) = conn
+            .query_row(
+                "SELECT section_group, section_number, title_th, menu_label, is_system_defined
+                 FROM Sections WHERE document_id = ?1",
+                [doc_id],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .expect("Mandatory Section 101 should exist");
+        assert_eq!(
+            section,
+            (
+                100,
+                101,
+                FIXED_SECTION_101_TITLE.to_string(),
+                "101 Precautions".to_string(),
+                1
+            )
+        );
+
+        let section_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Sections WHERE document_id = ?1",
+                [doc_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let question_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM Questions WHERE document_id = ?1",
+                [doc_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(section_count, 1);
+        assert_eq!(
+            question_count, 0,
+            "A new Skeleton must not persist Introduction placeholders as Questions"
+        );
+    }
+
+    #[test]
     fn test_seed_section_300_creates_correct_structure() {
         let conn = create_test_db();
         init_content_schema(&conn).expect("Failed to init schema");

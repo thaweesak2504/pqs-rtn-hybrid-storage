@@ -1,7 +1,14 @@
 # Introduction Workflow Baseline
 
-**Status:** Living Draft — รอ Product Owner ยืนยัน Content Authority ก่อนแก้ Code
+**Status:** Introduction Workflow Batches 1–3 Complete and Manually Verified
 **Created:** 2026-08-13
+**Decision confirmed:** 2026-08-17
+**Batch 1B manual UI passed:** 2026-08-17
+**Batch 2A manual UI passed:** 2026-08-17
+**Batch 2B manual UI/accessibility passed:** 2026-08-17
+**Batch 3 code/database audit completed:** 2026-08-17
+**Batch 3 persistence policy approved/implemented:** 2026-08-17
+**Batch 3 manual migration/UI verification passed:** 2026-08-17
 **Branch:** `editor-workflow-v2`
 
 ## Scope
@@ -67,29 +74,42 @@ Introduction ในเอกสารปัจจุบันมี 4 หน้�
 
 ## สิ่งที่จะลงมือแก้
 
-### Introduction Batch 1 — Content authority and focused Applied-To editing
+### Introduction Batch 1A — Persistent content authority
 
-- [ ] เพิ่ม focused tests เพื่อยืนยัน System Content กับ Document Content และ role visibility
-- [ ] ส่ง `viewMode`/Creator capability เข้า General Introduction โดยไม่เปลี่ยน role simulation
-- [ ] เพิ่มคำสั่ง `แก้ไขการประยุกต์ใช้` เฉพาะ Creator source-document view
-- [ ] เพิ่ม form lifecycle สำหรับ Save, clean Cancel, dirty Cancel/Discard, Escape, Ctrl/Cmd+physical KeyS และ focus restoration
-- [ ] เพิ่ม accessible label/description, linked validation และ live announcement
-- [ ] ใช้ persistent command ที่มีขอบเขตเฉพาะ `applied_to`; ตรวจ Rust/SQLite policy และ tests ก่อนเชื่อม UI
-- [ ] ยืนยันว่า Simulation, Trainee, Qualifier, Visitor และ Print เป็น read-only
+- [x] Product Owner ยืนยันว่าแก้ได้เฉพาะ General Introduction ข้อ 2 `การประยุกต์ใช้`
+- [x] เพิ่ม persistent command ที่แก้เฉพาะ `Documents.applied_to`
+- [x] บังคับ Source Document only และปฏิเสธ Simulation ที่ Rust/SQLite boundary รวมถึงปิดช่องทางผ่าน generic Metadata update
+- [x] เพิ่ม Rust policy tests สำหรับ successful narrow update, Simulation rejection และ blank validation
+- [x] เพิ่ม typed TypeScript IPC contract/service โดยยังไม่เชื่อม UI
+
+### Introduction Batch 1B — Focused Applied-To editor
+
+- [x] เพิ่ม focused tests เพื่อยืนยัน System Content กับ Document Content และ role visibility
+- [x] ส่ง `viewMode`/Creator capability เข้า General Introduction โดยไม่เปลี่ยน role simulation
+- [x] เพิ่มคำสั่ง `แก้ไขการประยุกต์ใช้` เฉพาะ Creator source-document view
+- [x] เพิ่ม form lifecycle สำหรับ Save, clean Cancel, dirty Cancel/Discard, Escape, Ctrl/Cmd+physical KeyS และ focus restoration
+- [x] เพิ่ม accessible label/description, linked validation และ live announcement
+- [x] เชื่อม persistent command ที่มีขอบเขตเฉพาะ `applied_to` ซึ่งผ่าน Rust/SQLite policy tests จาก Batch 1A
+- [x] ยืนยันด้วย automated tests ว่า Simulation, Trainee, Qualifier, Visitor และ Print เป็น read-only
 
 ### Introduction Batch 2 — Standard-content rendering and accessibility
 
-- [ ] แยก typed standard-content definitions ออกจาก JSX โดยไม่เปลี่ยนถ้อยคำหรือความหมาย
-- [ ] ใช้ semantic heading/list structure สม่ำเสมอทั้ง normal view และ Print Layout
-- [ ] เอา pointer/hover affordance ออกจาก Card ที่กดไม่ได้
-- [ ] เพิ่ม tests สำหรับ General/100/200/300 content order, nested list และ Print parity
+- [x] แยก typed standard-content definitions ออกจาก JSX โดยไม่เปลี่ยนถ้อยคำหรือความหมาย
+- [x] ใช้ semantic heading/list structure สม่ำเสมอทั้ง normal view และ Print Layout
+- [x] เอา pointer/hover affordance ออกจาก Card ที่กดไม่ได้
+- [x] เพิ่ม tests สำหรับ General/100/200/300 content order, nested list และ Print parity
 
 ### Introduction Batch 3 — Legacy virtual records audit
 
-- [ ] ระบุ consumer ทั้งหมดของ virtual Question `section_id` 100/200/300
-- [ ] พิสูจน์ผลต่อ new-document creation, simulation clone, export/backup และ existing documents
-- [ ] เสนอ retain/deprecate/migrate policy แยกจาก UX batch
-- [ ] ถ้าต้องแก้ persistent rule ให้ทำใน Rust/SQLite พร้อม migration impact และขออนุมัติก่อน
+- [x] ระบุ consumer ทั้งหมดของ virtual Question `section_id` 100/200/300
+- [x] พิสูจน์ผลต่อ new-document creation, simulation clone, export/backup และ existing documents
+- [x] เสนอ retain/deprecate/migrate policy แยกจาก UX batch ใน `INTRODUCTION_LEGACY_VIRTUAL_RECORDS_AUDIT.md`
+- [x] Product Owner อนุมัติ Option C: clean Skeleton, versioned exact-row migration และ dependency preflight/abort
+- [x] หยุด seed virtual Introduction Questions; เอกสารใหม่มีเฉพาะ Section 101 ก่อน Creator เพิ่ม Section/Question จริง
+- [x] บังคับ Simulation clone ให้ Question ทุกข้อต้อง map ไป Section จริง
+- [x] เพิ่ม Migration v3 และ Rust regression tests โดยไม่เปิดแอปหรือแก้ `content.db` โดยตรง
+- [x] ผ่าน Full TypeScript, ESLint, frontend test/build และ Rust test/fmt/clippy verification
+- [x] ผ่าน Manual Gate หลังสำรอง Hybrid Backup: existing Source/Simulation, Introduction ทุกหน้า, clean Skeleton และ Simulation clone ถูกต้อง
 
 ## Manual Gate ที่เสนอสำหรับ Batch 1
 
@@ -100,9 +120,9 @@ Introduction ในเอกสารปัจจุบันมี 4 หน้�
 5. สลับ Trainee, Qualifier, Visitor และ Print Layout: ต้องเห็นค่าที่บันทึกล่าสุด แต่ไม่มีคำสั่งหรือ field แก้ไข.
 6. เปิด Simulation copy: Introduction ต้องเป็น read-only และการกลับ Source Document ต้องไม่เปลี่ยนหรือลบ Simulation.
 
-## Product Decision Required Before Batch 1
+## Product Decision — Confirmed
 
-ยืนยันว่า Content Authority ใช้กติกานี้หรือไม่:
+Product Owner ยืนยันเมื่อ 2026-08-17 ว่า Content Authority ใช้กติกานี้:
 
 - แก้ได้เฉพาะ General Introduction ข้อ 2 `การประยุกต์ใช้` ต่อเอกสาร
 - General Introduction ข้ออื่น และ Section 100/200/300 Introduction เป็นข้อความมาตรฐานที่ล็อกไว้

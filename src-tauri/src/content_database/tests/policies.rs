@@ -19,6 +19,161 @@ mod tests {
     // ========================================================================
 
     #[test]
+    fn test_update_document_applied_to_changes_only_source_applied_to() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        conn.execute_batch(
+            "CREATE TABLE DocumentSimulationInstances (
+                simulation_document_id TEXT PRIMARY KEY,
+                template_document_id TEXT NOT NULL,
+                trainee_id TEXT NOT NULL
+             );
+             INSERT INTO Documents
+                (id, name, applied_to, unit_owner_id, unit_code, doc_type, user_level, status)
+             VALUES
+                ('DOC-INTRO', 'Source name', 'Old application', '2272420', '22724', '20', '1', 'draft');",
+        )
+        .expect("Failed to seed source document");
+
+        let result = update_document_applied_to_with_conn(
+            &conn,
+            UpdateDocumentAppliedToArgs {
+                document_id: " DOC-INTRO ".to_string(),
+                applied_to: "  New application scope  ".to_string(),
+            },
+        )
+        .expect("Source document applied-to update should succeed");
+
+        assert_eq!(result.document_id, "DOC-INTRO");
+        assert_eq!(result.applied_to, "New application scope");
+        let stored: (String, String, String, String, String, String) = conn
+            .query_row(
+                "SELECT name, applied_to, unit_owner_id, doc_type, user_level, status
+                 FROM Documents WHERE id = 'DOC-INTRO'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
+            )
+            .expect("Failed to inspect updated source document");
+        assert_eq!(
+            stored,
+            (
+                "Source name".to_string(),
+                "New application scope".to_string(),
+                "2272420".to_string(),
+                "20".to_string(),
+                "1".to_string(),
+                "draft".to_string(),
+            )
+        );
+    }
+
+    #[test]
+    fn test_update_document_applied_to_rejects_simulation_copy() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        conn.execute_batch(
+            "CREATE TABLE DocumentSimulationInstances (
+                simulation_document_id TEXT PRIMARY KEY,
+                template_document_id TEXT NOT NULL,
+                trainee_id TEXT NOT NULL
+             );
+             INSERT INTO Documents (id, name, applied_to)
+             VALUES ('DOC-SOURCE', 'Source', 'Source application'),
+                    ('DOC-SOURCE-SIM-001', 'Simulation', 'Inherited application');
+             INSERT INTO DocumentSimulationInstances
+                (simulation_document_id, template_document_id, trainee_id)
+             VALUES ('DOC-SOURCE-SIM-001', 'DOC-SOURCE', 'T-001');",
+        )
+        .expect("Failed to seed simulation authority test");
+
+        let error = update_document_applied_to_with_conn(
+            &conn,
+            UpdateDocumentAppliedToArgs {
+                document_id: "DOC-SOURCE-SIM-001".to_string(),
+                applied_to: "Forbidden change".to_string(),
+            },
+        )
+        .expect_err("Simulation copy must be read-only for applied-to content");
+        assert!(error.contains("only be updated on a source document"));
+
+        let broad_update_error = update_document_with_conn(
+            &conn,
+            UpdateDocumentArgs {
+                id: "DOC-SOURCE-SIM-001".to_string(),
+                name: "Changed simulation".to_string(),
+                applied_to: "Forbidden broad change".to_string(),
+                doc_type: "20".to_string(),
+                user_level: "1".to_string(),
+            },
+        )
+        .expect_err("Generic metadata update must not bypass Simulation authority");
+        assert!(broad_update_error.contains("only be updated on a source document"));
+
+        let values: (String, String, String) = conn
+            .query_row(
+                "SELECT
+                    (SELECT applied_to FROM Documents WHERE id = 'DOC-SOURCE'),
+                    (SELECT applied_to FROM Documents WHERE id = 'DOC-SOURCE-SIM-001'),
+                    (SELECT name FROM Documents WHERE id = 'DOC-SOURCE-SIM-001')",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .expect("Failed to inspect preserved applied-to values");
+        assert_eq!(
+            values,
+            (
+                "Source application".to_string(),
+                "Inherited application".to_string(),
+                "Simulation".to_string(),
+            )
+        );
+    }
+
+    #[test]
+    fn test_update_document_applied_to_rejects_blank_content() {
+        let conn = create_test_db();
+        init_content_schema(&conn).expect("Failed to init schema");
+        conn.execute_batch(
+            "CREATE TABLE DocumentSimulationInstances (
+                simulation_document_id TEXT PRIMARY KEY,
+                template_document_id TEXT NOT NULL,
+                trainee_id TEXT NOT NULL
+             );
+             INSERT INTO Documents (id, name, applied_to)
+             VALUES ('DOC-INTRO', 'Source', 'Preserved application');",
+        )
+        .expect("Failed to seed blank-content test");
+
+        let error = update_document_applied_to_with_conn(
+            &conn,
+            UpdateDocumentAppliedToArgs {
+                document_id: "DOC-INTRO".to_string(),
+                applied_to: "   ".to_string(),
+            },
+        )
+        .expect_err("Blank applied-to content must be rejected");
+        assert!(error.contains("Applied-to content is required"));
+
+        let stored: String = conn
+            .query_row(
+                "SELECT applied_to FROM Documents WHERE id = 'DOC-INTRO'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("Failed to inspect preserved source content");
+        assert_eq!(stored, "Preserved application");
+    }
+
+    #[test]
     fn test_policy_blocks_references_in_section_300() {
         let conn = create_test_db();
         init_content_schema(&conn).expect("Failed to init schema");

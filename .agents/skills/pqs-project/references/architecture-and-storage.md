@@ -67,7 +67,7 @@ Never construct paths from unvalidated absolute user input. Persist normalized r
 
 ## Document Lifecycle
 
-Document creation generates an ID from owner unit, document type, user level, and a three-digit sequence. It inserts document metadata, ensures the standard career branch, seeds Section 101 and group introduction questions, and prepares the standard Section 200/300 templates when those sections are added.
+Document creation generates an ID from owner unit, document type, user level, and a three-digit sequence. It inserts document metadata, ensures the standard career branch, and seeds only mandatory Section 101. Standard Introduction content is code-owned, General Introduction item 2 comes from `Documents.applied_to`, and no Introduction placeholder Questions belong in the Skeleton. The standard Section 200/300 templates are prepared only when those real Sections are added.
 
 Document deletion removes relational children through foreign-key cascades and then removes `data/<document-id>/`. The built-in sample document ID is protected. Before changing reference deletion, account for global reference records that may point to a file physically stored under a document folder.
 

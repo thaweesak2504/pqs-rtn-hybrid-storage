@@ -127,6 +127,7 @@ fn main() {
             commands::content::search_documents,
             commands::content::delete_document,
             commands::content::update_document,
+            commands::content::update_document_applied_to,
             commands::content::clone_document_for_simulation,
             commands::content::get_simulation_document_info,
             commands::content::list_template_simulation_documents,

@@ -14,9 +14,10 @@ pub use types::{
     SaveCreatorQuestionArgs, SaveCreatorQuestionResult, SaveQualifierAssessmentArgs,
     SaveTraineeAnswerArgs, Section, SectionRefChild, SectionReferenceDetail,
     SimulationDocumentInfo, SimulationDocumentSummary, SubQuestionUsageResponse,
-    SyncRequiredCountArgs, UpdateDocumentArgs, UpdateQuestionArgs, UpdateQuestionScoreArgs,
-    UpdateReferenceArgs, UpdateSectionArgs, UpdateSectionLinkScoreArgs, UpsertUserProgressArgs,
-    UserAnswer, UserProgress,
+    SyncRequiredCountArgs, UpdateDocumentAppliedToArgs, UpdateDocumentAppliedToResult,
+    UpdateDocumentArgs, UpdateQuestionArgs, UpdateQuestionScoreArgs, UpdateReferenceArgs,
+    UpdateSectionArgs, UpdateSectionLinkScoreArgs, UpsertUserProgressArgs, UserAnswer,
+    UserProgress,
 };
 pub mod connection;
 pub use connection::{get_content_connection, get_content_database_path, get_portable_data_dir};
@@ -56,12 +57,14 @@ pub use documents::{
     delete_document, delete_simulation_document, generate_document_id, get_document_branch,
     get_document_stats, get_owner_units, get_simulation_document_info,
     list_template_simulation_documents, reset_and_update_career_branch, search_documents,
-    seed_content_database_from_file, update_document, update_document_branch,
+    seed_content_database_from_file, update_document, update_document_applied_to,
+    update_document_branch,
 };
 #[cfg(test)]
 pub(crate) use documents::{
     delete_document_with_conn_and_data_dir, list_template_simulation_documents_with_conn,
-    update_document_branch_with_conn,
+    update_document_applied_to_with_conn, update_document_branch_with_conn,
+    update_document_with_conn,
 };
 pub mod questions;
 pub use questions::{
@@ -71,9 +74,10 @@ pub use questions::{
     sync_required_count_children, update_question,
 };
 pub mod sections;
+pub(crate) use sections::seed_application_skeleton;
 pub use sections::{
     cleanup_orphaned_section_refs, create_section, delete_section, get_sections_by_document,
-    get_thai_letter, seed_document_template, update_section, update_section_order,
+    get_thai_letter, update_section, update_section_order,
 };
 #[cfg(test)]
 pub use sections::{

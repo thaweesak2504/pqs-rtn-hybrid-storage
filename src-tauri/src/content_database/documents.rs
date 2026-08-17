@@ -37,6 +37,19 @@ struct SourceDocument {
     occupation_branch_sub: Option<String>,
 }
 
+fn remap_cloned_question_section(
+    section_map: &HashMap<i64, i64>,
+    source_section_id: i64,
+    question_id: &str,
+) -> Result<i64, String> {
+    section_map.get(&source_section_id).copied().ok_or_else(|| {
+        format!(
+            "Template question {} references unknown section {}",
+            question_id, source_section_id
+        )
+    })
+}
+
 /// Create an isolated document copy for the current Trainee/Qualifier simulation.
 /// The source template remains untouched; answers, progress, and trainee attachments
 /// are deliberately not copied.
@@ -179,18 +192,10 @@ pub fn clone_document_for_simulation(
                 None => None,
             };
             let new_id = generate_uuid();
-            // Group introduction questions use legacy virtual section IDs 100/200/300
-            // rather than a row in Sections. Preserve those IDs; remap all real sections.
-            let new_section = match section_map.get(&q.section_id) {
-                Some(section_id) => *section_id,
-                None if matches!(q.section_id, 100 | 200 | 300) => q.section_id,
-                None => {
-                    return Err(format!(
-                        "Template question {} references unknown section {}",
-                        q.id, q.section_id
-                    ))
-                }
-            };
+            // Every persisted Question belongs to a real Section. Legacy
+            // virtual Introduction rows are removed by migration 3 and must
+            // never be carried into a newly issued Simulation.
+            let new_section = remap_cloned_question_section(&section_map, q.section_id, &q.id)?;
             tx.execute("INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored, is_template) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0)", params![new_id, simulation_document_id, new_section, new_parent, q.sequence, q.content, q.is_header, q.description, q.answer_type, q.metadata, q.score, q.question_type, q.group_score, q.display_text, q.is_group_header, q.is_scored]).map_err(|e| e.to_string())?;
             question_map.insert(q.id, new_id);
             inserted += 1;
@@ -244,6 +249,30 @@ pub fn clone_document_for_simulation(
         template_document_id,
         trainee_id: trainee_id.trim().to_string(),
     })
+}
+
+#[cfg(test)]
+mod clone_section_mapping_tests {
+    use super::*;
+
+    #[test]
+    fn clone_maps_a_real_section_even_when_its_primary_key_is_a_legacy_group_number() {
+        let section_map = HashMap::from([(100_i64, 9_001_i64)]);
+
+        let mapped = remap_cloned_question_section(&section_map, 100, "Q-REAL-100")
+            .expect("A real Section primary key must be remapped normally");
+
+        assert_eq!(mapped, 9_001);
+    }
+
+    #[test]
+    fn clone_rejects_a_question_without_a_real_section_mapping() {
+        let error = remap_cloned_question_section(&HashMap::new(), 100, "Q-LEGACY-100")
+            .expect_err("An unmapped legacy virtual section must not be cloned");
+
+        assert!(error.contains("Q-LEGACY-100"));
+        assert!(error.contains("unknown section 100"));
+    }
 }
 
 pub fn get_simulation_document_info(
@@ -520,25 +549,9 @@ pub fn create_document(args: CreateDocumentArgs) -> Result<String, String> {
         ).map_err(|e| format!("Failed to set default branch: {}", e))?;
     }
 
-    // Seed Template (100, 200, 300)
-    // Need unit name for 200 System Description
-    let unit_name: String = conn
-        .query_row(
-            "SELECT unit_name FROM OwnerUnits WHERE unit_id = ?1",
-            params![args.unit_id],
-            |row| row.get(0),
-        )
-        .unwrap_or("Unknown Unit".to_string());
-
-    seed_document_template(&conn, &new_id, &unit_name)
-        .map_err(|e| format!("Failed to seed template: {}", e))?;
-
-    // Auto-create Section 101 (System-defined: Precautions)
-    conn.execute(
-        "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
-         VALUES (?1, 100, 101, 'ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals', '101 Precautions', 1, 1)",
-        params![new_id],
-    ).map_err(|e| format!("Failed to create Section 101: {}", e))?;
+    // Seed only the empty guided Application Skeleton. Introduction system
+    // content is code-owned and no placeholder Questions belong in a new doc.
+    seed_application_skeleton(&conn, &new_id)?;
 
     Ok(new_id)
 }
@@ -993,30 +1006,109 @@ pub fn delete_document(id: String) -> Result<String, String> {
 
     delete_document_with_conn_and_data_dir(&mut conn, &id, &data_dir)
 }
-/// Update an existing document
-pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
-
-    // Check if document exists
+fn require_source_document_with_conn(conn: &Connection, document_id: &str) -> Result<(), String> {
     let exists: bool = conn
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM Documents WHERE id = ?1)",
-            params![args.id],
+            params![document_id],
             |row| row.get(0),
         )
-        .unwrap_or(false);
-
+        .map_err(|error| format!("Failed to inspect document: {error}"))?;
     if !exists {
-        return Err(format!("Document with ID {} not found", args.id));
+        return Err(format!("Document with ID {document_id} not found"));
     }
 
-    // Perform update
+    let is_simulation: bool = conn
+        .query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM DocumentSimulationInstances
+                WHERE simulation_document_id = ?1
+             )",
+            params![document_id],
+            |row| row.get(0),
+        )
+        .map_err(|error| format!("Failed to inspect document authority: {error}"))?;
+    if is_simulation {
+        return Err("Document content can only be updated on a source document".to_string());
+    }
+
+    Ok(())
+}
+
+fn require_applied_to(value: &str) -> Result<&str, String> {
+    let applied_to = value.trim();
+    if applied_to.is_empty() {
+        return Err("Applied-to content is required".to_string());
+    }
+    Ok(applied_to)
+}
+
+/// Update an existing Source Document's metadata.
+pub(crate) fn update_document_with_conn(
+    conn: &Connection,
+    args: UpdateDocumentArgs,
+) -> Result<String, String> {
+    let document_id = args.id.trim();
+    if document_id.is_empty() {
+        return Err("Document ID is required".to_string());
+    }
+    let applied_to = require_applied_to(&args.applied_to)?;
+    require_source_document_with_conn(conn, document_id)?;
+
     conn.execute(
         "UPDATE Documents SET name = ?1, applied_to = ?2, doc_type = ?3, user_level = ?4, updated_at = CURRENT_TIMESTAMP WHERE id = ?5",
-        params![args.name, args.applied_to, args.doc_type, args.user_level, args.id]
+        params![args.name, applied_to, args.doc_type, args.user_level, document_id]
     ).map_err(|e| format!("Failed to update document: {}", e))?;
 
-    Ok(format!("Document {} updated successfully", args.id))
+    Ok(format!("Document {document_id} updated successfully"))
+}
+
+pub fn update_document(args: UpdateDocumentArgs) -> Result<String, String> {
+    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    update_document_with_conn(&conn, args)
+}
+
+/// Update only General Introduction item 2 (`Documents.applied_to`).
+///
+/// Simulation copies inherit this content from their Source Document and are
+/// intentionally read-only for this command.
+pub(crate) fn update_document_applied_to_with_conn(
+    conn: &Connection,
+    args: UpdateDocumentAppliedToArgs,
+) -> Result<UpdateDocumentAppliedToResult, String> {
+    let document_id = args.document_id.trim();
+
+    if document_id.is_empty() {
+        return Err("Document ID is required".to_string());
+    }
+    let applied_to = require_applied_to(&args.applied_to)?;
+    require_source_document_with_conn(conn, document_id)?;
+
+    let changed = conn
+        .execute(
+            "UPDATE Documents
+             SET applied_to = ?1, updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?2",
+            params![applied_to, document_id],
+        )
+        .map_err(|error| format!("Failed to update applied-to content: {error}"))?;
+    if changed != 1 {
+        return Err(format!(
+            "Expected to update one document but updated {changed}"
+        ));
+    }
+
+    Ok(UpdateDocumentAppliedToResult {
+        document_id: document_id.to_string(),
+        applied_to: applied_to.to_string(),
+    })
+}
+
+pub fn update_document_applied_to(
+    args: UpdateDocumentAppliedToArgs,
+) -> Result<UpdateDocumentAppliedToResult, String> {
+    let conn = get_content_connection().map_err(|error| format!("Failed to connect: {error}"))?;
+    update_document_applied_to_with_conn(&conn, args)
 }
 /// Get the occupation branch selection for a document
 pub fn get_document_branch(doc_id: String) -> Result<DocumentBranch, String> {

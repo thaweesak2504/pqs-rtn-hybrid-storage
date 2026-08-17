@@ -1,54 +1,155 @@
-import { BookOpen } from 'lucide-react';
-import React from 'react';
+import { BookOpen, Pencil, Save, X } from 'lucide-react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createGeneralIntroductionSections } from '../../content/introductionContent';
+import { introductionService } from '../../services/introductionService';
+import WorkflowModal from '../modals/WorkflowModal';
+import Button from '../ui/Button';
+import { COMMAND_BUTTON_FOCUS } from '../ui/buttonStyles';
 import Container from '../ui/Container';
 
 interface IntroductionViewProps {
+  documentId: string;
   appliedTo: string;
   isPreviewMode?: boolean;
+  viewMode?: 'edit' | 'qualifier' | 'trainee' | 'visitor' | 'print';
+  isSimulation?: boolean;
+  onAppliedToUpdated?: (appliedTo: string) => void;
 }
 
-const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPreviewMode = false }) => {
+const IntroductionView: React.FC<IntroductionViewProps> = ({
+  documentId,
+  appliedTo,
+  isPreviewMode = false,
+  viewMode = 'edit',
+  isSimulation = false,
+  onAppliedToUpdated,
+}) => {
+  const editorTitleId = useId();
+  const editorDescriptionId = useId();
+  const fieldHelpId = useId();
+  const fieldErrorId = useId();
+  const dirtyStateId = useId();
+  const editCommandRef = useRef<HTMLButtonElement>(null);
+  const appliedToFieldRef = useRef<HTMLTextAreaElement>(null);
+  const restoreEditCommandFocusRef = useRef(false);
+  const activeDocumentIdRef = useRef(documentId);
+  const [isEditingAppliedTo, setIsEditingAppliedTo] = useState(false);
+  const [appliedToDraft, setAppliedToDraft] = useState(appliedTo);
+  const [isSavingAppliedTo, setIsSavingAppliedTo] = useState(false);
+  const [appliedToError, setAppliedToError] = useState('');
+  const [showDiscardDecision, setShowDiscardDecision] = useState(false);
+  const [announcement, setAnnouncement] = useState('');
+  const canEditAppliedTo = viewMode === 'edit' && !isPreviewMode && !isSimulation;
+  const isAppliedToDirty = appliedToDraft !== appliedTo;
+
+  useEffect(() => {
+    if (!isEditingAppliedTo) {
+      setAppliedToDraft(appliedTo);
+    }
+  }, [appliedTo, isEditingAppliedTo]);
+
+  useEffect(() => {
+    if (activeDocumentIdRef.current === documentId) return;
+    activeDocumentIdRef.current = documentId;
+    restoreEditCommandFocusRef.current = false;
+    setIsEditingAppliedTo(false);
+    setShowDiscardDecision(false);
+    setAppliedToError('');
+    setAnnouncement('');
+    setAppliedToDraft(appliedTo);
+  }, [appliedTo, documentId]);
+
+  useLayoutEffect(() => {
+    if (isEditingAppliedTo) {
+      const field = appliedToFieldRef.current;
+      field?.focus({ preventScroll: true });
+      field?.setSelectionRange(field.value.length, field.value.length);
+      return;
+    }
+
+    if (restoreEditCommandFocusRef.current) {
+      restoreEditCommandFocusRef.current = false;
+      editCommandRef.current?.focus({ preventScroll: true });
+    }
+  }, [canEditAppliedTo, isEditingAppliedTo]);
+
+  const openAppliedToEditor = () => {
+    setAppliedToDraft(appliedTo);
+    setAppliedToError('');
+    setAnnouncement('');
+    restoreEditCommandFocusRef.current = false;
+    setIsEditingAppliedTo(true);
+  };
+
+  const closeAppliedToEditor = () => {
+    restoreEditCommandFocusRef.current = true;
+    setShowDiscardDecision(false);
+    setAppliedToError('');
+    setIsEditingAppliedTo(false);
+  };
+
+  const requestCancelAppliedTo = () => {
+    if (isSavingAppliedTo) return;
+    if (isAppliedToDirty) {
+      setShowDiscardDecision(true);
+      return;
+    }
+    closeAppliedToEditor();
+  };
+
+  const saveAppliedTo = async () => {
+    if (isSavingAppliedTo || !isAppliedToDirty) return;
+
+    const normalizedAppliedTo = appliedToDraft.trim();
+    if (!normalizedAppliedTo) {
+      setAppliedToError('กรุณาระบุข้อความการประยุกต์ใช้ก่อนบันทึก');
+      setAnnouncement('ยังบันทึกไม่ได้ กรุณาระบุข้อความการประยุกต์ใช้');
+      appliedToFieldRef.current?.focus({ preventScroll: true });
+      return;
+    }
+
+    setIsSavingAppliedTo(true);
+    setAppliedToError('');
+    try {
+      const result = await introductionService.updateAppliedTo({
+        documentId,
+        appliedTo: normalizedAppliedTo,
+      });
+      onAppliedToUpdated?.(result.appliedTo);
+      setAnnouncement('บันทึกการประยุกต์ใช้แล้ว');
+      closeAppliedToEditor();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setAppliedToError(`ไม่สามารถบันทึกการประยุกต์ใช้ได้: ${detail}`);
+      setAnnouncement('บันทึกการประยุกต์ใช้ไม่สำเร็จ');
+      appliedToFieldRef.current?.focus({ preventScroll: true });
+    } finally {
+      setIsSavingAppliedTo(false);
+    }
+  };
+
+  const handleAppliedToEditorKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape' && !isSavingAppliedTo) {
+      event.preventDefault();
+      event.stopPropagation();
+      requestCancelAppliedTo();
+      return;
+    }
+
+    const isSaveShortcut = (event.ctrlKey || event.metaKey)
+      && (event.code === 'KeyS' || event.key.toLowerCase() === 's');
+    if (isSaveShortcut) {
+      event.preventDefault();
+      event.stopPropagation();
+      void saveAppliedTo();
+    }
+  };
+
   const toThaiNumber = (num: number) => {
     return num.toString();
   };
 
-  const sections = [
-    {
-      title: "มาตรฐานกำลังพล",
-      content: `มาตรฐานกำลังพล ใช้สำหรับทดสอบกำลังพลทั้งนายทหารสัญญาบัตรและนายทหารประทวนที่จะต้องเข้าปฏิบัติหน้าที่ใดๆ เพื่อที่จะมั่นใจได้ว่าผู้ปฏิบัติมีความรู้ ความชำนาญอย่างพอเพียงที่สามารถปฏิบัติหน้าที่ต่างๆ ได้อย่างถูกต้องและปลอดภัย มาตรฐานนี้จึงประกอบด้วย คำถามและคำสั่งการปฏิบัติเรียงลำดับกันอย่างเป็นระเบียบ จาก ความรู้พื้นฐาน ระบบ การปฏิบัติหน้าที่ ที่อำนวยประโยชน์ให้ผู้เข้ารับการทดสอบสามารถเข้าใจลำดับขั้นในการศึกษาและการปฏิบัติ พร้อมทั้งผู้ทดสอบสามารถ คัดเลือก ปรับปรุงแก้ไข ให้การทดสอบครอบคลุมประเด็นสำคัญๆ ตรงตามสภาวะหรือสถานการณ์ที่ผู้เข้ารับการทดสอบต้องปฏิบัติหน้าที่จริง`,
-      isHighlight: false
-    },
-    {
-      title: "การประยุกต์ใช้",
-      content: `มาตรฐานกำลังพล เล่มนี้ ใช้กับ ${appliedTo}`,
-      isHighlight: true
-    },
-    {
-      title: "การปรับปรุงแก้ไข",
-      content: `แนวทางในการปรับปรุงแก้ไขเอกสารนี้ คือผู้ทดสอบที่ได้รับการแต่งตั้งในแต่ละอุปกรณ์จำนวน 1 คนหรือมากกว่า ทำการพิจารณาทบทวนในแต่ละหัวข้อ แล้วทำการยกเลิกส่วนต่างๆ ของระบบหรืออุปกรณ์ที่ไม่ได้ติดตั้งของหน่วยฯ จากนั้นให้เพิ่มเติม คำถามต่างๆ ในความรู้พื้นฐาน ระบบ และการปฏิบัติหน้าที่ ซึ่งเกี่ยวข้องกับระบบที่ติดตั้งของหน่วยฯ แต่ไม่มีอยู่ในเอกสารนี้ ท้ายสุดเอกสารนี้จะผ่านการตรวจสอบโดยหัวหน้าแผนก แล้วเสนอความต้องการในการปรับปรุงแก้ไขให้กับ หน.หน่วยฯ เพื่อเสนอปรับปรุงแก้ไขต่อไป`,
-      isHighlight: false
-    },
-    {
-      title: "ผู้ทดสอบ",
-      content: `หน.หน่วยฯ เป็นผู้แต่งตั้งผู้ทดสอบให้เป็นผู้ลงนามรับรองการผ่านการทดสอบ โดยผู้ทดสอบควรมียศจ่าเอก หรือสูงกว่า และจะต้องผ่านการทดสอบในหัวข้อที่จะทำการทดสอบที่ได้รับการลงนามรับรองเรียบร้อยแล้ว รายชื่อของผู้ทดสอบสามารถดูได้จากแผงประกาศรายชื่อผู้ทดสอบของหน่วยฯ`,
-      isHighlight: false
-    },
-    {
-      title: "เนื้อเรื่อง",
-      content: `มาตรฐานกำลังพล แบ่งออกเป็น 3 หัวข้อ คือ หัวข้อ 100 (ความรู้พื้นฐาน) ประกอบด้วยความรู้พื้นฐาน และรายการหนังสืออ้างอิง ที่จำเป็นสำหรับการปฏิบัติหน้าที่แต่ละตำแหน่ง เพื่อให้ผู้รับการทดสอบมีความรู้ ความเข้าใจในข้อระมัดระวังอันตรายทั่วไปและความรู้พื้นฐานของระบบ หัวข้อ 200 (ระบบ) เป็นหัวข้อที่ให้ผู้รับการทดสอบมีความรู้ความเข้าใจใน หน้าที่และหลักการทำงาน ส่วนประกอบและชิ้นส่วนประกอบของระบบ พร้อมทั้งมีความรู้ความเข้าใจในการเชื่อมต่อระบบ ค่าการทำงานปกติ สูงสุด ต่ำสุดของการทำงาน และข้อระมัดระวังอันตรายเฉพาะของระบบต่างๆ ที่เป็นส่วนประกอบในการปฏิบัติหน้าที่ หัวข้อ 300 (การปฏิบัติหน้าที่) เป็นหัวข้อที่เน้นการทดสอบทางปฏิบัติ โดยที่ผู้รับการทดสอบต้องสามารถปฏิบัติได้ตามที่กำหนดตามลำดับ ทั้งในสถานการณ์ปฏิบัติงานปกติ กรณีพิเศษ กรณีเหตุขัด กรณีเหตุฉุกเฉิน จนกระทั้งให้ผู้รับการทดสอบเข้าปฏิบัติประจำตำแหน่งจริง และอาจมีการสอบความรู้ ข้อเขียน หรือสอบปากเปล่า เป็นลำดับสุดท้ายด้วย`,
-      isHighlight: false
-    },
-    {
-      title: "เอกสารอ้างอิง",
-      content: `เอกสารอ้างอิงที่ใช้ ต้องเป็นเอกสารเล่มล่าสุดที่ใช้ในการปฏิบัติงาน และสามารถเบิกยืมหรือ ทราบแหล่งค้นคว้าได้โดยง่าย`,
-      isHighlight: false
-    },
-    {
-      title: "ผู้รับการทดสอบ",
-      content: `ผู้ควบคุมการทดสอบ จะเป็นผู้กำหนดหัวข้อ "การปฏิบัติหน้าที่" ที่จะต้องผ่านการทดสอบ ก่อนที่จะทำการทดสอบให้เปิดไปที่หัวข้อ 300 เพื่อตรวจดูหัวข้อการปฏิบัติหน้าที่ที่เกี่ยวข้องกับผู้รับการทดสอบ ซึ่งจะทำให้ทราบว่าจะต้องทำอะไรก่อนที่จะเริ่มการปฏิบัติหน้าที่ในแต่ละตำแหน่ง เช่น ผู้รับการทดสอบอาจจะต้องผ่านการทดสอบมาตรฐานกำลังพลเล่มอื่นมาก่อน ต้องผ่านการอบรมหลักสูตรจากโรงเรียน ต้องผ่านลำดับการปฏิบัติหน้าที่อื่นๆ ที่มีอยู่ในมาตรฐานกำลังพลเล่มนี้ ความรู้พื้นฐานและระบบใดที่ผู้รับการทดสอบจะต้องผ่านการทดสอบ ถ้ามีคำถามเพิ่มเติมหรือไม่สามารถหาเอกสารอ้างอิงได้ ให้ติดต่อกับผู้ควบคุมการทดสอบหรือผู้ทดสอบ`,
-      isHighlight: false
-    }
-  ];
+  const sections = createGeneralIntroductionSections(appliedTo);
 
   // Preview Mode - A4 Paper Format (like print)
   if (isPreviewMode) {
@@ -63,13 +164,18 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
 
           <ol className="list-none space-y-4">
             {sections.map((section, index) => (
-              <li key={index} className="flex items-baseline gap-[2ch]">
+              <li
+                key={section.id}
+                data-introduction-section-id={section.id}
+                data-content-authority={section.authority}
+                className="flex items-baseline gap-[2ch]"
+              >
                 <span className="font-bold min-w-fit">{toThaiNumber(index + 1)}.</span>
                 <div className="flex-1">
-                  <span className="font-bold">{section.title}</span>
-                  <div className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
+                  <h2 className="font-bold">{section.title}</h2>
+                  <p className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
                     {section.content.replace(/\s+/g, ' ').trim()}
-                  </div>
+                  </p>
                 </div>
               </li>
             ))}
@@ -81,6 +187,7 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
 
   // Edit Mode - Modern Card UI
   return (
+    <>
     <Container size="medium" padding="large" className="py-6 space-y-6">
       {/* Header Card */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-700 dark:to-blue-800 rounded-lg shadow-lg p-6 text-white">
@@ -94,11 +201,13 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
       </div>
 
       {/* Content Cards */}
-      <div className="space-y-4">
+      <ol className="list-none space-y-4">
         {sections.map((section, index) => (
-          <div
-            key={index}
-            className={`rounded-lg shadow-md border transition-all duration-200 hover:shadow-lg ${section.isHighlight
+          <li
+            key={section.id}
+            data-introduction-section-id={section.id}
+            data-content-authority={section.authority}
+            className={`rounded-lg shadow-md border ${section.authority === 'document'
                 ? 'bg-blue-50 dark:bg-blue-950 border-blue-300 dark:border-blue-700'
                 : 'bg-white dark:bg-github-bg-secondary border-github-border-primary'
               }`}
@@ -106,38 +215,170 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
             <div className="p-6">
               {/* Section Header */}
               <div className="flex items-start space-x-4 mb-3">
-                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${section.isHighlight
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${section.authority === 'document'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}>
                   {toThaiNumber(index + 1)}
                 </div>
                 <div className="flex-1">
-                  <h2 className={`text-lg font-bold ${section.isHighlight
+                  <h2 className={`text-lg font-bold ${section.authority === 'document'
                       ? 'text-blue-900 dark:text-blue-100'
                       : 'text-github-text-primary'
                     }`}>
                     {section.title}
                   </h2>
-                  {section.isHighlight && (
+                  {section.authority === 'document' && (
                     <span className="inline-block mt-1 px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">
-                      User Content
+                      ข้อมูลเฉพาะเอกสาร
                     </span>
                   )}
                 </div>
+                {section.authority === 'document' && canEditAppliedTo && !isEditingAppliedTo && (
+                  <Button
+                    ref={editCommandRef}
+                    variant="outline"
+                    size="small"
+                    icon={<Pencil className="h-4 w-4" />}
+                    aria-label="แก้ไขการประยุกต์ใช้"
+                    onClick={openAppliedToEditor}
+                  >
+                    แก้ไขการประยุกต์ใช้
+                  </Button>
+                )}
               </div>
 
               {/* Section Content */}
-              <div className={`text-justify leading-relaxed ml-12 ${section.isHighlight
-                  ? 'text-blue-900 dark:text-blue-100 font-medium'
-                  : 'text-github-text-secondary'
-                }`}>
-                {section.content}
-              </div>
+              {section.authority === 'document' && isEditingAppliedTo && canEditAppliedTo ? (
+                <div
+                  role="group"
+                  aria-labelledby={editorTitleId}
+                  aria-describedby={editorDescriptionId}
+                  className="ml-12 overflow-hidden rounded-lg border border-blue-400/60 bg-github-bg-secondary shadow-md dark:border-blue-500/50"
+                  onKeyDown={handleAppliedToEditorKeyDown}
+                >
+                  <div className="flex items-start gap-3 border-b border-github-border-primary bg-github-bg-tertiary px-4 py-3">
+                    <span
+                      aria-hidden="true"
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <h3 id={editorTitleId} className="font-semibold text-github-text-primary">
+                        แก้ไขการประยุกต์ใช้
+                      </h3>
+                      <p id={editorDescriptionId} className="mt-0.5 text-sm leading-relaxed text-github-text-secondary">
+                        แก้ไขเฉพาะข้อมูลของเอกสารเล่มนี้ โดยข้อความนำจะคงเดิมเสมอ
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 px-4 py-4">
+                    <div className="rounded-md border border-github-border-primary bg-github-bg-primary px-3 py-2.5">
+                      <span className="block text-xs font-medium text-github-text-tertiary">
+                        ข้อความนำคงที่
+                      </span>
+                      <p className="mt-1 text-sm text-github-text-secondary">
+                        มาตรฐานกำลังพล เล่มนี้ ใช้กับ
+                      </p>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor={`${editorTitleId}-field`}
+                        className="block text-sm font-semibold text-github-text-primary"
+                      >
+                        การประยุกต์ใช้ <span aria-hidden="true" className="text-red-400">*</span>
+                      </label>
+                      <textarea
+                        ref={appliedToFieldRef}
+                        id={`${editorTitleId}-field`}
+                        value={appliedToDraft}
+                        rows={4}
+                        required
+                        disabled={isSavingAppliedTo}
+                        aria-invalid={!!appliedToError || undefined}
+                        aria-describedby={`${fieldHelpId}${appliedToError ? ` ${fieldErrorId}` : ''}`}
+                        onChange={(event) => {
+                          setAppliedToDraft(event.target.value);
+                          if (appliedToError) setAppliedToError('');
+                        }}
+                        className="mt-2 w-full resize-y rounded-md border border-github-border-primary bg-github-bg-primary px-3 py-2.5 text-left font-normal leading-relaxed text-github-text-primary placeholder:text-github-text-tertiary hover:border-github-border-active focus:border-blue-400 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                      <p id={fieldHelpId} className="mt-1.5 text-xs leading-relaxed text-github-text-secondary">
+                        ข้อมูลนี้เป็นข้อมูลเฉพาะเอกสารและต้องไม่เว้นว่าง
+                      </p>
+                    </div>
+
+                    {appliedToError && (
+                      <div
+                        id={fieldErrorId}
+                        role="alert"
+                        className="rounded-md border border-red-400 bg-red-50 px-3 py-2.5 text-sm text-red-700 dark:border-red-500/70 dark:bg-red-950/40 dark:text-red-200"
+                      >
+                        <p className="font-medium">{appliedToError}</p>
+                        <button
+                          type="button"
+                          className={`mt-1.5 rounded text-red-700 underline underline-offset-2 hover:text-red-900 dark:text-red-100 dark:hover:text-white ${COMMAND_BUTTON_FOCUS}`}
+                          onClick={() => appliedToFieldRef.current?.focus({ preventScroll: true })}
+                        >
+                          กลับไปแก้ไขช่องการประยุกต์ใช้
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex min-h-14 flex-wrap items-center justify-between gap-3 border-t border-github-border-primary bg-github-bg-tertiary px-4 py-3">
+                    <div className="min-w-0 flex-1">
+                      {isAppliedToDirty && (
+                        <p
+                          id={dirtyStateId}
+                          className="inline-flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300"
+                        >
+                          <span aria-hidden="true" className="h-2 w-2 shrink-0 rounded-full bg-amber-400" />
+                          มีการแก้ไขที่ยังไม่ได้บันทึก
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="small"
+                        icon={<X className="h-4 w-4" />}
+                        disabled={isSavingAppliedTo}
+                        onClick={requestCancelAppliedTo}
+                      >
+                        ยกเลิก
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="small"
+                        icon={<Save className="h-4 w-4" />}
+                        loading={isSavingAppliedTo}
+                        loadingText="กำลังบันทึก..."
+                        disabled={!isAppliedToDirty}
+                        data-state={isSavingAppliedTo ? 'saving' : isAppliedToDirty ? 'dirty' : 'clean'}
+                        aria-describedby={isAppliedToDirty ? dirtyStateId : undefined}
+                        onClick={() => { void saveAppliedTo(); }}
+                      >
+                        บันทึก
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className={`text-justify leading-relaxed ml-12 ${section.authority === 'document'
+                    ? 'text-blue-900 dark:text-blue-100 font-medium'
+                    : 'text-github-text-secondary'
+                  }`}>
+                  {section.content}
+                </p>
+              )}
             </div>
-          </div>
+          </li>
         ))}
-      </div>
+      </ol>
 
       {/* Footer Note */}
       <div className="bg-github-bg-secondary dark:bg-gray-800 border border-github-border-primary dark:border-gray-700 rounded-lg p-4 text-sm text-github-text-secondary dark:text-gray-400">
@@ -147,6 +388,34 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({ appliedTo, isPrevie
         </p>
       </div>
     </Container>
+    <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+      {announcement}
+    </div>
+    <WorkflowModal
+      isOpen={showDiscardDecision}
+      title="การแก้ไขยังไม่ได้บันทึก"
+      message="ข้อความการประยุกต์ใช้มีการแก้ไขที่ยังไม่ได้บันทึก เลือกสิ่งที่ต้องการทำก่อนปิดฟอร์มนี้"
+      returnFocusRef={appliedToFieldRef}
+      onClose={() => setShowDiscardDecision(false)}
+      actions={[
+        {
+          id: 'continue-editing',
+          label: 'แก้ไขต่อ',
+          onSelect: () => setShowDiscardDecision(false),
+        },
+        {
+          id: 'discard-applied-to',
+          label: 'ละทิ้งการแก้ไข',
+          variant: 'danger',
+          onSelect: () => {
+            setAppliedToDraft(appliedTo);
+            closeAppliedToEditor();
+            setAnnouncement('ละทิ้งการแก้ไขการประยุกต์ใช้แล้ว');
+          },
+        },
+      ]}
+    />
+    </>
   );
 };
 

@@ -63,6 +63,22 @@ pub struct UpdateDocumentArgs {
     pub doc_type: String,
     pub user_level: String,
 }
+
+/// Narrow update contract for General Introduction item 2 (applied-to content).
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDocumentAppliedToArgs {
+    pub document_id: String,
+    pub applied_to: String,
+}
+
+/// Authoritative value returned after updating General Introduction item 2.
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateDocumentAppliedToResult {
+    pub document_id: String,
+    pub applied_to: String,
+}
 /// Career branch assignment for a document.
 #[derive(serde::Serialize)]
 pub struct DocumentBranch {

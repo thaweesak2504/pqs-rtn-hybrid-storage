@@ -242,8 +242,10 @@ const PqsExamplePage: React.FC = () => {
 
           {activeSection === 'intro' && docData && (
             <IntroductionView
+              documentId={docData.document.id}
               appliedTo={docData.document.applied_to}
               isPreviewMode={false}
+              viewMode={viewMode}
             />
           )}
 

@@ -45,6 +45,13 @@ pub fn update_document(args: content_database::UpdateDocumentArgs) -> Result<Str
 }
 
 #[tauri::command]
+pub fn update_document_applied_to(
+    args: content_database::UpdateDocumentAppliedToArgs,
+) -> Result<content_database::UpdateDocumentAppliedToResult, String> {
+    content_database::update_document_applied_to(args)
+}
+
+#[tauri::command]
 pub fn clone_document_for_simulation(
     template_document_id: String,
     trainee_id: String,

@@ -214,6 +214,19 @@ describe("ActiveDocumentPage integration", () => {
     });
   });
 
+  it("exposes Introduction item 2 editing only in the Source Creator view", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Introduction" }));
+    expect(await screen.findByRole("button", { name: "แก้ไขการประยุกต์ใช้" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /View As/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Visitor (Questions Only)" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "แก้ไขการประยุกต์ใช้" })).not.toBeInTheDocument();
+    });
+  });
+
   it("requires the active Simulation ID and presents authoritative clear results", async () => {
     simulationInfoState = {
       simulation_document_id: "DOC-DEL-101",

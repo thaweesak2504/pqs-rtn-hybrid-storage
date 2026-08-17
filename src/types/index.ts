@@ -19,6 +19,8 @@ export type {
   OwnerUnit,
   BackendDocument,
   UpdateDocumentArgs,
+  UpdateDocumentAppliedToArgs,
+  UpdateDocumentAppliedToResult,
   DocumentHierarchy,
   DocumentStats,
   DocumentBranch,

@@ -1,6 +1,5 @@
 use crate::logger;
 use rusqlite::{params, Connection};
-use std::time::SystemTime;
 
 use super::*;
 
@@ -10,44 +9,19 @@ use super::*;
 
 pub const FIXED_SECTION_101_TITLE: &str = "ข้อควรระมัดระวังอันตรายพื้นฐาน Safety Fundamentals";
 
-/// Seed template questions for a new document
-pub fn seed_document_template(
-    conn: &Connection,
-    doc_id: &str,
-    unit_name: &str,
-) -> Result<(), String> {
-    // 100 Introduction
-    let q100_id = generate_uuid();
+/// Create the empty guided structure owned by the Application Skeleton.
+///
+/// Introduction system content is rendered from typed application definitions,
+/// while General Introduction item 2 is stored in `Documents.applied_to`.
+/// Therefore the Skeleton persists only the mandatory Section 101 here and
+/// must not create authored or placeholder Questions.
+pub(crate) fn seed_application_skeleton(conn: &Connection, doc_id: &str) -> Result<(), String> {
     conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 100, ?3, ?4, ?5, 'none')",
-        params![q100_id, doc_id, 100, "100 Introduction", true]
-    ).map_err(|e| format!("Failed to seed 100: {}", e))?;
-
-    // 200 System Description (Using unit name as placeholder context)
-    let q200_id = format!(
-        "{:x}2",
-        SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    );
-    conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 200, ?3, ?4, ?5, 'none')",
-        params![q200_id, doc_id, 200, format!("200 System Description ({})", unit_name), true]
-    ).map_err(|e| format!("Failed to seed 200: {}", e))?;
-
-    // 300 Operations
-    let q300_id = format!(
-        "{:x}3",
-        SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    );
-    conn.execute(
-        "INSERT INTO Questions (id, document_id, section_id, sequence, content, is_header, answer_type) VALUES (?1, ?2, 300, ?3, ?4, ?5, 'none')",
-        params![q300_id, doc_id, 300, "300 Operations", true]
-    ).map_err(|e| format!("Failed to seed 300: {}", e))?;
+        "INSERT INTO Sections (document_id, section_group, section_number, title_th, menu_label, display_order, is_system_defined)
+         VALUES (?1, 100, 101, ?2, '101 Precautions', 1, 1)",
+        params![doc_id, FIXED_SECTION_101_TITLE],
+    )
+    .map_err(|e| format!("Failed to create Section 101: {}", e))?;
 
     Ok(())
 }

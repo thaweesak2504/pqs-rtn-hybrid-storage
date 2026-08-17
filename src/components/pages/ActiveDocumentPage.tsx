@@ -87,8 +87,10 @@ const ActiveDocumentPage: React.FC = () => {
   const [simulationListModal, setSimulationListModal] = useState(false);
   const [simulationCount, setSimulationCount] = useState<number | null>(null);
   const [simulationInfo, setSimulationInfo] = useState<SimulationDocumentInfo | null>(null);
+  const [simulationContextDocumentId, setSimulationContextDocumentId] = useState<string | null>(null);
   const viewAsButtonRef = useRef<HTMLButtonElement>(null);
   const isSimulation = simulationInfo !== null;
+  const isSimulationContextResolved = simulationContextDocumentId === docId;
 
   const fetchDocData = useCallback(() => {
     if (docId) {
@@ -181,6 +183,7 @@ const ActiveDocumentPage: React.FC = () => {
   };
 
   useEffect(() => {
+    let isActive = true;
     if (docId) {
       localStorage.setItem('lastActiveDocId', docId);
       fetchDocData();
@@ -188,7 +191,9 @@ const ActiveDocumentPage: React.FC = () => {
       fetchDocBranch();
       invoke<SimulationDocumentInfo | null>('get_simulation_document_info', { documentId: docId })
         .then(info => {
+          if (!isActive) return;
           setSimulationInfo(info);
+          setSimulationContextDocumentId(docId);
           setViewMode(info ? 'trainee' : 'edit');
           if (!info) {
             simulationService.listForTemplate(docId)
@@ -198,6 +203,9 @@ const ActiveDocumentPage: React.FC = () => {
         })
         .catch(err => logger.error('Failed to fetch simulation context:', err));
     }
+    return () => {
+      isActive = false;
+    };
   }, [docId, fetchDocData, fetchSections, fetchDocBranch]);
 
   if (!docId) return <div>Invalid Document ID</div>;
@@ -452,7 +460,22 @@ const ActiveDocumentPage: React.FC = () => {
             <CoverPageView id={docData.document.id} name={docData.document.name} hierarchy={docData.hierarchy} isPreviewMode={isPrintMode} />
           )}
           {activeSection === 'intro' && docData && (
-            <IntroductionView appliedTo={docData.document.applied_to} isPreviewMode={isPrintMode} />
+            <IntroductionView
+              documentId={docData.document.id}
+              appliedTo={docData.document.applied_to}
+              isPreviewMode={isPrintMode}
+              viewMode={viewMode}
+              isSimulation={!isSimulationContextResolved || isSimulation}
+              onAppliedToUpdated={(nextAppliedTo) => {
+                setDocData((current) => current ? {
+                  ...current,
+                  document: {
+                    ...current.document,
+                    applied_to: nextAppliedTo,
+                  },
+                } : current);
+              }}
+            />
           )}
           {activeSection === '100' && <Section100View isPreviewMode={isPrintMode} />}
           {activeSection === '200' && <Section200View isPreviewMode={isPrintMode} />}
