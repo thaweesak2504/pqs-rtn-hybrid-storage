@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeRaw from 'rehype-raw';
 import remarkGfm from 'remark-gfm';
-import { formatMarkdownWithThaiLists } from '../../utils/thaiNumbering';
+import { convertThaiToArabic, formatMarkdownWithThaiLists } from '../../utils/thaiNumbering';
 import { QuestionDetail } from '../../types/content';
 import { ReferenceDoc } from './reference/types';
 import { logger } from '../../utils/logger';
@@ -21,13 +21,7 @@ type PrintSubView = 'question-only' | 'question-with-key';
 
 // ============ Helpers ============
 
-const toThaiNumber = (num: number | string) => {
-  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().split('').map(d => {
-    const parsed = parseInt(d);
-    return !isNaN(parsed) && parsed >= 0 && parsed <= 9 ? thaiDigits[parsed] : d;
-  }).join('');
-};
+const toArabicNumber = (num: number | string) => convertThaiToArabic(num.toString());
 
 const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ญ', 'ด', 'ต', 'ถ', 'ท', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ส', 'ห', 'อ', 'ฮ'];
 
@@ -154,7 +148,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
           <div className="mb-4">
             <div className="flex mb-4">
               <div className="font-bold text-lg min-w-[8ch]">
-                {toThaiNumber(sectionNumber)}
+                {toArabicNumber(sectionNumber)}
               </div>
               <div className="flex-1">
                 <h1 className="font-bold text-lg mb-2">{title}</h1>
@@ -181,7 +175,7 @@ const PqsSectionPreview100: React.FC<PqsSectionPreviewProps> = ({
                 question={question}
                 index={index}
                 level={0}
-                parentPath={toThaiNumber(sectionNumber)}
+                parentPath={toArabicNumber(sectionNumber)}
                 sectionNumber={sectionNumber}
                 sectionGroup={sectionGroup}
                 docId={docId}
@@ -221,12 +215,12 @@ const PreviewQuestionNode: React.FC<PreviewQuestionNodeProps> = ({
   mode = "viewer",
   showAnswerKey = false,
 }) => {
-  // Build numbering: 100/300: L0 = ๑๐๑.๑, L1 = ก.
+  // Build numbering: 100/300: L0 = 101.1, L1 = ก.
   let displayNumber = '';
   let fullPath = '';
 
   if (level === 0) {
-    displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+    displayNumber = `${parentPath}.${toArabicNumber(index + 1)}`;
     fullPath = displayNumber;
   } else {
     displayNumber = toThaiAlphabet(index);

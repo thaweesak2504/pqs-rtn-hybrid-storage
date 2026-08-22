@@ -31,6 +31,97 @@ describe("PqsSectionPreview200 - Answer Box Display", () => {
     vi.mocked(invoke).mockReset();
   });
 
+  it("keeps reference pages in the question text flow instead of a separate flex item", async () => {
+    const parentQuestion: QuestionDetail = {
+      id: "q-parent",
+      document_id: "DOC-1",
+      section_id: 201,
+      parent_id: null,
+      sequence: 2,
+      content: "ส่วนประกอบและชิ้นส่วนในส่วนประกอบของระบบ",
+      is_header: true,
+      description: null,
+      answer_type: "text",
+      metadata: null,
+      score: null,
+      question_type: "normal",
+      group_score: null,
+      display_text: null,
+      is_group_header: false,
+      is_scored: false,
+      choices: [],
+      references: [],
+      children: [],
+    };
+    const childQuestion: QuestionDetail = {
+      id: "q-child",
+      document_id: "DOC-1",
+      section_id: 201,
+      parent_id: "q-parent",
+      sequence: 1,
+      content: "Test question using all the way of this books add with question number 201.2",
+      is_header: false,
+      description: null,
+      answer_type: "text",
+      metadata: JSON.stringify({ selectedSubQuestions: ["20000001"] }),
+      score: 10,
+      question_type: "normal",
+      group_score: null,
+      display_text: null,
+      is_group_header: false,
+      is_scored: true,
+      choices: [],
+      references: [
+        {
+          id: 1,
+          question_id: "q-child",
+          reference_id: 11,
+          location_text: "25",
+          display_order: 1,
+          thai_letter: "ก",
+          reference: {
+            id: 11,
+            code: "REF-11",
+            title: "Reference One",
+            category: null,
+            classification: null,
+            resource_type: "DOCUMENT",
+            file_path: null,
+          },
+        },
+      ],
+      children: [],
+    };
+
+    vi.mocked(invoke).mockImplementation(async (cmd) => {
+      if (cmd === "get_document_questions_with_details") return [parentQuestion, childQuestion];
+      if (cmd === "get_question_answer_keys") return [];
+      return null;
+    });
+
+    const { container } = render(
+      <PqsSectionPreview200
+        docId="DOC-1"
+        sectionId={201}
+        sectionNumber={201}
+        title="Section 201"
+        references={[]}
+        sectionGroup={200}
+        mode="print"
+      />,
+    );
+
+    await waitFor(() => {
+      const copy = container.querySelector<HTMLElement>('[data-print-question-copy="q-child"]');
+      const referencePages = container.querySelector<HTMLElement>('[data-print-reference-pages="q-child"]');
+
+      expect(copy).toHaveTextContent(`${childQuestion.content} (ก.25)`);
+      expect(copy).toContainElement(referencePages);
+      expect(referencePages).toHaveClass("inline-block", "whitespace-nowrap");
+      expect(copy).not.toHaveClass("flex");
+    });
+  });
+
   it("hydrates the exact persisted Section 200 subquestion answer", async () => {
     const question: QuestionDetail = {
       id: "q-hydrate",

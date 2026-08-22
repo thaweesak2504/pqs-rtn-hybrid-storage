@@ -126,3 +126,9 @@ Product Owner ยืนยันเมื่อ 2026-08-17 ว่า Content Aut
 
 - แก้ได้เฉพาะ General Introduction ข้อ 2 `การประยุกต์ใช้` ต่อเอกสาร
 - General Introduction ข้ออื่น และ Section 100/200/300 Introduction เป็นข้อความมาตรฐานที่ล็อกไว้
+
+## Next Phase Prepared
+
+Introduction Phase 2 ยืนยันว่า System Introduction ใช้ Live Update และ `applied_to` ยังคงเป็น Document Content แยกต่างหาก การแก้ System Content ต้องผ่านการประชุม/รับรองเนื้อหา แล้วให้ Developer แก้ Code, ตรวจสอบ และออก Application Version ใหม่เท่านั้น ไม่สร้าง Global Admin editor กระจายตามแต่ละแหล่ง รายละเอียดอยู่ที่ `INTRODUCTION_CONTENT_VERSIONING_PLAN.md`
+
+Release/Rollback และ Compatibility work จาก I2.3–I2.4 ถูกย้ายไปรวมกับ Version domains อื่นใน `VERSIONING_AND_DISTRIBUTION_HANDOFF.md` เพื่อไม่สร้าง Version mechanism เฉพาะ Introduction ส่วนงาน Product ถัดไปเตรียมกลับไปที่ `SECTION_300_QUALIFICATION_WORKFLOW_BASELINE.md` โดยเริ่มจาก Integrity Foundation ก่อน UX/Admin/Portability

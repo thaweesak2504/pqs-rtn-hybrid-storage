@@ -155,7 +155,7 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({
   if (isPreviewMode) {
     return (
       <div className="flex justify-center bg-github-bg-primary min-w-fit transition-colors duration-300">
-        <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-github-text-primary box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_2.0cm_2.0cm_3.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
+        <div className="bg-white dark:bg-github-bg-secondary text-black dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_2.0cm_2.0cm_3.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
           <div className="mb-8">
             <h1 className='font-bold text-center text-lg'>
               กล่าวนำ
@@ -173,7 +173,7 @@ const IntroductionView: React.FC<IntroductionViewProps> = ({
                 <span className="font-bold min-w-fit">{toThaiNumber(index + 1)}.</span>
                 <div className="flex-1">
                   <h2 className="font-bold">{section.title}</h2>
-                  <p className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
+                  <p className="text-justify indent-8 font-normal mt-1 whitespace-pre-line">
                     {section.content.replace(/\s+/g, ' ').trim()}
                   </p>
                 </div>

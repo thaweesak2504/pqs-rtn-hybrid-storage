@@ -352,6 +352,32 @@
   background-color: rgba(255, 255, 255, 0.03);
 }
 
+/*
+ * Print Layout is a monochrome document surface. This route-level override must
+ * win over both semantic Tailwind text colors and inline Tiptap color marks,
+ * while normal Creator/Trainee/Qualifier views keep their authored colors.
+ */
+.pqs-print-monochrome {
+  --pqs-print-ink: #111827;
+  color: var(--pqs-print-ink) !important;
+  -webkit-text-fill-color: var(--pqs-print-ink) !important;
+}
+
+.pqs-print-monochrome * {
+  color: var(--pqs-print-ink) !important;
+  -webkit-text-fill-color: var(--pqs-print-ink) !important;
+}
+
+.dark .pqs-print-monochrome {
+  --pqs-print-ink: var(--github-text-primary);
+}
+
+@media print {
+  .pqs-print-monochrome {
+    --pqs-print-ink: #000000;
+  }
+}
+
 /* Align 1.2.3. numbers with the text of ก.ข.ค. when they are used together */
 .thai-list-item ~ ol,
 .thai-list-item ~ ul {

@@ -9,7 +9,7 @@ import Tooltip from '../ui/Tooltip';
 import { ReferenceDoc } from './reference/types';
 import TraineeAnswerBox from './TraineeAnswerBox';
 import { logger } from '../../utils/logger';
-import { buildFullPrefix } from '../../utils/thaiNumbering';
+import { buildFullPrefix, convertThaiToArabic } from '../../utils/thaiNumbering';
 import { UserAnswer } from './PqsQuestionSection';
 
 interface AnswerKeyRow {
@@ -25,13 +25,7 @@ type PrintSubView = 'question-only' | 'question-with-key';
 
 // ============ Helpers ============
 
-const toThaiNumber = (num: number | string) => {
-  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().split('').map(d => {
-    const parsed = parseInt(d);
-    return !isNaN(parsed) && parsed >= 0 && parsed <= 9 ? thaiDigits[parsed] : d;
-  }).join('');
-};
+const toArabicNumber = (num: number | string) => convertThaiToArabic(num.toString());
 
 const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ญ', 'ด', 'ต', 'ถ', 'ท', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ส', 'ห', 'อ', 'ฮ'];
 
@@ -186,7 +180,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
         <div className="mb-4">
           <div className="flex mb-4">
             <div className="font-bold text-lg min-w-[8ch]">
-              {toThaiNumber(sectionNumber)}
+              {toArabicNumber(sectionNumber)}
             </div>
             <div className="flex-1">
               <h1 className="font-bold text-lg mb-2">{title}</h1>
@@ -217,7 +211,7 @@ const PqsSectionPreview200: React.FC<PqsSectionPreviewProps> = ({
               question={question}
               index={index}
               level={0}
-              parentPath={toThaiNumber(sectionNumber)}
+              parentPath={toArabicNumber(sectionNumber)}
               sectionNumber={sectionNumber}
               sectionGroup={sectionGroup}
               docId={docId}
@@ -286,10 +280,10 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   if (is200) {
     // 200: L0 = เน’เนเน‘.เน‘, L1 = เน’เนเน‘.เน‘.เน‘, L2 = เธ.
     if (level === 0) {
-      displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+      displayNumber = `${parentPath}.${toArabicNumber(index + 1)}`;
       fullPath = displayNumber;
     } else if (level === 1) {
-      displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+      displayNumber = `${parentPath}.${toArabicNumber(index + 1)}`;
       fullPath = displayNumber;
     } else {
       displayNumber = toThaiAlphabet(index);
@@ -298,7 +292,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
   } else {
     // 100/300: L0 = เน‘เนเน‘.เน‘, L1 = เธ.
     if (level === 0) {
-      displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+      displayNumber = `${parentPath}.${toArabicNumber(index + 1)}`;
       fullPath = displayNumber;
     } else {
       displayNumber = toThaiAlphabet(index);
@@ -460,7 +454,7 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
           {/* Row 1: Content + Refs + Inline SubQ Checkboxes */}
           <div className={`flex items-center gap-2 min-w-0 ${inlineSubQItems ? "pr-2" : ""}`}>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="break-words" data-print-question-copy={question.id}>
                 <span className={level === 0 ? 'font-bold' : ''}>
                   {question.content}
                 </span>
@@ -471,9 +465,15 @@ const PreviewQuestionNode200: React.FC<PreviewQuestionNode200Props> = ({
                   </span>
                 )}
                 {refText && (
-                  <span className="ml-2 text-sm text-slate-500 dark:text-slate-400 font-normal">
-                    {refText}
-                  </span>
+                  <>
+                    {' '}
+                    <span
+                      className="inline-block whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 font-normal"
+                      data-print-reference-pages={question.id}
+                    >
+                      {refText}
+                    </span>
+                  </>
                 )}
               </div>
             </div>

@@ -455,7 +455,10 @@ const ActiveDocumentPage: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-8 bg-github-bg-primary">
+        <div
+          className={`flex-1 overflow-y-auto p-8 bg-github-bg-primary ${isPrintMode ? 'pqs-print-monochrome' : ''}`}
+          data-print-color-mode={isPrintMode ? 'monochrome' : undefined}
+        >
           {activeSection === 'cover' && docData && (
             <CoverPageView id={docData.document.id} name={docData.document.name} hierarchy={docData.hierarchy} isPreviewMode={isPrintMode} />
           )}

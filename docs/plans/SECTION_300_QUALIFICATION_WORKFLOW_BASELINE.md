@@ -4,6 +4,8 @@
 **Created:** 2026-08-12
 **Scope:** หลักการคุณสมบัติ ความสัมพันธ์กับ Section 100/200, Trainee/Qualifier/Admin workflow, progress/scoring และ navigation ของ Section 300
 
+**Next entry prepared (2026-08-22):** หลังปิด Introduction Batch I2.2 ให้กลับมาเริ่ม Slice A ด้วย read-only audit ของ persistent ordering, Simulation `refSectionId` remapping และ linked-progress/recalculation contract จากหลักฐาน `22730203001-SIM-013` ก่อนแก้ Code; Version/Issued Copy decisions ที่กว้างกว่านี้เก็บใน `VERSIONING_AND_DISTRIBUTION_HANDOFF.md`
+
 เอกสารนี้เป็น Baseline สำหรับอภิปรายและวางแผน ไม่ใช่ข้ออนุญาตให้แก้ Schema, ข้อมูลจริง หรือ Sample/Source Document โดยอัตโนมัติ เมื่อข้อความในเอกสารนี้ต่างจาก Tested Rust/SQLite policy ให้ถือ Tested Rust/SQLite policy เป็นพฤติกรรมปัจจุบัน และบันทึกช่องว่างไว้ก่อนแก้ไข
 
 ## 1. ขอบเขตข้อมูลที่ใช้พัฒนา

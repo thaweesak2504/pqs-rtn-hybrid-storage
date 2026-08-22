@@ -227,6 +227,27 @@ describe("ActiveDocumentPage integration", () => {
     });
   });
 
+  it("applies the monochrome document surface only in Print Layout", async () => {
+    const { container } = renderPage();
+
+    await screen.findByRole("button", { name: /101 Precautions/i });
+    expect(container.querySelector('[data-print-color-mode="monochrome"]')).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Print Layout \(A4\)/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Answer Key (เล่มเฉลย)" }));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-print-color-mode="monochrome"]')).toHaveClass(
+        "pqs-print-monochrome",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => {
+      expect(container.querySelector('[data-print-color-mode="monochrome"]')).toBeNull();
+    });
+  });
+
   it("requires the active Simulation ID and presents authoritative clear results", async () => {
     simulationInfoState = {
       simulation_document_id: "DOC-DEL-101",

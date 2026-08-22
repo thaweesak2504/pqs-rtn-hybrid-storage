@@ -22,7 +22,7 @@ const CoverPageView: React.FC<CoverPageViewProps> = ({ id, name, hierarchy, isPr
     return (
       <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit font-['TH_Sarabun_New',sans-serif] transition-colors duration-300">
         {/* A4 Paper Container */}
-        <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-github-text-primary box-border mx-auto w-[210mm] min-h-[297mm] relative overflow-hidden transition-colors duration-300">
+        <div className="bg-white dark:bg-github-bg-secondary text-black dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary box-border mx-auto w-[210mm] min-h-[297mm] relative overflow-hidden transition-colors duration-300">
 
           {/* Page Content padding matching CSS: 2.5cm 2.0cm 2.0cm 3.0cm */}
           <div className="p-[2.5cm_2.0cm_2.0cm_3.0cm] h-full flex flex-col items-center">

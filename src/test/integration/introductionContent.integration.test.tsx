@@ -31,6 +31,8 @@ const getAllContent = (sections: readonly IntroductionSectionContent[]) => secti
   ]) ?? []),
 ]).filter(Boolean);
 
+const chromaticTextClassPattern = /(?:^|\s)(?:dark:)?text-(?:red|orange|amber|yellow|green|emerald|blue|purple|indigo|pink|cyan|teal)-\d+(?:\s|$)/;
+
 interface IntroductionViewCase {
   readonly name: string;
   readonly sections: readonly IntroductionSectionContent[];
@@ -159,6 +161,10 @@ describe.each(viewCases)('$name rendering', ({ sections, renderView }) => {
     expect(sectionElements.every((element) => element.tagName === 'LI')).toBe(true);
     if (!isPreviewMode) {
       expect(sectionElements.every((element) => !element.className.includes('hover:'))).toBe(true);
+    } else {
+      const chromaticElements = Array.from(container.querySelectorAll<HTMLElement>('[class]'))
+        .filter((element) => chromaticTextClassPattern.test(element.className));
+      expect(chromaticElements).toEqual([]);
     }
 
     const renderedText = normalizeText(container.textContent);

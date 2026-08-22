@@ -3,16 +3,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { QuestionDetail } from '../../types/content';
 import Tooltip from '../ui/Tooltip';
 import { logger } from '../../utils/logger';
+import { convertThaiToArabic } from '../../utils/thaiNumbering';
 
 // ============ Helpers ============
 
-const toThaiNumber = (num: number | string) => {
-  const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
-  return num.toString().split('').map(d => {
-    const parsed = parseInt(d);
-    return !isNaN(parsed) && parsed >= 0 && parsed <= 9 ? thaiDigits[parsed] : d;
-  }).join('');
-};
+const toArabicNumber = (num: number | string) => convertThaiToArabic(num.toString());
 
 const thaiAlpha = ['ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ญ', 'ด', 'ต', 'ถ', 'ท', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ', 'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ส', 'ห', 'อ', 'ฮ'];
 
@@ -117,7 +112,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
         <div className="mb-4">
           <div className="flex mb-4">
             <div className="font-bold text-lg min-w-[8ch]">
-              {toThaiNumber(sectionNumber)}
+              {toArabicNumber(sectionNumber)}
             </div>
             <div className="flex-1">
               <h1 className="font-bold text-lg mb-1">
@@ -138,7 +133,7 @@ const PqsSectionPreview300: React.FC<PqsSectionPreview300Props> = ({
               question={question}
               index={index}
               level={0}
-              parentPath={toThaiNumber(sectionNumber)}
+              parentPath={toArabicNumber(sectionNumber)}
               sectionNumber={sectionNumber}
               docBranch={docBranch}
             />
@@ -175,17 +170,17 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
     try { return JSON.parse(question.metadata); } catch { return {}; }
   }, [question.metadata]);
 
-  // Numbering: L0 = ๓xx.๑, L1 = ๓xx.๑.๑, L2 = ก.
+  // Numbering: L0 = 3xx.1, L1 = 3xx.1.1, L2 = ก.
   let displayNumber = '';
   let fullPath = '';
   if (meta.refSectionNumber) {
-    displayNumber = toThaiNumber(meta.refSectionNumber);
+    displayNumber = toArabicNumber(meta.refSectionNumber);
     fullPath = `${parentPath} ${displayNumber}`;
   } else if (level === 0) {
-    displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+    displayNumber = `${parentPath}.${toArabicNumber(index + 1)}`;
     fullPath = displayNumber;
   } else if (level === 1) {
-    displayNumber = `${parentPath}.${toThaiNumber(index + 1)}`;
+    displayNumber = `${parentPath}.${toArabicNumber(index + 1)}`;
     fullPath = displayNumber;
   } else {
     displayNumber = toThaiAlphabet(index);
@@ -238,7 +233,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
 
   const childLayout: 'list' | 'grid' = meta.childLayout === 'grid' ? 'grid' : 'list';
   const contentOffsetClass = level === 0 ? 'ml-0' : 'ml-[9ch]';
-  const isExamChildPrintNode = level === 1 && parentPath.endsWith(`.${toThaiNumber(7)}`);
+  const isExamChildPrintNode = level === 1 && parentPath.endsWith(`.${toArabicNumber(7)}`);
 
   return (
     <div className="flex flex-col">
@@ -251,7 +246,7 @@ const PreviewQuestionNode300: React.FC<PreviewQuestionNode300Props> = ({
         <div className="flex-1">
           <div className={`flex items-center gap-2 min-w-0`}>
             <div className="flex-1 min-w-0">
-              <span className={level === 0 || (level === 1 && parentPath.endsWith(`.${toThaiNumber(1)}`)) ? 'font-bold' : ''}>
+              <span className={level === 0 || (level === 1 && parentPath.endsWith(`.${toArabicNumber(1)}`)) ? 'font-bold' : ''}>
                 {question.content}
               </span>
               {/* Exempted text */}

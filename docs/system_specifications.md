@@ -287,10 +287,16 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 - Product Owner อนุมัติ Option C เมื่อ 17 สิงหาคม 2569: เอกสารใหม่ต้องเริ่มจาก Application Skeleton ที่ persist เฉพาะ Section 101 ซึ่งบังคับ ชื่อคงที่ และลบไม่ได้; ห้าม seed Introduction เป็น Question placeholder
 - Migration version 3 ลบเฉพาะ record ที่ตรง legacy signature และไม่มี `Sections.id` จริงของ Document เดียวกัน ก่อนลบต้อง preflight ว่าไม่มี child, Answer Key, Choice, Reference, Question/Subquestion link, Question/Section link หรือ User Answer; หากพบ dependency ต้อง abort และ rollback ทั้ง migration ห้าม cascade เงียบ ๆ
 - Simulation clone ต้อง map Question ทุกข้อไปยัง Section จริงที่ถูก clone เท่านั้น ห้าม preserve virtual `section_id` 100/200/300
+- System Introduction ใช้นโยบาย Live Update: General ข้อ 1 และ 3–7 รวมทั้ง Section 100/200/300 Introduction แสดงข้อความมาตรฐานล่าสุดจาก Application แก่ Source, Simulation/Trainee, Qualifier, Visitor และ Print Layout พร้อมกัน โดยไม่เก็บ per-document snapshot/version
+- Live Update ต้องไม่เขียนทับ General ข้อ 2 `การประยุกต์ใช้` ซึ่งยังเป็น `Documents.applied_to`
+- System Introduction ต้องผ่านการประชุม/รับรองเนื้อหาก่อน แล้วให้ Developer แก้ typed definitions ใน Code, รันการตรวจสอบ และออก Application Version ใหม่เพื่อกระจายข้อความเดียวกันทุกแหล่ง ห้ามเพิ่ม Global Admin editor หรือ local publish command ที่ทำให้แต่ละแหล่งแก้มาตรฐานแยกกัน เว้นแต่ Product Owner เปิดทบทวนนโยบายนี้ใหม่อย่างชัดเจน
 
 ### 7.2 Print Layout & A4 Pagination (Pending)
 
 - Print Layout ปัจจุบันใช้สำหรับดูเอกสารแบบหน้าต่อเนื่อง โดยแยก `Question only` สำหรับ Trainee และ `Question with answer key` สำหรับ Qualifier
+- Print Layout ต้องแสดงตัวอักษรแบบ monochrome พร้อมพิมพ์ในทุกส่วน รวมถึง Introduction, Question, Answer Key และ rich text ที่มีสีจาก Tiptap; สีสำหรับสถานะ/Section identity/ข้อความที่ผู้เขียนกำหนดคงแสดงได้เฉพาะ normal Creator/Trainee/Qualifier/Visitor views และต้องไม่หลุดเข้า Print Layout
+- ตำแหน่งหน้าเอกสารอ้างอิงของคำถาม Section 100/200 ต้องอยู่ใน text flow ต่อท้ายข้อความคำถาม ไม่แยกเป็นคอลัมน์ที่บีบข้อความหรือไปติดกับตัวเลือกคำถามย่อย
+- เลข Section และเลขลำดับคำถามอัตโนมัติใน Print Layout ใช้เลขอารบิกเหมือน Editor และมุมมองงาน (`101.1`, `201.2.1`, `301.1`); อักษรลำดับไทย เช่น `ก.`, `ข.` ยังคงใช้ตามโครงเอกสาร
 - การสั่งพิมพ์จริงแบบแบ่งหน้า A4 ยังเป็นงานค้าง เพราะ page break และการตัดบรรทัดของเนื้อหาที่มีความยาวไม่คงที่ยังไม่ถูกต้อง
 - ห้ามถือว่า Continuous Print Layout ปัจจุบันเป็นผลลัพธ์ PDF/A4 ขั้นสุดท้ายจนกว่างาน pagination จะแล้วเสร็จ
 

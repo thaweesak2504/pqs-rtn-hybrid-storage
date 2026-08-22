@@ -27,7 +27,7 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
   if (isPreviewMode) {
     return (
       <div className="flex justify-center bg-github-bg-primary p-8 min-w-fit transition-colors duration-300">
-        <div className="bg-white dark:bg-github-bg-secondary dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary text-github-text-primary box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_2.0cm_2.0cm_3.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
+        <div className="bg-white dark:bg-github-bg-secondary text-black dark:text-github-text-primary shadow-lg dark:shadow-2xl dark:border dark:border-github-border-primary box-border mx-auto w-[210mm] min-h-[297mm] p-[2.5cm_2.0cm_2.0cm_3.0cm] font-['TH_Sarabun_New',sans-serif] leading-[1.8] text-base transition-colors duration-300">
           <div className="mb-8">
             <h1 className='font-bold text-center text-lg'>
               แนะระบบ (หัวข้อ 200)
@@ -44,7 +44,7 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
                 <span className="font-bold min-w-fit">{toThaiNumber(index + 1)}.</span>
                 <div className="flex-1">
                   <h2 className="font-bold">{section.title}</h2>
-                  <p className="text-justify indent-8 font-normal mt-1 whitespace-pre-line text-github-text-primary dark:text-github-text-primary">
+                  <p className="text-justify indent-8 font-normal mt-1 whitespace-pre-line">
                     {section.content.replace(/\s+/g, ' ').trim()}
                   </p>
 
@@ -53,8 +53,8 @@ const Section200View: React.FC<Section200ViewProps> = ({ isPreviewMode = false }
                     <ol className="list-none mt-2 space-y-1 ml-8">
                       {section.subItems.map((item, subIndex) => (
                         <li key={item.id} className="flex items-baseline gap-[1ch]">
-                          <span className="min-w-fit font-normal text-orange-700 dark:text-orange-400">{toThaiAlphabet(subIndex)}.</span>
-                          <p className="flex-1 text-justify text-slate-700 dark:text-slate-300">
+                          <span className="min-w-fit font-normal">{toThaiAlphabet(subIndex)}.</span>
+                          <p className="flex-1 text-justify">
                             {item.content}
                           </p>
                         </li>
