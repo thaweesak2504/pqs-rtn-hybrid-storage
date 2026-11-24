@@ -51,13 +51,21 @@ fn remap_cloned_question_section(
 }
 
 /// Create an isolated document copy for the current Trainee/Qualifier simulation.
-/// The source template remains untouched; answers, progress, and trainee attachments
+/// The source document remains untouched; answers, progress, and trainee attachments
 /// are deliberately not copied.
 pub fn clone_document_for_simulation(
     template_document_id: String,
     trainee_id: String,
 ) -> Result<SimulationDocumentInfo, String> {
     let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    clone_document_for_simulation_with_conn(&mut conn, template_document_id, trainee_id)
+}
+
+pub(crate) fn clone_document_for_simulation_with_conn(
+    conn: &mut Connection,
+    template_document_id: String,
+    trainee_id: String,
+) -> Result<SimulationDocumentInfo, String> {
     if trainee_id.trim().is_empty() {
         return Err("Trainee ID is required".to_string());
     }
@@ -196,7 +204,8 @@ pub fn clone_document_for_simulation(
             // virtual Introduction rows are removed by migration 3 and must
             // never be carried into a newly issued Simulation.
             let new_section = remap_cloned_question_section(&section_map, q.section_id, &q.id)?;
-            tx.execute("INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored, is_template) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0)", params![new_id, simulation_document_id, new_section, new_parent, q.sequence, q.content, q.is_header, q.description, q.answer_type, q.metadata, q.score, q.question_type, q.group_score, q.display_text, q.is_group_header, q.is_scored]).map_err(|e| e.to_string())?;
+            let metadata = remap_cloned_section_reference(&section_map, &q)?;
+            tx.execute("INSERT INTO Questions (id, document_id, section_id, parent_id, sequence, content, is_header, description, answer_type, metadata, score, question_type, group_score, display_text, is_group_header, is_scored, is_template) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, 0)", params![new_id, simulation_document_id, new_section, new_parent, q.sequence, q.content, q.is_header, q.description, q.answer_type, metadata, q.score, q.question_type, q.group_score, q.display_text, q.is_group_header, q.is_scored]).map_err(|e| e.to_string())?;
             question_map.insert(q.id, new_id);
             inserted += 1;
         }
@@ -229,13 +238,14 @@ pub fn clone_document_for_simulation(
             .map_err(|e| e.to_string())?;
         drop(link_stmt);
         for (old_linked_section, score, display_order) in source_links {
-            if let Some(new_linked_section) = section_map.get(&old_linked_section) {
-                tx.execute(
+            let new_linked_section = section_map.get(&old_linked_section).ok_or_else(|| {
+                format!("Source question {old_question} links to section {old_linked_section} outside the source document")
+            })?;
+            tx.execute(
                     "INSERT OR IGNORE INTO QuestionSectionLinks (question_id, section_id, score, display_order) VALUES (?1, ?2, ?3, ?4)",
                     params![new_question, new_linked_section, score, display_order],
                 )
                 .map_err(|e| e.to_string())?;
-            }
         }
     }
     for (old_section, new_section) in &section_map {
@@ -249,6 +259,39 @@ pub fn clone_document_for_simulation(
         template_document_id,
         trainee_id: trainee_id.trim().to_string(),
     })
+}
+
+/// Remap only the internal Section ID, preserving authored metadata and numbering.
+/// Invalid links abort the enclosing clone transaction rather than creating a copy
+/// that reads another document's Sections (or silently loses requirements).
+fn remap_cloned_section_reference(
+    section_map: &HashMap<i64, i64>,
+    question: &SourceQuestion,
+) -> Result<Option<String>, String> {
+    if question.question_type != "section_ref" {
+        return Ok(question.metadata.clone());
+    }
+    let invalid = || {
+        format!(
+            "Source question {} has invalid section reference metadata",
+            question.id
+        )
+    };
+    let raw = question.metadata.as_deref().ok_or_else(invalid)?;
+    let mut metadata: serde_json::Value = serde_json::from_str(raw).map_err(|_| invalid())?;
+    let source_id = metadata
+        .get("refSectionId")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|id| *id > 0)
+        .ok_or_else(invalid)?;
+    let target_id = section_map.get(&source_id).ok_or_else(|| {
+        format!(
+            "Source question {} links to section {source_id} outside the source document",
+            question.id
+        )
+    })?;
+    metadata["refSectionId"] = serde_json::json!(target_id);
+    Ok(Some(metadata.to_string()))
 }
 
 #[cfg(test)]

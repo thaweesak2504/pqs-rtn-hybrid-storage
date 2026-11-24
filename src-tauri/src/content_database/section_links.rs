@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection};
+use std::collections::BTreeSet;
 
 use super::*;
 
@@ -316,7 +317,7 @@ pub fn get_section_ref_children_inner(
             "SELECT id, parent_id, sequence, content, score, metadata
          FROM Questions
          WHERE parent_id = ?1 AND question_type = 'section_ref'
-         ORDER BY sequence",
+         ORDER BY sequence, id",
         )
         .map_err(|e| e.to_string())?;
 
@@ -361,9 +362,114 @@ pub fn get_section_ref_children_inner(
     Ok(children)
 }
 
+fn validate_section_ref_parent(
+    conn: &Connection,
+    parent_id: &str,
+    document_id: &str,
+    section_id: i64,
+) -> Result<(), String> {
+    let valid: bool = conn
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM Questions q JOIN Sections s ON s.id = q.section_id
+         WHERE q.id = ?1 AND q.document_id = ?2 AND s.document_id = ?2 AND s.id = ?3)",
+            params![parent_id, document_id, section_id],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+    if !valid {
+        return Err("Section reference parent does not belong to this document/section".into());
+    }
+    Ok(())
+}
+
+fn section_ref_number(
+    conn: &Connection,
+    document_id: &str,
+    section_id: i64,
+) -> Result<i32, String> {
+    conn.query_row(
+        "SELECT section_number FROM Sections WHERE id = ?1 AND document_id = ?2",
+        params![section_id, document_id],
+        |row| row.get(0),
+    )
+    .map_err(|_| {
+        format!("Referenced section {section_id} does not belong to document {document_id}")
+    })
+}
+
+/// Persist number order only for this parent's references. Never rewrite metadata,
+/// scores, IDs or non-reference siblings. Called inside the mutation transaction,
+/// not as a side effect of reading/starting the app.
+fn normalize_section_ref_sequences(
+    conn: &rusqlite::Transaction<'_>,
+    parent_id: &str,
+) -> Result<(), String> {
+    let (document_id, section_id): (String, i64) = conn
+        .query_row(
+            "SELECT document_id, section_id FROM Questions WHERE id = ?1",
+            [parent_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|e| e.to_string())?;
+    validate_section_ref_parent(conn, parent_id, &document_id, section_id)?;
+    let wrong_owner: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'
+         AND (document_id <> ?2 OR section_id IS NULL OR section_id <> ?3))",
+        params![parent_id, document_id, section_id], |row| row.get(0),
+    ).map_err(|e| e.to_string())?;
+    if wrong_owner {
+        return Err("Section reference child has inconsistent document/section ownership".into());
+    }
+    let mut children = get_section_ref_children_inner(conn, parent_id)?
+        .into_iter()
+        .map(|child| {
+            let number = section_ref_number(conn, &document_id, child.ref_section_id)?;
+            Ok((number, child.sequence, child.id))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    children.sort();
+    let mut stmt = conn.prepare(
+        "SELECT sequence FROM Questions WHERE parent_id = ?1 AND question_type <> 'section_ref'",
+    ).map_err(|e| e.to_string())?;
+    let reserved = stmt
+        .query_map([parent_id], |row| row.get::<_, i32>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<BTreeSet<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    drop(stmt);
+    let mut sequence = 0_i32;
+    for (_, _, id) in children {
+        loop {
+            sequence = sequence
+                .checked_add(1)
+                .ok_or("Section reference sequence overflow")?;
+            if !reserved.contains(&sequence) {
+                break;
+            }
+        }
+        conn.execute(
+            "UPDATE Questions SET sequence = ?1 WHERE id = ?2 AND sequence <> ?1",
+            params![sequence, id],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Add a single section as an L3 child question under 3xx.1.4 or 3xx.1.5
 pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefChild, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    add_section_ref_child_with_conn(&mut conn, args)
+}
+
+pub(crate) fn add_section_ref_child_with_conn(
+    connection: &mut Connection,
+    args: AddSectionRefChildArgs,
+) -> Result<SectionRefChild, String> {
+    let tx = connection.transaction().map_err(|e| e.to_string())?;
+    let conn = &tx;
+    validate_section_ref_parent(conn, &args.parent_id, &args.document_id, args.section_id)?;
+    let linked_number = section_ref_number(conn, &args.document_id, args.linked_section_id)?;
 
     // Prevent self-reference: a section cannot reference itself
     if args.linked_section_id == args.section_id {
@@ -377,15 +483,15 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
             "SELECT EXISTS(
             SELECT 1 FROM Questions
             WHERE section_id = ?1 AND question_type = 'section_ref'
-              AND metadata LIKE ?2
+              AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.refSectionId') END = ?2
         )",
             params![
                 args.linked_section_id,
-                format!("%\"refSectionId\":{}%", args.section_id)
+                args.section_id
             ],
             |row| row.get(0),
         )
-        .unwrap_or(false);
+        .map_err(|e| e.to_string())?;
 
     if back_ref_exists {
         return Err(format!("Cannot add: section {} already references this section (would create circular dependency)", args.linked_section_number));
@@ -393,10 +499,10 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
 
     // Check if already exists
     let exists: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
-        params![args.parent_id, format!("%\"refSectionId\":{}%", args.linked_section_id)],
+        "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.refSectionId') END = ?2)",
+        params![args.parent_id, args.linked_section_id],
         |row| row.get(0),
-    ).unwrap_or(false);
+    ).map_err(|e| e.to_string())?;
 
     if exists {
         return Err("This section is already added as a child question".to_string());
@@ -408,14 +514,16 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
             params![args.parent_id],
             |row| row.get(0),
         )
-        .unwrap_or(0);
+        .map_err(|e| e.to_string())?;
 
     let id = generate_uuid();
     let score = args.score.unwrap_or(0);
-    let sequence = max_seq + 1;
+    let sequence = max_seq
+        .checked_add(1)
+        .ok_or("Section reference sequence overflow")?;
     let metadata = serde_json::json!({
         "refSectionId": args.linked_section_id,
-        "refSectionNumber": args.linked_section_number
+        "refSectionNumber": linked_number
     })
     .to_string();
 
@@ -433,24 +541,31 @@ pub fn add_section_ref_child(args: AddSectionRefChildArgs) -> Result<SectionRefC
     .map_err(|e| e.to_string())?;
 
     // Propagate scores up the chain
-    recalculate_group_score_chain(&conn, &args.parent_id)?;
-
-    Ok(SectionRefChild {
-        id,
-        parent_id: args.parent_id,
-        sequence,
-        content: args.linked_section_title,
-        score,
-        ref_section_id: args.linked_section_id,
-        ref_section_number: args.linked_section_number,
-    })
+    normalize_section_ref_sequences(conn, &args.parent_id)?;
+    recalculate_group_score_chain(conn, &args.parent_id)?;
+    let child = get_section_ref_children_inner(conn, &args.parent_id)?
+        .into_iter()
+        .find(|child| child.id == id)
+        .ok_or("New section reference not found after ordering")?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(child)
 }
 
 /// Batch add multiple sections as L3 children (for "Select All")
 pub fn batch_add_section_ref_children(
     args: BatchAddSectionRefChildrenArgs,
 ) -> Result<Vec<SectionRefChild>, String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    batch_add_section_ref_children_with_conn(&mut conn, args)
+}
+
+pub(crate) fn batch_add_section_ref_children_with_conn(
+    connection: &mut Connection,
+    args: BatchAddSectionRefChildrenArgs,
+) -> Result<Vec<SectionRefChild>, String> {
+    let tx = connection.transaction().map_err(|e| e.to_string())?;
+    let conn = &tx;
+    validate_section_ref_parent(conn, &args.parent_id, &args.document_id, args.section_id)?;
 
     let mut max_seq: i32 = conn
         .query_row(
@@ -458,9 +573,10 @@ pub fn batch_add_section_ref_children(
             params![args.parent_id],
             |row| row.get(0),
         )
-        .unwrap_or(0);
+        .map_err(|e| e.to_string())?;
 
     for item in &args.sections {
+        let linked_number = section_ref_number(conn, &args.document_id, item.linked_section_id)?;
         // Skip self-references
         if item.linked_section_id == args.section_id {
             continue;
@@ -468,26 +584,28 @@ pub fn batch_add_section_ref_children(
 
         // Skip bidirectional references (would create circular dependency)
         let back_ref: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM Questions WHERE section_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
-            params![item.linked_section_id, format!("%\"refSectionId\":{}%", args.section_id)],
+            "SELECT EXISTS(SELECT 1 FROM Questions WHERE section_id = ?1 AND question_type = 'section_ref' AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.refSectionId') END = ?2)",
+            params![item.linked_section_id, args.section_id],
             |row| row.get(0),
-        ).unwrap_or(false);
+        ).map_err(|e| e.to_string())?;
         if back_ref {
             continue;
         }
 
         let exists: bool = conn.query_row(
-            "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND metadata LIKE ?2)",
-            params![args.parent_id, format!("%\"refSectionId\":{}%", item.linked_section_id)],
+            "SELECT EXISTS(SELECT 1 FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref' AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.refSectionId') END = ?2)",
+            params![args.parent_id, item.linked_section_id],
             |row| row.get(0),
-        ).unwrap_or(true);
+        ).map_err(|e| e.to_string())?;
 
         if !exists {
-            max_seq += 1;
+            max_seq = max_seq
+                .checked_add(1)
+                .ok_or("Section reference sequence overflow")?;
             let id = generate_uuid();
             let metadata = serde_json::json!({
                 "refSectionId": item.linked_section_id,
-                "refSectionNumber": item.linked_section_number
+                "refSectionNumber": linked_number
             })
             .to_string();
 
@@ -506,18 +624,29 @@ pub fn batch_add_section_ref_children(
     )
     .map_err(|e| e.to_string())?;
 
-    recalculate_group_score_chain(&conn, &args.parent_id)?;
-
-    get_section_ref_children_inner(&conn, &args.parent_id)
+    normalize_section_ref_sequences(conn, &args.parent_id)?;
+    recalculate_group_score_chain(conn, &args.parent_id)?;
+    let children = get_section_ref_children_inner(conn, &args.parent_id)?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(children)
 }
 
 /// Remove a single section-ref L3 child question and recalculate scores
 pub fn remove_section_ref_child(question_id: String) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    remove_section_ref_child_with_conn(&mut conn, &question_id)
+}
+
+pub(crate) fn remove_section_ref_child_with_conn(
+    connection: &mut Connection,
+    question_id: &str,
+) -> Result<(), String> {
+    let tx = connection.transaction().map_err(|e| e.to_string())?;
+    let conn = &tx;
 
     let parent_id: Option<String> = conn
         .query_row(
-            "SELECT parent_id FROM Questions WHERE id = ?1",
+            "SELECT parent_id FROM Questions WHERE id = ?1 AND question_type = 'section_ref'",
             params![question_id],
             |row| row.get(0),
         )
@@ -530,15 +659,25 @@ pub fn remove_section_ref_child(question_id: String) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
 
     if let Some(pid) = parent_id {
-        recalculate_group_score_chain(&conn, &pid)?;
+        normalize_section_ref_sequences(conn, &pid)?;
+        recalculate_group_score_chain(conn, &pid)?;
     }
-
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Remove all section-ref L3 children for a parent (for "Deselect All")
 pub fn remove_all_section_ref_children(parent_id: String) -> Result<(), String> {
-    let conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    let mut conn = get_content_connection().map_err(|e| format!("Failed to connect: {}", e))?;
+    remove_all_section_ref_children_with_conn(&mut conn, &parent_id)
+}
+
+pub(crate) fn remove_all_section_ref_children_with_conn(
+    connection: &mut Connection,
+    parent_id: &str,
+) -> Result<(), String> {
+    let tx = connection.transaction().map_err(|e| e.to_string())?;
+    let conn = &tx;
 
     conn.execute(
         "DELETE FROM Questions WHERE parent_id = ?1 AND question_type = 'section_ref'",
@@ -546,8 +685,8 @@ pub fn remove_all_section_ref_children(parent_id: String) -> Result<(), String> 
     )
     .map_err(|e| e.to_string())?;
 
-    recalculate_group_score_chain(&conn, &parent_id)?;
-
+    recalculate_group_score_chain(conn, parent_id)?;
+    tx.commit().map_err(|e| e.to_string())?;
     Ok(())
 }
 

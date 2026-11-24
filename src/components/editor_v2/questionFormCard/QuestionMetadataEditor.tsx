@@ -461,16 +461,18 @@ export const SectionPickerEditor = ({
                               try {
                                 await invoke('remove_section_ref_child', { questionId: existingChild.id });
  
-                                setSectionRefChildren((prev: any[]) => prev.filter(c => c.id !== existingChild.id));
+                                const children = await invoke<any[]>('get_section_ref_children', { parentId: existingId });
+                                setSectionRefChildren(children);
                               } catch (e) { logger.error('Failed to remove section ref child:', e); }
                             } else {
                               try {
  
-                                const newChild = await invoke<any>('add_section_ref_child', {
+                                await invoke('add_section_ref_child', {
                                   args: { parent_id: existingId, document_id: documentId, section_id: sectionId, linked_section_id: s.id, linked_section_number: s.section_number, linked_section_title: s.title_th }
                                 });
  
-                                setSectionRefChildren((prev: any[]) => [...prev, newChild].sort((a, b) => a.ref_section_number - b.ref_section_number));
+                                const children = await invoke<any[]>('get_section_ref_children', { parentId: existingId });
+                                setSectionRefChildren(children);
                               } catch (e) { logger.error('Failed to add section ref child:', e); }
                             }
                           }}

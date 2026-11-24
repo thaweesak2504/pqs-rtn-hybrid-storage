@@ -501,6 +501,8 @@ pub struct BatchAddSectionRefChildrenArgs {
 #[derive(serde::Deserialize)]
 pub struct BatchSectionItem {
     pub linked_section_id: i64,
+    // Retained for IPC compatibility; ordering uses Sections.section_number.
+    #[allow(dead_code)]
     pub linked_section_number: i32,
     pub linked_section_title: String,
 }

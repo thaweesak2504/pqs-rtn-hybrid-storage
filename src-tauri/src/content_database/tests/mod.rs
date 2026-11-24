@@ -5,5 +5,7 @@ pub mod migrations;
 pub mod policies;
 pub mod pure_functions;
 pub mod scoring;
+pub mod section_ref_ordering;
+pub mod simulation_clone;
 pub mod simulation_documents;
 pub mod template_seeding;

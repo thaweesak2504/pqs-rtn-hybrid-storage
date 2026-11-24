@@ -108,6 +108,10 @@
 #### 6.2.3 Section 300 Watch Stations (การปฏิบัติหน้าที่)
 - **Range**: 301 - 399
 - สร้างเนื้อหาได้อิสระ ไม่มีข้อบังคับ
+- Section references (`section_ref`) ภายใต้ parent เดียวกันต้องเรียงตาม `Sections.section_number` ของ target จริงจากน้อยไปมาก ไม่ใช่เวลาที่เพิ่ม; Rust บันทึก `Questions.sequence` หลัง Add/Batch Add/Remove ภายใน transaction เดียวกับการแก้รายการและคำนวณคะแนนกลุ่ม
+- การจัดลำดับรักษา ID, metadata, เนื้อหา และคะแนนของรายการที่ไม่ได้ลบ รวมถึงไม่แก้ non-reference siblings หรือ parent อื่น; parent/target ต้องอยู่ใน document/section scope ที่ถูกต้อง และ error ต้อง rollback ทั้งคำสั่ง
+- กฎ A2 มีผลเมื่อเพิ่ม/ลบในกลุ่มนั้น ไม่ได้ resequence ข้อมูลเก่าทั้งฐานเมื่ออ่านหรือเปิดแอป; frontend อ่านรายการ authoritative กลับหลัง mutation โดยไม่ใช้ local sort เป็น authority
+- การเอาติ๊ก Requirement ออกยังเป็นการลบรายการจริงทันทีตาม selector contract เดิม เพิ่มกลับเป็นรายการใหม่คะแนนเริ่ม 0; ไม่ใช่การย้ายลำดับและไม่ใช่ Draft ที่ Cancel ย้อนคืนได้ (Creator lifecycle review ยังค้าง)
 
 ### 6.3 Input Fields (ข้อมูลที่ต้องกรอกเมื่อสร้าง Section ใหม่)
 
@@ -233,6 +237,9 @@ CREATE INDEX idx_sections_number ON sections(document_id, section_number);
 
 - Source Document ใช้เลขเอกสารหลักของหน่วยตามปกติ เช่น `22724201001`
 - สำเนารอบจำลองของ Source Document ใช้รหัสแยก เช่น `22724201001-SIM-001` และไม่ใช้เลขรันของเอกสารหน่วย
+- การสร้าง Simulation ต้อง remap ทั้ง Section เจ้าของ Question, `section_ref` metadata (`refSectionId`) และ `QuestionSectionLinks.section_id` ไปยัง Section ภายในสำเนาเดียวกัน โดยคงหมายเลข Section, เนื้อหา, คะแนน และ metadata อื่นไว้; ห้ามชี้กลับ Source หรือสำเนาอื่น
+- หาก `section_ref` metadata ไม่สมบูรณ์ หรือ target ของ internal Section link ไม่อยู่ใน Source เดียวกัน Rust ต้องปฏิเสธ Clone และ rollback ทั้งสำเนาและการจัดสรรเลขรันใน transaction เดียวกัน; ไม่ข้าม Requirement ที่เสียเงียบ ๆ
+- กฎ Clone นี้ใช้กับ Simulation ที่สร้างใหม่เท่านั้น ไม่แก้ ID, คำตอบ, การประเมิน, Progress หรือไฟล์แนบของรอบเก่า; Existing Simulation ที่มี link ผิดต้องตรวจและอนุมัติแนวทางซ่อมแยกต่างหาก
 - รหัส `SIM` ถูกจัดสรรต่อ Source Document และไม่ใช้ซ้ำแม้ลบรอบจำลองแล้ว เพื่อให้ Admin ติดตามประวัติได้ในอนาคต
 - เลขท้าย `SIM-004` หมายถึงลำดับที่เคยจัดสรร ไม่ได้หมายความว่ายังมีสำเนาอยู่ 4 ฉบับ; จำนวนที่ยังอยู่จริงต้องอ่านจาก `DocumentSimulationInstances` ที่ยังเชื่อมกับ `Documents`
 - หน้า Source Document ต้องแสดงจำนวนรอบจำลองที่ยังอยู่จริง และเปิด Modal รายการเพื่อดูรหัสรอบ, Trainee ID, เวลาสร้าง/กิจกรรมล่าสุด, จำนวนคำตอบ, การประเมิน, ผลผ่าน/ปรับปรุง, ไฟล์แนบ และ Progress
